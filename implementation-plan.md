@@ -222,6 +222,57 @@ M2 (single-variable calculus content) is a **parallel authoring track**, not a c
 
 ---
 
+## Decision log
+
+Decisions made during implementation that deviate from, or resolve an option left open by, the plan above. Newest phase last.
+
+### Phase 0
+
+**D0.1 — No Xcode project; the app is a SwiftPM executable plus a bundling script.**
+The plan's repo layout named an Xcode project at `App/MathTree`. That path is kept, but as a SwiftPM `executableTarget` (`path: "App/MathTree"`), with `Scripts/bundle-app.sh` assembling `build/MathTree.app` (binary + minimal `Info.plist` + ad-hoc signature) around the built binary. Rationale: no project generator is installed (`xcodegen`/`tuist` absent), and a hand-written `project.pbxproj` is fragile and would force CI onto `xcodebuild`. CI stays `swift build && swift test` plus one script. A bare SwiftPM SwiftUI executable needs `NSApplication.shared.setActivationPolicy(.regular)` in the app delegate or no window fronts — done in `MathTreeApp.swift`. Reversible: if an Xcode project is ever needed (entitlements, notarization, App Store), the sources move unchanged.
+
+**D0.2 — Deployment target macOS 15.**
+Per the plan's default ("one major version behind current macOS"): dev machine runs macOS 26, so `.macOS(.v15)`. Revisit only if a Phase 3/4 Metal or SwiftUI API forces newer.
+
+**D0.3 — Metal shaders are compiled at runtime, not by SwiftPM.**
+Probed empirically before Phase 3 depended on it: a `.metal` file placed in a SwiftPM Swift target is **silently ignored** — no `default.metallib` is produced, `Bundle.module` isn't even generated, and `makeDefaultLibrary()` returns nil. So shaders ship as a text resource and are compiled at launch with `MTLDevice.makeLibrary(source:options:)` (tens of milliseconds, comfortably inside §6.4's sub-second first-paint budget). If that cost ever matters, the escape hatch is a `xcrun metal`/`metallib` step in `bundle-app.sh`.
+
+**D0.4 — App launch is verified by a `--smoke-test` flag, not by screen capture.**
+`MathTree --smoke-test` prints the visible windows and exits non-zero if there are none. Screen recording is not available to CI runners or to headless tooling, and this makes "launches to its placeholder window" an actual assertion. Current output: `window: "Knowledge Tree" 1280x800`.
+
+**D0.5 — CI is delivered but not demonstrated green.**
+The repo has no remote and none was created (that is the user's call), so `.github/workflows/ci.yml` has never run on GitHub. Every step in it was run locally and passes. Phase 0's "CI is green" is therefore *pending a remote*, not met.
+
+### Phase 1
+
+**D1.1 — Ancestor sets are a query, not an index.**
+Phase 1's task list names "ancestor sets" among the indexes `KnowledgeGraph` builds on load. Built eagerly they are O(n²): the phase's own exit criterion is a 10,000-node `requires` chain, where materialized ancestor sets are ~50M entries. So the cheap indexes are eager (children by parent, dependents by prerequisite, reverse `relates`) and `requiresAncestors(of:)` / `requiresDescendants(of:)` are per-query traversals doing O(answer) work. Measured on the 10k chain: construction 66 ms, deepest-node ancestor query 9 ms returning exactly 9,999 ids, depth-bounded (`D_max = 3`) query 13 µs. The depth-bounded variant is what Phase 5's propagation will actually use.
+
+**D1.2 — No `missing-statement` rule.**
+`statement` is optional in the §3.1 schema and design.md never states its presence as an invariant, so a rule would false-positive on legitimately terse content. Structural nodes *are* checked for the inverse (they must carry no `statement`/`requires`/`relates`).
+
+### Phase 2
+
+**D2.1 — Hand-rolled argument parsing.**
+Ground rule 3 sanctions Yams for tooling and nothing else. Three subcommands and five flags do not justify pulling in swift-argument-parser, so `ContentBuild` parses `CommandLine.arguments` directly.
+
+**D2.2 — `GraphCore.contentFormatVersion` became `ContentFormat.version`.**
+A `public enum GraphCore` inside module `GraphCore` shadows the module name, which makes `GraphCore.Node` unresolvable from any target that also imports Yams — and Yams exports its own `Node`. Renaming the enum was the fix; qualifying at every use site would have spread the problem.
+
+**D2.3 — Node ids `ftc-1`/`ftc-2` → `ftc-part-1`/`ftc-part-2`.**
+design.md contradicts itself: §3.1's normative schema example uses `analysis.svc.ftc-part-2`, Appendix A's table uses `an.svc.ftc-2`. Ids are permanent (§3.1) so this had to be settled before content scale-up. The normative section wins; Appendix A self-describes as "Illustrative only".
+
+**D2.4 — What makes the build byte-stable.**
+Four things, each of which independently breaks the Phase 2 exit criterion if dropped: content files are walked in sorted path order; `JSONEncoder` uses `.sortedKeys` (`dependents` and `children` are dictionaries, and Swift's dictionary iteration order varies between runs); layout iterates a sorted node order and uses a seeded SplitMix64 rather than `SystemRandomNumberGenerator`, which cannot be seeded; coordinates are rounded to 4 decimals on the way out. No artifact carries a timestamp or build id. Verified: three consecutive `build` + `layout` runs produce identical SHA-1s.
+
+**D2.5 — Layout tuning.**
+Fruchterman–Reingold, Barnes–Hut repulsion (θ = 0.9), fixed 600 iterations (a convergence tolerance would make output depend on floating-point noise). Springs are weighted `contains` 2.0 > `requires` 1.0 > `relates` 0.4, and each node is pulled toward its root branch's centroid. Measured on a synthetic 10k-node / 30k-edge taxonomy-shaped graph: inter/intra-cluster distance ratio 2.9 with cluster gravity off, 5.9 at the default 0.05, 7.9 at 0.12. 0.05 is the default because higher values collapse branches into unreadable blobs. Layout of 10k nodes takes ~5 s — offline, so it doesn't touch §6.4's first-paint budget.
+
+**D2.6 — The CI gate is tested, not assumed.**
+`Scripts/check-broken-content.sh` seeds six distinct violations (dangling requires, cycle, transitive-redundant edge, duplicate id, malformed id, structural node with prerequisites) one at a time into a copy of `content/` and asserts a non-zero exit for each, then confirms clean content still passes. GraphCore's tests cover the *rules*; this covers the *wiring*, which is what silently rots — a swallowed exit code makes CI green on broken content.
+
+---
+
 ## Risks (top three, with mitigations already embedded above)
 
 1. **Renderer misses the numbers** — contained by Phase 3 being a cheap decision spike with a named fallback, before any UI is built on it.

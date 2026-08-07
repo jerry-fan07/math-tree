@@ -10,6 +10,11 @@ cd "$ROOT"
 swift build -c "$CONFIG" --product MathTree
 BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
 
+# Compile content into the artifacts the app consumes. graph.json and
+# layout.json are build outputs, never sources (implementation-plan §0).
+swift run -c "$CONFIG" ContentBuild build --out "$ROOT/build/content"
+swift run -c "$CONFIG" ContentBuild layout --out "$ROOT/build/content"
+
 APP="$ROOT/build/MathTree.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -21,6 +26,9 @@ for bundle in "$BIN_DIR"/*.bundle; do
     [ -e "$bundle" ] || continue
     cp -R "$bundle" "$APP/Contents/Resources/"
 done
+
+cp "$ROOT/build/content/graph.json" "$ROOT/build/content/layout.json" \
+   "$APP/Contents/Resources/"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>

@@ -9,7 +9,7 @@ struct ContentView: View {
                 Text("Knowledge Tree")
                     .font(.system(size: 34, weight: .light, design: .default))
                     .foregroundStyle(.white)
-                Text("content format v\(GraphCore.contentFormatVersion)")
+                Text("content format v\(ContentFormat.version)")
                     .font(.system(size: 12, weight: .regular, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.35))
             }
