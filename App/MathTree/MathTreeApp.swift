@@ -5,6 +5,13 @@ import SwiftUI
 struct MathTreeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
+    init() {
+        // Runs before the run loop starts and exits the process when
+        // `MATHTREE_SNAPSHOT` is set: rendering is offscreen, so a snapshot needs
+        // no window and never reaches the window server.
+        Snapshot.runIfRequested()
+    }
+
     var body: some Scene {
         Window("Knowledge Tree", id: "graph") {
             ContentView()
@@ -21,6 +28,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.activate(ignoringOtherApps: true)
         if CommandLine.arguments.contains("--smoke-test") {
             runSmokeTest()
+        }
+        // Both of these are *trailing boolean* flags with no operand — D3.7:
+        // AppKit turns leftover `-key value` tokens into `NSUserDefaults` and a
+        // flag with a following token stopped SwiftUI from ever calling
+        // `makeNSView`, hanging the process against a window that never existed.
+        if Probe.isRequested {
+            if let renderer = SceneStore.shared.renderer {
+                Probe.install(on: renderer)
+                Probe.installWatchdog()
+            } else {
+                FileHandle.standardError.write(
+                    Data("probe: \(SceneStore.shared.errorMessage ?? "no renderer")\n".utf8))
+                exit(3)
+            }
         }
     }
 

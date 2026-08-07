@@ -311,6 +311,40 @@ By ablation at overview zoom (serialised offscreen): edges are **~92 % of the fr
 
 **Deliverable**: a throwaway SwiftPM spike (synthetic generator, Metal renderer, Core Text atlas, spatial hash, self-measuring harness), deliberately **not** retained in the repo — Phase 3's product is this decision, and Phase 4 writes the real `GraphView` from D3.4/D3.5 rather than growing the spike.
 
+### Phase 4
+
+**D4.1 — Edges are three draw calls, not one; the invariant that mattered was zero per-frame uploads.**
+D3.4 handed down "three static buffers, one uniform, three draw calls". The buffers and the uniform are exactly that, but edges are split into `contains` / `requires` / `relates` and drawn as three ranges, each carrying its own width, alpha, dash duty and arrowhead strength through a 40-byte `DrawParams` (`setVertexBytes`). §6.1's mid-zoom clause — `requires` distinguishable from `relates` — needs per-class style, and the 24-byte `EdgeInstance` has no bits left for it. A typical frame is 5 draw calls (3 edge classes + nodes + labels), 7 while hovering. What the spike actually measured (0.13–0.20 ms CPU encode) was the *absence of buffer rebuilds*, not the draw count; two extra `setVertexBytes` are noise against that.
+
+**D4.2 — `NodeInstance` keeps its 16 bytes but spends 4 on `half2` instead of `float`.**
+D3.4's layout was `float2 pos; float radiusPx; uint rgba8`. Radius became `half2 radii` = (radius at overview, radius at full detail), mixed in the vertex shader by a `bandT` uniform. Same 16 bytes, but LOD *morphs* continuously instead of snapping at band boundaries — which is what makes zooming read as one continuous map rather than three. Half precision on a value in 1.9–17.0 points is well under a pixel. The same trick gives each label a `fadeStart` so tiers emerge at their own zoom.
+
+**D4.3 — LOD is a hard prefix *and* a cosmetic fade; only the prefix is load-bearing.**
+Instances are tier-sorted once at load (branch → subbranch → prominence 2 → 1 → 0) and a zoom level is `drawPrimitives(instanceCount: prefix)`, exactly as D3.4 specified. The per-tier alpha fade happens *within* the drawn prefix, so it never costs an instance that would otherwise be skipped. Measured on seed content, label prefix **9 / 19 / 27** across the three bands — §6.1's rule asserted, not claimed. The node prefix is 27 at every band and stays flat until a tier's radius falls below 0.75 px; the mechanism is present so scaling is a constant change, not a rewrite.
+
+**D4.4 — Arrowheads ride mid-edge (62 % along), not at the target endpoint.**
+An endpoint arrowhead must be backed off by the target's radius, which varies with the zoom band and is not carried per edge instance — no room in 24 bytes and no cheap vertex-shader lookup. A marker at a fixed fraction of the edge needs only the endpoints, stays legible at every zoom, and reads as flow rather than as decoration on the node. Arrow alpha ramps 0 → 0.85 over `bandT` 0.18–0.38, so arrowheads are absent at overview and present from mid onward; `relates` gets the complementary treatment (dash duty 1.0 → 0.5 over the same ramp).
+
+**D4.5 — Zoom bands are multiples of fit-to-view, not absolute scale.**
+`bandT = clamp(log₂(scale / fitScale) / 3, 0, 1)`; overview below 1.6× fit, mid 1.6–4.0×, detail above 4.0×. Anchoring to fit means "overview" means *the whole map* whether the corpus is 27 nodes or 10,000 — a threshold in points-per-world-unit would silently become wrong the first time content doubled. Probe and snapshot cameras use ratios 1.0 / 2.5 / 4.5 with anchors derived from content (busiest subbranch, best-connected content node), so "at mid zoom" is a reproducible camera rather than a hard-coded id.
+
+**D4.6 — The label atlas is eager for one tier and lazy for the rest, per D3.5.**
+Branch + subbranch + prominence-2 rasterise in the renderer's initialiser (2.4 ms, 9 labels, 1 page on seed content) because they sit on the first-paint path. Prominence-1 and -0 rasterise the first time `bandT` crosses their fade threshold. The label buffer is allocated once at full capacity and written as tiers arrive — still a static buffer, growing at band crossings, never per frame. D3.5's memory numbers are what force this: 613 labels is 8 MB but 30,000 would be 276 MB.
+
+**D4.7 — Demonstrability: `--probe` is a trailing boolean; everything richer is an environment variable.**
+D3.7's trap is respected literally. `--probe` renders the real scene in the real window, prints a JSON report from the first *completed* drawable, and exits; a 12 s watchdog exits 2 with a readable message rather than hanging — the exact failure D3.7 recorded. Snapshots are entirely env-driven (`MATHTREE_SNAPSHOT`, `_ZOOM`, `_SIZE`, `_REVEAL`, `_HOVER`) and render **offscreen**, so they need no window server. Because input cannot be driven headlessly, the probe also asserts the two calculations that would otherwise be unverifiable claims: projecting every node to screen and picking it back (**27/27**) and cursor-anchored zoom drift (**0.000000 pt**).
+
+**D4.8 — Colour carries taxonomy, not score.**
+Phase 4 is "minus scores", so §4.5's retrievability ramp is absent entirely. Hue is assigned per branch by sorted branch id (curated palette first, golden angle beyond it) so colours survive rebuilds, with saturation and value stepped by tier. This makes `contains` clustering legible now and leaves §4.5 a clean slot in Phase 6: the ramp replaces the tier tone, the hue assignment stays.
+
+**D4.9 — LaTeX-lite wins the math-rendering evaluation; no layout engine is bundled.**
+The plan's rule was "smallest thing that renders the seed content acceptably wins", and the corpus does not need a box model: the only genuinely two-dimensional constructs across 22 statements are super/subscripts and fractions. Super/subscripts are baseline offset plus a 0.72ⁿ size ramp — exactly `NSAttributedString`'s expressive power; fractions linearise to `(a)/(b)` with parentheses dropped around a single atom, so the hardest case, `$f'(c) = \dfrac{f(b) - f(a)}{b - a}$`, sets as `f′(c) = (f(b) - f(a))/(b - a)`. Cost: ~970 lines, zero dependencies.
+The parser is pure Foundation and yields **two read-outs of one parse**: styled runs for display, and a linearised plain text where a script group becomes Unicode (`∫ₐᵇ`, `∑ᵢ₌₁ⁿ`, `xᵢ₋₁`) when every character has a script form. The second read-out exists precisely because the panel cannot be screenshotted — it is how the corpus was reviewed and what the self-check asserts against (clean over all 76 title/statement/summary fields).
+**Degradation is the design constraint, not an afterthought**: content will always outrun the macro table. An unknown macro renders its braced argument if it has one and its own name upright if not; an unterminated `$` renders the remainder as math. Never a dropped tail, never a raw backslash — verified by 8,000 fuzzed renders over truncated and mutated real statements. The honest revisit trigger is not content volume but the first authored statement needing *stacked* notation (matrices, continued fractions), at which point a layout pass, not a bigger table, is the fix.
+
+**D4.10 — Known gaps, stated rather than glossed.**
+Three §6.1 behaviours are implemented but not *demonstrable* on 27 nodes: node-LOD culling never engages (nothing falls below 0.75 px), edge LOD does not exist by design (D3.6 put the cliff at ~170k edges against §7's ~45k estimate), and "branches read as galaxies" has only two branches to work with. Live trackpad feel is unverified — headless input is impossible here, so the probe asserts the underlying math instead. Local relaxation (listed as optional Phase 4 polish) is not built. The label atlas rasterises for `NSScreen.main` only, so a window dragged to a different-scale display resamples rather than re-rasterises.
+
 ---
 
 ## Risks (top three, with mitigations already embedded above)
