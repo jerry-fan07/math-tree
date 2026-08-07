@@ -12,7 +12,13 @@ import SwiftUI
 struct ReviewSidebar: View {
     let document: GraphDocument
     let scores: ScoreStore
+    /// §5.3's placement, when the app has a bank to probe with.
+    var placement: PlacementStore?
     var onSelect: (NodeID) -> Void
+    /// §5.4: review "via problems ... whenever possible". The owner routes to a
+    /// problem sheet or to self-report; the sidebar only asks.
+    var onReview: (NodeID) -> Void = { _ in }
+    var onPlace: () -> Void = {}
     var onClose: () -> Void
 
     private static let upcomingLimit = 8
@@ -23,6 +29,7 @@ struct ReviewSidebar: View {
             Rectangle().fill(PanelTheme.separator).frame(height: 1)
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    placementBanner
                     dueList
                     frontierList
                     upcomingList
@@ -58,6 +65,46 @@ struct ReviewSidebar: View {
         .padding(.horizontal, 14)
         .padding(.top, 14)
         .padding(.bottom, 12)
+    }
+
+    // MARK: - Placement
+
+    /// §5.3's entry point, and D6.10's answer: a fresh map is almost entirely grey,
+    /// which is correct but carries no information. Offered while it would help,
+    /// resumable while it is running, and gone once it is done — a questionnaire
+    /// that lingers after it is answered is clutter.
+    @ViewBuilder
+    private var placementBanner: some View {
+        if let placement, placement.canPlace, !placement.isReadOnly,
+            placement.session?.isCommitted != true
+        {
+            VStack(alignment: .leading, spacing: 7) {
+                Text(placement.isActive ? "Placement in progress" : "Start somewhere")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(PanelTheme.primaryText)
+                Text(
+                    placement.isActive
+                        ? "\(placement.progress?.unresolved ?? 0) nodes still to settle."
+                        : scores.state.nodes.isEmpty
+                            ? "Answer a handful of problems and the map fills in around what you know."
+                            : "Answer a handful of problems to fill in the rest of the map."
+                )
+                .font(.system(size: 11))
+                .foregroundStyle(PanelTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                SheetButton(
+                    title: placement.isActive ? "Continue" : "Place me", isProminent: true,
+                    action: onPlace)
+            }
+            .padding(11)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 6).fill(PanelTheme.accent.opacity(0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(PanelTheme.accent.opacity(0.22), lineWidth: 1))
+        }
     }
 
     // MARK: - Lists
@@ -141,7 +188,11 @@ struct ReviewSidebar: View {
     private func rows(_ ids: [NodeID]) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             ForEach(ids, id: \.self) { id in
-                ReviewRow(id: id, document: document, scores: scores, onSelect: onSelect)
+                ReviewRow(
+                    id: id, document: document, scores: scores, onSelect: onSelect,
+                    // §5.4's routing rule: a node the bank can ask about gets a
+                    // problem; everything else keeps the self-report in the panel.
+                    onReview: scores.canProbe(id) ? onReview : nil)
             }
         }
         .padding(.horizontal, -7)
@@ -162,6 +213,8 @@ private struct ReviewRow: View {
     let document: GraphDocument
     let scores: ScoreStore
     let onSelect: (NodeID) -> Void
+    /// Present only when the bank can ask about this node (§5.4).
+    var onReview: ((NodeID) -> Void)?
     @State private var isHovering = false
 
     private var title: String {
@@ -180,9 +233,22 @@ private struct ReviewRow: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 4)
-                Text(trailing)
-                    .font(.system(size: 10.5, design: .monospaced))
-                    .foregroundStyle(PanelTheme.tertiaryText)
+                // Revealed on hover so the row stays a list rather than a control
+                // panel, but present on every probeable node — this is the shortest
+                // path from "this is due" to actually reviewing it.
+                if isHovering, let onReview {
+                    Button { onReview(id) } label: {
+                        Text("problem")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(PanelTheme.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Review this with a problem")
+                } else {
+                    Text(trailing)
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .foregroundStyle(PanelTheme.tertiaryText)
+                }
             }
             .padding(.horizontal, 7)
             .padding(.vertical, 4)
@@ -218,13 +284,17 @@ private struct ReviewRow: View {
     }
 }
 
-private struct SidebarCloseButton: View {
+/// Shared by the sidebar and by Phase 8's modal sheets, so "close this" is one
+/// affordance in one place rather than three that drift.
+struct SidebarCloseButton: View {
+    var symbol = "sidebar.leading"
+    var label = "Hide the review sidebar"
     let action: () -> Void
     @State private var isHovering = false
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "sidebar.leading")
+            Image(systemName: symbol)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(isHovering ? PanelTheme.primaryText : PanelTheme.tertiaryText)
                 .frame(width: 22, height: 22)
@@ -233,6 +303,6 @@ private struct SidebarCloseButton: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
-        .accessibilityLabel("Hide the review sidebar")
+        .accessibilityLabel(label)
     }
 }

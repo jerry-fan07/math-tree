@@ -137,6 +137,21 @@ extension MathText {
 
         private var lastCharacter: Character?
 
+        /// Whether the last thing emitted in this group was an operand — a letter,
+        /// a digit, or a closing delimiter. Used to decide whether an upright
+        /// operator name needs a space in front of it.
+        ///
+        /// `|` is deliberately absent even though it closes a group half the time:
+        /// it opens one the other half, and `|\sin x|` is far commoner in this
+        /// corpus than anything ending in a bar immediately followed by an
+        /// operator. Including it turned `|sin x|` into `| sin x|` — caught by
+        /// diffing the self-check's output across the change, which is the only
+        /// reason to keep that output readable.
+        var endsWithOperand: Bool {
+            guard !isCurrentGroupEmpty, let last = lastCharacter else { return false }
+            return last.isLetter || last.isNumber || ")]}".contains(last)
+        }
+
         func append(_ text: String, style: Style, isMath: Bool) {
             guard !text.isEmpty else { return }
             // `\text{if } x` and similar leave a doubled space; one is enough.
@@ -442,6 +457,14 @@ extension MathText {
                 }
 
             case .operatorName:
+                // Symmetric with the trailing rule below, and found by the corpus
+                // self-check rather than by inspection: `2x\cos(x^2)` set as
+                // `2xcos(x²)`, which reads as one identifier. TeX spaces a `\mathop`
+                // on both sides; the node corpus never happened to write an operator
+                // directly after an operand, and the problem bank does.
+                if emitter.endsWithOperand {
+                    emitter.append("\u{2009}", style: style, isMath: true)
+                }
                 emitter.append(text, style: style, isMath: true)
                 // `\sup S` must not become `supS`; an authored space already does the job.
                 if let next = peek(), next.isLetter || next.isNumber {

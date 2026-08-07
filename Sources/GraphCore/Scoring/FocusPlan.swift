@@ -81,8 +81,12 @@ public struct FocusPlan: Hashable, Sendable {
         guard let goalNode = graph[goal], goalNode.kind.isContent else { return nil }
         let fsrs = FSRS(parameters: config.fsrs)
 
+        // Frontier's exact notion, deliberately — D7.1: the gold rings and the
+        // syllabus must not be able to disagree at the margin. `isLearned` rather
+        // than "has state" for the same reason Frontier changed: a node that has
+        // only ever been missed is unmet, however recent the attempt.
         func isMet(_ id: NodeID) -> Bool {
-            guard let memory = state.nodes[id] else { return false }
+            guard state.isLearned(id), let memory = state.nodes[id] else { return false }
             return fsrs.retrievability(of: memory, at: now) > config.masteryThreshold
         }
 

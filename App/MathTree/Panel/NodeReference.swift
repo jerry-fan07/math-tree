@@ -99,6 +99,7 @@ struct NodeReferenceRow: View {
         switch ScoreFormat.state(of: target.id, in: scores) {
         case .unlearned: return "\(target.kind.rawValue) · unlearned"
         case .frontier: return "\(target.kind.rawValue) · ready to learn"
+        case .attempted: return "\(target.kind.rawValue) · missed, not yet learned"
         case let .learned(retrievability):
             return "\(target.kind.rawValue) · \(ScoreFormat.percent(retrievability))"
         }

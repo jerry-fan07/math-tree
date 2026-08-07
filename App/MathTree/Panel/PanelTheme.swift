@@ -16,6 +16,10 @@ enum PanelTheme {
     static let secondaryText = Color(white: 0.66)
     static let tertiaryText = Color(white: 0.44)
     static let accent = Color(red: 0.47, green: 0.71, blue: 0.96)
+    /// For the one destructive-ish affordance in the app: reporting a miss. Warm,
+    /// and taken from outside §4.5's blue→green score arc so it can never be read
+    /// as a retrievability value (D6.1's rule).
+    static let warning = Color(red: 0.94, green: 0.66, blue: 0.52)
 
     /// Per-kind accent. Structural kinds are neutral slate so hubs read as scaffolding;
     /// content kinds are grouped by family — statements warm, definitions cool.

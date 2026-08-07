@@ -27,6 +27,10 @@ struct NodePanel: View {
     /// §6.1's "learn this" action — enter §6.2's focus mode with this node as the
     /// goal. `nil` (previews, no user state) renders the panel without it.
     var onFocus: ((NodeID) -> Void)? = nil
+    /// §5.2's instrument: open a problem for this node. `nil` when no bank is
+    /// loaded, which leaves Phase 6's self-report as the only reviewer (§5.4's
+    /// "whenever possible" cuts both ways).
+    var onReview: ((NodeID) -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -36,7 +40,9 @@ struct NodePanel: View {
                 .frame(height: 1)
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    if let scores { ScoreSection(node: node, scores: scores) }
+                    if let scores {
+                        ScoreSection(node: node, scores: scores, onReview: onReview)
+                    }
                     learnAction
                     statementSection
                     summarySection

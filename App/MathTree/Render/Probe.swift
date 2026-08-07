@@ -245,6 +245,7 @@ enum Probe {
                     "clockPinned": \(store.isClockPinned),
                     "evaluatedAt": "\(iso(store.evaluatedAt))",
                     "events": \(store.events.count),
+                \(assessment(store: store)),
                     "learnedNodes": \(store.state.nodes.count),
                     "frontierCount": \(store.frontier.count),
                     "frontierRingsDrawn": \(renderer.frontierRingCount),
@@ -262,6 +263,46 @@ enum Probe {
                     ]
                   }
                 """
+        }
+
+        /// §5.2/§5.3 wiring, as numbers.
+        ///
+        /// Deliberately *not* a restatement of Phase 8's exit criteria: those are
+        /// asserted over real content in `PlacementFixtureTests`, which is a
+        /// stronger check than anything a probe of one launch can do. What only the
+        /// app can answer is whether the compiled bank was actually found, routed
+        /// and offered — the wiring, not the algorithm.
+        @MainActor
+        private static func assessment(store: ScoreStore) -> String {
+            let content = store.graph.nodes.filter { $0.kind.isContent }
+            let covered = content.filter { store.canProbe($0.id) }
+            let placement = SceneStore.shared.placement
+            let probe = placement?.nextProbe
+            return """
+                    "bank": {
+                        "available": \(SceneStore.shared.problems.isAvailable),
+                        "unavailable": \(quoted(SceneStore.shared.problems.unavailable)),
+                        "problems": \(store.bank.count),
+                        "contentNodes": \(content.count),
+                        "probeableNodes": \(covered.count),
+                        "edgeProblems": \(store.bank.problems.filter { !$0.connects.isEmpty }.count),
+                        "dueWithProblem": \(store.due.filter { store.canProbe($0.id) }.count)
+                    },
+                    "placement": {
+                        "canPlace": \(placement?.canPlace ?? false),
+                        "readOnly": \(placement?.isReadOnly ?? true),
+                        "session": \(placement?.session != nil),
+                        "answers": \(placement?.session?.answers.count ?? 0),
+                        "committed": \(placement?.session?.isCommitted ?? false),
+                        "unresolved": \(placement?.progress?.unresolved ?? -1),
+                        "nextProbe": \(quoted(probe.map { "\($0.problem.id) → \($0.node)" }))
+                    }
+                """
+        }
+
+        private static func quoted(_ value: String?) -> String {
+            guard let value else { return "null" }
+            return "\"\(value.replacingOccurrences(of: "\"", with: "\\\""))\""
         }
 
         /// §6.2 and §5.4, as numbers — Phase 7's exit criterion made assertable.

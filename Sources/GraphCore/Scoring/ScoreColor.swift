@@ -110,6 +110,20 @@ public enum ScoreRamp {
         color(forRetrievability: memory.map { fsrs.retrievability(of: $0, at: now) })
     }
 
+    /// The same read-out, told whether the node was ever actually learned.
+    ///
+    /// Phase 8 is the first thing that can write FSRS state onto a node the user
+    /// has never retrieved successfully — a miss localized by §5.4's diagnosis. Its
+    /// stability is a fraction of a day, so the ramp would paint it deep blue,
+    /// which §4.5 reserves for "learned, badly decayed". It is not that; it is
+    /// grey, and it is on the frontier (see `ScoreState.learned`).
+    public static func color(
+        for memory: MemoryState?, learned: Bool, at now: Date, fsrs: FSRS
+    ) -> ScoreColor {
+        guard learned else { return unlearned }
+        return color(for: memory, at: now, fsrs: fsrs)
+    }
+
     private static func hsv(hue: Double, saturation: Double, value: Double)
         -> (red: Double, green: Double, blue: Double)
     {

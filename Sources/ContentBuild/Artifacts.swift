@@ -41,6 +41,25 @@ struct GraphArtifact: Encodable {
     }
 }
 
+/// The compiled problem bank (§5.2), shipped beside `graph.json` so it can be
+/// regenerated — and grow — without touching the content artifact. The app loads
+/// it lazily: it is not on the first-paint path (D3.2 makes decode the dominant
+/// term), and a corpus with no bank must still launch.
+struct ProblemArtifact: Encodable {
+    var version: Int
+    var problems: [Problem]
+    /// Reverse index: node id → the problems that target it, precomputed so the
+    /// app doesn't rebuild it on load.
+    var byTarget: [String: [ProblemID]]
+
+    init(_ bank: ProblemBank) {
+        version = ContentFormat.version
+        problems = bank.problems
+        byTarget = Dictionary(
+            uniqueKeysWithValues: bank.problemsByTarget.map { ($0.key.rawValue, $0.value) })
+    }
+}
+
 struct LayoutArtifact: Encodable {
     struct Position: Encodable {
         var id: NodeID

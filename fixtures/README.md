@@ -43,6 +43,23 @@ pinned clock the same log renders differently every day — which is correct
 behaviour and useless for comparison. `2026-08-07T12:00:00Z` is the instant the
 fixture's assertions are written against (`FixtureUser.now`).
 
-Runs that pass `--probe`, `--smoke-test`, or set `MATHTREE_SNAPSHOT` are
-read-only: they never append, so a verification run cannot alter the fixture it
-is measuring — or the developer's own history in Application Support.
+Runs that pass `--probe`, `--smoke-test`, or set `MATHTREE_SNAPSHOT` /
+`MATHTREE_PANEL_SHOT` are read-only: they never append, so a verification run
+cannot alter the fixture it is measuring — or the developer's own history in
+Application Support. Phase 8's placement session obeys the same rule, and
+`MATHTREE_PLACEMENT` redirects it the way `MATHTREE_EVIDENCE_LOG` redirects the
+log:
+
+```
+MATHTREE_EVIDENCE_LOG=/tmp/mine.jsonl \
+MATHTREE_PLACEMENT=/tmp/mine-placement.json \
+build/MathTree.app/Contents/MacOS/MathTree
+```
+
+## Phase 8's fixture is code, not a file
+
+The placement personas (`Tests/ContentBuildTests/PlacementFixtureTests.swift`)
+are written as knowledge *sets* and drive the real `Placement` engine, so there
+is no golden log to keep in step — the probes a persona answers depend on the
+policy, and freezing them would freeze the policy. What is pinned instead is the
+conclusion: the boundary, and the probe count that reaches it.

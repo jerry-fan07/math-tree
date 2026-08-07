@@ -28,7 +28,7 @@ for bundle in "$BIN_DIR"/*.bundle; do
 done
 
 cp "$ROOT/build/content/graph.json" "$ROOT/build/content/layout.json" \
-   "$APP/Contents/Resources/"
+   "$ROOT/build/content/problems.json" "$APP/Contents/Resources/"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>

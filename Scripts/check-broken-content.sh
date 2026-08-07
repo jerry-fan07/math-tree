@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Guard for the Phase 2 exit criterion: "CI fails on a deliberately broken
 # content file." Seeds one violation at a time into a copy of content/ and
-# asserts `ContentBuild validate` exits non-zero for each.
+# asserts `ContentBuild validate` exits non-zero for each. Phase 8 extends it
+# over problems/ — the bank is content, validated by the same CI step, so it
+# needs the same proof that the step is actually wired up.
 #
 # This tests the *gate*, not the validator — GraphCore's own tests cover the
 # rules. What can silently rot is the wiring: a swallowed exit code makes CI
@@ -99,6 +101,128 @@ expect_rejected "structural node with requires" 'nodes:
     parent: analysis
     requires:
       - analysis.svc.mvt'
+
+# --- problem bank (§5.2) ----------------------------------------------------
+#
+# Same shape, seeded into a copy of problems/ against the *real* content, since
+# every bank invariant is a fact about the pair.
+
+expect_problem_rejected() {
+    local label="$1" yaml="$2"
+    local tmp
+    tmp="$(mktemp -d)"
+    cp -R problems/. "$tmp/"
+    printf '%s\n' "$yaml" > "$tmp/broken.yaml"
+
+    local output status
+    output="$("$BIN" validate --problems "$tmp" 2>&1)"
+    status=$?
+    rm -rf "$tmp"
+
+    if [ "$status" -eq 0 ]; then
+        echo "FAIL: $label — validator accepted a broken problem (exit 0)"
+        failures=$((failures + 1))
+    else
+        echo "ok:   $label — rejected (exit $status): $(printf '%s' "$output" | grep -o '\[[a-z-]*\]' | sort -u | tr '\n' ' ')"
+    fi
+}
+
+expect_problem_rejected "dangling problem target" 'problems:
+  - id: broken-dangling-target
+    kind: work
+    statement: "x"
+    answer: "y"
+    rubric: ["z"]
+    targets:
+      - analysis.svc.no-such-node'
+
+expect_problem_rejected "structural problem target" 'problems:
+  - id: broken-structural-target
+    kind: work
+    statement: "x"
+    answer: "y"
+    rubric: ["z"]
+    targets:
+      - analysis.svc'
+
+expect_problem_rejected "duplicate problem id" 'problems:
+  - id: svc-mvt-01
+    kind: work
+    statement: "x"
+    answer: "y"
+    rubric: ["z"]
+    targets:
+      - analysis.svc.mvt'
+
+expect_problem_rejected "malformed problem id" 'problems:
+  - id: Broken_Problem_ID
+    kind: work
+    statement: "x"
+    answer: "y"
+    rubric: ["z"]
+    targets:
+      - analysis.svc.mvt'
+
+expect_problem_rejected "missing rubric" 'problems:
+  - id: broken-no-rubric
+    kind: work
+    statement: "x"
+    answer: "y"
+    targets:
+      - analysis.svc.mvt'
+
+expect_problem_rejected "no targets" 'problems:
+  - id: broken-no-targets
+    kind: work
+    statement: "x"
+    answer: "y"
+    rubric: ["z"]
+    targets: []'
+
+# u-sub is a *dependent* of mvt, not a prerequisite of it — the tag is backwards.
+expect_problem_rejected "exercises a non-prerequisite" 'problems:
+  - id: broken-exercises-descendant
+    kind: work
+    statement: "x"
+    answer: "y"
+    rubric: ["z"]
+    targets:
+      - analysis.svc.mvt
+    exercises:
+      - analysis.svc.u-sub'
+
+expect_problem_rejected "target also exercised" 'problems:
+  - id: broken-target-also-exercised
+    kind: work
+    statement: "x"
+    answer: "y"
+    rubric: ["z"]
+    targets:
+      - analysis.svc.mvt
+    exercises:
+      - analysis.svc.mvt'
+
+expect_problem_rejected "connects a non-edge" 'problems:
+  - id: broken-connects-nonedge
+    kind: work
+    statement: "x"
+    answer: "y"
+    rubric: ["z"]
+    targets:
+      - analysis.svc.mvt
+    connects:
+      - "analysis.svc.mvt ~ analysis.svc.u-sub"'
+
+expect_problem_rejected "connects an untagged endpoint" 'problems:
+  - id: broken-connects-untagged
+    kind: work
+    statement: "x"
+    answer: "y"
+    rubric: ["z"]
+    targets:
+      - analysis.svc.ftc-part-2
+    connects:
+      - "analysis.mvc.leibniz-rule ~ analysis.svc.ftc-part-2"'
 
 if [ "$failures" -ne 0 ]; then
     echo

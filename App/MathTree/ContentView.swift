@@ -10,10 +10,21 @@ struct ContentView: View {
     /// camera it should fly back to is captured at entry, so leaving focus is a
     /// return to the place the user actually left (continuity of place).
     @State private var focus: FocusTarget?
+    /// §5.2's problem sheet, when one is open.
+    @State private var attempt: Attempt?
+    /// §5.3's placement flow.
+    @State private var isPlacing = false
 
     struct FocusTarget {
         var goal: NodeID
         var returnCamera: Camera
+    }
+
+    /// A problem opened for review (not for placement — that flow owns its own).
+    struct Attempt: Identifiable {
+        var problem: Problem
+        var subject: NodeID
+        var id: String { problem.id.rawValue }
     }
 
     var body: some View {
@@ -39,6 +50,10 @@ struct ContentView: View {
                         panel(for: scene.document[index], renderer: renderer)
                     }
                 }
+                // Assessment sits above everything: a problem sheet and the
+                // placement flow are modal by nature, and both are dismissible.
+                .overlay { problemOverlay(scene: scene) }
+                .overlay { placementOverlay(scene: scene, renderer: renderer) }
             } else {
                 LoadFailureView(message: SceneStore.shared.errorMessage ?? "Unknown load failure.")
             }
@@ -67,12 +82,73 @@ struct ContentView: View {
         withAnimation(.easeInOut(duration: 0.45)) { self.focus = nil }
     }
 
-    /// Escape closes the topmost thing: the node panel first, then focus mode.
+    /// Escape closes the topmost thing: the problem sheet, then placement, then the
+    /// node panel, then focus mode — outermost-first, matching what covers what.
     private func escape() {
-        if selection != nil {
+        if attempt != nil {
+            attempt = nil
+        } else if isPlacing {
+            isPlacing = false
+        } else if selection != nil {
             selection = nil
         } else if focus != nil, let renderer = SceneStore.shared.renderer {
             exitFocus(renderer: renderer)
+        }
+    }
+
+    // MARK: - Assessment
+
+    /// §5.4 routes review to a problem "whenever possible" and falls back to
+    /// self-report otherwise — the panel and the sidebar both call this, so the
+    /// routing lives in one place.
+    private func review(_ id: NodeID) {
+        guard let scores = SceneStore.shared.scores, let problem = scores.nextProblem(for: id)
+        else { return }
+        attempt = Attempt(problem: problem, subject: id)
+    }
+
+    @ViewBuilder
+    private func problemOverlay(scene: GraphScene) -> some View {
+        if let attempt, let scores = SceneStore.shared.scores, !isPlacing {
+            ProblemSheet(
+                problem: attempt.problem,
+                subject: attempt.subject,
+                document: scene.document,
+                scores: scores,
+                onGrade: { outcome, localized in
+                    scores.record(outcome, on: attempt.problem, localizedTo: localized)
+                    self.attempt = nil
+                },
+                // §5.4's micro-problem: instead of asserting where the gap is, ask
+                // about it. The original miss is dropped without evidence — nothing
+                // was localized, so there is nothing to record.
+                onProbe: { problemID, node in
+                    guard let followUp = scores.bank[problemID] else { return }
+                    self.attempt = Attempt(problem: followUp, subject: node)
+                },
+                onDismiss: { self.attempt = nil }
+            )
+            .transition(.opacity)
+        }
+    }
+
+    @ViewBuilder
+    private func placementOverlay(scene: GraphScene, renderer: GraphRenderer) -> some View {
+        if isPlacing, let scores = SceneStore.shared.scores,
+            let placement = SceneStore.shared.placement
+        {
+            PlacementView(
+                document: scene.document,
+                scores: scores,
+                placement: placement,
+                onSelect: { id in
+                    isPlacing = false
+                    selection = id
+                    renderer.center(on: id)
+                },
+                onExit: { isPlacing = false }
+            )
+            .transition(.opacity)
         }
     }
 
@@ -99,10 +175,13 @@ struct ContentView: View {
             ReviewSidebar(
                 document: scene.document,
                 scores: scores,
+                placement: SceneStore.shared.placement,
                 onSelect: { id in
                     selection = id
                     renderer.center(on: id)
                 },
+                onReview: { review($0) },
+                onPlace: { isPlacing = true },
                 onClose: { isSidebarVisible = false }
             )
             .frame(width: 268)
@@ -130,7 +209,8 @@ struct ContentView: View {
             onClose: { selection = nil },
             onFocus: SceneStore.shared.scores == nil
                 ? nil
-                : { id in enterFocus(id, renderer: renderer) }
+                : { id in enterFocus(id, renderer: renderer) },
+            onReview: { review($0) }
         )
         .frame(width: 360)
         .background(.ultraThinMaterial)

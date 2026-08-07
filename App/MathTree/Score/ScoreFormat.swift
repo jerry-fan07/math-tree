@@ -13,12 +13,19 @@ enum ScoreFormat {
         case unlearned
         /// Unlearned, but every prerequisite is above τ — "what you could learn next".
         case frontier
+        /// Attempted and missed, never yet retrieved successfully. Phase 8 is the
+        /// first thing that can produce this: §5.4's diagnosis writes an `again`
+        /// onto a node with no history, which creates FSRS state without creating
+        /// knowledge (D8.3). It is *not* `learned(0.02)`, and saying so is the
+        /// whole point — the map keeps it grey and keeps it on the frontier.
+        case attempted
         case learned(Double)
 
         var title: String {
             switch self {
             case .unlearned: "Unlearned"
             case .frontier: "Ready to learn"
+            case .attempted: "Not yet"
             case let .learned(retrievability): ScoreFormat.percent(retrievability)
             }
         }
@@ -29,6 +36,7 @@ enum ScoreFormat {
             // below τ, which is a different situation and a different next step.
             case .unlearned: "No evidence yet, and a prerequisite is not yet solid enough."
             case .frontier: "Every prerequisite is above the mastery threshold."
+            case .attempted: "A problem localized here and it was missed. Still to learn."
             case .learned: "Modelled chance you could retrieve this right now."
             }
         }
@@ -36,7 +44,10 @@ enum ScoreFormat {
 
     @MainActor
     static func state(of id: NodeID, in scores: ScoreStore) -> State {
-        if let retrievability = scores.retrievability(of: id) { return .learned(retrievability) }
+        if let retrievability = scores.retrievability(of: id), scores.isLearned(id) {
+            return .learned(retrievability)
+        }
+        if scores.retrievability(of: id) != nil { return .attempted }
         return scores.isFrontier(id) ? .frontier : .unlearned
     }
 

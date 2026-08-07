@@ -15,14 +15,19 @@ public enum Frontier {
             .filter { node in
                 // Structural nodes are not learnable and carry no score (§2.1).
                 guard !node.kind.isStructural else { return false }
-                // Unlearned means *no state entry at all* — a decayed node was
-                // learned and is a review candidate, not a frontier candidate.
-                guard state.nodes[node.id] == nil else { return false }
+                // Unlearned means *never successfully retrieved* — a decayed node
+                // was learned and is a review candidate, not a frontier candidate.
+                // A node carrying only failures stays on the frontier: §5.4's
+                // diagnosis can land an `again` on something the user has never
+                // learned, and that is the moment it is most certainly what to
+                // learn next (see `ScoreState.learned`).
+                guard !state.isLearned(node.id) else { return false }
                 // Direct prerequisites only: the transitive ones are implied,
                 // because a prerequisite above τ was itself learned, which
                 // required *its* prerequisites. Roots qualify vacuously.
                 return node.requires.allSatisfy { prerequisite in
-                    guard let memory = state.nodes[prerequisite] else { return false }
+                    guard state.isLearned(prerequisite), let memory = state.nodes[prerequisite]
+                    else { return false }
                     return fsrs.retrievability(of: memory, at: now) > config.masteryThreshold
                 }
             }

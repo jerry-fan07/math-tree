@@ -25,6 +25,9 @@ import Observation
 @Observable
 final class ScoreStore {
     let graph: KnowledgeGraph
+    /// §5.2's evidence instrument. Empty when no bank was compiled, which is a
+    /// legal state — self-report stays available for any node it cannot ask about.
+    let bank: ProblemBank
     let config: ScoringConfig
     let fsrs: FSRS
     let log: EvidenceLog
@@ -60,6 +63,7 @@ final class ScoreStore {
 
     init(
         document: GraphDocument,
+        problems: ProblemBank = ProblemBank(problems: []),
         config: ScoringConfig = ScoringConfig(),
         environment: [String: String] = ProcessInfo.processInfo.environment,
         arguments: [String] = CommandLine.arguments
@@ -68,6 +72,7 @@ final class ScoreStore {
         // the frontier and the fold's unknown-id check all want the indexed graph,
         // so it is rebuilt once here rather than per query.
         graph = KnowledgeGraph(nodes: document.nodes)
+        bank = problems
         self.config = config
         fsrs = FSRS(parameters: config.fsrs)
         pinnedNow = environment["MATHTREE_NOW"].flatMap(Self.parseInstant)
@@ -147,7 +152,28 @@ final class ScoreStore {
     }
 
     func color(of id: NodeID) -> ScoreColor {
-        ScoreRamp.color(for: state[id], at: evaluatedAt, fsrs: fsrs)
+        ScoreRamp.color(for: state[id], learned: isLearned(id), at: evaluatedAt, fsrs: fsrs)
+    }
+
+    /// Whether the node has ever been retrieved successfully. `false` with a
+    /// non-nil score means "attempted and missed" — grey and on the frontier, not
+    /// deep blue (D8.3).
+    func isLearned(_ id: NodeID) -> Bool { state.isLearned(id) }
+
+    /// §5.4 routes review "via problems, not flashcard-style restatement, whenever
+    /// possible". This is the "whenever possible" — a routing rule, not a
+    /// preference: a node the bank can ask about gets a problem, everything else
+    /// falls back to self-report.
+    func problems(targeting id: NodeID) -> [Problem] { bank.problems(targeting: id) }
+
+    func canProbe(_ id: NodeID) -> Bool { !bank.problems(targeting: id).isEmpty }
+
+    /// The easiest problem for this node that the log has no evidence from yet,
+    /// falling back to the easiest overall once they have all been seen.
+    func nextProblem(for id: NodeID) -> Problem? {
+        let seen = Set(events.compactMap(\.problem))
+        let candidates = bank.problems(targeting: id)
+        return candidates.first { !seen.contains($0.id.rawValue) } ?? candidates.first
     }
 
     func nextDue(of id: NodeID) -> Date? {
@@ -194,16 +220,55 @@ final class ScoreStore {
         }
 
         let event = confidence.event(on: id, at: now)
-        let batch = Propagation.expanded(event, in: graph, config: config)
+        return append(Propagation.expanded(event, in: graph, config: config))
+    }
+
+    /// §5.2's evidence instrument: a graded problem.
+    ///
+    /// A **miss writes nothing** unless it has been localized (§5.4) — the caller
+    /// runs `diagnosisChain` and offers the choice first. That is not a UI nicety:
+    /// `Grading.evidence` returns an empty batch for an unlocalized miss, so an
+    /// abandoned diagnosis leaves the log exactly as it was.
+    @discardableResult
+    func record(
+        _ outcome: ProblemOutcome, on problem: Problem, localizedTo: NodeID? = nil
+    ) -> Bool {
+        guard !isReadOnly else {
+            diagnostics.append("read-only run: refused to grade \(problem.id)")
+            return false
+        }
+        let batch = Grading.evidence(
+            for: problem, outcome: outcome, in: graph, at: now, localizedTo: localizedTo,
+            config: config)
+        guard !batch.isEmpty else { return false }
+        return append(batch)
+    }
+
+    /// §5.4's retest flag made concrete: what a miss puts back in question.
+    func diagnosisChain(after problem: Problem) -> [Diagnosis.Candidate] {
+        Diagnosis.chain(
+            after: problem, graph: graph, state: state, at: evaluatedAt, bank: bank, config: config)
+    }
+
+    /// The one write path. Append, then re-read and refold the whole log — never an
+    /// incremental update (D6.5). Appended events can share a timestamp with
+    /// existing ones and the fold's total order only holds over the whole log
+    /// (D5.7), and making the UI path *be* the replay path is what collapses
+    /// "relaunching reproduces identical colours" and "replaying the log reproduces
+    /// identical scores" into one claim.
+    @discardableResult
+    func append(_ batch: [EvidenceEvent]) -> Bool {
+        guard !isReadOnly else {
+            diagnostics.append("read-only run: refused to append \(batch.count) events")
+            return false
+        }
+        guard !batch.isEmpty else { return false }
         do {
             try log.append(batch)
         } catch {
             diagnostics.append("could not append to \(log.url.lastPathComponent): \(error)")
             return false
         }
-        // Refold from the file rather than folding `batch` onto the current state:
-        // appended events can share a timestamp with existing ones, and the fold's
-        // total order only holds over the whole log (D5.7).
         reload()
         return true
     }

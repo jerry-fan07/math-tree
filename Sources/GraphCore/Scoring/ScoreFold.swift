@@ -5,13 +5,40 @@ import Foundation
 public struct ScoreState: Sendable {
     public var nodes: [NodeID: MemoryState]
     public var edges: [String: MemoryState]
+    /// Nodes that have ever been retrieved successfully — any event with a passing
+    /// grade, explicit or implicit.
+    ///
+    /// This exists because Phase 8 made "has FSRS state" and "has been learned"
+    /// come apart for the first time. Before problems there was no way to record a
+    /// failure on a node with no history: self-report is affirmative only (D6.3).
+    /// §5.4's diagnosis *can* localize a miss onto a node the user has never
+    /// learned, and writing that `again` creates FSRS state — which under the old
+    /// reading ("unlearned = no state entry") would silently drop the node out of
+    /// the frontier at the exact moment it was proven to be the thing to learn next.
+    ///
+    /// So §4.5's "unlearned (no state)" is read as **no successful retrieval**,
+    /// which is what the words mean. The two readings differ only on nodes with
+    /// failures and no passes, which could not exist before this phase — no
+    /// existing fixture or colour moves.
+    public var learned: Set<NodeID>
 
-    public init(nodes: [NodeID: MemoryState] = [:], edges: [String: MemoryState] = [:]) {
+    public init(
+        nodes: [NodeID: MemoryState] = [:],
+        edges: [String: MemoryState] = [:],
+        learned: Set<NodeID>? = nil
+    ) {
         self.nodes = nodes
         self.edges = edges
+        // Defaulting to "every node with state" keeps a hand-built `ScoreState`
+        // (tests, previews) behaving exactly as it did before this field existed.
+        self.learned = learned ?? Set(nodes.keys)
     }
 
     public subscript(id: NodeID) -> MemoryState? { nodes[id] }
+
+    /// Whether the node has ever been successfully retrieved. `false` with a
+    /// non-nil `MemoryState` means "attempted and missed, never yet learned".
+    public func isLearned(_ id: NodeID) -> Bool { learned.contains(id) }
 
     /// §4.1: retrievability is computed on read — no timer mutates state. A node
     /// with no entry is **unlearned**, which `nil` distinguishes from
@@ -81,6 +108,7 @@ public enum ScoreFold {
                 }
                 state.nodes[id] = apply(
                     event, grade: grade, to: state.nodes[id], fsrs: fsrs, config: config)
+                if grade.isPass { state.learned.insert(id) }
 
             case let .edge(key):
                 if let graph, !graph.relatesEdges.contains(where: { $0.key == key }) {
@@ -143,7 +171,14 @@ public enum ScoreFold {
         }
         // Weight is authored into the event so the log stays auditable and a
         // replay reproduces the original damping even if γ has since changed.
-        let weight = event.weight ?? config.propagationWeight(depth: event.depth ?? 1)
+        //
+        // `confidence` is the fallback because §5.3's inferred tier rides this same
+        // path: placement commits untested-but-inferred knowledge as a
+        // confidence-weighted implicit event, and a weight below 1 *is* "decays
+        // faster until confirmed by a direct test" — lower weight, lower stability,
+        // steeper decay, and a later `test` event takes the full FSRS branch above
+        // and overrides it. No second decay model, no extra state (D8.4).
+        let weight = event.weight ?? event.confidence ?? config.propagationWeight(depth: event.depth ?? 1)
         return applyImplicit(
             grade: grade, weight: weight, at: event.at, to: current, fsrs: fsrs, config: config)
     }

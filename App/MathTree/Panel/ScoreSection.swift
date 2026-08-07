@@ -4,17 +4,26 @@ import SwiftUI
 /// §6.1's "clicking opens the node panel (statement, summary, **score, review
 /// history, 'learn this' action**)" — the half Phase 4 deferred.
 ///
-/// The review action is self-report, which §5.2 will replace with problems. It is
-/// deliberately affirmative only: three confidence levels, no "I don't know this".
-/// A self-reported failure would write FSRS state onto an unlearned node, and the
-/// frontier is defined by the *absence* of state (§4.5) — so admitting ignorance
-/// would quietly delete the node from "what you could learn next".
+/// Phase 8 makes problems the instrument (§5.2) and demotes self-report to the
+/// fallback §5.4 allows ("via problems ... *whenever possible*"). Both are here,
+/// and which one leads is decided by the bank: a node it can ask about gets the
+/// problem button first, everything else keeps the three confidence levels.
+///
+/// Self-report stays affirmative only, and the reason is unchanged (D6.3): the
+/// frontier is defined by the *absence* of a successful retrieval (§4.5), so a
+/// self-reported failure would be a claim about knowledge nobody measured. A
+/// missed *problem* is different in kind — a measurement, with §5.4's diagnosis to
+/// decide where it lands — which is why `missed` exists there and not here.
 struct ScoreSection: View {
     let node: Node
     let scores: ScoreStore
+    /// §5.2's instrument. `nil` when no bank is loaded.
+    var onReview: ((NodeID) -> Void)?
     /// Non-nil once a review has been refused, so the failure is visible rather
     /// than a button press that silently did nothing.
     @State private var failure: String?
+
+    private var canProbe: Bool { onReview != nil && scores.canProbe(node.id) }
 
     private var state: ScoreFormat.State { ScoreFormat.state(of: node.id, in: scores) }
     private var history: [ScoreFold.ReviewPoint] { scores.history(of: node.id) }
@@ -119,7 +128,24 @@ struct ScoreSection: View {
 
     private var selfReport: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(history.isEmpty ? "I know this" : "Review")
+            if canProbe, let onReview {
+                SheetButton(
+                    title: history.isEmpty ? "Try a problem" : "Review with a problem",
+                    isProminent: true
+                ) { onReview(node.id) }
+                Text(
+                    "\(scores.problems(targeting: node.id).count) problem"
+                        + "\(scores.problems(targeting: node.id).count == 1 ? "" : "s") for this node."
+                )
+                .font(.system(size: 10.5))
+                .foregroundStyle(PanelTheme.tertiaryText)
+                .padding(.bottom, 2)
+            }
+            // Kept beside the problem rather than hidden behind it: §5.4 says
+            // problems "whenever possible", and someone who has just worked
+            // through a topic elsewhere should not have to invent a wrong answer
+            // to record what they know.
+            Text(canProbe ? "Or just mark it" : (history.isEmpty ? "I know this" : "Review"))
                 .font(.system(size: 11))
                 .foregroundStyle(PanelTheme.secondaryText)
             HStack(spacing: 6) {

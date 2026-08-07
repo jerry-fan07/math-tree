@@ -77,8 +77,11 @@ extension MathText {
         /// ("the smallest thing that renders the seed content *acceptably*").
         static func report(for samples: [Sample]) -> String {
             var lines: [String] = []
-            for sample in samples where sample.field == "statement" {
-                lines.append("### \(sample.id)")
+            // Statements *and* answers: a problem's worked answer is where its
+            // densest notation lives, and it is the surface a solver reads after a
+            // failed attempt — printing only prompts would review half the corpus.
+            for sample in samples where sample.field == "statement" || sample.field == "answer" {
+                lines.append("### \(sample.id) [\(sample.field)]")
                 lines.append(
                     MathText.plainText(sample.source)
                         .trimmingCharacters(in: .whitespacesAndNewlines))
@@ -142,11 +145,50 @@ extension MathText {
             }
         }
 
-        /// Debug entry point. Wire it to a launch flag or call it from a breakpoint:
+        /// Every renderable field of every problem in the bank (§5.2).
+        ///
+        /// The bank roughly doubled the corpus's LaTeX-bearing text — statements,
+        /// worked answers, and every rubric criterion — and none of it appears in
+        /// any node. Reviewing it means running the same check over it; the
+        /// alternative is trusting that ninety hand-written fields all render,
+        /// which D4.10 already showed is not a safe assumption.
+        static func samples(for bank: ProblemBank) -> [Sample] {
+            bank.problems.flatMap { problem -> [Sample] in
+                [
+                    Sample(id: problem.id.rawValue, field: "statement", source: problem.statement),
+                    Sample(id: problem.id.rawValue, field: "answer", source: problem.answer),
+                ]
+                    + problem.rubric.enumerated().map {
+                        Sample(
+                            id: problem.id.rawValue, field: "rubric[\($0.offset)]",
+                            source: $0.element)
+                    }
+            }
+        }
+
+        /// Debug entry point. `MATHTREE_MATH_CHECK=1` runs it at launch and exits;
+        /// it can also be called from a breakpoint:
         ///
         ///     print(MathText.Check.report(for: try GraphDocument.load()))
         static func report(for document: GraphDocument) -> String {
             report(for: samples(for: document))
+        }
+
+        /// Both corpora in one pass, with the `statement` read-out that has to be
+        /// *read* rather than merely passed (see `report(for:)`'s note).
+        ///
+        /// Environment-driven per D3.7: AppKit parses stray `--flag value` pairs
+        /// into `NSUserDefaults` and the window silently never appears.
+        @MainActor
+        static func runIfRequested(document: GraphDocument, problems: ProblemDocument) {
+            guard ProcessInfo.processInfo.environment["MATHTREE_MATH_CHECK"] == "1" else { return }
+            let samples = samples(for: document) + samples(for: problems.bank)
+            print(report(for: samples))
+            if let reason = problems.unavailable {
+                print("note: problem bank not checked — \(reason)")
+            }
+            fflush(stdout)
+            exit(findings(in: samples).isEmpty ? 0 : 1)
         }
     }
 

@@ -19,6 +19,12 @@ final class SceneStore {
     /// User state (§3.2). Absent only when the content itself failed to load —
     /// there is nothing to score against.
     private(set) var scores: ScoreStore?
+    /// §5.2's problem bank. Always present; `isAvailable` is false when no
+    /// artifact was compiled, and the app degrades to self-report rather than
+    /// failing (see `ProblemDocument`).
+    private(set) var problems: ProblemDocument = .missing
+    /// §5.3's placement session, when one has been started.
+    private(set) var placement: PlacementStore?
     private(set) var errorMessage: String?
     private(set) var timings = RenderTimings()
 
@@ -54,8 +60,15 @@ final class SceneStore {
             // `ScoreStore.init` folds the log and fires `onChange` immediately, so
             // the very first frame is already wearing §4.5's colours rather than
             // flashing Phase 4's taxonomy palette and then correcting itself.
-            let scores = ScoreStore(document: document)
+            // Decoded after the renderer is standing: the bank is not on the
+            // first-paint path (D3.2 makes decode the dominant launch term), and
+            // the map must be interactive before assessment is reachable.
+            let problems = ProblemDocument.load()
+            self.problems = problems
+
+            let scores = ScoreStore(document: document, problems: problems.bank)
             self.scores = scores
+            placement = PlacementStore(scores: scores, bank: problems.bank)
             scores.onChange = { [weak renderer] in
                 guard let renderer else { return }
                 renderer.applyScores(scores.visuals(for: document))

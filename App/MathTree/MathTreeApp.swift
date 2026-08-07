@@ -30,6 +30,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             runSmokeTest()
         }
         #if DEBUG
+            // The corpus self-check (D4.9): `MATHTREE_MATH_CHECK=1` renders every
+            // LaTeX-bearing field of the content *and* the problem bank, prints the
+            // linearised statements to be read, and exits non-zero on a finding.
+            // Needs the artifacts loaded, so it runs here.
+            if let scene = SceneStore.shared.scene {
+                MathText.Check.runIfRequested(
+                    document: scene.document, problems: SceneStore.shared.problems)
+            }
             // Runs here rather than in `MathTreeApp.init` because `NSHostingView`
             // needs a live run loop to complete a layout pass; a snapshot taken
             // before launch finishes captures an unlaid-out view.
