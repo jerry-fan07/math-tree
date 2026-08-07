@@ -315,17 +315,24 @@ struct GraphScene {
             }
             return sum / n
         case .detail:
-            var best: (index: Int, degree: Int)?
-            for (index, node) in document.nodes.enumerated() where node.kind.isContent {
-                let degree = node.requires.count + document.dependents(of: node.id).count
-                if best == nil || degree > best!.degree
-                    || (degree == best!.degree && node.id < document.nodes[best!.index].id)
-                {
-                    best = (index, degree)
-                }
-            }
-            return best.map { worldPositions[$0.index] } ?? center
+            return detailAnchorIndex().map { worldPositions[$0] } ?? center
         }
+    }
+
+    /// The best-connected content node — the detail band's camera anchor, and the
+    /// goal `--probe` demonstrates focus mode on. Extracted so the probe and the
+    /// snapshot camera can never drift onto different nodes.
+    func detailAnchorIndex() -> Int? {
+        var best: (index: Int, degree: Int)?
+        for (index, node) in document.nodes.enumerated() where node.kind.isContent {
+            let degree = node.requires.count + document.dependents(of: node.id).count
+            if best == nil || degree > best!.degree
+                || (degree == best!.degree && node.id < document.nodes[best!.index].id)
+            {
+                best = (index, degree)
+            }
+        }
+        return best?.index
     }
 
     /// Points-per-world-unit that frames the whole map with room for hub labels.

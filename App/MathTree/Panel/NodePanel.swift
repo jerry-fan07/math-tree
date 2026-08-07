@@ -24,6 +24,9 @@ struct NodePanel: View {
     /// Navigate to another node (prerequisite/dependent links, `relates`, taxonomy).
     var onSelect: (NodeID) -> Void
     var onClose: () -> Void
+    /// §6.1's "learn this" action — enter §6.2's focus mode with this node as the
+    /// goal. `nil` (previews, no user state) renders the panel without it.
+    var onFocus: ((NodeID) -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -34,6 +37,7 @@ struct NodePanel: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     if let scores { ScoreSection(node: node, scores: scores) }
+                    learnAction
                     statementSection
                     summarySection
                     prerequisitesSection
@@ -110,6 +114,15 @@ struct NodePanel: View {
     }
 
     // MARK: - Sections
+
+    /// "What do I need to learn to get to this?" — the door into focus mode
+    /// (§6.2). Content nodes only: structural nodes are not learnable (§2.1).
+    @ViewBuilder
+    private var learnAction: some View {
+        if let onFocus, node.kind.isContent {
+            LearnThisButton(action: { onFocus(node.id) })
+        }
+    }
 
     @ViewBuilder
     private var statementSection: some View {
@@ -346,6 +359,43 @@ struct NodePanel: View {
             content()
             Spacer(minLength: 0)
         }
+    }
+}
+
+/// The focus-mode entry. Its own view for the same reason as the close button:
+/// hover state must not invalidate the whole panel.
+private struct LearnThisButton: View {
+    let action: () -> Void
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 7) {
+                Image(systemName: "scope")
+                    .font(.system(size: 11, weight: .medium))
+                Text("Learn this")
+                    .font(.system(size: 12, weight: .medium))
+                Spacer(minLength: 0)
+                Text("prerequisite path")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(
+                        isHovering ? PanelTheme.secondaryText : PanelTheme.tertiaryText)
+            }
+            .foregroundStyle(PanelTheme.accent)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isHovering ? PanelTheme.rowHighlight : Color.clear))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(PanelTheme.accent.opacity(isHovering ? 0.55 : 0.32), lineWidth: 1))
+            .contentShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .accessibilityLabel("Learn this — show the prerequisite path")
+        .accessibilityHint("Opens focus mode with this node as the goal")
     }
 }
 

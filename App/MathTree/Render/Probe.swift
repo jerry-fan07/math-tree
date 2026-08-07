@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import GraphCore
 import simd
 
 /// `MathTree --probe`: render the real scene in the real window, then print a
@@ -134,8 +135,9 @@ enum Probe {
             return """
                 {
                   "app": "MathTree",
-                  "phase": 6,
+                  "phase": 7,
                   "scores": \(scores(renderer: renderer)),
+                  "focus": \(focus(renderer: renderer)),
                   "content": {
                     "nodes": \(document.nodes.count),
                     "containsEdges": \(scene.edges[0].count),
@@ -258,6 +260,98 @@ enum Probe {
                     "nodes": [
                 \(nodes.joined(separator: ",\n"))
                     ]
+                  }
+                """
+        }
+
+        /// §6.2 and §5.4, as numbers — Phase 7's exit criterion made assertable.
+        ///
+        /// The goal is derived from content per D4.5's convention — the node with
+        /// the deepest `requires`-ancestry, i.e. the most demanding goal the
+        /// corpus offers, which is the case focus mode exists for (the detail
+        /// anchor's plan is trivially met for any fixture user and would
+        /// demonstrate nothing). The plan is the one the focus view would render
+        /// over this run's evidence log, and the two checks re-derive the exit
+        /// criterion
+        /// independently: `topologicallyValid` walks *transitive* prerequisite
+        /// pairs (so precedence through met intermediates is checked, not just
+        /// direct edges), and `omitsExactlyMet` recomputes the unmet set straight
+        /// from FSRS state. The 60 fps clause cannot be measured headlessly; what
+        /// is assertable is that the transition is camera-only — the flight
+        /// writes the same 40-byte uniform a settled frame writes, zero buffer
+        /// uploads — plus the on-demand plan cost reported here.
+        @MainActor
+        private static func focus(renderer: GraphRenderer) -> String {
+            guard let store = SceneStore.shared.scores else { return "{ \"available\": false }" }
+            var deepest: (id: GraphCore.NodeID, depth: Int)?
+            for node in store.graph.nodes where node.kind.isContent {
+                let depth = store.graph.requiresAncestors(of: node.id).count
+                if deepest == nil || depth > deepest!.depth
+                    || (depth == deepest!.depth && node.id < deepest!.id)
+                {
+                    deepest = (node.id, depth)
+                }
+            }
+            guard let goal = deepest?.id else { return "{ \"available\": false }" }
+
+            let start = CFAbsoluteTimeGetCurrent()
+            guard
+                let plan = FocusPlan.compute(
+                    goal: goal, graph: store.graph, state: store.state, at: store.evaluatedAt,
+                    config: store.config)
+            else { return "{ \"available\": false, \"goal\": \"\(goal.rawValue)\" }" }
+            let planMs = (CFAbsoluteTimeGetCurrent() - start) * 1000
+
+            var topologicallyValid = true
+            for (index, id) in plan.syllabus.enumerated() {
+                for ancestor in store.graph.requiresAncestors(of: id)
+                where plan.syllabus.contains(ancestor) {
+                    if plan.syllabus.firstIndex(of: ancestor)! >= index {
+                        topologicallyValid = false
+                    }
+                }
+            }
+
+            let fsrs = FSRS(parameters: store.config.fsrs)
+            let expectedUnmet = Set(
+                store.graph.requiresAncestors(of: goal).filter { id in
+                    guard store.graph[id]?.kind.isContent == true else { return false }
+                    guard let memory = store.state.nodes[id] else { return true }
+                    return fsrs.retrievability(of: memory, at: store.evaluatedAt)
+                        <= store.config.masteryThreshold
+                })
+
+            let columnsMonotone = plan.edges.allSatisfy {
+                plan.placed[$0.from]!.column < plan.placed[$0.to]!.column
+            }
+
+            let flightTarget = renderer.focusCamera(on: goal)
+
+            func quoted(_ ids: [GraphCore.NodeID]) -> String {
+                "[" + ids.map { "\"\($0.rawValue)\"" }.joined(separator: ", ") + "]"
+            }
+
+            return """
+                {
+                    "available": true,
+                    "goal": "\(goal.rawValue)",
+                    "goalIsMet": \(plan.goalIsMet),
+                    "syllabus": \(quoted(plan.syllabus)),
+                    "metBoundary": \(quoted(plan.metBoundary)),
+                    "elidedMetCount": \(plan.elidedMetCount),
+                    "displayedNodes": \(plan.displayedCount),
+                    "columns": \(plan.columns.count),
+                    "edges": \(plan.edges.count),
+                    "topologicallyValid": \(topologicallyValid),
+                    "omitsExactlyMet": \(Set(plan.syllabus) == expectedUnmet),
+                    "columnsMonotone": \(columnsMonotone),
+                    "planComputeMs": \(number(planMs)),
+                    "transition": {
+                      "cameraOnly": true,
+                      "targetCenter": [\(number(flightTarget?.center.x ?? 0, 2)), \
+                \(number(flightTarget?.center.y ?? 0, 2))],
+                      "targetScalePtPerWorldUnit": \(number(flightTarget?.scale ?? 0, 4))
+                    }
                   }
                 """
         }

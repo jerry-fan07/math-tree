@@ -76,6 +76,17 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
     private static let revealDuration: CFAbsoluteTime = 0.65
     private var revealOverride: Float?
 
+    /// §6.2's "zoom-out, not a cut". Camera state is one 40-byte uniform, so the
+    /// transition is uniform-only — zero buffer traffic, per-frame cost identical
+    /// to a settled frame (D3.4). Stepped in `draw(in:)` like the reveal.
+    private struct CameraFlight {
+        var from: Camera
+        var to: Camera
+        var start: CFAbsoluteTime
+        var duration: CFAbsoluteTime
+    }
+    private var cameraFlight: CameraFlight?
+
     private(set) var hoveredIndex: Int?
     private var highlightNodeCount = 0
     private var highlightEdgeCount = 0
@@ -238,6 +249,58 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
         }
         requestRedraw?()
     }
+
+    /// Fly the camera to a target — the focus-mode transition (§6.2: continuity
+    /// of place, so entering and leaving focus is a zoom, never a cut).
+    ///
+    /// Scale interpolates in log space (a zoom is perceptually multiplicative)
+    /// and the camera snaps to the exact target at the end, so the destination
+    /// is a definite camera rather than wherever t ≈ 1 landed. The kick matters:
+    /// the view pauses itself when settled, so a flight started without a
+    /// redraw request would never take off.
+    func flyCamera(toCenter center: SIMD2<Float>, scale: Float, duration: CFAbsoluteTime = 0.5) {
+        var target = Camera(center: center, scale: scale)
+        let fit = fitScale
+        target.scale = min(max(target.scale, fit * Camera.minRatio), fit * Camera.maxRatio)
+        cameraFlight = CameraFlight(
+            from: camera, to: target, start: CFAbsoluteTimeGetCurrent(), duration: duration)
+        requestRedraw?()
+    }
+
+    func flyCamera(to target: Camera, duration: CFAbsoluteTime = 0.5) {
+        flyCamera(toCenter: target.center, scale: target.scale, duration: duration)
+    }
+
+    /// A goal-node camera for focus mode: centred on the node, at detail zoom.
+    func focusCamera(on id: GraphCore.NodeID) -> Camera? {
+        guard let index = scene.document.index(of: id) else { return nil }
+        return Camera(
+            center: scene.worldPositions[index],
+            scale: fitScale * ZoomBand.detailRatio)
+    }
+
+    /// Advance the flight; interaction cancels it implicitly because pan/zoom
+    /// write `camera` directly and the next `stepCameraFlight` overwrites — so a
+    /// flight is cancelled by *ending* it early instead.
+    private func stepCameraFlight() {
+        guard let flight = cameraFlight else { return }
+        let t = min(max((CFAbsoluteTimeGetCurrent() - flight.start) / flight.duration, 0), 1)
+        if t >= 1 {
+            camera = flight.to
+            cameraFlight = nil
+            return
+        }
+        let eased = Float(t * t * (3 - 2 * t))
+        camera.center = flight.from.center + (flight.to.center - flight.from.center) * eased
+        camera.scale = exp(
+            log(max(flight.from.scale, 1e-6)) * (1 - eased)
+                + log(max(flight.to.scale, 1e-6)) * eased)
+    }
+
+    /// End any flight in progress (a user gesture takes over the camera).
+    func cancelCameraFlight() { cameraFlight = nil }
+
+    var isCameraInFlight: Bool { cameraFlight != nil }
 
     /// Park the camera at a band's representative zoom over a chosen anchor —
     /// used by snapshots and `--probe` so "at mid zoom" is a definite camera.
@@ -460,7 +523,7 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
     /// first, then constellation fill" in a still image.
     func setReveal(_ value: Float) { revealOverride = min(max(value, 0), 1) }
 
-    var isAnimating: Bool { revealOverride == nil && reveal < 1 }
+    var isAnimating: Bool { (revealOverride == nil && reveal < 1) || cameraFlight != nil }
 
     private func makeUniforms() -> Uniforms {
         Uniforms(
@@ -601,6 +664,7 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
             let commandBuffer = commandQueue.makeCommandBuffer()
         else { return }
 
+        stepCameraFlight()
         prepareForCurrentBand()
         descriptor.colorAttachments[0].loadAction = .clear
         descriptor.colorAttachments[0].clearColor = MTLClearColor(

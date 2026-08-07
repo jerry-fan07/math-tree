@@ -57,6 +57,17 @@
                 to: root.appendingPathComponent("sidebar.png"),
                 size: CGSize(width: 268, height: 720))
 
+            // Phase 7: the focus view over the same goal the fixture story is
+            // about. Rendered like every overlay before it — NSHostingView +
+            // cacheDisplay (D4.10; ImageRenderer blanks ScrollView content).
+            write(
+                AnyView(
+                    FocusView(
+                        goal: "analysis.svc.ftc-part-2", document: document, scores: scores,
+                        onSelect: { _ in }, onExit: {})),
+                to: root.appendingPathComponent("focus-ftc-part-2.png"),
+                size: CGSize(width: 1200, height: 760))
+
             if let target = environment["MATHTREE_PANEL_SHOT_REPORT"] {
                 selfReport(target, document: document, into: root)
             }
@@ -115,6 +126,17 @@
                     .background(PanelTheme.background)),
                 to: root.appendingPathComponent("panel-after-report.png"),
                 size: CGSize(width: 360, height: 900))
+
+            // The focus view over the post-report state: §6.2's compression made
+            // visible — reviewing the goal collapses its syllabus to whatever
+            // propagation could not reach.
+            write(
+                AnyView(
+                    FocusView(
+                        goal: id, document: document, scores: store,
+                        onSelect: { _ in }, onExit: {})),
+                to: root.appendingPathComponent("focus-after-report.png"),
+                size: CGSize(width: 1200, height: 760))
         }
 
         @MainActor

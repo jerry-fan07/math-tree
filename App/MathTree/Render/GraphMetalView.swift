@@ -9,10 +9,17 @@ import simd
 /// instance buffer.
 final class GraphMTKView: MTKView {
     weak var graphRenderer: GraphRenderer?
-    /// Nil clears the selection (click on empty space, or Escape).
+    /// Nil clears the selection (click on empty space).
     var onSelect: ((NodeID?) -> Void)?
     var onHoverChanged: ((NodeID?) -> Void)?
     var onToggleSidebar: (() -> Void)?
+    /// Escape, in priority order decided by the owner: close the panel first,
+    /// then leave focus mode.
+    var onEscape: (() -> Void)?
+    /// True while focus mode covers the map (§6.2): the overlay owns the mouse
+    /// by covering the view, but key equivalents would still land here — so
+    /// navigation keys and any stray gestures are ignored, except Escape.
+    var isNavigationSuspended = false
 
     private var trackingArea: NSTrackingArea?
     private var dragOrigin: SIMD2<Float>?
@@ -52,7 +59,9 @@ final class GraphMTKView: MTKView {
     // MARK: - Zoom & pan
 
     override func scrollWheel(with event: NSEvent) {
-        guard let renderer = graphRenderer else { return }
+        guard let renderer = graphRenderer, !isNavigationSuspended else { return }
+        // A gesture takes the camera over from any flight in progress.
+        renderer.cancelCameraFlight()
         let anchor = viewPoint(event)
         let zoomModifier =
             event.modifierFlags.contains(.command) || event.modifierFlags.contains(.control)
@@ -73,7 +82,8 @@ final class GraphMTKView: MTKView {
     }
 
     override func magnify(with event: NSEvent) {
-        guard let renderer = graphRenderer else { return }
+        guard let renderer = graphRenderer, !isNavigationSuspended else { return }
+        renderer.cancelCameraFlight()
         let anchor = viewPoint(event)
         renderer.camera.zoom(
             by: Float(1 + event.magnification), anchorPt: anchor, viewportPt: viewportPt,
@@ -91,7 +101,8 @@ final class GraphMTKView: MTKView {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard let renderer = graphRenderer else { return }
+        guard let renderer = graphRenderer, !isNavigationSuspended else { return }
+        renderer.cancelCameraFlight()
         let point = viewPoint(event)
         let delta = point - lastPoint
         lastPoint = point
@@ -102,7 +113,9 @@ final class GraphMTKView: MTKView {
 
     override func mouseUp(with event: NSEvent) {
         defer { dragOrigin = nil }
-        guard let renderer = graphRenderer, dragOrigin != nil, dragDistance < 4 else { return }
+        guard let renderer = graphRenderer, dragOrigin != nil, dragDistance < 4,
+            !isNavigationSuspended
+        else { return }
         let picked = renderer.pick(atViewPt: viewPoint(event))
         onSelect?(picked.map { renderer.scene.document.nodes[$0].id })
     }
@@ -119,7 +132,7 @@ final class GraphMTKView: MTKView {
     }
 
     private func updateHover(at point: SIMD2<Float>) {
-        guard let renderer = graphRenderer else { return }
+        guard let renderer = graphRenderer, !isNavigationSuspended else { return }
         let picked = renderer.pick(atViewPt: point)
         guard picked != renderer.hoveredIndex else { return }
         renderer.setHover(picked)
@@ -130,12 +143,14 @@ final class GraphMTKView: MTKView {
     override func keyDown(with event: NSEvent) {
         guard let renderer = graphRenderer else { return super.keyDown(with: event) }
         switch event.keyCode {
-        case 53:  // Escape
-            onSelect?(nil)
+        case 53:  // Escape — works in every mode; the owner decides what it closes
+            onEscape?()
         case 3, 29, 82:  // F, 0, keypad 0 — frame the whole map
+            guard !isNavigationSuspended else { return }
             renderer.fitToContent()
             redraw()
         case 15:  // R — show or hide the review sidebar
+            guard !isNavigationSuspended else { return }
             onToggleSidebar?()
         default:
             super.keyDown(with: event)
@@ -149,6 +164,8 @@ struct GraphMetalView: NSViewRepresentable {
     let renderer: GraphRenderer
     @Binding var selection: NodeID?
     var onToggleSidebar: (() -> Void)?
+    var onEscape: (() -> Void)?
+    var isNavigationSuspended = false
 
     func makeNSView(context: Context) -> GraphMTKView {
         // The same device the renderer built its pipelines and buffers on —
@@ -168,6 +185,8 @@ struct GraphMetalView: NSViewRepresentable {
         view.graphRenderer = renderer
         view.onSelect = { selection = $0 }
         view.onToggleSidebar = onToggleSidebar
+        view.onEscape = onEscape
+        view.isNavigationSuspended = isNavigationSuspended
         renderer.requestRedraw = { [weak view] in view?.draw() }
         return view
     }
@@ -175,5 +194,7 @@ struct GraphMetalView: NSViewRepresentable {
     func updateNSView(_ view: GraphMTKView, context: Context) {
         view.onSelect = { selection = $0 }
         view.onToggleSidebar = onToggleSidebar
+        view.onEscape = onEscape
+        view.isNavigationSuspended = isNavigationSuspended
     }
 }
