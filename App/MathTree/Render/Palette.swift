@@ -73,13 +73,34 @@ enum LODTier: Int, CaseIterable, Sendable, Comparable {
     }
 
     /// Saturation / value applied to the node's branch hue.
+    ///
+    /// Structural tiers are near-white with only a cast of their branch hue, and
+    /// that is a Phase 6 change: §4.5's ramp now owns the saturated blue → teal →
+    /// green arc, and Phase 4's saturated hubs sat inside it — the Foundations hub
+    /// (hue 152°) was indistinguishable from a mastered node. Hubs are still the
+    /// centres of their galaxies through size, halo and the `contains` filaments,
+    /// which keep their full hue. See D6.1.
     fileprivate var tone: (saturation: Float, value: Float, alpha: Float) {
         switch self {
-        case .branch: (0.34, 1.00, 1.00)
-        case .subbranch: (0.48, 0.94, 0.98)
+        case .branch: (0.12, 1.00, 1.00)
+        case .subbranch: (0.18, 0.96, 0.98)
         case .landmark: (0.64, 0.92, 0.96)
         case .standard: (0.60, 0.76, 0.92)
         case .detail: (0.52, 0.58, 0.88)
+        }
+    }
+
+    /// How much of the score colour a tier keeps. Phase 4 spent value and alpha on
+    /// tier depth; §4.5 now owns hue and most of the brightness, so what is left
+    /// is a light attenuation — enough that a detail node still recedes behind a
+    /// landmark of the same score, not enough to be mistaken for a lower score.
+    /// Structural tiers never take a score colour, so their entries are unused.
+    fileprivate var scoreAttenuation: (value: Float, alpha: Float) {
+        switch self {
+        case .branch, .subbranch: (1.00, 1.00)
+        case .landmark: (1.00, 1.00)
+        case .standard: (0.92, 0.96)
+        case .detail: (0.84, 0.92)
         }
     }
 
@@ -94,9 +115,13 @@ enum LODTier: Int, CaseIterable, Sendable, Comparable {
     }
 }
 
-/// Static, per-branch colouring. Phase 4 is explicitly "minus scores" — §4.5's
-/// retrievability ramp and frontier rings belong to Phase 6 — so hue carries
-/// taxonomy instead, which is what makes the `contains` clustering readable.
+/// Two colour systems, split by what a node *is*.
+///
+/// Phase 4 gave every node a branch hue, which is what makes `contains`
+/// clustering readable. Phase 6 hands §4.5 the nodes that carry a score:
+/// learnable content takes the retrievability ramp (grey → deep blue → teal →
+/// green) and structural hubs keep their taxonomy hue, because they are not
+/// learnable (§2.1) and are the map's navigational skeleton. See D6.1.
 enum Palette {
     /// Dark background of §6.1.
     static let background = SIMD4<Double>(0.043, 0.051, 0.071, 1.0)
@@ -129,6 +154,32 @@ enum Palette {
         let rgb = hsv(hue, 0.42, 0.80)
         return packRGBA(rgb.x, rgb.y, rgb.z, weight)
     }
+
+    // MARK: - §4.5 score colours
+
+    /// A node's score colour, attenuated for its tier so LOD depth survives the ramp.
+    static func scoreNodeColor(_ color: ScoreColor, tier: LODTier) -> UInt32 {
+        let attenuation = tier.scoreAttenuation
+        return packRGBA(
+            Float(color.red) * attenuation.value,
+            Float(color.green) * attenuation.value,
+            Float(color.blue) * attenuation.value,
+            Float(color.alpha) * attenuation.alpha)
+    }
+
+    /// A score colour at an edge endpoint. Edges stay dimmer than the nodes they
+    /// join — §6.1 wants hairlines, and an edge as bright as its endpoints would
+    /// make a well-known neighbourhood read as a solid blob.
+    static func scoreEdgeColor(_ color: ScoreColor, weight: Float) -> UInt32 {
+        packRGBA(
+            Float(color.red) * 0.86, Float(color.green) * 0.86, Float(color.blue) * 0.86,
+            Float(color.alpha) * weight)
+    }
+
+    /// §4.5's frontier accent ring — "what you could learn next".
+    static let frontierRingColor = packRGBA(
+        Float(ScoreRamp.frontierAccent.red), Float(ScoreRamp.frontierAccent.green),
+        Float(ScoreRamp.frontierAccent.blue), Float(ScoreRamp.frontierAccent.alpha))
 
     static let hoverRingColor = packRGBA(1.00, 0.98, 0.92, 0.95)
     /// Prerequisites of the hovered node — what it is built on.

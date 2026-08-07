@@ -16,8 +16,17 @@ final class SceneStore {
 
     private(set) var scene: GraphScene?
     private(set) var renderer: GraphRenderer?
+    /// User state (§3.2). Absent only when the content itself failed to load —
+    /// there is nothing to score against.
+    private(set) var scores: ScoreStore?
     private(set) var errorMessage: String?
     private(set) var timings = RenderTimings()
+
+    /// Retrievability decays continuously (§4.1), so the map has to be repainted
+    /// even when nothing happens. A minute is far finer than the ramp can show —
+    /// stability is measured in days — and costs one fold of a small log.
+    private var decayTick: Timer?
+    private static let decayInterval: TimeInterval = 60
 
     private init() {
         var timings = RenderTimings()
@@ -40,9 +49,34 @@ final class SceneStore {
                 backingScale: NSScreen.main?.backingScaleFactor ?? 2)
             self.renderer = renderer
             self.timings = renderer.timings
+
+            // Built after the renderer so the first repaint has somewhere to land:
+            // `ScoreStore.init` folds the log and fires `onChange` immediately, so
+            // the very first frame is already wearing §4.5's colours rather than
+            // flashing Phase 4's taxonomy palette and then correcting itself.
+            let scores = ScoreStore(document: document)
+            self.scores = scores
+            scores.onChange = { [weak renderer] in
+                guard let renderer else { return }
+                renderer.applyScores(scores.visuals(for: document))
+                // The view pauses itself once the reveal settles, so a colour
+                // write is invisible until something asks for a frame.
+                renderer.requestRedraw?()
+            }
+            renderer.applyScores(scores.visuals(for: document))
+            startDecayTick(scores)
         } catch {
             self.timings = timings
             errorMessage = String(describing: error)
+        }
+    }
+
+    /// A pinned clock (`MATHTREE_NOW`) means the scene is deliberately frozen for
+    /// a snapshot or a determinism check; ticking would defeat the point.
+    private func startDecayTick(_ scores: ScoreStore) {
+        guard !scores.isClockPinned, !scores.isReadOnly else { return }
+        decayTick = Timer.scheduledTimer(withTimeInterval: Self.decayInterval, repeats: true) { _ in
+            Task { @MainActor in scores.evaluate() }
         }
     }
 }

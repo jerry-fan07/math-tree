@@ -95,6 +95,42 @@ public enum ScoreFold {
         return (state, defects)
     }
 
+    /// One step of a target's history: the event and the state it produced.
+    public struct ReviewPoint: Hashable, Sendable {
+        public let event: EvidenceEvent
+        public let state: MemoryState
+
+        public init(event: EvidenceEvent, state: MemoryState) {
+            self.event = event
+            self.state = state
+        }
+    }
+
+    /// How one target's memory state evolved through the log — the node panel's
+    /// history read-out (Phase 6).
+    ///
+    /// Folding only that target's events is not an approximation: the fold applies
+    /// each event to its own target and nothing else, because propagation already
+    /// happened at write time (D5.5). So the last point here is exactly what
+    /// `fold` produces for the same target, which is what `historyEndsWhereTheFoldDoes`
+    /// asserts.
+    public static func trajectory(
+        of target: EvidenceTarget,
+        in events: [EvidenceEvent],
+        config: ScoringConfig = ScoringConfig()
+    ) -> [ReviewPoint] {
+        let fsrs = FSRS(parameters: config.fsrs)
+        var state: MemoryState?
+        var points: [ReviewPoint] = []
+        for event in events.sorted(by: EvidenceEvent.foldOrder)
+        where event.target == target && event.grade != nil {
+            let next = apply(event, grade: event.grade!, to: state, fsrs: fsrs, config: config)
+            points.append(ReviewPoint(event: event, state: next))
+            state = next
+        }
+        return points
+    }
+
     private static func apply(
         _ event: EvidenceEvent,
         grade: Grade,

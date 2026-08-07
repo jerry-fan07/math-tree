@@ -12,6 +12,7 @@ final class GraphMTKView: MTKView {
     /// Nil clears the selection (click on empty space, or Escape).
     var onSelect: ((NodeID?) -> Void)?
     var onHoverChanged: ((NodeID?) -> Void)?
+    var onToggleSidebar: (() -> Void)?
 
     private var trackingArea: NSTrackingArea?
     private var dragOrigin: SIMD2<Float>?
@@ -134,6 +135,8 @@ final class GraphMTKView: MTKView {
         case 3, 29, 82:  // F, 0, keypad 0 — frame the whole map
             renderer.fitToContent()
             redraw()
+        case 15:  // R — show or hide the review sidebar
+            onToggleSidebar?()
         default:
             super.keyDown(with: event)
         }
@@ -145,6 +148,7 @@ final class GraphMTKView: MTKView {
 struct GraphMetalView: NSViewRepresentable {
     let renderer: GraphRenderer
     @Binding var selection: NodeID?
+    var onToggleSidebar: (() -> Void)?
 
     func makeNSView(context: Context) -> GraphMTKView {
         // The same device the renderer built its pipelines and buffers on —
@@ -163,11 +167,13 @@ struct GraphMetalView: NSViewRepresentable {
         view.delegate = renderer
         view.graphRenderer = renderer
         view.onSelect = { selection = $0 }
+        view.onToggleSidebar = onToggleSidebar
         renderer.requestRedraw = { [weak view] in view?.draw() }
         return view
     }
 
     func updateNSView(_ view: GraphMTKView, context: Context) {
         view.onSelect = { selection = $0 }
+        view.onToggleSidebar = onToggleSidebar
     }
 }

@@ -29,6 +29,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if CommandLine.arguments.contains("--smoke-test") {
             runSmokeTest()
         }
+        #if DEBUG
+            // Runs here rather than in `MathTreeApp.init` because `NSHostingView`
+            // needs a live run loop to complete a layout pass; a snapshot taken
+            // before launch finishes captures an unlaid-out view.
+            PanelShot.runIfRequested()
+        #endif
         // Both of these are *trailing boolean* flags with no operand — D3.7:
         // AppKit turns leftover `-key value` tokens into `NSUserDefaults` and a
         // flag with a following token stopped SwiftUI from ever calling

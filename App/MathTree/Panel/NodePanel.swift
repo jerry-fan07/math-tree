@@ -11,11 +11,16 @@ import SwiftUI
 /// `statement`/`requires`/`relates` by invariant, so those sections are absent for them
 /// rather than empty.
 ///
-/// Score, history sparkline and next-due date arrive in Phase 6; this phase is explicitly
-/// "minus scores".
+/// Phase 6 adds the score block — §4.5's state, the FSRS next-due date, the review
+/// history and the self-report action — as `ScoreSection`, directly under the header so
+/// "how well do I know this" is answered before the content is read. It is optional: the
+/// panel still renders without user state (previews, and a run where the evidence log
+/// could not be opened).
 struct NodePanel: View {
     let node: Node
     let document: GraphDocument
+    /// User state (§3.2). `nil` renders the Phase 4 panel exactly.
+    var scores: ScoreStore?
     /// Navigate to another node (prerequisite/dependent links, `relates`, taxonomy).
     var onSelect: (NodeID) -> Void
     var onClose: () -> Void
@@ -28,6 +33,7 @@ struct NodePanel: View {
                 .frame(height: 1)
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
+                    if let scores { ScoreSection(node: node, scores: scores) }
                     statementSection
                     summarySection
                     prerequisitesSection
@@ -188,6 +194,7 @@ struct NodePanel: View {
                                 id: edge.endpoint(opposite: node.id),
                                 document: document,
                                 note: edge.note,
+                                scores: scores,
                                 onSelect: onSelect)
                         }
                     }
@@ -307,7 +314,8 @@ struct NodePanel: View {
     private func references(_ ids: [NodeID]) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             ForEach(ids, id: \.self) { id in
-                NodeReferenceRow(id: id, document: document, note: nil, onSelect: onSelect)
+                NodeReferenceRow(
+                    id: id, document: document, note: nil, scores: scores, onSelect: onSelect)
             }
         }
         // Rows carry their own hit-target padding; pull it back so titles line up with the
@@ -439,12 +447,38 @@ enum NodePanelPreviewData {
     static var mvtStatementAttributed: AttributedString {
         MathText.attributedString(mvt.statement ?? "", baseSize: 12)
     }
+
+    /// A store over a throwaway log with a short review history on the MVT, so the score
+    /// section previews with a real sparkline rather than an empty state. Writing to a
+    /// temporary path is deliberate — a preview must never touch the developer's own
+    /// history in Application Support.
+    @MainActor
+    static func scores() -> ScoreStore {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("mathtree-preview-\(UUID().uuidString)")
+            .appendingPathComponent("evidence.jsonl")
+        let graph = KnowledgeGraph(nodes: nodes)
+        let now = Date()
+        let events = [Grade.good, .hard, .easy].enumerated().flatMap { index, grade in
+            Propagation.expanded(
+                EvidenceEvent(
+                    at: now.addingTimeInterval(-Double(24 - index * 8) * 86_400),
+                    target: .node("analysis.svc.mvt"), grade: grade, source: .selfReport),
+                in: graph)
+        }
+        _ = try? EvidenceLog(url: url).append(events)
+        return ScoreStore(
+            document: document,
+            environment: ["MATHTREE_EVIDENCE_LOG": url.path],
+            arguments: [])
+    }
 }
 
 #Preview("Content node") {
     NodePanel(
         node: NodePanelPreviewData.mvt,
         document: NodePanelPreviewData.document,
+        scores: NodePanelPreviewData.scores(),
         onSelect: { print("select \($0)") },
         onClose: { print("close") }
     )
@@ -455,10 +489,34 @@ enum NodePanelPreviewData {
     NodePanel(
         node: NodePanelPreviewData.nodes[1],
         document: NodePanelPreviewData.document,
+        scores: NodePanelPreviewData.scores(),
         onSelect: { print("select \($0)") },
         onClose: { print("close") }
     )
     .frame(width: 360, height: 720)
+}
+
+/// The frontier state: unlearned, but its prerequisite (the MVT) has been reported —
+/// grey fill, accent ring, no history, and the affirmative action.
+#Preview("Frontier node") {
+    NodePanel(
+        node: NodePanelPreviewData.nodes[4],
+        document: NodePanelPreviewData.document,
+        scores: NodePanelPreviewData.scores(),
+        onSelect: { print("select \($0)") },
+        onClose: { print("close") }
+    )
+    .frame(width: 360, height: 720)
+}
+
+#Preview("Review sidebar") {
+    ReviewSidebar(
+        document: NodePanelPreviewData.document,
+        scores: NodePanelPreviewData.scores(),
+        onSelect: { print("select \($0)") },
+        onClose: { print("close") }
+    )
+    .frame(width: 268, height: 720)
 }
 
 #Preview("Attributed-string path") {

@@ -134,7 +134,8 @@ enum Probe {
             return """
                 {
                   "app": "MathTree",
-                  "phase": 4,
+                  "phase": 6,
+                  "scores": \(scores(renderer: renderer)),
                   "content": {
                     "nodes": \(document.nodes.count),
                     "containsEdges": \(scene.edges[0].count),
@@ -181,6 +182,88 @@ enum Probe {
                   ]
                 }
                 """
+        }
+
+        /// §4.5 and §5.4, as numbers.
+        ///
+        /// Everything here is a *read-back*, not a recomputation: the packed
+        /// colour words come out of the node buffer the GPU drew from, so two runs
+        /// agreeing means two runs painted the same map — which is the only form
+        /// of "relaunching reproduces identical colours" that can be checked
+        /// without a camera. Compare with `Scripts/check-score-determinism.sh`.
+        @MainActor
+        private static func scores(renderer: GraphRenderer) -> String {
+            guard let store = SceneStore.shared.scores else {
+                return "{ \"available\": false }"
+            }
+            let document = renderer.scene.document
+            let packed = renderer.packedNodeColors()
+
+            func quoted(_ values: [String]) -> String {
+                "[" + values.map { "\"\($0)\"" }.joined(separator: ", ") + "]"
+            }
+
+            // Every node, in document order: the §4.5 colour and the rgba8 word it
+            // packed to. Structural nodes have no score colour and keep their
+            // taxonomy hue (D6.1), which shows up here as a null ramp entry beside
+            // a non-null packed word.
+            let nodes = document.nodes.enumerated().map { index, node -> String in
+                let ramp = node.kind.isContent ? "\"\(store.color(of: node.id).hex)\"" : "null"
+                let recall = store.retrievability(of: node.id)
+                let word = index < packed.count ? String(format: "%08X", packed[index]) : "null"
+                return """
+                        { "id": "\(node.id.rawValue)", "ramp": \(ramp), \
+                    "packed": "\(word)", \
+                    "retrievability": \(recall.map { number($0, 6) } ?? "null"), \
+                    "frontier": \(store.isFrontier(node.id)) }
+                    """
+            }
+
+            let due = store.due.map { entry in
+                """
+                        { "id": "\(entry.id.rawValue)", "due": "\(iso(entry.due))", \
+                    "retrievability": \(number(entry.retrievability, 6)) }
+                    """
+            }
+
+            let relates = document.relatesEdges.map { edge -> String in
+                let recall = store.retrievability(ofEdge: edge.key)
+                return """
+                        { "key": "\(edge.key)", "retrievability": \
+                    \(recall.map { number($0, 6) } ?? "null") }
+                    """
+            }
+
+            let frontierIDs = store.frontierList.map(\.rawValue)
+            return """
+                {
+                    "available": true,
+                    "evidenceLog": "\(store.log.url.path)",
+                    "readOnly": \(store.isReadOnly),
+                    "clockPinned": \(store.isClockPinned),
+                    "evaluatedAt": "\(iso(store.evaluatedAt))",
+                    "events": \(store.events.count),
+                    "learnedNodes": \(store.state.nodes.count),
+                    "frontierCount": \(store.frontier.count),
+                    "frontierRingsDrawn": \(renderer.frontierRingCount),
+                    "dueCount": \(store.due.count),
+                    "diagnostics": \(quoted(store.diagnostics)),
+                    "frontier": \(quoted(frontierIDs)),
+                    "due": [
+                \(due.joined(separator: ",\n"))
+                    ],
+                    "relatesEdges": [
+                \(relates.joined(separator: ",\n"))
+                    ],
+                    "nodes": [
+                \(nodes.joined(separator: ",\n"))
+                    ]
+                  }
+                """
+        }
+
+        static func iso(_ date: Date) -> String {
+            date.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: false, timeZone: .gmt))
         }
 
         /// Input handling cannot be driven headlessly, but its two load-bearing

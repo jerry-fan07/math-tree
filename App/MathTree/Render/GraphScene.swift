@@ -49,6 +49,14 @@ struct GraphScene {
     private(set) var hueByDocumentIndex: [Float] = []
 
     private(set) var edges: [[EdgeInstance]] = Array(repeating: [], count: EdgeClass.allCases.count)
+    /// Document indexes behind each edge instance, parallel to `edges`. Phase 6
+    /// needs them: an edge's colour is its endpoints' scores (§6.1), and the
+    /// instance itself only carries positions.
+    private(set) var edgeEndpoints: [[(from: Int, to: Int)]] = Array(
+        repeating: [], count: EdgeClass.allCases.count)
+    /// Index into `document.relatesEdges` per `relates` instance — how an edge
+    /// finds the FSRS state it carries in its own right (§4.4).
+    private(set) var relatesSourceByInstance: [Int] = []
     private(set) var labelSpecs: [LabelSpec] = []
 
     /// Node instance counts per tier, in tier order — the LOD prefix table.
@@ -138,40 +146,54 @@ struct GraphScene {
         }
     }
 
+    /// An edge before it becomes an instance. `source` is the index into
+    /// `document.relatesEdges`, carried through the sort so a `relates` instance
+    /// can still find the authored edge whose score it shows.
+    private struct EdgePair {
+        var from: Int
+        var to: Int
+        var weightA: Float
+        var weightB: Float
+        var source: Int = -1
+    }
+
     private mutating func buildEdges() {
         // Sorted by the more prominent endpoint so the reveal ramp lights the
         // taxonomy filaments before the leaf detail (§6.4).
-        func append(_ edgeClass: EdgeClass, _ pairs: [(Int, Int, Float, Float)]) {
+        func append(_ edgeClass: EdgeClass, _ pairs: [EdgePair]) {
             let sorted = pairs.sorted {
                 let a = min(
-                    tierByDocumentIndex[$0.0].rawValue, tierByDocumentIndex[$0.1].rawValue)
+                    tierByDocumentIndex[$0.from].rawValue, tierByDocumentIndex[$0.to].rawValue)
                 let b = min(
-                    tierByDocumentIndex[$1.0].rawValue, tierByDocumentIndex[$1.1].rawValue)
+                    tierByDocumentIndex[$1.from].rawValue, tierByDocumentIndex[$1.to].rawValue)
                 if a != b { return a < b }
-                return (document.nodes[$0.0].id, document.nodes[$0.1].id)
-                    < (document.nodes[$1.0].id, document.nodes[$1.1].id)
+                return (document.nodes[$0.from].id, document.nodes[$0.to].id)
+                    < (document.nodes[$1.from].id, document.nodes[$1.to].id)
             }
-            edges[edgeClass.rawValue] = sorted.map { from, to, weightA, weightB in
+            edges[edgeClass.rawValue] = sorted.map { pair in
                 EdgeInstance(
-                    a: worldPositions[from],
-                    b: worldPositions[to],
+                    a: worldPositions[pair.from],
+                    b: worldPositions[pair.to],
                     rgbaA: Palette.edgeColor(
-                        hue: hueByDocumentIndex[from], tier: tierByDocumentIndex[from],
-                        weight: weightA),
+                        hue: hueByDocumentIndex[pair.from], tier: tierByDocumentIndex[pair.from],
+                        weight: pair.weightA),
                     rgbaB: Palette.edgeColor(
-                        hue: hueByDocumentIndex[to], tier: tierByDocumentIndex[to],
-                        weight: weightB))
+                        hue: hueByDocumentIndex[pair.to], tier: tierByDocumentIndex[pair.to],
+                        weight: pair.weightB))
             }
+            edgeEndpoints[edgeClass.rawValue] = sorted.map { (from: $0.from, to: $0.to) }
+            if edgeClass == .relates { relatesSourceByInstance = sorted.map(\.source) }
         }
 
-        var contains: [(Int, Int, Float, Float)] = []
+        var contains: [EdgePair] = []
         for (parent, children) in document.children {
             guard let parentIndex = document.index(of: parent) else { continue }
             for child in children {
                 guard let childIndex = document.index(of: child) else { continue }
                 // Bright at the hub, fading outward: the filament reads as
                 // belonging to the branch, which is what makes galaxies.
-                contains.append((parentIndex, childIndex, 0.95, 0.40))
+                contains.append(
+                    EdgePair(from: parentIndex, to: childIndex, weightA: 0.95, weightB: 0.40))
             }
         }
         append(.contains, contains)
@@ -181,15 +203,15 @@ struct GraphScene {
             document.requiresEdges.compactMap { edge in
                 guard let from = document.index(of: edge.from), let to = document.index(of: edge.to)
                 else { return nil }
-                return (from, to, 0.55, 1.0)
+                return EdgePair(from: from, to: to, weightA: 0.55, weightB: 1.0)
             })
 
         append(
             .relates,
-            document.relatesEdges.compactMap { edge in
+            document.relatesEdges.enumerated().compactMap { source, edge in
                 guard let a = document.index(of: edge.a), let b = document.index(of: edge.b)
                 else { return nil }
-                return (a, b, 0.85, 0.85)
+                return EdgePair(from: a, to: b, weightA: 0.85, weightB: 0.85, source: source)
             })
     }
 

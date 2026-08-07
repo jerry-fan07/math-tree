@@ -60,6 +60,10 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
     private let highlightNodeBuffer: MTLBuffer?
     private let highlightEdgeBuffer: MTLBuffer?
     private static let highlightCapacity = 512
+    /// §4.5's frontier accent rings. Sized for every node at once — the frontier
+    /// can legitimately be most of the map on a fresh user.
+    private let frontierRingBuffer: MTLBuffer?
+    private(set) var frontierRingCount = 0
 
     private let atlas: LabelAtlas
 
@@ -177,6 +181,11 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
         highlightEdgeBuffer = device.makeBuffer(
             length: Self.highlightCapacity * MemoryLayout<EdgeInstance>.stride,
             options: .storageModeShared)
+        frontierRingBuffer = scene.nodeInstances.isEmpty
+            ? nil
+            : device.makeBuffer(
+                length: scene.nodeInstances.count * MemoryLayout<NodeInstance>.stride,
+                options: .storageModeShared)
         self.timings.instanceBufferMs = (CFAbsoluteTimeGetCurrent() - bufferStart) * 1000
 
         atlas = LabelAtlas(device: device, backingScale: backingScale)
@@ -323,6 +332,121 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
         }
     }
 
+    // MARK: - Scores
+
+    /// The last snapshot applied — kept so the probe can print the colours that
+    /// were actually drawn rather than recompute them and hope they agree.
+    private(set) var scoreVisuals: ScoreVisuals?
+
+    /// Repaint the map for one score snapshot (§4.5).
+    ///
+    /// This rewrites colour words inside buffers that already exist; it never
+    /// rebuilds or reallocates one. D3.4's invariant is *zero per-frame uploads*,
+    /// and a review or a decay tick is neither — the same pattern the hover
+    /// highlight has used since Phase 4.
+    func applyScores(_ visuals: ScoreVisuals) {
+        guard visuals.nodeColor.count == scene.document.nodes.count else { return }
+        scoreVisuals = visuals
+        writeNodeColors(visuals)
+        writeEdgeColors(visuals)
+        rebuildFrontierRings(visuals)
+    }
+
+    /// The colour words the GPU is actually holding, by document index. Read back
+    /// from the buffer rather than recomputed: the probe's determinism claim is
+    /// about what was *drawn*, and a recomputation would agree with itself even if
+    /// `applyScores` had never run.
+    func packedNodeColors() -> [UInt32] {
+        guard let nodeBuffer else { return [] }
+        let instances = nodeBuffer.contents()
+            .bindMemory(to: NodeInstance.self, capacity: scene.nodeInstances.count)
+        return (0..<scene.document.nodes.count).map {
+            instances[scene.instanceIndexByDocument[$0]].rgba
+        }
+    }
+
+    private func writeNodeColors(_ visuals: ScoreVisuals) {
+        guard let nodeBuffer else { return }
+        let instances = nodeBuffer.contents()
+            .bindMemory(to: NodeInstance.self, capacity: scene.nodeInstances.count)
+        for (documentIndex, color) in visuals.nodeColor.enumerated() {
+            let tier = scene.tierByDocumentIndex[documentIndex]
+            instances[scene.instanceIndexByDocument[documentIndex]].rgba =
+                color.map { Palette.scoreNodeColor($0, tier: tier) }
+                // Structural: not learnable, so it keeps its taxonomy hue (D6.1).
+                ?? Palette.nodeColor(hue: scene.hueByDocumentIndex[documentIndex], tier: tier)
+        }
+    }
+
+    /// §6.1: "edges inherit blended endpoint colours; `relates` edges show their
+    /// own score". `contains` is left alone — it joins a structural parent that
+    /// has no score, and it is the filament that makes branches read as galaxies.
+    private func writeEdgeColors(_ visuals: ScoreVisuals) {
+        func endpointColor(_ documentIndex: Int, weight: Float) -> UInt32 {
+            guard let color = visuals.nodeColor[documentIndex] else {
+                return Palette.edgeColor(
+                    hue: scene.hueByDocumentIndex[documentIndex],
+                    tier: scene.tierByDocumentIndex[documentIndex], weight: weight)
+            }
+            return Palette.scoreEdgeColor(color, weight: weight)
+        }
+
+        for edgeClass in [GraphScene.EdgeClass.requires, .relates] {
+            guard let buffer = edgeBuffers[edgeClass.rawValue] else { continue }
+            let endpoints = scene.edgeEndpoints[edgeClass.rawValue]
+            let instances = buffer.contents()
+                .bindMemory(to: EdgeInstance.self, capacity: endpoints.count)
+            // Phase 4's directional weights are kept: a `requires` edge stays dim
+            // at the prerequisite and bright at the dependent, so it still reads
+            // as flow rather than as a symmetric link.
+            let weights: (Float, Float) = edgeClass == .requires ? (0.55, 1.0) : (0.85, 0.85)
+
+            for (instance, endpoint) in endpoints.enumerated() {
+                // §4.4: an exercised connection is knowledge over and above its
+                // endpoints, so it overrides the blend with its own score.
+                if edgeClass == .relates, instance < scene.relatesSourceByInstance.count {
+                    let source = scene.relatesSourceByInstance[instance]
+                    if source >= 0, source < visuals.relatesColor.count,
+                        let own = visuals.relatesColor[source]
+                    {
+                        let packed = Palette.scoreEdgeColor(own, weight: 0.85)
+                        instances[instance].rgbaA = packed
+                        instances[instance].rgbaB = packed
+                        continue
+                    }
+                }
+                instances[instance].rgbaA = endpointColor(endpoint.from, weight: weights.0)
+                instances[instance].rgbaB = endpointColor(endpoint.to, weight: weights.1)
+            }
+        }
+    }
+
+    /// §4.5's frontier ring: the fill stays unlearned grey and the accent is added
+    /// around it, because being on the frontier is a fact about the graph around a
+    /// node rather than a score the node carries.
+    private func rebuildFrontierRings(_ visuals: ScoreVisuals) {
+        frontierRingCount = 0
+        guard let frontierRingBuffer else { return }
+        var rings: [NodeInstance] = []
+        rings.reserveCapacity(visuals.isFrontier.count)
+        for (documentIndex, isFrontier) in visuals.isFrontier.enumerated() where isFrontier {
+            let radii = scene.tierByDocumentIndex[documentIndex].radiiPt
+            rings.append(
+                NodeInstance(
+                    pos: scene.worldPositions[documentIndex],
+                    // Keeps the band morph the node itself has, so the ring never
+                    // detaches from the dot it belongs to as the zoom changes.
+                    radii: SIMD2(
+                        Float16(radii.overview * 1.55 + 2.2), Float16(radii.detail * 1.55 + 2.2)),
+                    rgba: Palette.frontierRingColor))
+        }
+        frontierRingCount = min(rings.count, scene.nodeInstances.count)
+        rings.withUnsafeBytes {
+            guard let base = $0.baseAddress else { return }
+            memcpy(frontierRingBuffer.contents(), base, min($0.count, frontierRingBuffer.length))
+        }
+    }
+
     // MARK: - Frame
 
     private var reveal: Float {
@@ -432,6 +556,16 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
             nodePipeline, nodeBuffer,
             scene.nodePrefix(bandT: t, backingScale: backingScale),
             DrawParams.nodes(count: scene.nodeInstances.count, revealBase: 0.02, revealSpan: 0.42, alpha: 1))
+
+        // §4.5's frontier accent, over the node fills and under the hover ring.
+        // Visible at every band, unlike the hover highlight: the frontier is what
+        // the whole product points at, so it must be legible from the overview.
+        // It arrives last in the reveal, after the constellation has filled in.
+        if frontierRingCount > 0 {
+            draw(
+                ringPipeline, frontierRingBuffer, frontierRingCount,
+                DrawParams.nodes(count: 1, revealBase: 0.55, revealSpan: 0, alpha: 1))
+        }
 
         if highlightAlpha > 0.01, highlightNodeCount > 0 {
             draw(
