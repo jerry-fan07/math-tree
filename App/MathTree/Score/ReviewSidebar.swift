@@ -7,8 +7,14 @@ import SwiftUI
 ///
 /// Two lists, because they answer different questions and are computed by
 /// different instruments: **Due** is the scheduler's read-out (`nextDue`), and
-/// **Ready to learn** is the frontier (unlearned, prerequisites above τ). A node
-/// can never be in both — one has FSRS state and the other by definition does not.
+/// **Ready to learn** is the frontier (never successfully retrieved, prerequisites
+/// above τ).
+///
+/// Before Phase 8 a node could not be in both, because "has FSRS state" and "has
+/// been learned" were the same fact. D8.3 separated them, deliberately: a node
+/// that a diagnosis localized a miss onto has state (so the scheduler wants it
+/// back) and has never been retrieved (so it is still what to learn next). Seeing
+/// it in both lists is those two read-outs agreeing, not a double-count.
 struct ReviewSidebar: View {
     let document: GraphDocument
     let scores: ScoreStore
@@ -150,10 +156,14 @@ struct ReviewSidebar: View {
     /// missing.
     @ViewBuilder
     private var diagnostics: some View {
-        if !scores.diagnostics.isEmpty {
-            section("Diagnostics", count: scores.diagnostics.count) {
+        // Placement's own defects (an unreadable or unwritable session file) join
+        // them: reporting into a property nothing displays is the same as
+        // swallowing it.
+        let messages = scores.diagnostics + (placement?.diagnostics ?? [])
+        if !messages.isEmpty {
+            section("Diagnostics", count: messages.count) {
                 VStack(alignment: .leading, spacing: 4) {
-                    ForEach(scores.diagnostics, id: \.self) { message in
+                    ForEach(messages, id: \.self) { message in
                         Text(message)
                             .font(.system(size: 10.5, design: .monospaced))
                             .foregroundStyle(PanelTheme.tertiaryText)
@@ -278,9 +288,18 @@ private struct ReviewRow: View {
 
     /// Frontier rows have no score to show, so they show what they are waiting to
     /// become; scored rows show the number the colour encodes.
+    ///
+    /// Routed through `ScoreFormat.state` rather than reading retrievability
+    /// directly, because a node that was missed and never learned has a
+    /// retrievability — a high one, right after the attempt — that means nothing.
+    /// Printing "100%" beside a grey swatch would be the sidebar contradicting the
+    /// map (D8.3).
     private var trailing: String {
-        guard let retrievability = scores.retrievability(of: id) else { return "new" }
-        return ScoreFormat.percent(retrievability)
+        switch ScoreFormat.state(of: id, in: scores) {
+        case .unlearned, .frontier: "new"
+        case .attempted: "missed"
+        case let .learned(retrievability): ScoreFormat.percent(retrievability)
+        }
     }
 }
 

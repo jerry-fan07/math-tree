@@ -92,9 +92,17 @@ final class PlacementStore {
     /// measurement survives and only the questionnaire's place is lost.
     ///
     /// A miss with no `localizedTo` writes no evidence at all (§5.4) but *is*
-    /// recorded in the session: the user was asked, and asking again would be a
-    /// waste. The belief handles it as a displaced target rather than a
-    /// measurement.
+    /// recorded in the session, and the belief treats the probed node itself as the
+    /// failure — the user was asked, said they could not do it, and named nowhere
+    /// else. That is a measurement of the probed node, so the two disagree by
+    /// construction: the belief knows something the log does not.
+    ///
+    /// The UI cannot currently produce this — `ProblemSheet` opens the diagnosis
+    /// chain on a miss and only calls back once a candidate is chosen — but the
+    /// API can, so it is stated rather than assumed away. Closing that gap means
+    /// writing the `again` on the probed node when nothing is localized, which is
+    /// §5.4's "the failure evidence lands on the localized node" read the other
+    /// way; it waits for a UI that can actually reach the state.
     func record(
         _ outcome: ProblemOutcome, on problem: Problem, node: NodeID, localizedTo: NodeID? = nil
     ) {
