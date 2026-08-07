@@ -275,6 +275,42 @@ Pinned rather than ignored: this package produces executables, and leaving Yams 
 **D2.6 — The CI gate is tested, not assumed.**
 `Scripts/check-broken-content.sh` seeds six distinct violations (dangling requires, cycle, transitive-redundant edge, duplicate id, malformed id, structural node with prerequisites) one at a time into a copy of `content/` and asserts a non-zero exit for each, then confirms clean content still passes. GraphCore's tests cover the *rules*; this covers the *wiring*, which is what silently rots — a swallowed exit code makes CI green on broken content.
 
+### Phase 3
+
+**Hardware for every number below**: Apple M4 (10-core GPU, unified memory), macOS 26.5.1, Swift 6.3.3, `swift build -c release`. Real `MTKView` in a SwiftUI window; drawable **2880×1736 px** (1440×868 pt at backing scale 2), 120 Hz display. Synthetic graph: 10,000 nodes / 30,167 edges (9,985 `contains`, 18,182 `requires` of which 14.6 % cross-branch per §2.4, 2,000 `relates`), prominence 0/1/2 = 7215/2172/478, positioned by the Phase 2 layout. All figures were reproduced on a second independent run before being recorded here.
+
+**D3.1 — Metal wins; SpriteKit was never built.**
+All three numeric criteria pass at 10k/30k with large margins, so the plan's own rule ("build the fallback only if Metal misses criteria or costs explode") says stop. Overview zoom with hub labels on, measured **offscreen with frames strictly serialised** — no pipelining, no compositor, the pessimistic number: **1.69 ms GPU mean, 2.1–2.2 ms GPU p99, 2.94 ms whole-frame p99** against a 16.67 ms budget. Triple-buffered throughput 814 fps at p99; in a real window it sustained a flat 120 fps (the display is the limiter — `currentDrawable` blocked 8.13 ms of every 8.33 ms frame). CPU encode p99 **0.20 ms**: three draw calls, zero per-frame uploads. Mid zoom is the same story (2.8–2.9 ms GPU p99). **Criterion 1: PASS, ~5.7× headroom.**
+Also rejected: `.line` primitives for edges (no width control, no Retina antialiasing — instanced quads cost the same and look right); a quadtree for picking (see D3.3); CPU frustum culling (GPU-clipped off-screen instances beat the bookkeeping at every scale tested, including 100k).
+
+**D3.2 — First paint ~0.21 s; the cost that scales is JSON decode, not the GPU.**
+Measured from the kernel's process start (`sysctl` `kinfo_proc`) to the first *completed* drawable: **median ≈ 212 ms over five launches (range 204–221)**. Breakdown at 10k: AppKit/dyld/SwiftUI bring-up 164–182 ms, `graph.json` decode 28 ms (3.7 MB), instance-buffer build 2.7 ms, label atlas 5.0 ms raster + 1.1 ms upload, id→index resolve 1.6 ms, shader compile 0.5 ms, GPU buffers 0.07 ms. **Criterion 3: PASS, ~4.5× margin.** Three things Phase 4 should carry:
+- **Metal caches the runtime-compiled shader on its source text.** A genuine cold compile costs **66 ms** (first paint 271 ms) — still passing, which confirms D0.3 was a safe call. Only a user's first-ever launch pays it.
+- **First paint tracks decode and nothing else meaningfully**: 28 / 95 / 339 ms of decode at 10k / 30k / 100k nodes → 204 / 294 / 729 ms total. Still inside 1 s at 100k, but decode is then 47 % of it. If content nears 30k nodes, replace `graph.json` with a binary or mmap-able artifact. This is the number Phase 9's "re-measure each time the graph doubles" gate should watch.
+- The **first launch of a freshly linked binary** costs 1.9–4.3 s (code-signature validation and page-in), against ~46 ms of our own work. State the criterion as steady-state launch and keep `bundle-app.sh`'s ad-hoc signing.
+
+**D3.3 — Hit testing is a non-issue: 125 ns worst case against a 1 ms budget.**
+CPU uniform grid in CSR form (counting sort), cell size = the layout's ideal edge length; build 0.16 ms for 10k nodes. Over 32,768 randomised picks: **47 ns mean / 61 ns p99** at overview zoom, 54 ns in the densest cluster, **worst single call 125 ns** (375 ns at 100k). **Criterion 2: PASS, ~8,000× margin.** A quadtree would be over-engineering; the grid stays.
+
+**D3.4 — Frame architecture Phase 4 inherits: three static buffers, one uniform, three draw calls, zero per-frame uploads.**
+- Nodes: instanced quad (`triangleStrip`, 4 verts × N instances), circle from an SDF in the fragment shader, premultiplied blend. `NodeInstance` = 16 B (`float2 pos; float radiusPx; uint rgba8`).
+- Edges: instanced quad expanded perpendicular in screen space in the vertex shader, endpoint colours interpolated, alpha falloff across the width. `EdgeInstance` = 24 B. Guard `normalize()` against zero-length edges.
+- Labels: `LabelInstance` = 48 B sampling an R8 `texture2d_array` atlas.
+- Pan/zoom is **one 40-byte uniform** (`setVertexBytes`), never a buffer rebuild. Radii are in points, multiplied by the backing scale once.
+- **LOD is an instance-count prefix, not a rebuild.** Sort instances by tier once at load (branch → subbranch → prominence 2 → 1 → 0); a zoom level is then `drawPrimitives(instanceCount: prefix)`. This is why CPU encode stays flat at 0.13 ms while the scene changes.
+
+**D3.5 — Label cost is real but small, and the binding constraint is atlas *memory*, not draw time.**
+Marginal cost is **0.19–0.31 µs per visible label**, roughly flat in graph size (it scales with label count × label area, not node count). §6.1's designed overview LOD — branch + subbranch hubs + prominence-2, i.e. 613 labels at 10k — costs **+0.14 ms per frame, under 1 % of the budget.** The label risk Phase 3 flagged did not materialise. What bites is the atlas: 613 labels = 2 pages = 8 MB / 5 ms to rasterise, but 10,000 labels = 22 pages = **88 MB** / 69 ms and 30,000 = **276 MB**. So: rasterise the overview tier eagerly at load (it is on the first-paint path and costs 5 ms), build higher tiers lazily per zoom band, release pages on zoom-out. Core Text into a grayscale `CGContext`, shelf-packed, uploaded once — no text engine, no per-frame glyph work.
+
+**D3.6 — Edges are the only thing that scales badly; the cliff is ~170–340k edges.**
+By ablation at overview zoom (serialised offscreen): edges are **~92 % of the frame** at both 10k and 100k, scale linearly at **≈46–49 ns/edge**, and are nearly insensitive to width (an 8× width range moves the total 1.27×) — so the cost is per-primitive screen extent (tile binning for long thin diagonals), not fill rate, not draw calls. Nodes cost 0.51 ms at 10k and only 0.84 ms at 100k. Extrapolated, the serialised budget is reached near **340k edges**, with a 2× safety margin at **170k**. §7's own estimate (5,000–15,000 nodes ⇒ ~15–45k edges) sits comfortably inside, so no edge LOD is needed for the planned corpus. Scale points measured: 10k/30k → 2.94 ms p99, 814 fps; 30k/90k → 6.05 ms p99, 300 fps; 100k/302k → 19.77 ms p99, 69 fps (**fails 60 fps**). When it grows, cull **edges**, not nodes — and note that at 100k the overview is a saturated white blob, so **legibility fails before frame rate does**; the answer there is content-driven LOD (draw `contains` plus high-prominence `requires` only at overview), not a rendering trick.
+
+**D3.7 — Two measurement traps, recorded so Phase 4 doesn't re-learn them.**
+- **`CAMetalLayer.displaySyncEnabled = false` does not uncap an on-screen `MTKView`.** The property reads back `false`, yet `currentDrawable` still blocks ~8.13 ms at 120 Hz. Worse, on-screen `gpuEndTime − gpuStartTime` is inflated ~3× by drawable scheduling (5.1 ms on screen vs 1.55 ms offscreen for an identical frame). **Profile offscreen**; treat the on-screen run only as "does it hold the display's cadence".
+- **Never put `--flag value` pairs on an AppKit command line.** AppKit parses leftover `-key value` tokens into `NSUserDefaults`, and `--first-paint --graph x.json` made SwiftUI never call `makeNSView` — the window silently never existed and the process hung. A single *trailing* boolean flag survives, which is why D0.4's `--smoke-test` works. Anything richer must use environment variables or `--key=value`.
+
+**Deliverable**: a throwaway SwiftPM spike (synthetic generator, Metal renderer, Core Text atlas, spatial hash, self-measuring harness), deliberately **not** retained in the repo — Phase 3's product is this decision, and Phase 4 writes the real `GraphView` from D3.4/D3.5 rather than growing the spike.
+
 ---
 
 ## Risks (top three, with mitigations already embedded above)
