@@ -28,7 +28,13 @@ let package = Package(
             dependencies: ["GraphCore"],
             path: "App/MathTree"
         ),
-        .testTarget(name: "GraphCoreTests", dependencies: ["GraphCore"]),
+        .testTarget(
+            name: "GraphCoreTests",
+            dependencies: ["GraphCore"],
+            // FSRS vectors generated from the reference implementation before the
+            // Swift port was written — see the Phase 5 decision log.
+            resources: [.copy("Fixtures")]
+        ),
         .testTarget(
             name: "ContentBuildTests",
             dependencies: ["ContentBuild", "GraphCore"]
