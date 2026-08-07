@@ -267,6 +267,10 @@ Four things, each of which independently breaks the Phase 2 exit criterion if dr
 
 **D2.5 — Layout tuning.**
 Fruchterman–Reingold, Barnes–Hut repulsion (θ = 0.9), fixed 600 iterations (a convergence tolerance would make output depend on floating-point noise). Springs are weighted `contains` 2.0 > `requires` 1.0 > `relates` 0.4, and each node is pulled toward its root branch's centroid. Measured on a synthetic 10k-node / 30k-edge taxonomy-shaped graph: inter/intra-cluster distance ratio 2.9 with cluster gravity off, 5.9 at the default 0.05, 7.9 at 0.12. 0.05 is the default because higher values collapse branches into unreadable blobs. Layout of 10k nodes takes ~5 s — offline, so it doesn't touch §6.4's first-paint budget.
+*Known limitation, deferred to Phase 9*: initial positions come from an index-order spiral, so inserting one node reshuffles every position downstream of it. That is fine while content is a fixed seed set, but it fights §6.4's "spatial memory becomes navigation" once M2 authoring starts adding nodes incrementally — the fix is to seed positions from a hash of the node id rather than its index, and it should land before the map is something a user has memorized.
+
+**D2.7 — `Package.resolved` is tracked.**
+Pinned rather than ignored: this package produces executables, and leaving Yams to re-resolve on each CI run would let the build drift to a newer 5.x than the one it was tested against, which cuts against ground rule 5.
 
 **D2.6 — The CI gate is tested, not assumed.**
 `Scripts/check-broken-content.sh` seeds six distinct violations (dangling requires, cycle, transitive-redundant edge, duplicate id, malformed id, structural node with prerequisites) one at a time into a copy of `content/` and asserts a non-zero exit for each, then confirms clean content still passes. GraphCore's tests cover the *rules*; this covers the *wiring*, which is what silently rots — a swallowed exit code makes CI green on broken content.
