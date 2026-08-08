@@ -46,9 +46,15 @@ struct FixtureUserTests {
     /// "hand-computed" means something a reader can check, rather than a list of
     /// ids that happens to match whatever the code did.
     @Test func theFixtureUserIsWhereTheStorySaysTheyAre() throws {
-        // Ten nodes were reviewed; nothing else acquired state, because every
-        // `requires`-ancestor of a reviewed node was itself reviewed.
-        #expect(state.nodes.count == 10)
+        // Ten nodes were reviewed directly. Before Phase 9 that was the whole of
+        // the state, because every `requires`-ancestor of a reviewed node had been
+        // reviewed too. Wiring foundations underneath analysis put nine more
+        // ancestors inside §4.3's `D_max = 3` window, so they now carry damped
+        // implicit state — which is propagation working, not the fixture drifting.
+        #expect(state.nodes.count == 10 + 9)
+        for id in FixtureUser.explicit.compactMap(\.target.nodeID) {
+            #expect(state[id] != nil, "\(id) was reviewed and has no state")
+        }
 
         // Differentiation is solid.
         #expect(try #require(retrievability("analysis.svc.def-derivative")) > 0.99)
@@ -94,15 +100,37 @@ struct FixtureUserTests {
     /// | `svc.ftc-part-2` | `ftc-part-1`, `zero-deriv-const` unlearned | out |
     /// | `svc.u-sub` | `ftc-part-2` unlearned | out |
     /// | `mvc.leibniz-rule` | `def-partial-derivative`, `def-riemann-integral` unlearned | out |
+    ///
+    /// The table walks Appendix A's cone, which is what a reader can check, so that
+    /// slice is pinned literally. The whole frontier is pinned differently: as
+    /// §4.5's *definition*, recomputed here from the spec rather than taken from
+    /// `Frontier`'s internals. A literal list of every id would have to be rewritten
+    /// every time a subbranch lands, and would stop being read the second time.
     @Test func frontierMatchesHandComputedTruth() {
-        let frontier = Frontier.compute(graph: graph, state: state, at: now, config: config)
+        let frontier = Set(Frontier.compute(graph: graph, state: state, at: now, config: config))
+
         #expect(
-            frontier == [
+            frontier.filter { $0.rawValue.hasPrefix("analysis.") }.sorted() == [
                 "analysis.mvc.def-partial-derivative",
                 "analysis.svc.def-antiderivative",
                 "analysis.svc.intuition-linearization",
                 "analysis.svc.ivt",
             ])
+
+        // §4.5: unlearned, with every direct prerequisite at or above τ. Vacuously
+        // true for a root, which is why the foundations roots the fixture user has
+        // never touched belong here — they are exactly "what you could learn next".
+        let expected = Set(
+            graph.nodes
+                .filter { $0.kind.isContent && !state.isLearned($0.id) }
+                .filter { node in
+                    graph.prerequisites(of: node.id).allSatisfy { prerequisite in
+                        state.isLearned(prerequisite)
+                            && (retrievability(prerequisite) ?? 0) >= config.masteryThreshold
+                    }
+                }
+                .map(\.id))
+        #expect(frontier == expected, "extra: \(frontier.subtracting(expected).sorted())")
     }
 
     /// The two exclusions that are *not* "a prerequisite is unlearned" — the ones
@@ -135,7 +163,19 @@ struct FixtureUserTests {
     /// The sidebar's list is FSRS's own schedule, not the τ threshold.
     @Test func theDueListIsTheSchedulerReadOut() {
         let due = ReviewQueue.due(graph: graph, state: state, at: now, config: config)
-        #expect(due.map(\.id) == ["analysis.svc.def-riemann-sum", "analysis.svc.mvt"])
+        // Appendix A's two: the Riemann sum that went cold in March and the MVT.
+        #expect(
+            due.map(\.id).filter { $0.rawValue.hasPrefix("analysis.") }
+                == ["analysis.svc.def-riemann-sum", "analysis.svc.mvt"])
+        // Everything else owed is a foundations node that acquired state only by
+        // propagation. A damped implicit review on a node with no history grants a
+        // *fraction* of a first review's stability, so it comes due almost at once
+        // — §4.3 working as written, and the reason a deep prerequisite chain fills
+        // the queue the moment anything above it is reviewed.
+        for review in due where !review.id.rawValue.hasPrefix("analysis.") {
+            #expect(review.id.rawValue.hasPrefix("foundations."))
+            #expect(!FixtureUser.explicit.compactMap(\.target.nodeID).contains(review.id))
+        }
         #expect(due.allSatisfy { $0.due <= now })
 
         let upcoming = ReviewQueue.upcoming(graph: graph, state: state, at: now, config: config)

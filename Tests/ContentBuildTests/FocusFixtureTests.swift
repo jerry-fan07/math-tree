@@ -19,6 +19,23 @@ private let repoRoot = URL(fileURLWithPath: #filePath)
 /// list below is hand-derived from the `requires` edges in `content/` and the
 /// retrievabilities `FixtureUserTests` already pins (MVT 0.838, Riemann sums
 /// 0.484, differentiation ≥ 0.95).
+/// Phase 9 wired logic, set theory and functions underneath analysis, so the FTC's
+/// ancestry no longer starts at `sup-inf`. These nine are the unmet foundations the
+/// fixture user has never touched, in `FocusPlan`'s longest-path layer order, and
+/// they open every syllabus below. Named once rather than repeated three times so
+/// that a change to the foundations moves one list and is read once.
+private let foundationsPrefix: [NodeID] = [
+    "foundations.logic.def-proposition",
+    "foundations.sets.def-set-membership",
+    "foundations.logic.def-conditional",
+    "foundations.logic.def-conjunction",
+    "foundations.logic.def-predicate",
+    "foundations.logic.quantifier-universal",
+    "foundations.sets.set-builder",
+    "foundations.logic.vacuous-truth",
+    "foundations.sets.def-subset",
+]
+
 @Suite("Focus plan on fixture users")
 struct FocusFixtureTests {
     let graph: KnowledgeGraph
@@ -74,7 +91,8 @@ struct FocusFixtureTests {
         // completeness/def-limit/def-riemann-sum hang directly off it; and so on
         // up the two chains (differentiation, integration) that meet at the FTC.
         #expect(
-            plan.syllabus == [
+            plan.syllabus == foundationsPrefix + [
+                "foundations.sets.empty-set",
                 "foundations.real.sup-inf",
                 "analysis.svc.def-limit",
                 "analysis.svc.def-riemann-sum",
@@ -107,7 +125,7 @@ struct FocusFixtureTests {
         assertCriterion(plan, state: state)
 
         #expect(
-            plan.syllabus == [
+            plan.syllabus == foundationsPrefix + [
                 "analysis.svc.def-riemann-sum",  // decayed to 0.484 in March
                 "analysis.svc.def-riemann-integral",  // never learned…
                 "analysis.svc.cont-integrable",
@@ -127,7 +145,7 @@ struct FocusFixtureTests {
             ])
         // …and the four met nodes behind it (def-limit, diff-implies-cont, evt,
         // completeness) are elided but counted.
-        #expect(plan.elidedMetCount == 4)
+        #expect(plan.elidedMetCount == 5)
         #expect(plan.goalIsMet == false)
     }
 
@@ -139,7 +157,12 @@ struct FocusFixtureTests {
         let plan = try plan(over: state)
         assertCriterion(plan, state: state)
 
-        #expect(plan.syllabus == ["analysis.svc.def-riemann-sum"])
+        // Propagation lifts the integration chain and the MVT past τ, but γᵈ stops
+        // at D_max = 3 — so Riemann sums (four hops down) and the whole foundations
+        // prefix (five and more) stay unmet. Before Phase 9 this list was one node;
+        // that it is now ten is the depth of the graph showing through, not a
+        // regression in propagation.
+        #expect(plan.syllabus == foundationsPrefix + ["analysis.svc.def-riemann-sum"])
         #expect(plan.goalIsMet, "the goal itself was the reported node")
         #expect(
             plan.metBoundary == [
@@ -147,7 +170,7 @@ struct FocusFixtureTests {
                 "analysis.svc.zero-deriv-const",
                 "foundations.real.sup-inf",  // under the one unmet node
             ])
-        #expect(plan.elidedMetCount == 11)
+        #expect(plan.elidedMetCount == 12)
     }
 
     /// The mini-graph invariants hold on real content in every state: edges point

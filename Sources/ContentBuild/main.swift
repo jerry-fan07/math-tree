@@ -13,6 +13,9 @@ commands:
   validate    parse content/**.yaml and problems/**.yaml, run the GraphCore
               validators, report diagnostics with file/line context; non-zero
               exit on failure
+  lint        validate, then report §7.1 authoring hints — heuristics about the
+              things a validator cannot decide (atomicity above all). Advisory:
+              exits 0 unless --strict
   build       validate, then compile to graph.json + problems.json
   layout      validate, then compute deterministic coordinates to layout.json
 
@@ -22,6 +25,11 @@ options:
   --out <dir>        artifact directory (default: ./build/content)
   --seed <n>         layout PRNG seed (default: \(LayoutParameters().seed))
   --iterations <n>   layout iterations (default: \(LayoutParameters().iterations))
+  --baseline <file>  a previously built graph.json; validate/lint then report what
+                     this content did to the *graph*, and scope lint to the nodes
+                     the change touched
+  --diff-limit <n>   ids to list per diff section (default: 40)
+  --strict           lint: exit non-zero on any hint
   --quiet            only report failures
 """
 
@@ -33,6 +41,9 @@ struct Options {
     var seed = LayoutParameters().seed
     var iterations = LayoutParameters().iterations
     var quiet = false
+    var baseline: URL?
+    var diffLimit = 40
+    var strict = false
 }
 
 func parseOptions() -> Options {
@@ -67,6 +78,13 @@ func parseOptions() -> Options {
                 fail("--iterations must be a positive integer")
             }
             options.iterations = iterations
+        case "--baseline": options.baseline = URL(fileURLWithPath: value(flag))
+        case "--diff-limit":
+            guard let limit = Int(value(flag)), limit > 0 else {
+                fail("--diff-limit must be a positive integer")
+            }
+            options.diffLimit = limit
+        case "--strict": options.strict = true
         case "--quiet": options.quiet = true
         case "-h", "--help":
             print(usage)
@@ -162,17 +180,79 @@ func loadValidated(_ options: Options) -> (KnowledgeGraph, LoadedContent, Proble
 let options = parseOptions()
 
 switch options.command {
-case "validate":
-    let (graph, _, bank, _) = loadValidated(options)
-    let content = graph.nodes.filter { $0.kind.isContent }
+case "validate", "lint":
+    let (graph, content, bank, _) = loadValidated(options)
+    let contentNodes = graph.nodes.filter { $0.kind.isContent }
+    let subbranches = graph.nodes.filter { $0.kind == .subbranch }
+    let authored = subbranches.filter { subbranch in
+        graph.containedChildren(of: subbranch.id).contains { graph[$0]?.kind.isContent == true }
+    }
     note(
         "ok: \(graph.nodes.count) nodes, "
             + "\(graph.nodes.reduce(0) { $0 + $1.requires.count }) requires edges, "
             + "\(graph.relatesEdges.count) relates edges, "
+            + "\(authored.count)/\(subbranches.count) subbranches authored, "
             + "\(bank.count) problems covering "
-            + "\(content.filter { !bank.problems(targeting: $0.id).isEmpty }.count)"
-            + "/\(content.count) content nodes",
+            + "\(contentNodes.filter { !bank.problems(targeting: $0.id).isEmpty }.count)"
+            + "/\(contentNodes.count) content nodes",
         quiet: options.quiet)
+
+    // The diff read-out, when a baseline was named. Printed for `validate` too:
+    // "what did this do to the graph" is a review question, not a lint question.
+    var touched: Set<NodeID>?
+    if let baselineURL = options.baseline {
+        do {
+            let baseline = try GraphDiff.load(baselineURL)
+            let diff = GraphDiff.compare(baseline: baseline, with: graph)
+            touched = diff.touched
+            print("")
+            print("against \(baselineURL.path):")
+            print(GraphDiff.report(diff, graph: graph, limit: options.diffLimit))
+        } catch {
+            fail("cannot read baseline \(baselineURL.path): \(error)")
+        }
+    }
+
+    if options.command == "lint" {
+        var hints = ContentLint.hints(for: graph)
+        if let touched {
+            // Scoped to the change, so a review of one subbranch is not buried
+            // under the corpus's standing hints. Branch- and subbranch-level hints
+            // survive the filter when the change is inside them.
+            let before = hints.count
+            hints = hints.filter { hint in
+                guard let subject = hint.subject else { return true }
+                return touched.contains(subject)
+                    || touched.contains { $0.rawValue.hasPrefix(subject.rawValue + ".") }
+                    || hint.nodes.contains(where: touched.contains)
+            }
+            print("")
+            print(
+                "\(hints.count) hint(s) on what this change touched "
+                    + "(\(before - hints.count) elsewhere in the corpus, not shown)")
+        }
+
+        print("")
+        for hint in hints {
+            let where_ = hint.subject.flatMap { content.locations[$0] }?.display ?? "content"
+            print("\(where_): \(hint.description)")
+            if !hint.nodes.isEmpty {
+                print("    nodes: \(hint.nodes.map(\.rawValue).joined(separator: ", "))")
+            }
+        }
+        var byRule: [String: Int] = [:]
+        for hint in hints { byRule[hint.rule.rawValue, default: 0] += 1 }
+        print(
+            hints.isEmpty
+                ? "lint: no hints"
+                : "lint: \(hints.count) hint(s) — "
+                    + byRule.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }
+                        .joined(separator: ", "))
+        print(
+            "hints are advisory (§7.1: atomicity \"can't be fully automated\") — "
+                + "a reviewer decides")
+        if options.strict, !hints.isEmpty { exit(1) }
+    }
 
 case "build":
     let (graph, _, bank, _) = loadValidated(options)

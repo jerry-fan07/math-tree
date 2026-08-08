@@ -27,18 +27,37 @@ private func withTemporaryContent(
     try body(root)
 }
 
-@Suite("Seed content")
+@Suite("Authored content")
 struct SeedContentTests {
-    /// design.md Appendix A is both the viewer's seed content and this
-    /// pipeline's integration fixture (implementation-plan Phase 2).
-    @Test func seedContentLoadsAndValidatesClean() throws {
+    /// Phase 9's exit criterion, first clause: the full corpus validates clean.
+    ///
+    /// The node count is *not* pinned. It was, at 27, when the corpus was design.md
+    /// Appendix A and a change to it was necessarily a change to Appendix A; now
+    /// the corpus grows every time a subbranch is authored, and a pinned total
+    /// would be a number someone edits without reading. What is pinned instead is
+    /// the shape that must not drift: every node validates, every node has a source
+    /// location, and Appendix A's own subgraph is untouched (below).
+    @Test func theCorpusLoadsAndValidatesClean() throws {
         let content = try ContentLoader.load(
             root: repoRoot.appendingPathComponent("content"), relativeTo: repoRoot)
-        #expect(content.nodes.count == 27)
+        #expect(content.nodes.count > 27, "the corpus only ever grows")
         #expect(content.extraLocations.isEmpty)
 
         let diagnostics = GraphValidator.validate(KnowledgeGraph(nodes: content.nodes))
-        #expect(diagnostics.isEmpty, "seed content must validate clean: \(diagnostics)")
+        #expect(diagnostics.isEmpty, "content must validate clean: \(diagnostics)")
+    }
+
+    /// The outline is a hand-authored artifact (§7.1 step 1) and every subbranch in
+    /// it is a namespace other files may point into, so it does not drift casually.
+    @Test func theCanonicalOutlineIsIntact() throws {
+        let content = try ContentLoader.load(
+            root: repoRoot.appendingPathComponent("content"), relativeTo: repoRoot)
+        let graph = KnowledgeGraph(nodes: content.nodes)
+        #expect(graph.nodes.filter { $0.kind == .branch }.count == 12)
+        #expect(graph.nodes.filter { $0.kind == .subbranch }.count == 82)
+        for branch in graph.branches {
+            #expect(!graph.containedChildren(of: branch).isEmpty, "\(branch) has no subbranch")
+        }
     }
 
     @Test func everySeedNodeHasASourceLocation() throws {
@@ -53,12 +72,27 @@ struct SeedContentTests {
         }
     }
 
+    /// Appendix A is the spec's own worked example and the reference every later
+    /// file was written against, so its *internal* edges are pinned even though the
+    /// corpus total is not. Counting only the edges whose both ends lie in
+    /// `analysis.svc` is what makes this survive scale-up: later branches may point
+    /// *into* Appendix A freely, and that is integration, not drift.
     @Test func appendixAEdgeCountsAreIntact() throws {
         let content = try ContentLoader.load(
             root: repoRoot.appendingPathComponent("content"), relativeTo: repoRoot)
         let graph = KnowledgeGraph(nodes: content.nodes)
-        #expect(graph.nodes.reduce(0) { $0 + $1.requires.count } == 30)
-        #expect(graph.relatesEdges.count == 1)
+
+        let svc = graph.nodes.filter { $0.id.rawValue.hasPrefix("analysis.svc.") }
+        #expect(svc.count == 18)
+        #expect(
+            svc.reduce(0) { total, node in
+                total + node.requires.filter { $0.rawValue.hasPrefix("analysis.svc.") }.count
+            } == 21)
+        #expect(
+            graph.relatesEdges.contains {
+                $0.key == "analysis.mvc.leibniz-rule ~ analysis.svc.ftc-part-2"
+            })
+
         // Appendix A's landmark: FTC II requires FTC I and the zero-derivative
         // corollary, and *not* def-limit, which is an ancestor by every path.
         let ftc2: NodeID = "analysis.svc.ftc-part-2"

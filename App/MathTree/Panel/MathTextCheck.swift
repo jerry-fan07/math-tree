@@ -61,9 +61,14 @@ extension MathText {
             if !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, rendered.isEmpty {
                 report("empty rendering from non-empty source")
             }
-            if (text.contains("{") || text.contains("}")), !source.contains("\\{"),
-                !source.contains("\\}")
-            {
+            // "Grouping braces reached the output" has to mean braces the *renderer*
+            // produced, not braces the author typed as prose. A title like
+            // "ℚ as a quotient of ℤ × (ℤ ∖ {0})" is plain text with set-builder
+            // braces in it, and outside a math span a brace is a character like any
+            // other. So the rule counts: more braces out than the source typed
+            // outside `$…$` means the renderer leaked one.
+            let literal = source.contains("\\{") || source.contains("\\}")
+            if !literal, braceCount(in: text) > textModeBraceCount(in: source) {
                 report("stray brace — grouping braces reached the output")
             }
             if rendered.runs.contains(where: { $0.sizeMultiplier <= 0 }) {
@@ -95,6 +100,31 @@ extension MathText {
                 lines.append(contentsOf: found.map { "  " + $0.description })
             }
             return lines.joined(separator: "\n")
+        }
+
+        private static func braceCount(in text: String) -> Int {
+            text.reduce(0) { $0 + (($1 == "{" || $1 == "}") ? 1 : 0) }
+        }
+
+        /// Braces the author typed outside any `$…$` span, where the renderer has no
+        /// grouping semantics and a brace is just a character.
+        private static func textModeBraceCount(in source: String) -> Int {
+            var count = 0
+            var inMath = false
+            var escaped = false
+            for character in source {
+                if escaped {
+                    escaped = false
+                    continue
+                }
+                switch character {
+                case "\\": escaped = true
+                case "$": inMath.toggle()
+                case "{", "}": if !inMath { count += 1 }
+                default: break
+                }
+            }
+            return count
         }
 
         private static func unescapedDollarCount(in source: String) -> Int {

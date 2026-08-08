@@ -10,8 +10,14 @@ tests, the score snapshots, and the determinism check.
 | `fixture-user-reviewed.jsonl` | the same history plus one self-report on `analysis.svc.ftc-part-2` |
 
 The pair exists so propagation can be *seen*: the second log differs from the
-first by one explicit review and the nine implicit reviews it induced (§4.3), so
+first by one explicit review and the implicit reviews it induced (§4.3), so
 diffing two renders of them shows exactly what one report changes.
+
+Both files grew in Phase 9 without a single explicit review changing. Wiring
+logic, set theory, relations and functions underneath analysis put more ancestors
+inside §4.3's `D_max = 3` window, so the same eleven reviews now induce more
+implicit events. That is the expansion working, and it is why the logs are
+generated rather than hand-typed.
 
 ## These are generated, not hand-edited
 

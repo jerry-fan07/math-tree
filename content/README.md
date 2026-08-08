@@ -23,6 +23,13 @@ content/
   filename can never collide with a subbranch file. The alternative — declaring
   the branch node inside its "first" subbranch file — was rejected because it
   gives one arbitrary subbranch file a special shape.
+- **Every subbranch in the canonical outline has a file, authored or not.** A file
+  holding only its `subbranch` node is an outlined-but-unauthored subbranch, and
+  that is a deliberate state: §7.1's step 1 fixes the whole skeleton by hand
+  before any content is drafted, so the map shows the shape of the curriculum from
+  the first day and the remaining work is visible on it rather than tracked
+  somewhere else. `ContentBuild validate` reports the count
+  (`N/M subbranches authored`) and `ContentBuild lint` names them individually.
 - **Every file has the same top-level shape: a single `nodes:` list.** No file
   is special-cased by the parser; a build is the concatenation of the `nodes`
   lists of all `content/**/*.yaml`. Directory and file names are organizational
@@ -80,7 +87,26 @@ reviewer owns:
 
 ## Current contents
 
-Seed content: design.md Appendix A, encoded whole (27 nodes — 2 branches,
-3 subbranches, 22 content nodes). `analysis/mvc.yaml` exists only to give the
-Appendix A `relates` edge a real cross-file endpoint and is intentionally
-two nodes deep, not a multivariable curriculum.
+The **canonical outline** (§7.1 step 1) is complete: 12 branches and 82
+subbranches covering every bullet of design.md §1. It is the skeleton, authored by
+hand in one pass, and it does not change casually — ids are permanent and a
+subbranch is a namespace.
+
+**Authored so far: 15 of the 82 subbranches.**
+
+| branch | authored | outlined |
+|---|---|---|
+| `foundations` | logic, sets, proof, relations, functions, induction, cardinality, number-systems, real | — |
+| `analysis` | svc, mvc, sequences | vector-calculus, metric-spaces, function-sequences, measure, complex, fourier |
+| `algebra` | groups | group-actions, rings, polynomials, modules, fields, galois |
+| `linear-algebra` | systems | matrices, vector-spaces, linear-maps, determinants, eigen, inner-product, canonical-forms |
+| `number-theory` | divisibility | congruences, multiplicative, quadratic-residues, diophantine, analytic |
+| `topology`, `combinatorics`, `probability`, `statistics`, `differential-equations`, `numerical-analysis`, `differential-geometry` | — | all |
+
+`analysis/svc.yaml` is design.md Appendix A encoded whole and is the reference
+file: match its tone, depth and shape. `analysis/mvc.yaml` is still two nodes
+deep — it exists to give the Appendix A `relates` edge a real cross-file
+endpoint, not to be a multivariable curriculum.
+
+Run `ContentBuild validate` for the live counts and `ContentBuild lint` for the
+list of subbranches still empty.

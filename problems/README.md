@@ -115,18 +115,37 @@ and rubric — are the validator's job, run in CI and exercised by
 
 ## Coverage
 
-Every content node in the corpus is targeted by at least one problem, asserted by
-`ProblemBankFixtureTests.everyContentNodeHasAProblem`. That is not decoration:
-§5.3's placement can only *resolve* a node it can ask about, and an unprobeable
-node is settled by inference or not at all.
+Coverage is declared per **subbranch**, not per corpus. A subbranch is
+*placement-ready* when every content node under it is targeted by at least one
+problem; `PlacementFixtureTests` holds the manifest of ready subbranches and
+asserts it in both directions — a declared subbranch that is not fully covered
+fails, and a fully covered subbranch that is not declared fails too, so the
+manifest cannot silently drift from the bank.
 
-Landmark and high-traffic nodes carry two, so a session that spends a problem on
-one node can still probe it again later.
+Phase 8 asserted this over the whole corpus, when the corpus was 22 nodes and the
+bank covered all of them. Phase 9 multiplied the content and did not multiply the
+bank, so the corpus-wide form would have had exactly two outcomes: block the
+content, or be deleted. Per-subbranch is the same claim scoped to where it is
+true, and it is the claim §5.3 actually needs — placement can only *resolve* a
+node it can ask about, so what matters is that a subbranch the user is being
+placed within is askable end to end. Everything outside the manifest is settled by
+inference or reported unresolved, which the belief already does deliberately, and
+reviewed by self-report, which §5.4 keeps for exactly this case.
+
+`ContentBuild validate` prints the corpus-wide number (`N/M content nodes`) on
+every run, so the gap is a number that is always in front of you rather than a
+test that had to be weakened.
+
+Landmark and high-traffic nodes carry two problems, so a session that spends a
+problem on one node can still probe it again later.
 
 ## Current contents
 
-32 problems over the 22 content nodes of the seed corpus (design.md Appendix A —
-which *is* the single-variable-calculus content; the M2 authoring track never ran
-separately, see the Phase 8 decision log). `mvc-leibniz-01` is the bank's one
-`connects` problem, and the only thing in the system that can score a `relates`
-edge.
+32 problems over the 22 content nodes of design.md Appendix A — which *is* the
+single-variable-calculus content; the M2 authoring track never ran separately, see
+the Phase 8 decision log. `mvc-leibniz-01` is the bank's one `connects` problem,
+and the only thing in the system that can score a `relates` edge.
+
+Placement-ready: `foundations.real`, `analysis.svc`, `analysis.mvc`. Every other
+subbranch in the outline is content-only for now; the bank is the long pole of
+Phase 9's remaining work and the manifest is where it is tracked.

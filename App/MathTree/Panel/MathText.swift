@@ -152,6 +152,15 @@ extension MathText {
             return last.isLetter || last.isNumber || ")]}".contains(last)
         }
 
+        /// Whether the last thing emitted was an opening delimiter. TeX's spacing
+        /// table gives Open–Rel a width of zero, which is why `(\le x)` sets as
+        /// `(≤x)` and not `( ≤ x)`. Same `|` exclusion as `endsWithOperand`, and for
+        /// the same reason.
+        var endsWithOpenDelimiter: Bool {
+            guard !isCurrentGroupEmpty, let last = lastCharacter else { return false }
+            return "([{⟨⌈⌊".contains(last)
+        }
+
         func append(_ text: String, style: Style, isMath: Bool) {
             guard !text.isEmpty else { return }
             // `\text{if } x` and similar leave a doubled space; one is enough.
@@ -444,7 +453,14 @@ extension MathText {
                 }
 
             case .relation, .binary:
-                if !emitter.isCurrentGroupEmpty {
+                // TeX's spacing table gives Open–Rel and Rel–Close/Punct a width of
+                // zero: a relation next to a delimiter on the delimiter's side does
+                // not space itself. Without this, `$(A, \le)$` — the standard way of
+                // naming a poset, and everywhere in the Phase 9 foundations content
+                // — set as `(A, ≤ )`, with a hole before the bracket. Found by
+                // reading the self-check's linearised output, which is the fourth
+                // corpus growth in a row to turn up a real renderer defect.
+                if !emitter.isCurrentGroupEmpty, !emitter.endsWithOpenDelimiter {
                     emitter.trimTrailingSpaces()
                     if !emitter.isCurrentGroupEmpty {
                         emitter.append(" ", style: style, isMath: true)
@@ -452,7 +468,7 @@ extension MathText {
                 }
                 emitter.append(text, style: style, isMath: true)
                 skipSpaces()
-                if index < chars.count, !atTerminator(terminator) {
+                if index < chars.count, !atTerminator(terminator), !nextClosesAGroup() {
                     emitter.append(" ", style: style, isMath: true)
                 }
 
@@ -487,6 +503,28 @@ extension MathText {
                 index += 1
             }
         }
+
+        /// Whether the cursor is on something that closes a group or punctuates
+        /// one — the right-hand half of the Rel–Close / Rel–Punct rule above. The
+        /// macro forms matter as much as the literal characters: `\rangle` and a
+        /// sized `\right)` are the same atom to TeX and should read the same here.
+        private func nextClosesAGroup() -> Bool {
+            guard let next = peek() else { return false }
+            if ")]},;".contains(next) { return true }
+            guard next == "\\" else { return false }
+            var offset = 1
+            var name = ""
+            while let character = peek(offset), character.isLetter {
+                name.append(character)
+                offset += 1
+            }
+            return Self.closingMacros.contains(name)
+        }
+
+        private static let closingMacros: Set<String> = [
+            "right", "rangle", "rceil", "rfloor", "rVert", "rvert", "bigr", "Bigr", "biggr",
+            "Biggr",
+        ]
 
         /// A balanced `{…}` group, without the braces. Nil when the cursor is not on `{`.
         private func takeBraceGroup() -> [Character]? {
@@ -658,6 +696,11 @@ extension MathText {
 
             case "pmod":
                 let argument = takeArgument() ?? []
+                // `\pmod` carries its own leading space, so the authored one in
+                // `b \pmod{n}` has to go or the two add up — `a ≡ b  (mod n)`.
+                // `append`'s doubled-space guard cannot see this one: it fires on a
+                // lone `" "`, and this is a six-character string that starts with one.
+                emitter.trimTrailingSpaces()
                 emitter.append(" (mod ", style: style, isMath: true)
                 scanFragment(argument, style: style)
                 emitter.append(")", style: style, isMath: true)
@@ -901,6 +944,12 @@ extension MathText {
         "deg", "gcd", "lcm", "exp", "log", "ln", "lg", "sin", "cos", "tan", "cot", "sec",
         "csc", "sinh", "cosh", "tanh", "coth", "arcsin", "arccos", "arctan", "Pr", "hom",
         "mod", "bmod", "sgn", "tr", "rank", "span", "supp", "id", "Aut", "Hom", "End", "im",
+        // Phase 9's branches, added ahead of the content that needs them: an author
+        // who reaches for `\Gal` and finds nothing writes around it, and the
+        // work-around is what ends up in the corpus permanently.
+        "Gal", "Sym", "Alt", "Inn", "ord", "char", "Var", "Cov", "Cor", "Res", "curl",
+        "grad", "diam", "cl", "Fix", "Stab", "Orb", "proj", "nullity", "Ext", "Tor",
+        "cis", "erf", "sech", "csch", "arcsec", "arccsc", "arccot", "adj", "cof", "supp",
     ]
 
     /// The symbol table. Everything the corpus uses, plus the neighbourhood of macros that
@@ -936,6 +985,15 @@ extension MathText {
         "perp": ("⊥", .relation), "parallel": ("∥", .relation), "mid": ("∣", .relation),
         "models": ("⊨", .relation), "vdash": ("⊢", .relation), "doteq": ("≐", .relation),
         "asymp": ("≍", .relation), "leqslant": ("⩽", .relation), "geqslant": ("⩾", .relation),
+        // Phase 9. `\nmid` is the one that would otherwise be written around every
+        // time number theory says "does not divide".
+        "nmid": ("∤", .relation), "prec": ("≺", .relation), "succ": ("≻", .relation),
+        "preceq": ("⪯", .relation), "succeq": ("⪰", .relation),
+        "triangleq": ("≜", .relation), "coloneqq": ("≔", .relation),
+        "lhd": ("⊲", .relation), "rhd": ("⊳", .relation),
+        "unlhd": ("⊴", .relation), "unrhd": ("⊵", .relation),
+        "nsubseteq": ("⊈", .relation), "ncong": ("≇", .relation),
+        "upharpoonright": ("↾", .relation), "restriction": ("↾", .relation),
 
         // Arrows (relations, for spacing purposes)
         "to": ("→", .relation), "rightarrow": ("→", .relation),
@@ -958,13 +1016,17 @@ extension MathText {
         "vee": ("∨", .binary), "wedge": ("∧", .binary), "lor": ("∨", .binary),
         "land": ("∧", .binary), "setminus": ("∖", .binary), "amalg": ("⨿", .binary),
         "triangleleft": ("◁", .binary), "triangleright": ("▷", .binary),
+        "rtimes": ("⋊", .binary), "ltimes": ("⋉", .binary),
+        "complement": ("∁", .ordinary), "square": ("□", .ordinary),
+        "blacksquare": ("■", .ordinary),
 
         // Large operators
         "sum": ("∑", .largeOperator), "prod": ("∏", .largeOperator),
         "coprod": ("∐", .largeOperator), "int": ("∫", .largeOperator),
         "iint": ("∬", .largeOperator), "iiint": ("∭", .largeOperator),
         "oint": ("∮", .largeOperator), "bigcup": ("⋃", .largeOperator),
-        "bigcap": ("⋂", .largeOperator), "bigoplus": ("⨁", .largeOperator),
+        "bigcap": ("⋂", .largeOperator), "bigsqcup": ("⨆", .largeOperator),
+        "bigodot": ("⨀", .largeOperator), "bigoplus": ("⨁", .largeOperator),
         "bigotimes": ("⨂", .largeOperator), "bigvee": ("⋁", .largeOperator),
         "bigwedge": ("⋀", .largeOperator),
 
