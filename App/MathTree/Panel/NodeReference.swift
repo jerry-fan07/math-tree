@@ -18,6 +18,10 @@ struct NodeReferenceRow: View {
     /// The `relates` note (§2.3 — the connection is knowledge, so it is shown, not hidden
     /// behind a tooltip).
     var note: String?
+    /// Where this node comes from, when that is the interesting fact about it —
+    /// §6.5's path shows the branch a step was imported from, because "you have to
+    /// go through Foundations first" is the answer the user came for.
+    var origin: String?
     var scores: ScoreStore?
     var onSelect: (NodeID) -> Void
 
@@ -44,7 +48,19 @@ struct NodeReferenceRow: View {
                                 .padding(.top, 1)
                         }
                     }
-                    Spacer(minLength: 0)
+                    Spacer(minLength: 4)
+                    if let origin, !origin.isEmpty {
+                        Text(origin)
+                            .font(.system(size: 9.5, weight: .medium))
+                            .foregroundStyle(PanelTheme.tertiaryText)
+                            .lineLimit(1)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 3)
+                                    .strokeBorder(PanelTheme.separator, lineWidth: 1))
+                            .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 2 }
+                    }
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)

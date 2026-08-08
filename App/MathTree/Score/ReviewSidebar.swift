@@ -25,6 +25,8 @@ struct ReviewSidebar: View {
     /// problem sheet or to self-report; the sidebar only asks.
     var onReview: (NodeID) -> Void = { _ in }
     var onPlace: () -> Void = {}
+    /// §6.5's entry point. `nil` in previews, where there is no map to fly.
+    var onLearnSubject: ((NodeID) -> Void)?
     var onClose: () -> Void
 
     private static let upcomingLimit = 8
@@ -36,7 +38,13 @@ struct ReviewSidebar: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     placementBanner
+                    // Below the queue on purpose: this file's header calls review
+                    // surfacing "the loop the product is for", and twelve subject
+                    // rows above it would push the first due node off a 720-point
+                    // sidebar. Subjects sit beside the frontier instead, which is
+                    // the other forward-looking list.
                     dueList
+                    subjectList
                     frontierList
                     upcomingList
                     diagnostics
@@ -114,6 +122,49 @@ struct ReviewSidebar: View {
     }
 
     // MARK: - Lists
+
+    /// §6.5: "learn linear algebra" as something you can *ask for by name*. The
+    /// map already contains every branch as a hub, but finding one on a graph you
+    /// do not know yet is the wrong first step for someone whose whole question is
+    /// where to start.
+    ///
+    /// Only authored subjects are listed. §7.1 puts the outline in before the
+    /// content, so most branches would otherwise appear as offers that lead to an
+    /// empty path — `validate` already reports the outline's coverage, and this is
+    /// not the place to relitigate it.
+    @ViewBuilder
+    private var subjectList: some View {
+        let authored = orderedSubjects
+        if let onLearnSubject, !authored.isEmpty {
+            section("Learn a subject", count: authored.count) {
+                VStack(alignment: .leading, spacing: 1) {
+                    ForEach(authored, id: \.id) { summary in
+                        SubjectRow(
+                            summary: summary,
+                            title: title(of: summary.id),
+                            action: { onLearnSubject(summary.id) })
+                    }
+                }
+                .padding(.horizontal, -7)
+            }
+        }
+    }
+
+    /// Least-known first: the list is a place to start, and a branch already at 90 %
+    /// is not where starting happens. Ties by title, so the order is stable.
+    private var orderedSubjects: [SubjectSummary] {
+        scores.subjects
+            .filter(\.isAuthored)
+            .sorted { left, right in
+                if left.fraction != right.fraction { return left.fraction < right.fraction }
+                return title(of: left.id).localizedStandardCompare(title(of: right.id))
+                    == .orderedAscending
+            }
+    }
+
+    private func title(of id: NodeID) -> String {
+        document.index(of: id).map { document[$0].title } ?? id.rawValue
+    }
 
     private var dueList: some View {
         section("Due now", count: scores.due.count) {
@@ -213,6 +264,51 @@ struct ReviewSidebar: View {
             .font(.system(size: 11.5))
             .foregroundStyle(PanelTheme.tertiaryText)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// One subject offer: name, how much of it is already held, and one click into
+/// §6.5's path.
+private struct SubjectRow: View {
+    let summary: SubjectSummary
+    let title: String
+    let action: () -> Void
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: summary.isComplete ? "checkmark.seal" : "point.3.filled.connected.trianglepath.dotted")
+                    .font(.system(size: 10))
+                    .foregroundStyle(
+                        summary.isComplete ? PanelTheme.accent : PanelTheme.tertiaryText)
+                    .frame(width: 15)
+                Text(title)
+                    .font(.system(size: 12))
+                    .foregroundStyle(PanelTheme.primaryText)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 4)
+                if isHovering {
+                    Text("path")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(PanelTheme.accent)
+                } else {
+                    SubjectProgressBar(
+                        met: summary.met, total: summary.total, width: 52, isCompact: true)
+                }
+            }
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(isHovering ? PanelTheme.rowHighlight : Color.clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .help("\(summary.met) of \(summary.total) nodes mastered — open the guided path")
+        .accessibilityLabel("Learn \(title), \(summary.met) of \(summary.total) mastered")
     }
 }
 

@@ -225,7 +225,7 @@ Placement is optional and resumable: a user can skip it and let the picture fill
 
 - The FSRS scheduler surfaces due reviews; the user reviews via problems, not flashcard-style restatement, whenever possible.
 - On a **failed** problem, the system disambiguates *which* knowledge failed: offer the prerequisite chain of the target node and let the user (or a follow-up micro-problem) localize the gap. The failure evidence lands on the localized node, not automatically on the whole chain.
-- This is also the loop where "learning a new topic branches off known nodes": pick a goal node, compute its unmet prerequisite ancestors, order them topologically — that ordered set *is* the personalized syllabus.
+- This is also the loop where "learning a new topic branches off known nodes": pick a goal node, compute its unmet prerequisite ancestors, order them topologically — that ordered set *is* the personalized syllabus. The goal may equally be a whole *subject* rather than one node ([§6.5](#65-subject-paths)); the computation is identical with a goal set instead of a goal.
 
 ---
 
@@ -258,6 +258,17 @@ Selecting a goal node switches to **focus mode**: the display reduces to the nod
 - **Layout is precomputed offline** at content-build time and shipped as coordinates in `graph.json`. The client never runs a cold force simulation on the full graph; at most it runs local relaxation on the visible neighborhood. First paint is instant and deterministic (the map always looks the same — spatial memory becomes navigation).
 - **GPU-accelerated rendering** is required at this scale (thousands of nodes, tens of thousands of edges); CPU-drawn canvas/SVG will not hold 60 fps. In the native macOS app this means Metal (instanced rendering) with SpriteKit as the fallback; a web client would use WebGL (sigma.js, Cosmograph). Choose after a render spike with a synthetic 10k-node graph (M1, [§9](#9-roadmap)).
 - Progressive reveal on first load: hubs fade in first, then constellation fill — sub-second total, no spinners.
+
+### 6.5 Subject paths
+
+A user does not only arrive with "I want to understand the FTC". They arrive with **"I want to learn linear algebra"** — a subject, not a result. That is the same question with a goal *set*, so it is the same view ([§6.2](#62-focus-mode-the-learning-view)) with a different goal:
+
+- The **targets** of a `branch` or `subbranch` goal are every content node it contains, at any taxonomy depth, following the `contains` DAG so cross-listed topics ([§2.3](#23-edge-types)) count as part of both subjects that list them. Structural nodes are never targets: they carry no score ([§2.1](#21-node-taxonomy)).
+- The **path** is the unmet members of (targets ∪ their `requires`-ancestors), in the topological order [§5.4](#54-ongoing-review--diagnosis) defines. A subject's own nodes are steps like any other, so — unlike a single-node goal, which is the arrival rather than a step — they appear in the list.
+- Steps *outside* the subject are marked as such. This is the point rather than a detail: at this granularity, "learn linear algebra" from cold is half foundations, and a path that hid that would be lying about the work. It is also [§2.4](#24-resolving-the-hubhierarchy-tension)'s cross-branch `requires` edges finally becoming something the user acts on rather than something the layout has to cope with.
+- Progress is `met targets / targets` — the read-out a subject has and a single node does not, and the basis for a "which subject should I open" list, which is how a subject gets chosen without first finding its hub on a map the user does not know yet.
+
+Everything else — met-boundary compression, the frontier's definition of "met", the left-to-right mini-graph — is §6.2 unchanged. A subject with no content authored yet ([§7.1](#71-process) fixes the outline before the content, so this is the common case for now) yields an empty path, which the display states rather than draws.
 
 ---
 
@@ -303,6 +314,7 @@ Shifu integration is a **data contract, not a code dependency**: Shifu will push
 - **M4 — Assessment**: tagged problem bank for the built content; adaptive placement; graph-propagated implicit reviews.
 - **M5 — Scale content** across the undergraduate curriculum, subbranch by subbranch.
 - **M6 — Shifu integration** via the evidence contract.
+- **M7 — Subject paths** ([§6.5](#65-subject-paths)): a branch or subbranch as the goal, chosen by name.
 
 ---
 

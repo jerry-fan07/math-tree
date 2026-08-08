@@ -24,9 +24,10 @@ struct NodePanel: View {
     /// Navigate to another node (prerequisite/dependent links, `relates`, taxonomy).
     var onSelect: (NodeID) -> Void
     var onClose: () -> Void
-    /// §6.1's "learn this" action — enter §6.2's focus mode with this node as the
-    /// goal. `nil` (previews, no user state) renders the panel without it.
-    var onFocus: ((NodeID) -> Void)? = nil
+    /// §6.1's "learn this" action — enter focus mode with this node as the goal
+    /// (§6.2) or, on a `branch`/`subbranch`, with the whole subject as the goal
+    /// (§6.5). `nil` (previews, no user state) renders the panel without it.
+    var onFocus: ((FocusGoal) -> Void)? = nil
     /// §5.2's instrument: open a problem for this node. `nil` when no bank is
     /// loaded, which leaves Phase 6's self-report as the only reviewer (§5.4's
     /// "whenever possible" cuts both ways).
@@ -121,12 +122,25 @@ struct NodePanel: View {
 
     // MARK: - Sections
 
-    /// "What do I need to learn to get to this?" — the door into focus mode
-    /// (§6.2). Content nodes only: structural nodes are not learnable (§2.1).
+    /// The door into focus mode. On a content node it asks "what do I need to learn
+    /// to get to this?" (§6.2); on a branch or subbranch it asks the question §6.5
+    /// added, "take me through all of this". A structural node is still not
+    /// *learnable* (§2.1) — it is a name for a set of nodes that are, which is
+    /// exactly what the subject plan aims at.
     @ViewBuilder
     private var learnAction: some View {
-        if let onFocus, node.kind.isContent {
-            LearnThisButton(action: { onFocus(node.id) })
+        if let onFocus {
+            if node.kind.isContent {
+                LearnThisButton(
+                    title: "Learn this", caption: "prerequisite path",
+                    hint: "Opens focus mode with this node as the goal",
+                    action: { onFocus(.node(node.id)) })
+            } else {
+                LearnThisButton(
+                    title: "Learn \(node.title)", caption: "guided path",
+                    hint: "Opens the guided path through every node in this subject",
+                    action: { onFocus(.subject(node.id)) })
+            }
         }
     }
 
@@ -371,6 +385,9 @@ struct NodePanel: View {
 /// The focus-mode entry. Its own view for the same reason as the close button:
 /// hover state must not invalidate the whole panel.
 private struct LearnThisButton: View {
+    let title: String
+    let caption: String
+    let hint: String
     let action: () -> Void
     @State private var isHovering = false
 
@@ -379,10 +396,11 @@ private struct LearnThisButton: View {
             HStack(spacing: 7) {
                 Image(systemName: "scope")
                     .font(.system(size: 11, weight: .medium))
-                Text("Learn this")
+                Text(title)
                     .font(.system(size: 12, weight: .medium))
-                Spacer(minLength: 0)
-                Text("prerequisite path")
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                Text(caption)
                     .font(.system(size: 10.5))
                     .foregroundStyle(
                         isHovering ? PanelTheme.secondaryText : PanelTheme.tertiaryText)
@@ -400,8 +418,8 @@ private struct LearnThisButton: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
-        .accessibilityLabel("Learn this — show the prerequisite path")
-        .accessibilityHint("Opens focus mode with this node as the goal")
+        .accessibilityLabel("\(title) — \(caption)")
+        .accessibilityHint(hint)
     }
 }
 
@@ -570,6 +588,7 @@ enum NodePanelPreviewData {
         document: NodePanelPreviewData.document,
         scores: NodePanelPreviewData.scores(),
         onSelect: { print("select \($0)") },
+        onLearnSubject: { print("learn \($0)") },
         onClose: { print("close") }
     )
     .frame(width: 268, height: 720)

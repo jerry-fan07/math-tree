@@ -33,7 +33,7 @@
                 return AnyView(
                     NodePanel(
                         node: document[index], document: document, scores: scores,
-                        onSelect: { _ in }, onClose: {}
+                        onSelect: { _ in }, onClose: {}, onFocus: { _ in }
                     )
                     .background(PanelTheme.background))
             }
@@ -51,11 +51,12 @@
             write(
                 AnyView(
                     ReviewSidebar(
-                        document: document, scores: scores, onSelect: { _ in }, onClose: {}
+                        document: document, scores: scores, onSelect: { _ in },
+                        onLearnSubject: { _ in }, onClose: {}
                     )
                     .background(PanelTheme.background)),
                 to: root.appendingPathComponent("sidebar.png"),
-                size: CGSize(width: 268, height: 720))
+                size: CGSize(width: 268, height: 860))
 
             // Phase 7: the focus view over the same goal the fixture story is
             // about. Rendered like every overlay before it — NSHostingView +
@@ -63,10 +64,24 @@
             write(
                 AnyView(
                     FocusView(
-                        goal: "analysis.svc.ftc-part-2", document: document, scores: scores,
-                        onSelect: { _ in }, onExit: {})),
+                        focus: .node("analysis.svc.ftc-part-2"), document: document,
+                        scores: scores, onSelect: { _ in }, onExit: {})),
                 to: root.appendingPathComponent("focus-ftc-part-2.png"),
                 size: CGSize(width: 1200, height: 760))
+
+            // Phase 11: the same view with a whole subject as the goal (§6.5).
+            // Linear Algebra is the case worth looking at — every one of its
+            // authored nodes is reachable only through Foundations, so the path
+            // has to show a detour before it shows any linear algebra at all.
+            for subject: NodeID in ["linear-algebra", "analysis"] {
+                write(
+                    AnyView(
+                        FocusView(
+                            focus: .subject(subject), document: document, scores: scores,
+                            onSelect: { _ in }, onExit: {})),
+                    to: root.appendingPathComponent("path-\(subject.rawValue).png"),
+                    size: CGSize(width: 1200, height: 760))
+            }
 
             assessment(document: document, scores: scores, into: root)
 
@@ -249,7 +264,7 @@
             write(
                 AnyView(
                     FocusView(
-                        goal: id, document: document, scores: store,
+                        focus: .node(id), document: document, scores: store,
                         onSelect: { _ in }, onExit: {})),
                 to: root.appendingPathComponent("focus-after-report.png"),
                 size: CGSize(width: 1200, height: 760))

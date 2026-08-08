@@ -195,3 +195,165 @@ struct FocusFixtureTests {
         }
     }
 }
+
+/// Phase 11's exit criterion against the real corpus: "for a branch with authored
+/// content, the guided path is a valid topological order over the branch's content
+/// nodes plus their unmet prerequisites, and names the ones that come from outside
+/// the branch."
+///
+/// Linear Algebra is the case the criterion is written about, and it is not chosen
+/// for convenience: `linear-algebra.systems` is the only authored subbranch of the
+/// branch, and every one of its roots reaches into Foundations (`sets`,
+/// `relations`, `number-systems`). So "learn linear algebra" from cold *must*
+/// answer with foundations first, or the answer is wrong.
+@Suite("Subject paths on the real corpus")
+struct SubjectPathFixtureTests {
+    let graph: KnowledgeGraph
+    let config = ScoringConfig()
+    let now = FixtureUser.now
+
+    init() throws {
+        let content = try ContentLoader.load(
+            root: repoRoot.appendingPathComponent("content"), relativeTo: repoRoot)
+        graph = KnowledgeGraph(nodes: content.nodes)
+    }
+
+    private func state(_ events: [EvidenceEvent]) -> ScoreState {
+        ScoreFold.fold(events, graph: graph, config: config).state
+    }
+
+    private func path(_ subject: NodeID, over state: ScoreState) throws -> FocusPlan {
+        try #require(
+            FocusPlan.compute(
+                subject: subject, graph: graph, state: state, at: now, config: config))
+    }
+
+    /// The exit criterion's two clauses, independently recomputed: the path is
+    /// exactly the unmet nodes of (subject ∪ its prerequisite closure), in an order
+    /// that respects the transitive `requires` relation.
+    private func assertCriterion(_ plan: FocusPlan, state: ScoreState) {
+        let fsrs = FSRS(parameters: config.fsrs)
+        let targets = graph.contentDescendants(of: plan.goal)
+        let reachable = Set(targets).union(
+            graph.requiresAncestors(ofAll: targets).filter { graph[$0]?.kind.isContent == true })
+        let expectedUnmet = reachable.filter { id in
+            guard state.isLearned(id), let memory = state.nodes[id] else { return true }
+            return fsrs.retrievability(of: memory, at: now) <= config.masteryThreshold
+        }
+        #expect(Set(plan.syllabus) == expectedUnmet, "omits exactly the met nodes")
+
+        let position = Dictionary(
+            uniqueKeysWithValues: plan.syllabus.enumerated().map { ($0.element, $0.offset) })
+        for (index, id) in plan.syllabus.enumerated() {
+            for ancestor in graph.requiresAncestors(of: id) {
+                if let earlier = position[ancestor] {
+                    #expect(earlier < index, "\(ancestor) must precede \(id)")
+                }
+            }
+        }
+    }
+
+    /// The headline case, from cold.
+    @Test func learningLinearAlgebraFromColdRoutesThroughFoundations() throws {
+        let empty = ScoreState()
+        let plan = try path("linear-algebra", over: empty)
+        assertCriterion(plan, state: empty)
+
+        // The whole branch, as authored today: `systems` and nothing else.
+        #expect(plan.targets.count == 25)
+        #expect(plan.metTargets.isEmpty)
+        #expect(plan.syllabus.count == 50)
+
+        // Half the path is not linear algebra at all — and every imported step is
+        // from Foundations, which is the claim §2.4 makes about cross-branch
+        // `requires` edges, arriving as something a user has to act on.
+        #expect(plan.importedSteps.count == 25)
+        #expect(plan.importedSteps.allSatisfy { $0.rawValue.hasPrefix("foundations.") })
+
+        // Every target of the subject is in the path, none of them at the front.
+        #expect(plan.targets.allSatisfy { plan.syllabus.contains($0) })
+        let firstTarget = try #require(plan.syllabus.firstIndex { plan.isTarget($0) })
+        #expect(firstTarget > 0, "nothing in the branch is reachable before the imports")
+        #expect(plan.syllabus[firstTarget] == "linear-algebra.systems.def-linear-equation")
+
+        // And the first step is one the user can actually take today.
+        let frontier = Set(Frontier.compute(graph: graph, state: empty, at: now, config: config))
+        #expect(frontier.contains(try #require(plan.syllabus.first)))
+    }
+
+    /// The same subject for the fixture user, who knows some analysis and none of
+    /// this: exactly the foundations node their analysis work already exercised
+    /// drops out, and nothing else moves.
+    @Test func knownFoundationsDropOutOfTheLinearAlgebraPath() throws {
+        let state = state(FixtureUser.log(in: graph, config: config))
+        let plan = try path("linear-algebra", over: state)
+        assertCriterion(plan, state: state)
+
+        let cold = try path("linear-algebra", over: ScoreState())
+        #expect(Set(cold.syllabus).subtracting(plan.syllabus) == ["foundations.sets.empty-set"])
+        #expect(plan.metBoundary == ["foundations.sets.empty-set"])
+        #expect(plan.metTargets.isEmpty, "no linear algebra has been touched")
+    }
+
+    /// A subject the user *has* worked in: the path shrinks to what is left, and
+    /// the progress read-out is the reason to look at the list at all.
+    @Test func analysisPathReportsProgressAndShrinks() throws {
+        let state = state(FixtureUser.log(in: graph, config: config))
+        let plan = try path("analysis", over: state)
+        assertCriterion(plan, state: state)
+
+        #expect(plan.targets.count == 47)
+        #expect(plan.metTargets.count == 6)
+        #expect(plan.goalIsMet == false)
+        // A subject path is longer than the branch, because the prerequisites it
+        // reaches are steps too — and shorter than the cold one, because six
+        // targets and a dozen imports are already met.
+        let cold = try path("analysis", over: ScoreState())
+        #expect(cold.syllabus.count == 86 && plan.syllabus.count == 77)
+    }
+
+    /// §7.1's outline is most of the map, so this is the ordinary case, not a
+    /// corner: a subject with no content is an empty plan the app can describe.
+    @Test func anOutlinedBranchWithNoContentIsAnEmptyPath() throws {
+        let plan = try path("topology", over: ScoreState())
+        #expect(plan.targets.isEmpty)
+        #expect(plan.syllabus.isEmpty)
+        #expect(plan.columns.isEmpty)
+    }
+
+    /// The subject list the sidebar offers must agree with the paths it links to,
+    /// over the real corpus and not only over a fixture.
+    @Test func theSubjectListAgreesWithEveryPathItOffers() throws {
+        let state = state(FixtureUser.log(in: graph, config: config))
+        let summaries = Subjects.branches(graph: graph, state: state, at: now, config: config)
+        #expect(summaries.count == 12, "every branch of the §9 outline is offered")
+        for summary in summaries {
+            let plan = try path(summary.id, over: state)
+            #expect(summary.total == plan.targets.count)
+            #expect(summary.met == plan.metTargets.count)
+        }
+        // Five branches are authored today; the rest are outline.
+        #expect(summaries.filter(\.isAuthored).count == 5)
+    }
+
+    /// The mini-graph invariants, on paths an order of magnitude larger than any
+    /// single-node focus: edges rightward, columns dense.
+    @Test func subjectLayoutsAreLeftToRight() throws {
+        let state = state(FixtureUser.log(in: graph, config: config))
+        for subject: NodeID in ["linear-algebra", "analysis", "foundations", "algebra"] {
+            for scoreState in [ScoreState(), state] {
+                let plan = try path(subject, over: scoreState)
+                for edge in plan.edges {
+                    #expect(plan.placed[edge.from]!.column < plan.placed[edge.to]!.column)
+                }
+                for (column, ids) in plan.columns.enumerated() {
+                    #expect(!ids.isEmpty)
+                    for (row, id) in ids.enumerated() {
+                        #expect(plan.placed[id]?.column == column)
+                        #expect(plan.placed[id]?.row == row)
+                    }
+                }
+            }
+        }
+    }
+}

@@ -40,9 +40,9 @@ math-tree/
 
 ### Phase → milestone map (mapping, not renumbering — §9 stays authoritative)
 
-| Phase | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| Milestone | M0 | M0 | M0 | M1 | M1 | M3 | M3 | M3 | M4 | M5 | M6 |
+| Phase | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Milestone | M0 | M0 | M0 | M1 | M1 | M3 | M3 | M3 | M4 | M5 | M6 | M7 |
 
 Two items are deliberately built one milestone early: the precomputed-layout pipeline (Phase 2, though §9 lists it under M1) and graph propagation (Phase 5, though §9 lists it under M4) — each is cheapest to build alongside its surrounding code (layout with the content compiler, propagation with the scoring fold). Their §9 milestones remain where the capability is *demonstrated*.
 
@@ -219,6 +219,21 @@ M2 (single-variable calculus content) is a **parallel authoring track**, not a c
 
 **Deliverable**: documented, tested intake contract.
 **Exit criterion**: simulated Shifu events flow through to visible score changes; malformed and unknown-id events are rejected with diagnostics, never crash, never corrupt the log.
+
+---
+
+## Phase 11 — Subject paths
+
+**Goal**: M7 — §6.5. The goal of a focus session may be a `branch` or `subbranch`, not only a node: "learn linear algebra", answered with an ordered path.
+
+**Tasks**
+- `GraphCore`: `contentDescendants` over the `contains` DAG; multi-source `requiresAncestors`; generalize `FocusPlan` from a goal node to a `FocusGoal` (node | subject), keeping the single-node case identical to Phase 7's.
+- `Subjects` summaries — met/total per branch — so a subject can be chosen from a list rather than found on the map.
+- App: the panel's "learn this" action on structural nodes; a *Learn a subject* section in the review sidebar; the focus view's path read-out (progress, imported-step marking, the empty-subject and all-mastered states).
+- The mini-graph scrolls when the plan outgrows its frame — a subject path is roughly twice as deep as any single-node one.
+
+**Deliverable**: "learn linear algebra" answered with a personalized, ordered path.
+**Exit criterion**: for a branch with authored content, the path is a valid topological order over the branch's content nodes plus their unmet prerequisites, omits exactly the met ones, and names the steps that come from outside the branch; an outlined-but-unauthored subject yields an empty path the app describes rather than a failure.
 
 ---
 
@@ -577,6 +592,31 @@ The exit criterion is about rejection with diagnostics, and a `DecodingError` fo
 
 **D10.9 — Known gaps.**
 The drop-directory is drained at launch and on activation, not watched: a document arriving while the window is already frontmost waits for the next activation. `FSEvents` is the obvious upgrade and was not built, because the queue is the point and a few minutes of latency on inferred-tier evidence changes no colour a user would notice. Nothing rate-limits a producer — a runaway Shifu could append a million events and the fold, which is O(log) per event but O(n) per *reload*, would slow the app down long before anything else complained; the log's own size is the real limit and §11.1's SQLite swap-in is where it gets addressed. There is no way to *withdraw* an observation: the log is append-only by design (§3.2) and a mistaken inference can only be overridden by a later, stronger measurement, never deleted. `confidence` is trusted as given — the contract has no calibration story, and a producer that emits 0.9 for everything gets 0.9 for everything. And the canned stream is the only integration test there will be until Shifu exists; `ShifuStreamFixtureTests` guards the one failure mode that can rot silently, which is a node id in the stream being renamed by a later authoring pass.
+
+### Phase 11
+
+**D11.1 — A subject goal is the same computation with a goal *set*, so it is the same type, not a parallel one.**
+The tempting alternative was a `SubjectPlan` beside `FocusPlan`: a subject has no single destination, and the existing struct's `goal`, `goalIsMet` and `.goal` role are all written about one. But everything *after* "which nodes am I aiming at" is identical — layering, the frontier's notion of met, met-boundary compression, column compaction, barycentre rows — and duplicating it would have produced two implementations of the one thing Phase 7's exit criterion tests. So `targets` became a set, the goal node became the "distinguished destination, if any", and the node case is literally the subject case with a one-element target set. The regression evidence is that all 265 pre-existing tests passed **unchanged** after the generalization: `aNodeFocusIsASingletonTargetSet` now pins that reading directly.
+The one asymmetry is deliberate and is the difference between the two questions. A node goal is an *arrival*: it is excluded from its own syllabus, and it gets the terminating `.goal` role. A subject's nodes are *steps*: they are in the path, and no node in a subject plan wears `.goal`. Asking "what do I need for the FTC" and being told "…and then, the FTC" is right; asking "take me through linear algebra" and being told 25 prerequisites but not the 25 nodes of linear algebra would be absurd.
+
+**D11.2 — Membership follows the `contains` DAG, not the primary tree.**
+`contentDescendants` descends `containedChildren`, so a node cross-listed under a subject via `also_under` is part of it. §2.3 says a secondary parent exists *because* the topic belongs to that subject too — generating functions are cross-listed under Probability precisely because you cannot claim to know Probability without them — and a membership rule that ignored `also_under` would make the cross-listing decorative. It costs nothing: the descent is visit-marked, so a node reachable both ways appears once, and it is a target of both subjects that claim it, which is the intended meaning.
+Structural descendants are dropped rather than carried: they have no score (§2.1), so a subbranch in a target set would sit unmet in every path forever — the same defensive filter `Frontier` and `FocusPlan` already apply to ancestors.
+
+**D11.3 — `(layer, id)` stays the order, and no teaching heuristic was added.**
+The tie-break is alphabetical inside a longest-path layer, which at subject scale interleaves branches: the linear-algebra path opens with logic and set theory in id order, not in a lecturer's order. Grouping by subbranch, weighting by `prominence`, or chunking into modules were all considered and none was built. `(layer, id)` is deterministic, is a valid topological order, and is the definition Phase 7's exit criterion — and every fixture assertion under it — is written against; a nicer order is a tie-break refinement to make with review data in hand, not a subsystem to invent at the same time as the feature. What the ordering *does* guarantee is the property that makes the list a path rather than a checklist: the first entry has the least layer of anything unmet, so all its prerequisites are met and it is always on the frontier. `theFirstStepIsAlwaysOnTheFrontier` pins it.
+
+**D11.4 — The mini-graph scrolls now, because the numbers say a fixed frame cannot hold a subject.**
+Measured over the real corpus before any view code was written: a single-node focus on the FTC is 13 columns and 26 displayed nodes; `linear-algebra` is **23 columns / 50 nodes**, `analysis` 21 / 86, `foundations` 29 / 195 with a 22-deep column. At the existing 96-point minimum column spacing that is 2,200–2,800 points wide, against a window that is typically 1,100 — the old layout would simply have drawn the far end off-screen, silently, with the goal end (the linear algebra) the part that vanished. The canvas now grows past the frame and scrolls in both axes; when the plan fits, the content *is* the frame and nothing scrolls, so every existing focus view looks exactly as it did. This was a latent defect at Phase 9 scale already (the FTC plan overflows a 1,100-point window by ~200 points); a subject goal is what made it impossible to miss.
+
+**D11.5 — Imported steps are named, in words, on the row.**
+Half of "learn linear algebra" is foundations, and the honest thing is to say so rather than to hide the detour inside a numbered list where every row looks alike. Each step outside the subject carries its branch name; the header states the ratio outright ("24 of these 49 steps sit outside this subject"); the mini-graph dims them and says so in the legend. This is the one piece of the phase that is a product judgement rather than a computation, and it is made in the direction of stating the cost — a user who is told up front that linear algebra starts in propositional logic can decide to do it; one who discovers it at step 13 concludes the tool is broken.
+
+**D11.6 — Verified by rendering, as every display phase here has been.**
+`MATHTREE_PANEL_SHOT` gained `path-linear-algebra.png` and `path-analysis.png`, and the sidebar and node-panel shots were fixed to actually pass the new callbacks — a shot that renders the view without the feature is a false pass, which is exactly what the first run produced. Reading the images changed two things that the tests could not see: the sidebar's progress read-out wrapped to two lines on `Foundations` ("3 / 195 mastered" does not fit 268 points), and the structural node panel had no learn action at all in the shot because the harness passed `onFocus: nil`. Both are fixed and both are now in the rendered output.
+
+**D11.7 — Known gaps.**
+The sidebar lists **branches only**, not subbranches, and sits **below the due queue**: 82 subbranch offers would bury the review queue the sidebar is named for, twelve branch rows above it would push the first due node off a 720-point sidebar, and the panel already offers any subbranch you click. There is no way to *filter* a path — no "just the linear algebra, I'll take the foundations on faith" — and no way to mark an imported step as skipped; §2.3's AND semantics say a prerequisite is required, and §11.2's OR-prerequisites are the open question that would change that. Nothing persists which subject you were last learning: the path is recomputed from the log every time, which is correct but means the app has no notion of "the course I am on" to return you to — and since "Learn this" on a step *retargets* the focus (Phase 7's behaviour, unchanged), one click from inside a path replaces it, with only the full map to come back to. The whole-branch mini-graph is honest and dense — `foundations` is 195 nodes in a 29 × 22 grid — and while it scrolls rather than clips, D9.9's finding stands unchanged: legibility is the constraint here, not frame rate, and a subject path is one more place that wants the content-driven LOD rule D3.6 named. Progress is counted in **nodes**, unweighted: mastering 25 one-line definitions and mastering 25 landmark theorems read identically, and `prominence` is sitting right there unused.
 
 ---
 

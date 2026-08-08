@@ -1,17 +1,19 @@
 import GraphCore
 import SwiftUI
 
-/// §6.2's focus mode: the goal's `requires`-ancestor subgraph, laid out
-/// left-to-right in topological order, beside the ordered unmet set as a
-/// syllabus (§5.4). The layout itself — columns, rows, met-boundary compression
-/// — comes from `FocusPlan` in GraphCore, where it is testable; this view
-/// contributes point spacing, colour and interaction.
+/// §6.2's focus mode and §6.5's guided path, which are one screen because they are
+/// one computation: the goal's `requires`-ancestor subgraph — where "the goal" is
+/// either a node or every node of a subject — laid out left-to-right in topological
+/// order, beside the ordered unmet set as a syllabus (§5.4). The layout itself —
+/// columns, rows, met-boundary compression — comes from `FocusPlan` in GraphCore,
+/// where it is testable; this view contributes point spacing, colour and
+/// interaction.
 ///
 /// The view recomputes its plan whenever the score snapshot changes (`revision`
 /// is observable), so reviewing a syllabus node from the panel visibly compresses
 /// it out of the chain — the loop the product is for, closed inside one screen.
 struct FocusView: View {
-    let goal: NodeID
+    let focus: FocusGoal
     let document: GraphDocument
     let scores: ScoreStore
     var onSelect: (NodeID) -> Void
@@ -22,24 +24,32 @@ struct FocusView: View {
         // review or a decay tick recomputes the plan.
         _ = scores.revision
         let plan = FocusPlan.compute(
-            goal: goal, graph: scores.graph, state: scores.state, at: scores.evaluatedAt,
+            focus: focus, graph: scores.graph, state: scores.state, at: scores.evaluatedAt,
             config: scores.config)
 
         return VStack(spacing: 0) {
-            breadcrumb
+            breadcrumb(plan: plan)
             Rectangle().fill(PanelTheme.separator).frame(height: 1)
             if let plan {
                 HStack(spacing: 0) {
-                    FocusMiniGraph(plan: plan, document: document, scores: scores, onSelect: onSelect)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    Group {
+                        if plan.placed.isEmpty {
+                            emptyGraph(plan: plan)
+                        } else {
+                            FocusMiniGraph(
+                                plan: plan, document: document, scores: scores, onSelect: onSelect)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     Rectangle().fill(PanelTheme.separator).frame(width: 1)
-                    FocusSyllabus(plan: plan, document: document, scores: scores, onSelect: onSelect)
+                    FocusSyllabus(
+                        plan: plan, document: document, scores: scores, onSelect: onSelect)
                         .frame(width: 316)
                 }
             } else {
-                // Unreachable through the UI (the action is only offered on
-                // content nodes) but stale artifacts deserve words, not a blank.
-                Text("This node has no focus view — it is not a learnable content node.")
+                // Unreachable through the UI (the actions are gated on kind) but
+                // stale artifacts deserve words, not a blank.
+                Text("This node has no focus view — it is neither a learnable node nor a subject.")
                     .font(.system(size: 12))
                     .foregroundStyle(PanelTheme.secondaryText)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -51,7 +61,11 @@ struct FocusView: View {
         .background(PanelTheme.background.opacity(0.94))
     }
 
-    private var breadcrumb: some View {
+    private var title: String {
+        document.index(of: focus.id).map { document[$0].title } ?? focus.id.rawValue
+    }
+
+    private func breadcrumb(plan: FocusPlan?) -> some View {
         HStack(spacing: 14) {
             Button(action: onExit) {
                 HStack(spacing: 5) {
@@ -69,13 +83,19 @@ struct FocusView: View {
             Rectangle().fill(PanelTheme.separator).frame(width: 1, height: 22)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("FOCUS")
+                Text(focus.isSubject ? "LEARNING PATH" : "FOCUS")
                     .font(.system(size: 9, weight: .semibold))
                     .tracking(1.2)
                     .foregroundStyle(PanelTheme.tertiaryText)
-                if let index = document.index(of: goal) {
-                    MathTextView(source: document[index].title, size: 14, weight: .semibold)
-                }
+                MathTextView(source: title, size: 14, weight: .semibold)
+            }
+
+            // A subject's headline number is how much of it you already hold —
+            // the one fact a single-node focus has no use for.
+            if focus.isSubject, let plan, !plan.targets.isEmpty {
+                SubjectProgressBar(
+                    met: plan.metTargets.count, total: plan.targets.count, width: 96)
+                    .padding(.leading, 4)
             }
 
             Spacer(minLength: 0)
@@ -86,6 +106,56 @@ struct FocusView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+    }
+
+    /// Nothing to draw: either the subject is outlined but unwritten (§7.1's
+    /// skeleton, which is most of the map today), or every node of it is mastered
+    /// and §6.2's compression has elided the lot.
+    private func emptyGraph(plan: FocusPlan) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: plan.targets.isEmpty ? "square.dashed" : "checkmark.seal")
+                .font(.system(size: 22, weight: .light))
+                .foregroundStyle(PanelTheme.tertiaryText)
+            Text(
+                plan.targets.isEmpty
+                    ? "\(title) is on the map but has no content authored yet."
+                    : "Nothing left to draw — all \(plan.targets.count) nodes are mastered."
+            )
+            .font(.system(size: 12))
+            .foregroundStyle(PanelTheme.secondaryText)
+            .multilineTextAlignment(.center)
+        }
+        .padding(28)
+    }
+}
+
+/// The met/total bar. Its own view so it can be reused by the sidebar's subject
+/// list, where the same number is the reason to pick one subject over another.
+struct SubjectProgressBar: View {
+    let met: Int
+    let total: Int
+    var width: CGFloat = 96
+    /// Drops the word and the spaces. A three-digit total is common (Foundations
+    /// is 195 nodes) and "3 / 195 mastered" wraps inside a 268-point sidebar.
+    var isCompact = false
+
+    private var fraction: Double { total == 0 ? 0 : Double(met) / Double(total) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(isCompact ? "\(met)/\(total)" : "\(met) / \(total) mastered")
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundStyle(PanelTheme.tertiaryText)
+                .lineLimit(1)
+                .fixedSize()
+            ZStack(alignment: .leading) {
+                Capsule().fill(PanelTheme.separator).frame(width: width, height: 3)
+                Capsule()
+                    .fill(PanelTheme.accent.opacity(0.85))
+                    .frame(width: width * fraction, height: 3)
+            }
+        }
+        .accessibilityLabel("\(met) of \(total) nodes mastered")
     }
 }
 
@@ -103,24 +173,36 @@ private struct FocusMiniGraph: View {
 
     @State private var hovered: NodeID?
 
+    private static let insetX: CGFloat = 84
+    private static let insetY: CGFloat = 64
+
     var body: some View {
         GeometryReader { proxy in
-            let points = layout(in: proxy.size)
+            let spacing = spacing(in: proxy.size)
+            let canvas = canvasSize(in: proxy.size, spacing: spacing)
+            let points = layout(in: canvas, spacing: spacing)
             ZStack(alignment: .bottomLeading) {
-                Canvas { context, _ in
-                    draw(in: &context, points: points)
+                // Scrolls only when the plan outgrows the frame: a subject path is
+                // twenty-odd columns deep where a single goal was a dozen (D11.4),
+                // and the previous fixed frame simply drew the far end off-screen.
+                // When it fits, the content is the frame and nothing scrolls.
+                ScrollView([.horizontal, .vertical]) {
+                    Canvas { context, _ in
+                        draw(in: &context, points: points)
+                    }
+                    .frame(width: canvas.width, height: canvas.height)
+                    .contentShape(Rectangle())
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case let .active(location): hovered = node(at: location, points: points)
+                        case .ended: hovered = nil
+                        }
+                    }
+                    .onTapGesture { location in
+                        if let id = node(at: location, points: points) { onSelect(id) }
+                    }
                 }
                 legend
-            }
-            .contentShape(Rectangle())
-            .onContinuousHover { phase in
-                switch phase {
-                case let .active(location): hovered = node(at: location, points: points)
-                case .ended: hovered = nil
-                }
-            }
-            .onTapGesture { location in
-                if let id = node(at: location, points: points) { onSelect(id) }
             }
         }
         .pointerStyle(hovered == nil ? .default : .link)
@@ -129,33 +211,47 @@ private struct FocusMiniGraph: View {
 
     // MARK: Geometry
 
-    /// Columns spread across the width, each column vertically centred. The
-    /// spacing clamps rather than scrolls: the whole point of the view is seeing
-    /// the entire chain at once, and the corpus this design admits (§7) keeps
-    /// ancestor subgraphs at map scale, not document scale.
-    private func layout(in size: CGSize) -> [NodeID: CGPoint] {
-        let insetX: CGFloat = 84
-        let insetY: CGFloat = 64
+    /// Spacing is chosen against the *frame*: it spreads to fill a roomy window and
+    /// clamps to a legible minimum in a cramped one. What changed in Phase 11 is
+    /// what happens past the clamp — the canvas grows and scrolls rather than the
+    /// graph running off the edge.
+    private func spacing(in frame: CGSize) -> (column: CGFloat, row: CGFloat) {
         let columnCount = plan.columns.count
         let maxRows = plan.columns.map(\.count).max() ?? 1
-
-        let columnSpacing =
+        let column =
             columnCount > 1
-            ? min(200, max(96, (size.width - insetX * 2) / CGFloat(columnCount - 1))) : 0
-        let rowSpacing =
-            maxRows > 1 ? min(76, max(44, (size.height - insetY * 2) / CGFloat(maxRows - 1))) : 0
+            ? min(200, max(96, (frame.width - Self.insetX * 2) / CGFloat(columnCount - 1))) : 0
+        let row =
+            maxRows > 1
+            ? min(76, max(44, (frame.height - Self.insetY * 2) / CGFloat(maxRows - 1))) : 0
+        return (column, row)
+    }
 
-        let spanX = CGFloat(max(columnCount - 1, 0)) * columnSpacing
-        let originX = max(insetX, (size.width - spanX) / 2)
+    private func canvasSize(in frame: CGSize, spacing: (column: CGFloat, row: CGFloat)) -> CGSize {
+        let columnCount = plan.columns.count
+        let maxRows = plan.columns.map(\.count).max() ?? 1
+        return CGSize(
+            width: max(
+                frame.width, Self.insetX * 2 + CGFloat(max(columnCount - 1, 0)) * spacing.column),
+            height: max(
+                frame.height, Self.insetY * 2 + CGFloat(max(maxRows - 1, 0)) * spacing.row))
+    }
+
+    /// Columns spread across the canvas, each column vertically centred.
+    private func layout(in size: CGSize, spacing: (column: CGFloat, row: CGFloat)) -> [NodeID:
+        CGPoint]
+    {
+        let spanX = CGFloat(max(plan.columns.count - 1, 0)) * spacing.column
+        let originX = max(Self.insetX, (size.width - spanX) / 2)
 
         var points: [NodeID: CGPoint] = [:]
         for (column, ids) in plan.columns.enumerated() {
-            let spanY = CGFloat(ids.count - 1) * rowSpacing
-            let originY = max(insetY, (size.height - spanY) / 2)
+            let spanY = CGFloat(ids.count - 1) * spacing.row
+            let originY = max(Self.insetY, (size.height - spanY) / 2)
             for (row, id) in ids.enumerated() {
                 points[id] = CGPoint(
-                    x: originX + CGFloat(column) * columnSpacing,
-                    y: originY + CGFloat(row) * rowSpacing)
+                    x: originX + CGFloat(column) * spacing.column,
+                    y: originY + CGFloat(row) * spacing.row)
             }
         }
         return points
@@ -172,10 +268,13 @@ private struct FocusMiniGraph: View {
 
     // MARK: Drawing
 
-    private func radius(for role: FocusPlan.Role) -> CGFloat {
+    private func radius(for id: NodeID, role: FocusPlan.Role) -> CGFloat {
         switch role {
         case .goal: 9
-        case .unmet: 6.5
+        // §6.5: a step inside the subject is the work; a step imported from
+        // another branch is the toll on the way to it. Same colour language,
+        // smaller mark.
+        case .unmet: plan.focus.isSubject && !plan.isTarget(id) ? 5 : 6.5
         // §6.2: met prerequisites are *compressed* — present, small, quiet.
         case .metBoundary: 3.5
         }
@@ -211,13 +310,14 @@ private struct FocusMiniGraph: View {
 
         for (id, point) in points {
             guard let placed = plan.placed[id] else { continue }
-            let r = radius(for: placed.role)
+            let r = radius(for: id, role: placed.role)
             let rect = CGRect(x: point.x - r, y: point.y - r, width: r * 2, height: r * 2)
             let compressed = placed.role == .metBoundary
+            let imported = plan.focus.isSubject && !plan.isTarget(id)
 
             context.fill(
                 Path(ellipseIn: rect),
-                with: .color(fill(for: id).opacity(compressed ? 0.6 : 1)))
+                with: .color(fill(for: id).opacity(compressed ? 0.6 : (imported ? 0.75 : 1))))
 
             // The same accents the map wears: gold for frontier, a bright ring
             // for the hover, a steady ring for the goal.
@@ -241,7 +341,7 @@ private struct FocusMiniGraph: View {
                 var text = Text(MathText.attributedString(document[index].title, baseSize: 10.5))
                     .font(.system(size: compressed ? 9.5 : 10.5))
                 text = text.foregroundStyle(
-                    compressed
+                    compressed || imported
                         ? PanelTheme.tertiaryText
                         : (placed.role == .goal ? PanelTheme.primaryText : PanelTheme.secondaryText))
                 // Labels wrap inside their own column's width and alternate
@@ -268,14 +368,23 @@ private struct FocusMiniGraph: View {
     private var legend: some View {
         VStack(alignment: .leading, spacing: 5) {
             if plan.elidedMetCount > 0 {
+                // In subject mode the elided set includes met *targets* — a
+                // mastered node of the subject that nothing unmet requires is
+                // compressed out like any other. Calling those "prerequisites"
+                // would be wrong twice over, so the noun changes with the mode.
                 Text(
-                    plan.elidedMetCount == 1
-                        ? "1 earlier prerequisite you already know is not shown"
-                        : "\(plan.elidedMetCount) earlier prerequisites you already know are not shown"
+                    plan.focus.isSubject
+                        ? "\(plan.elidedMetCount) nodes you already know are not shown"
+                        : (plan.elidedMetCount == 1
+                            ? "1 earlier prerequisite you already know is not shown"
+                            : "\(plan.elidedMetCount) earlier prerequisites you already know are not shown")
                 )
             }
             if !plan.metBoundary.isEmpty {
                 Text("small dots — already known")
+            }
+            if plan.focus.isSubject, !plan.importedSteps.isEmpty {
+                Text("dimmed dots — prerequisites from outside this subject")
             }
         }
         .font(.system(size: 10.5))
@@ -305,11 +414,12 @@ private struct FocusSyllabus: View {
                     if plan.syllabus.isEmpty {
                         emptyState
                     } else {
+                        importNote
                         ForEach(Array(plan.syllabus.enumerated()), id: \.element) { index, id in
                             step(number: index + 1, id: id)
                         }
                     }
-                    goalRow
+                    if !plan.focus.isSubject { goalRow }
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 12)
@@ -319,7 +429,7 @@ private struct FocusSyllabus: View {
 
     private var header: some View {
         HStack(spacing: 6) {
-            Text("SYLLABUS")
+            Text(plan.focus.isSubject ? "PATH" : "SYLLABUS")
                 .font(.system(size: 10, weight: .semibold))
                 .tracking(1.1)
                 .foregroundStyle(PanelTheme.tertiaryText)
@@ -333,29 +443,75 @@ private struct FocusSyllabus: View {
         .padding(.bottom, 8)
     }
 
+    /// The honest headline of a subject path: how much of the work is not in the
+    /// subject at all. It is §2.4's cross-branch `requires` edges showing up as
+    /// something a user has to act on.
+    @ViewBuilder
+    private var importNote: some View {
+        let imported = plan.importedSteps.count
+        if plan.focus.isSubject, imported > 0 {
+            Text(
+                "\(imported) of these \(plan.syllabus.count) steps sit outside this subject — "
+                    + "prerequisites you need first."
+            )
+            .font(.system(size: 11))
+            .foregroundStyle(PanelTheme.tertiaryText)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 8)
+            .padding(.bottom, 6)
+        }
+    }
+
     private func step(number: Int, id: NodeID) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 2) {
             Text("\(number)")
                 .font(.system(size: 10.5, weight: .medium, design: .monospaced))
                 .foregroundStyle(PanelTheme.tertiaryText)
-                .frame(width: 20, alignment: .trailing)
+                .frame(width: 24, alignment: .trailing)
                 .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 3 }
-            NodeReferenceRow(id: id, document: document, scores: scores, onSelect: onSelect)
+            NodeReferenceRow(
+                id: id, document: document, origin: origin(of: id), scores: scores,
+                onSelect: onSelect)
         }
+    }
+
+    /// The branch a step was imported from, shown only when it is not the subject
+    /// being learned — inside Linear Algebra, "Linear Algebra" on every row is noise.
+    private func origin(of id: NodeID) -> String? {
+        guard plan.focus.isSubject, !plan.isTarget(id) else { return nil }
+        guard let index = document.index(of: id), let parent = document[index].parent,
+            let branch = branchTitle(of: parent)
+        else { return nil }
+        return branch
+    }
+
+    private func branchTitle(of id: NodeID) -> String? {
+        guard let index = document.index(of: id) else { return nil }
+        let node = document[index]
+        if let parent = node.parent { return branchTitle(of: parent) }
+        return node.title
     }
 
     @ViewBuilder
     private var emptyState: some View {
-        Text(
-            plan.goalIsMet
+        Text(emptyMessage)
+            .font(.system(size: 12))
+            .foregroundStyle(PanelTheme.secondaryText)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+    }
+
+    private var emptyMessage: String {
+        guard plan.focus.isSubject else {
+            return plan.goalIsMet
                 ? "Mastered — every prerequisite is met, and so is the goal."
                 : "Every prerequisite is met. This is ready to learn — open it and report how it goes."
-        )
-        .font(.system(size: 12))
-        .foregroundStyle(PanelTheme.secondaryText)
-        .fixedSize(horizontal: false, vertical: true)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        }
+        if plan.targets.isEmpty {
+            return "Nothing to learn here yet: this subject is outlined but its nodes are not authored."
+        }
+        return "Mastered — all \(plan.targets.count) nodes in this subject are above the threshold."
     }
 
     @ViewBuilder
@@ -367,7 +523,7 @@ private struct FocusSyllabus: View {
             Image(systemName: "scope")
                 .font(.system(size: 9.5))
                 .foregroundStyle(PanelTheme.tertiaryText)
-                .frame(width: 20, alignment: .trailing)
+                .frame(width: 24, alignment: .trailing)
                 .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 2 }
             NodeReferenceRow(id: plan.goal, document: document, scores: scores, onSelect: onSelect)
         }
@@ -380,7 +536,18 @@ private struct FocusSyllabus: View {
 
 #Preview("Focus mode") {
     FocusView(
-        goal: "analysis.svc.zero-deriv-const",
+        focus: .node("analysis.svc.zero-deriv-const"),
+        document: NodePanelPreviewData.document,
+        scores: NodePanelPreviewData.scores(),
+        onSelect: { print("select \($0)") },
+        onExit: { print("exit") }
+    )
+    .frame(width: 1100, height: 700)
+}
+
+#Preview("Subject path") {
+    FocusView(
+        focus: .subject("analysis.svc"),
         document: NodePanelPreviewData.document,
         scores: NodePanelPreviewData.scores(),
         onSelect: { print("select \($0)") },
