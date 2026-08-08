@@ -15,7 +15,17 @@ public enum EvidenceSource: String, Codable, Hashable, Sendable, CaseIterable {
     /// review lands on top of it (where `max` often makes it a no-op). Applying
     /// the boost first would let an explicit review compound an inflated
     /// stability. Sorting on `rawValue` would put "implicit" before "test".
-    var foldRank: Int { self == .implicit ? 1 : 0 }
+    ///
+    /// `shifu` ranks with `implicit` for the same reason and not by analogy: an
+    /// observation is inferred evidence (§5.1's inferred tier), so if the user was
+    /// *measured* on a node in the same instant that Shifu guessed at it, the
+    /// measurement is the one that sets the state.
+    var foldRank: Int { isInferred ? 1 : 0 }
+
+    /// Whether evidence from this source is inferred rather than measured. Drives
+    /// fold ordering; the fold's *weighting* keys off `confidence` instead, so that
+    /// a source is never quietly given a second decay model (D8.4).
+    var isInferred: Bool { self == .implicit || self == .shifu }
 }
 
 /// Evidence attaches to a node or to a `relates` edge (§4.4 — the connection
@@ -81,6 +91,13 @@ public struct EvidenceEvent: Codable, Hashable, Sendable {
     public var depth: Int?
     /// Implicit events only: the damping weight γᵈ actually applied.
     public var weight: Double?
+    /// Free text describing where the evidence came from, when the producer knows
+    /// something the other fields cannot hold. Written by §8.2's intake from an
+    /// observation's `activity`; never read by the fold.
+    ///
+    /// Additive to log format 1 on purpose: `Codable` omits a nil optional, so
+    /// existing logs are byte-identical and an older build ignores the key.
+    public var note: String?
 
     public init(
         at: Date,
@@ -91,7 +108,8 @@ public struct EvidenceEvent: Codable, Hashable, Sendable {
         problem: String? = nil,
         origin: NodeID? = nil,
         depth: Int? = nil,
-        weight: Double? = nil
+        weight: Double? = nil,
+        note: String? = nil
     ) {
         self.at = at
         self.target = target
@@ -102,6 +120,7 @@ public struct EvidenceEvent: Codable, Hashable, Sendable {
         self.origin = origin
         self.depth = depth
         self.weight = weight
+        self.note = note
     }
 
     /// Total order for the fold. FSRS updates do not commute, so same-timestamp
@@ -123,7 +142,10 @@ public struct EvidenceEvent: Codable, Hashable, Sendable {
         if lhs.origin != rhs.origin {
             return (lhs.origin?.rawValue ?? "") < (rhs.origin?.rawValue ?? "")
         }
-        return (lhs.problem ?? "") < (rhs.problem ?? "")
+        if lhs.problem != rhs.problem { return (lhs.problem ?? "") < (rhs.problem ?? "") }
+        // Two observations of the same node at the same instant differing only in
+        // what Shifu was watching still have to fold in a fixed order.
+        return (lhs.note ?? "") < (rhs.note ?? "")
     }
 }
 

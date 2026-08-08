@@ -18,6 +18,8 @@ commands:
               exits 0 unless --strict
   build       validate, then compile to graph.json + problems.json
   layout      validate, then compute deterministic coordinates to layout.json
+  shifu-sim   replay a Shifu evidence-event stream through §8.2's intake — the
+              integration test double for Phase 10
 
 options:
   --content <dir>    content root (default: ./content)
@@ -31,6 +33,13 @@ options:
   --diff-limit <n>   ids to list per diff section (default: 40)
   --strict           lint: exit non-zero on any hint
   --quiet            only report failures
+
+shifu-sim options:
+  --intake <dir>     drop-directory (default: ./build/shifu/intake)
+  --log <file>       evidence log to append to (default: ./build/shifu/evidence.jsonl)
+  --stream <file>    a document to drop; repeatable
+                     (default: every *.json in ./\(ShifuSim.cannedStream))
+  --drop-only        stage the documents and stop, without draining
 """
 
 struct Options {
@@ -41,6 +50,10 @@ struct Options {
     var seed = LayoutParameters().seed
     var iterations = LayoutParameters().iterations
     var quiet = false
+    var intakeRoot = URL(fileURLWithPath: "build/shifu/intake")
+    var evidenceLog = URL(fileURLWithPath: "build/shifu/evidence.jsonl")
+    var streams: [URL] = []
+    var dropOnly = false
     var baseline: URL?
     var diffLimit = 40
     var strict = false
@@ -85,6 +98,10 @@ func parseOptions() -> Options {
             }
             options.diffLimit = limit
         case "--strict": options.strict = true
+        case "--intake": options.intakeRoot = URL(fileURLWithPath: value(flag))
+        case "--log": options.evidenceLog = URL(fileURLWithPath: value(flag))
+        case "--stream": options.streams.append(URL(fileURLWithPath: value(flag)))
+        case "--drop-only": options.dropOnly = true
         case "--quiet": options.quiet = true
         case "-h", "--help":
             print(usage)
@@ -305,6 +322,29 @@ case "layout":
         fail("cannot write \(url.path): \(error)")
     }
     note("wrote \(url.path) (\(order.count) positions, seed \(parameters.seed))", quiet: options.quiet)
+
+case "shifu-sim":
+    // Validated first, and against the real content: §8.2's contract is *about*
+    // this graph, and "unknown-id events are rejected" is only a meaningful claim
+    // when the set of known ids is the shipping one.
+    let (graph, _, _, _) = loadValidated(options)
+
+    var streams = options.streams
+    if streams.isEmpty {
+        let canned = URL(fileURLWithPath: ShifuSim.cannedStream)
+        streams =
+            ((try? FileManager.default.contentsOfDirectory(
+                at: canned, includingPropertiesForKeys: nil, options: [])) ?? [])
+            .filter { $0.pathExtension == "json" }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    exit(
+        ShifuSim.run(
+            .init(
+                intake: options.intakeRoot, log: options.evidenceLog, streams: streams,
+                dropOnly: options.dropOnly, quiet: options.quiet),
+            graph: graph))
 
 default:
     fail("unknown command \(options.command)\n\n\(usage)")

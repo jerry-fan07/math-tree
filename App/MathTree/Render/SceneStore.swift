@@ -32,6 +32,7 @@ final class SceneStore {
     /// even when nothing happens. A minute is far finer than the ramp can show —
     /// stability is measured in days — and costs one fold of a small log.
     private var decayTick: Timer?
+    private var intakeObserver: (any NSObjectProtocol)?
     private static let decayInterval: TimeInterval = 60
 
     private init() {
@@ -78,6 +79,7 @@ final class SceneStore {
             }
             renderer.applyScores(scores.visuals(for: document))
             startDecayTick(scores)
+            startIntakeWatch(scores)
         } catch {
             self.timings = timings
             errorMessage = String(describing: error)
@@ -90,6 +92,20 @@ final class SceneStore {
         guard !scores.isClockPinned, !scores.isReadOnly else { return }
         decayTick = Timer.scheduledTimer(withTimeInterval: Self.decayInterval, repeats: true) { _ in
             Task { @MainActor in scores.evaluate() }
+        }
+    }
+
+    /// §8.2's intake is drained once at launch (in `ScoreStore.init`) and again
+    /// every time the app is activated. Activation rather than a poll because the
+    /// directory fills while the app is *closed* — the moment the user brings the
+    /// map forward is exactly when the queue is worth reading, and it costs one
+    /// directory listing.
+    private func startIntakeWatch(_ scores: ScoreStore) {
+        guard !scores.isReadOnly, scores.intake != nil else { return }
+        intakeObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { _ in
+            Task { @MainActor in scores.drainShifuIntake() }
         }
     }
 }

@@ -31,6 +31,14 @@ final class ScoreStore {
     let config: ScoringConfig
     let fsrs: FSRS
     let log: EvidenceLog
+    /// §8.2's drop-directory, or `nil` when there is nowhere to put one. Losing the
+    /// intake must not cost the user the map, so this is optional in exactly the
+    /// way the problem bank is (D8.8).
+    let intake: IntakeDirectory?
+    /// `MATHTREE_INTAKE_DRAIN=1`. Lets a read-only verification run drain a
+    /// *copied* intake on purpose, which is the only way the Phase 10 harness can
+    /// photograph the before and after of an ingest.
+    let allowsIntakeInReadOnlyRun: Bool
     /// Non-nil when `MATHTREE_NOW` froze the clock.
     let pinnedNow: Date?
     /// Set for `--probe`, `--smoke-test` and snapshot runs. A verification run
@@ -95,9 +103,21 @@ final class ScoreStore {
             diagnostics.append("could not locate Application Support; using \(url.path)")
         }
         log = EvidenceLog(url: url)
+
+        allowsIntakeInReadOnlyRun = environment["MATHTREE_INTAKE_DRAIN"] == "1"
+        if let override = environment["MATHTREE_INTAKE"], !override.isEmpty {
+            intake = IntakeDirectory(
+                root: URL(fileURLWithPath: (override as NSString).expandingTildeInPath))
+        } else if let standard = try? IntakeDirectory.defaultURL() {
+            intake = IntakeDirectory(root: standard)
+        } else {
+            intake = nil
+            diagnostics.append("could not locate Application Support; Shifu intake is off")
+        }
         self.diagnostics = diagnostics
 
         reload()
+        drainShifuIntake()
     }
 
     // MARK: - Recompute
@@ -271,6 +291,45 @@ final class ScoreStore {
         }
         reload()
         return true
+    }
+
+    // MARK: - Shifu intake (§8.2)
+
+    /// Consume anything Shifu has dropped, then refold.
+    ///
+    /// Called at launch and whenever the app is activated, because the intake is a
+    /// queue that fills while the app is closed — that asymmetry is the reason the
+    /// transport is a directory rather than a live channel (see `IntakeDirectory`).
+    ///
+    /// A read-only run refuses, exactly as `append` does and for the same reason: a
+    /// `--probe` or snapshot run that swallowed the developer's pending Shifu
+    /// documents would corrupt the very history it exists to photograph. The
+    /// `MATHTREE_INTAKE_DRAIN` override exists so the verification harness can
+    /// still exercise this path deliberately, against copies.
+    @discardableResult
+    func drainShifuIntake() -> IntakeDirectory.DrainResult? {
+        guard let intake else { return nil }
+        guard !isReadOnly || allowsIntakeInReadOnlyRun else {
+            diagnostics.append("read-only run: left the Shifu intake untouched")
+            return nil
+        }
+        do {
+            let result = try intake.drain(graph: graph, log: log)
+            diagnostics += result.diagnostics
+            for name in result.interrupted {
+                diagnostics.append(
+                    "intake: accepted/\(name) has no receipt — a previous ingest was interrupted; "
+                        + "it was not re-read")
+            }
+            if result.appended > 0 {
+                diagnostics.append("intake: \(result.summary)")
+                reload()
+            }
+            return result
+        } catch {
+            diagnostics.append("intake: could not drain \(intake.root.path): \(error)")
+            return nil
+        }
     }
 
     // MARK: - Clock

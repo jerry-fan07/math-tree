@@ -166,7 +166,14 @@ public enum ScoreFold {
         fsrs: FSRS,
         config: ScoringConfig
     ) -> MemoryState {
-        guard event.source == .implicit else {
+        // The discriminator is **confidence**, not source. §5.1's inferred tier is
+        // "low-confidence evidence that decays faster until confirmed by a direct
+        // test", and D8.4 made confidence-as-weight the whole of that: a weight
+        // below 1 yields a fraction of the stability a real review would grant, and
+        // lower stability *is* steeper decay. Phase 10's Shifu observations arrive
+        // on exactly those terms, so keying off `confidence` lets them ride this
+        // path without a second decay model or a per-source special case.
+        guard event.source == .implicit || event.confidence != nil else {
             return fsrs.review(current, grade: grade, at: event.at)
         }
         // Weight is authored into the event so the log stays auditable and a
