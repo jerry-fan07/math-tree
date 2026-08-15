@@ -88,6 +88,47 @@ enum ShaderSource {
             return saturate((reveal - appear) * 8.0);
         }
 
+        // ---- Background -------------------------------------------------------
+
+        // The canvas itself. `core` at the centre of an ellipse `radius` wide (in
+        // viewport fractions) and `edge` from `stop` outward — the dark direction's
+        // `radial-gradient(115% 88% at 50% 44%, #0C0E15, #07080B 72%)`. The light
+        // direction sets both colours to the same paper tone, so the same pass
+        // draws a flat field and there is no second code path.
+        struct BackgroundParams {
+            float4 core;
+            float4 edge;
+            float2 center;
+            float2 radius;
+            float  stop;
+            float  pad;
+        };
+
+        struct BackgroundVaryings {
+            float4 position [[position]];
+            float2 uv;
+        };
+
+        vertex BackgroundVaryings backgroundVertex(uint vid [[vertex_id]])
+        {
+            // One oversized triangle rather than a quad: no vertex buffer, no
+            // diagonal seam.
+            float2 p = float2(float((vid << 1u) & 2u), float(vid & 2u));
+            BackgroundVaryings out;
+            out.position = float4(p * 2.0 - 1.0, 0.0, 1.0);
+            out.uv       = float2(p.x * 0.5, 1.0 - p.y * 0.5);
+            return out;
+        }
+
+        fragment float4 backgroundFragment(BackgroundVaryings v [[stage_in]],
+                                           constant BackgroundParams &b [[buffer(0)]])
+        {
+            float2 d = (v.uv - b.center) / max(b.radius, float2(1e-3));
+            float  t = saturate(length(d) / max(b.stop, 1e-3));
+            float3 rgb = mix(b.core.rgb, b.edge.rgb, t);
+            return float4(rgb, 1.0);
+        }
+
         // ---- Nodes ------------------------------------------------------------
 
         struct NodeVaryings {
@@ -95,7 +136,6 @@ enum ShaderSource {
             float2 local;       // distance from the centre, in radius units
             float4 color;
             float  radiusPx;
-            float  halo;
         };
 
         vertex NodeVaryings nodeVertex(uint vid                       [[vertex_id]],
@@ -109,10 +149,12 @@ enum ShaderSource {
             float radiusPt = mix(float(n.radii.x), float(n.radii.y), u.bandT);
             float radiusPx = max(radiusPt * u.backingScale, 0.75);
 
-            // Only nodes big enough to read as hubs get a halo; that is what makes
-            // branches look like galaxies rather than dots (§6.1).
-            float halo = saturate((radiusPt - 5.0) / 12.0) * 0.40;
-            float extent = radiusPx * mix(1.35, 2.80, saturate(halo * 3.0));
+            // No halo. Phase 6 gave the big tiers an exponential glow so branches
+            // read as galaxies; the redesign drops it along with the chips and the
+            // cards — a hub is a flat disc, and clustering is carried by the
+            // `contains` filaments and by position. The quad is now only as wide as
+            // the disc plus antialiasing slack.
+            float extent = radiusPx * 1.35;
 
             float2 corner = float2((vid & 1u) != 0u ? 1.0 : -1.0,
                                    (vid & 2u) != 0u ? 1.0 : -1.0);
@@ -120,11 +162,10 @@ enum ShaderSource {
 
             NodeVaryings out;
             out.position = pxToClip(centrePx + corner * extent, u.viewportPx);
-            out.local    = corner * (extent / radiusPx);
+            out.local    = corner * 1.35;
             out.color    = unpackRGBA(n.rgba);
             out.color.a *= p.alpha * revealFactor(iid, p, u.reveal);
             out.radiusPx = radiusPx;
-            out.halo     = halo;
             return out;
         }
 
@@ -132,9 +173,7 @@ enum ShaderSource {
         {
             float d = length(v.local);
             float aa = max(1.4 / v.radiusPx, 0.02);
-            float core = 1.0 - smoothstep(1.0 - aa, 1.0 + aa, d);
-            float halo = v.halo * exp2(-max(d - 1.0, 0.0) * 3.5) * (1.0 - core);
-            float a = saturate(core + halo) * v.color.a;
+            float a = (1.0 - smoothstep(1.0 - aa, 1.0 + aa, d)) * v.color.a;
             return float4(v.color.rgb * a, a);      // premultiplied
         }
 

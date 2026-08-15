@@ -196,8 +196,10 @@ This is the "FSRS incorporating graph data as a parameter" requirement made conc
 ### 4.5 Color mapping
 
 - **Unlearned** (no state): neutral gray, low opacity — visually recedes.
-- **Learned**: continuous gradient by retrievability — proposed cold-to-warm ramp: deep blue (≈0.3, badly decayed) → teal → green (≈0.95+, solid). Decayed nodes thus remain visibly *colored* (they were learned) but cool and dim, distinct from gray unlearned nodes.
+- **Learned**: continuous gradient by retrievability, from badly decayed (≈0.3) to solid (≈0.95+). Decayed nodes remain visibly *colored* (they were learned) but dim and washed out, distinct from gray unlearned nodes.
 - **Frontier** (unlearned, all prerequisites above a mastery threshold τ ≈ 0.85): gray with a subtle accent ring — these are "what you could learn next," the actionable set the whole product points at.
+
+**Which channel carries it** (amended in turn 1, [D11.1](implementation-plan.md#turn-1)): the gradient moves *luminance*, not hue. A node's hue is its branch's, so the map encodes two independent facts at once — where in mathematics a node sits, and how well it is known. On the dark canvas a solid node is bright and a decayed one sinks toward the background; on the light one a solid node is dense ink and a decayed one is washed out. The original proposal — a deep-blue → teal → green hue walk — survives as the *model's* colour: `ScoreRamp` still computes it, the probe still prints it, and it is what the scoring tests pin. What the display shows is a function of that model's ramp position, not of its colour.
 
 ---
 
@@ -233,17 +235,21 @@ Placement is optional and resumable: a user can skip it and let the picture fill
 
 ### 6.1 Overview: Obsidian-style graph, with discipline
 
-Primary view is a minimalist force-directed graph (dark background, dot nodes, hairline edges) in the spirit of Obsidian's graph view — but at this node count, an undisciplined hairball is useless, so the design is **level-of-detail (LOD) first**:
+Primary view is a minimalist force-directed graph (dot nodes, hairline edges) in the spirit of Obsidian's graph view — but at this node count, an undisciplined hairball is useless, so the design is **level-of-detail (LOD) first**:
 
 - **Overview zoom**: only `branch`/`subbranch` hubs and `prominence: 2` nodes render labels; hubs render large; `prominence: 0` nodes shrink to near-dots; `contains` clustering dominates the layout so branches form visible galaxies.
 - **Mid zoom**: subbranch neighborhoods; `prominence ≥ 1` labels appear; `requires` edges become distinguishable (subtle arrowheads) from `relates` edges (dashed/fainter).
 - **Detail zoom**: everything labeled; hovering a node highlights its direct prerequisites and dependents; clicking opens the node panel (statement, summary, score, review history, "learn this" action).
 
-Color encodes score throughout ([§4.5](#45-color-mapping)). Edges inherit blended endpoint colors; `relates` edges show their own score.
+Color encodes score throughout ([§4.5](#45-color-mapping)).
+
+**Chrome and canvas** (amended in turn 1, [D11.1](implementation-plan.md#turn-1)–[D11.3](implementation-plan.md#turn-1)): the screen is two surfaces over the map — a rule-separated command line across the top and one detail column — in two appearances, *Observatory* on a near-black canvas and *Ledger* on paper, following the system. Edges are monochrome hairlines rather than blends of their endpoints' colors: with hue now naming the branch, a third color system on the same canvas is noise, and §4.4's edge score is carried as intensity, which is the form that section actually specifies.
 
 ### 6.2 Focus mode (the learning view)
 
 Selecting a goal node switches to **focus mode**: the display reduces to the node's `requires`-ancestor subgraph, laid out left-to-right in topological order, colored by score. Met prerequisites are compressed; the unmet chain is prominent. This is the "branch off what you know to reach new knowledge" vision rendered literally, and it doubles as the syllabus view ([§5.4](#54-ongoing-review--diagnosis)). A breadcrumb returns to the full graph with a smooth animated transition (zoom-out, not a cut — continuity of place is part of the minimalist feel).
+
+Turn 1 draws the topological order as *columns* rather than as a node-link diagram ([D11.4](implementation-plan.md#turn-1)): one rule-separated stage per column, met stages small and quiet, the unmet chain at reading size, the goal last behind an accent rule, and a progress bar at the foot. Edges between stages are not drawn — the column a node sits in already says where it falls in the order, and its exact prerequisites are in the node panel.
 
 ### 6.3 Alternatives considered
 

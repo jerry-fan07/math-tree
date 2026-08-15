@@ -16,9 +16,14 @@ struct GraphScene {
         var text: String
         var documentIndex: Int
         var tier: LODTier
-        var hue: Float
         var anchor: SIMD2<Float>
+        /// Vertical gap from the node centre to the label box. Chosen by
+        /// `LabelCull` — the preferred position is under the dot, but a label that
+        /// would collide there takes one of two alternates.
         var offsetPt: Float
+        /// `bandT` at which this label first has room. `LabelCull.neverFits` for
+        /// one the layout has no space for at any zoom.
+        var fadeStart: Float
     }
 
     enum EdgeClass: Int, CaseIterable {
@@ -71,13 +76,25 @@ struct GraphScene {
     /// never clip against the window edge.
     private(set) var maxNodeRadiusPt: Float = 0
 
-    init(document: GraphDocument) {
+    /// The appearance the instance buffers were baked with. Only the initial one
+    /// matters: `GraphRenderer.setTheme` rewrites every colour word in place when
+    /// it changes, so this is the starting state rather than a standing dependency.
+    private let theme: Theme
+
+    init(document: GraphDocument, theme: Theme) {
         self.document = document
+        self.theme = theme
         buildTaxonomy()
         buildNodes()
         buildEdges()
         buildLabels()
         pickGrid = PickGrid(positions: worldPositions)
+    }
+
+    /// The branch hue a node inherits, by id — how the chrome paints a score dot
+    /// in the same colour the map does.
+    func hue(of id: NodeID) -> Float? {
+        document.index(of: id).map { hueByDocumentIndex[$0] }
     }
 
     // MARK: - Build
@@ -133,7 +150,8 @@ struct GraphScene {
                 NodeInstance(
                     pos: worldPositions[documentIndex],
                     radii: SIMD2(Float16(radii.overview), Float16(radii.detail)),
-                    rgba: Palette.nodeColor(hue: hueByDocumentIndex[documentIndex], tier: tier)))
+                    rgba: Palette.nodeColor(
+                        hue: hueByDocumentIndex[documentIndex], tier: tier, theme: theme)))
         }
 
         if let first = worldPositions.first {
@@ -174,12 +192,8 @@ struct GraphScene {
                 EdgeInstance(
                     a: worldPositions[pair.from],
                     b: worldPositions[pair.to],
-                    rgbaA: Palette.edgeColor(
-                        hue: hueByDocumentIndex[pair.from], tier: tierByDocumentIndex[pair.from],
-                        weight: pair.weightA),
-                    rgbaB: Palette.edgeColor(
-                        hue: hueByDocumentIndex[pair.to], tier: tierByDocumentIndex[pair.to],
-                        weight: pair.weightB))
+                    rgbaA: Palette.edgeColor(edgeClass, weight: pair.weightA, theme: theme),
+                    rgbaB: Palette.edgeColor(edgeClass, weight: pair.weightB, theme: theme))
             }
             edgeEndpoints[edgeClass.rawValue] = sorted.map { (from: $0.from, to: $0.to) }
             if edgeClass == .relates { relatesSourceByInstance = sorted.map(\.source) }
@@ -227,9 +241,23 @@ struct GraphScene {
                     text: document.nodes[documentIndex].title,
                     documentIndex: documentIndex,
                     tier: tier,
-                    hue: hueByDocumentIndex[documentIndex],
                     anchor: worldPositions[documentIndex],
-                    offsetPt: max(radii.overview, radii.detail) + 4.0))
+                    offsetPt: max(radii.overview, radii.detail) + 4.0,
+                    fadeStart: tier.labelFadeStart))
+        }
+
+        // The design's greedy cull, solved over a ladder of zooms. Without it the
+        // map's names pile up wherever the layout clusters, which is exactly where
+        // there is most to read.
+        let placements = LabelCull.solve(
+            specs: labelSpecs, worldPositions: worldPositions, tiers: tierByDocumentIndex,
+            fitScale: fitScale(viewportPt: LabelCull.nominalViewportPt))
+        for index in labelSpecs.indices {
+            labelSpecs[index].offsetPt = placements[index].offsetPt
+            // Never earlier than the tier's own gate: culling can only delay a
+            // label, never promote one past §6.1's LOD rules.
+            labelSpecs[index].fadeStart = max(
+                placements[index].fadeStart, labelSpecs[index].tier.labelFadeStart)
         }
     }
 

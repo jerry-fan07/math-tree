@@ -18,6 +18,11 @@ import simd
 ///   detail zoom so the prerequisite/dependent highlight is visible; `none`
 ///   disables it; any node id hovers that node.
 ///
+/// The appearance comes from `MATHTREE_THEME` (`dark` | `light`, read by
+/// `ThemeStore`), which is a process-wide pin rather than a snapshot flag —
+/// `--probe` and `MATHTREE_PANEL_SHOT` need the same control, and a headless run
+/// has no system appearance to fall back on.
+///
 /// The environment rather than flags because of D3.7: `--flag value` pairs on an
 /// AppKit command line get parsed into `NSUserDefaults` and can stop the window
 /// from ever being created. Offscreen because D3.7 also says profile offscreen —

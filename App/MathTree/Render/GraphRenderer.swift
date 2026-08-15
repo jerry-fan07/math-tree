@@ -48,6 +48,7 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
 
     let device: MTLDevice
     private let commandQueue: MTLCommandQueue
+    private let backgroundPipeline: MTLRenderPipelineState
     private let nodePipeline: MTLRenderPipelineState
     private let ringPipeline: MTLRenderPipelineState
     private let edgePipeline: MTLRenderPipelineState
@@ -65,7 +66,17 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
     private let frontierRingBuffer: MTLBuffer?
     private(set) var frontierRingCount = 0
 
-    private let atlas: LabelAtlas
+    /// Replaced wholesale on an appearance change: the atlas holds rasterised
+    /// glyphs, and the two directions do not agree on the tier-1 face (sans on the
+    /// dark canvas, serif on paper). Colour alone would be a buffer rewrite;
+    /// a different typeface is a different bitmap.
+    private var atlas: LabelAtlas
+    /// The deepest tier the atlas has been asked for, so a rebuild lands back at
+    /// the same depth instead of dropping labels the current zoom is showing.
+    private var builtLabelTier: LODTier = .branch
+
+    /// The appearance everything on the GPU is currently painted for.
+    private(set) var theme: Theme
 
     var camera = Camera()
     private(set) var viewportPx = SIMD2<Float>(1, 1)
@@ -103,11 +114,21 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
     /// animation (hover, pan, zoom).
     var requestRedraw: (() -> Void)?
 
-    init(device: MTLDevice, scene: GraphScene, timings: RenderTimings, backingScale: CGFloat) throws
-    {
+    /// Reported when the zoom crosses a band boundary. The chrome uses it for the
+    /// map legends, which the design shows from mid zoom on — the band is the
+    /// renderer's fact, and the alternative was SwiftUI polling a camera every
+    /// frame.
+    var onBandChange: ((ZoomBand) -> Void)?
+    private var reportedBand: ZoomBand?
+
+    init(
+        device: MTLDevice, scene: GraphScene, timings: RenderTimings, backingScale: CGFloat,
+        theme: Theme = ThemeStore.shared.theme
+    ) throws {
         self.device = device
         self.scene = scene
         self.timings = timings
+        self.theme = theme
         self.backingScale = Float(max(backingScale, 1))
 
         guard let queue = device.makeCommandQueue() else { throw RendererError.noDevice }
@@ -153,6 +174,7 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
                 throw RendererError.pipelineFailed(String(describing: error))
             }
         }
+        backgroundPipeline = try pipeline("backgroundVertex", "backgroundFragment")
         nodePipeline = try pipeline("nodeVertex", "nodeFragment")
         ringPipeline = try pipeline("nodeVertex", "ringFragment")
         edgePipeline = try pipeline("edgeVertex", "edgeFragment")
@@ -199,7 +221,7 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
                 options: .storageModeShared)
         self.timings.instanceBufferMs = (CFAbsoluteTimeGetCurrent() - bufferStart) * 1000
 
-        atlas = LabelAtlas(device: device, backingScale: backingScale)
+        atlas = LabelAtlas(device: device, backingScale: backingScale, theme: theme)
         super.init()
 
         // D3.5: the overview tier is rasterised eagerly because it is on the
@@ -213,6 +235,7 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
     // MARK: - Labels
 
     private func buildLabels(upTo tier: LODTier) {
+        if tier > builtLabelTier { builtLabelTier = tier }
         guard atlas.build(upTo: tier, specs: scene.labelSpecs), let labelBuffer else { return }
         atlas.instances.withUnsafeBytes { source in
             guard let base = source.baseAddress else { return }
@@ -221,6 +244,33 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
     }
 
     var atlasStats: LabelAtlas.Stats { atlas.stats }
+
+    // MARK: - Appearance
+
+    /// Repaint the whole map for the other direction of the redesign.
+    ///
+    /// Buffers are rewritten in place, not rebuilt — the same discipline
+    /// `applyScores` follows, and for the same reason (D3.4: zero per-frame
+    /// uploads, and an appearance change is far rarer than a frame). The atlas is
+    /// the one exception: its glyphs are baked bitmaps and the two directions do
+    /// not share a tier-1 typeface, so it is thrown away and re-rasterised to the
+    /// depth the current zoom had reached.
+    func setTheme(_ theme: Theme) {
+        guard theme.appearance != self.theme.appearance else { return }
+        self.theme = theme
+
+        writeNodeColors(scoreVisuals)
+        writeEdgeColors(scoreVisuals)
+        rebuildFrontierRings(scoreVisuals)
+        rebuildHighlight()
+
+        let depth = builtLabelTier
+        atlas = LabelAtlas(device: device, backingScale: CGFloat(backingScale), theme: theme)
+        builtLabelTier = .branch
+        buildLabels(upTo: depth)
+
+        requestRedraw?()
+    }
 
     // MARK: - Camera
 
@@ -353,34 +403,43 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
         var rings: [NodeInstance] = []
         var lines: [EdgeInstance] = []
 
-        func radius(_ index: Int, _ boost: Float) -> Float {
+        /// The ring sits `gap` points *outside* the dot. Phase 6 scaled it by the
+        /// dot's radius, which under the redesign's much smaller nodes made the
+        /// highlight a halo the size of a subbranch; a fixed gap keeps the ring
+        /// reading as an outline at every tier, which is what the design draws.
+        func radius(_ index: Int, _ gap: Float) -> Float {
             let radii = scene.tierByDocumentIndex[index].radiiPt
-            return max(radii.overview, radii.detail) * boost + 3.5
+            return max(radii.overview, radii.detail) + gap
         }
-        func ring(_ index: Int, _ color: UInt32, _ boost: Float) {
-            let r = Float16(radius(index, boost))
+        func ring(_ index: Int, _ color: UInt32, _ gap: Float) {
+            let r = Float16(radius(index, gap))
             rings.append(
                 NodeInstance(pos: scene.worldPositions[index], radii: SIMD2(r, r), rgba: color))
         }
 
-        ring(hovered, Palette.hoverRingColor, 1.75)
+        let hoverColor = Palette.hoverRingColor(theme: theme)
+        let prerequisiteColor = Palette.prerequisiteRingColor(theme: theme)
+        let dependentColor = Palette.dependentRingColor(theme: theme)
+        let highlightColor = Palette.highlightEdgeColor(theme: theme)
+
+        ring(hovered, hoverColor, 4.2)
         for prerequisite in node.requires {
             guard let index = document.index(of: prerequisite), rings.count < Self.highlightCapacity
             else { continue }
-            ring(index, Palette.prerequisiteRingColor, 1.55)
+            ring(index, prerequisiteColor, 3.2)
             lines.append(
                 EdgeInstance(
                     a: scene.worldPositions[index], b: scene.worldPositions[hovered],
-                    rgbaA: Palette.prerequisiteRingColor, rgbaB: Palette.highlightEdgeColor))
+                    rgbaA: prerequisiteColor, rgbaB: highlightColor))
         }
         for dependent in document.dependents(of: node.id) {
             guard let index = document.index(of: dependent), rings.count < Self.highlightCapacity
             else { continue }
-            ring(index, Palette.dependentRingColor, 1.55)
+            ring(index, dependentColor, 3.2)
             lines.append(
                 EdgeInstance(
                     a: scene.worldPositions[hovered], b: scene.worldPositions[index],
-                    rgbaA: Palette.highlightEdgeColor, rgbaB: Palette.dependentRingColor))
+                    rgbaA: highlightColor, rgbaB: dependentColor))
         }
 
         highlightNodeCount = min(rings.count, Self.highlightCapacity)
@@ -408,7 +467,7 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
     /// and a review or a decay tick is neither — the same pattern the hover
     /// highlight has used since Phase 4.
     func applyScores(_ visuals: ScoreVisuals) {
-        guard visuals.nodeColor.count == scene.document.nodes.count else { return }
+        guard visuals.rampT.count == scene.document.nodes.count else { return }
         scoreVisuals = visuals
         writeNodeColors(visuals)
         writeEdgeColors(visuals)
@@ -428,58 +487,70 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
         }
     }
 
-    private func writeNodeColors(_ visuals: ScoreVisuals) {
+    /// `nil` visuals is the pre-user-state map: every content node unlearned grey,
+    /// every hub its structural neutral. It is a real state (the app runs without
+    /// an evidence log) and it is also what an appearance change falls back to.
+    private func writeNodeColors(_ visuals: ScoreVisuals?) {
         guard let nodeBuffer else { return }
         let instances = nodeBuffer.contents()
             .bindMemory(to: NodeInstance.self, capacity: scene.nodeInstances.count)
-        for (documentIndex, color) in visuals.nodeColor.enumerated() {
+        for documentIndex in 0..<scene.document.nodes.count {
             let tier = scene.tierByDocumentIndex[documentIndex]
-            instances[scene.instanceIndexByDocument[documentIndex]].rgba =
-                color.map { Palette.scoreNodeColor($0, tier: tier) }
-                // Structural: not learnable, so it keeps its taxonomy hue (D6.1).
-                ?? Palette.nodeColor(hue: scene.hueByDocumentIndex[documentIndex], tier: tier)
+            let hue = scene.hueByDocumentIndex[documentIndex]
+            // Structural: not learnable (§2.1), so it takes the taxonomy's neutral
+            // rather than a score colour.
+            let packed: UInt32
+            if tier <= .subbranch {
+                packed = Palette.nodeColor(hue: hue, tier: tier, theme: theme)
+            } else {
+                packed = Palette.scoreNodeColor(
+                    rampT: visuals?.rampT[documentIndex], hue: hue, theme: theme)
+            }
+            instances[scene.instanceIndexByDocument[documentIndex]].rgba = packed
         }
     }
 
-    /// §6.1: "edges inherit blended endpoint colours; `relates` edges show their
-    /// own score". `contains` is left alone — it joins a structural parent that
-    /// has no score, and it is the filament that makes branches read as galaxies.
-    private func writeEdgeColors(_ visuals: ScoreVisuals) {
-        func endpointColor(_ documentIndex: Int, weight: Float) -> UInt32 {
-            guard let color = visuals.nodeColor[documentIndex] else {
-                return Palette.edgeColor(
-                    hue: scene.hueByDocumentIndex[documentIndex],
-                    tier: scene.tierByDocumentIndex[documentIndex], weight: weight)
-            }
-            return Palette.scoreEdgeColor(color, weight: weight)
-        }
-
-        for edgeClass in [GraphScene.EdgeClass.requires, .relates] {
+    /// Edges in the redesign's two monochrome tones: `contains` filaments dim,
+    /// `requires` and `relates` lit. Phase 6's per-endpoint score inheritance is
+    /// deliberately gone (see `Palette.edgeColor`) — hue now means branch, and a
+    /// third colour system on the same canvas is what the redesign is cutting.
+    ///
+    /// §4.4 survives where it is actually specified: a `relates` edge that has
+    /// been exercised carries its own score *as intensity*.
+    private func writeEdgeColors(_ visuals: ScoreVisuals?) {
+        for edgeClass in GraphScene.EdgeClass.allCases {
             guard let buffer = edgeBuffers[edgeClass.rawValue] else { continue }
             let endpoints = scene.edgeEndpoints[edgeClass.rawValue]
             let instances = buffer.contents()
                 .bindMemory(to: EdgeInstance.self, capacity: endpoints.count)
-            // Phase 4's directional weights are kept: a `requires` edge stays dim
-            // at the prerequisite and bright at the dependent, so it still reads
-            // as flow rather than as a symmetric link.
-            let weights: (Float, Float) = edgeClass == .requires ? (0.55, 1.0) : (0.85, 0.85)
+            // Phase 4's directional weights are kept: a `contains` filament is
+            // bright at the hub and faded at the child, and a `requires` edge is
+            // dim at the prerequisite and bright at the dependent, so both still
+            // read as flow rather than as symmetric links.
+            let weights: (Float, Float)
+            switch edgeClass {
+            case .contains: weights = (0.95, 0.40)
+            case .requires: weights = (0.55, 1.0)
+            case .relates: weights = (0.85, 0.85)
+            }
 
-            for (instance, endpoint) in endpoints.enumerated() {
-                // §4.4: an exercised connection is knowledge over and above its
-                // endpoints, so it overrides the blend with its own score.
+            for instance in endpoints.indices {
                 if edgeClass == .relates, instance < scene.relatesSourceByInstance.count {
                     let source = scene.relatesSourceByInstance[instance]
-                    if source >= 0, source < visuals.relatesColor.count,
-                        let own = visuals.relatesColor[source]
+                    if let visuals, source >= 0, source < visuals.relatesRampT.count,
+                        let own = visuals.relatesRampT[source]
                     {
-                        let packed = Palette.scoreEdgeColor(own, weight: 0.85)
+                        let packed = Palette.scoreEdgeColor(
+                            rampT: own, weight: 0.85, theme: theme)
                         instances[instance].rgbaA = packed
                         instances[instance].rgbaB = packed
                         continue
                     }
                 }
-                instances[instance].rgbaA = endpointColor(endpoint.from, weight: weights.0)
-                instances[instance].rgbaB = endpointColor(endpoint.to, weight: weights.1)
+                instances[instance].rgbaA = Palette.edgeColor(
+                    edgeClass, weight: weights.0, theme: theme)
+                instances[instance].rgbaB = Palette.edgeColor(
+                    edgeClass, weight: weights.1, theme: theme)
             }
         }
     }
@@ -487,11 +558,12 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
     /// §4.5's frontier ring: the fill stays unlearned grey and the accent is added
     /// around it, because being on the frontier is a fact about the graph around a
     /// node rather than a score the node carries.
-    private func rebuildFrontierRings(_ visuals: ScoreVisuals) {
+    private func rebuildFrontierRings(_ visuals: ScoreVisuals?) {
         frontierRingCount = 0
-        guard let frontierRingBuffer else { return }
+        guard let frontierRingBuffer, let visuals else { return }
         var rings: [NodeInstance] = []
         rings.reserveCapacity(visuals.isFrontier.count)
+        let ringColor = Palette.frontierRingColor(theme: theme)
         for (documentIndex, isFrontier) in visuals.isFrontier.enumerated() where isFrontier {
             let radii = scene.tierByDocumentIndex[documentIndex].radiiPt
             rings.append(
@@ -500,8 +572,8 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
                     // Keeps the band morph the node itself has, so the ring never
                     // detaches from the dot it belongs to as the zoom changes.
                     radii: SIMD2(
-                        Float16(radii.overview * 1.55 + 2.2), Float16(radii.detail * 1.55 + 2.2)),
-                    rgba: Palette.frontierRingColor))
+                        Float16(radii.overview + 1.8), Float16(radii.detail + 1.8)),
+                    rgba: ringColor))
         }
         frontierRingCount = min(rings.count, scene.nodeInstances.count)
         rings.withUnsafeBytes {
@@ -547,30 +619,59 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
     /// Per-class edge styling, mixed for the current band. §6.1: `contains`
     /// dominates at overview so branches read as galaxies; by mid zoom `requires`
     /// has taken over and carries arrowheads, while `relates` goes dashed and faint.
+    ///
+    /// The redesign's hairlines are much fainter than Phase 4's, and every class
+    /// is scaled by one `theme.edgeIntensity` rather than re-tuned: the *shape* of
+    /// the band mix is §6.1's, and only its overall weight is the redesign's.
     func edgeParams(_ edgeClass: GraphScene.EdgeClass, count: Int, bandT t: Float)
         -> DrawParams
     {
         let mix = Self.mix
+        /// Alpha only — widths, dashes and arrowheads are geometry and must not
+        /// thin out with the appearance.
+        func alpha(_ a: Float, _ b: Float) -> Float { mix(a, b, t) * theme.edgeIntensity }
         let arrowRamp = Self.smoothstep(0.18, 0.38, t)
         let dashRamp = Self.smoothstep(0.18, 0.40, t)
         switch edgeClass {
         case .contains:
             return DrawParams(
                 rangeStart: 0, count: Float(max(count, 1)), revealBase: 0.10, revealSpan: 0.30,
-                alpha: mix(0.50, 0.16, t), widthPt: mix(1.0, 0.7, t), dashPeriodPt: 0,
+                alpha: alpha(0.50, 0.16), widthPt: mix(0.9, 0.7, t), dashPeriodPt: 0,
                 dashDuty: 1, arrowAlpha: 0, arrowSizePt: 0)
         case .requires:
             return DrawParams(
                 rangeStart: 0, count: Float(max(count, 1)), revealBase: 0.38, revealSpan: 0.32,
-                alpha: mix(0.24, 0.70, t), widthPt: mix(1.1, 1.7, t), dashPeriodPt: 0,
-                dashDuty: 1, arrowAlpha: 0.85 * arrowRamp, arrowSizePt: mix(6.0, 9.0, t))
+                alpha: alpha(0.35, 0.95), widthPt: mix(0.9, 1.4, t), dashPeriodPt: 0,
+                dashDuty: 1, arrowAlpha: 0.7 * arrowRamp, arrowSizePt: mix(5.0, 7.5, t))
         case .relates:
             return DrawParams(
                 rangeStart: 0, count: Float(max(count, 1)), revealBase: 0.52, revealSpan: 0.26,
-                alpha: mix(0.18, 0.55, t), widthPt: mix(1.0, 1.4, t),
+                alpha: alpha(0.26, 0.75), widthPt: mix(0.9, 1.2, t),
                 dashPeriodPt: mix(7.0, 10.0, t), dashDuty: mix(1.0, 0.50, dashRamp),
                 arrowAlpha: 0, arrowSizePt: 0)
         }
+    }
+
+    /// `radial-gradient(115% 88% at 50% 44%, core 0%, edge 72%)` — the design's
+    /// canvas, in viewport fractions.
+    private func backgroundParams() -> BackgroundParams {
+        func float4(_ color: ThemeColor) -> SIMD4<Float> {
+            SIMD4(Float(color.red), Float(color.green), Float(color.blue), 1)
+        }
+        return BackgroundParams(
+            core: float4(theme.canvasCore),
+            edge: float4(theme.canvasEdge),
+            center: SIMD2(0.50, 0.44),
+            radius: SIMD2(1.15, 0.88),
+            stop: 0.72)
+    }
+
+    /// The colour a frame starts from. The background pass covers every pixel, so
+    /// this only matters for the instant before it runs — but a clear that matches
+    /// keeps a resize from flashing the old appearance.
+    var clearColor: MTLClearColor {
+        let edge = theme.canvasEdge
+        return MTLClearColor(red: edge.red, green: edge.green, blue: edge.blue, alpha: 1)
     }
 
     func encode(into encoder: MTLRenderCommandEncoder) {
@@ -595,6 +696,16 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
             encoder.drawPrimitives(
                 type: .triangleStrip, vertexStart: 0, vertexCount: 4, instanceCount: count)
         }
+
+        // The canvas first: one fullscreen triangle, no instance buffer. It is a
+        // draw rather than a clear colour because the dark direction's background
+        // is a radial gradient (the light one sets both stops to paper and gets a
+        // flat field out of the same pass).
+        var background = backgroundParams()
+        encoder.setRenderPipelineState(backgroundPipeline)
+        encoder.setFragmentBytes(
+            &background, length: MemoryLayout<BackgroundParams>.stride, index: 0)
+        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
 
         // Edges under nodes under labels — painter's order, no depth buffer.
         for edgeClass in GraphScene.EdgeClass.allCases {
@@ -648,6 +759,11 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
     /// before encoding, so a zoom that crosses a band boundary pays once.
     func prepareForCurrentBand() {
         buildLabels(upTo: scene.requiredLabelTier(bandT: bandT))
+        let current = band
+        if current != reportedBand {
+            reportedBand = current
+            onBandChange?(current)
+        }
     }
 
     // MARK: - MTKViewDelegate
@@ -667,9 +783,7 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
         stepCameraFlight()
         prepareForCurrentBand()
         descriptor.colorAttachments[0].loadAction = .clear
-        descriptor.colorAttachments[0].clearColor = MTLClearColor(
-            red: Palette.background.x, green: Palette.background.y,
-            blue: Palette.background.z, alpha: 1)
+        descriptor.colorAttachments[0].clearColor = clearColor
 
         if let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) {
             encode(into: encoder)
@@ -706,9 +820,7 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
         pass.colorAttachments[0].texture = texture
         pass.colorAttachments[0].loadAction = .clear
         pass.colorAttachments[0].storeAction = .store
-        pass.colorAttachments[0].clearColor = MTLClearColor(
-            red: Palette.background.x, green: Palette.background.y,
-            blue: Palette.background.z, alpha: 1)
+        pass.colorAttachments[0].clearColor = clearColor
 
         prepareForCurrentBand()
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: pass) else {

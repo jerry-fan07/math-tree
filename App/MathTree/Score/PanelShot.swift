@@ -28,14 +28,19 @@
             let document = scene.document
             let root = URL(fileURLWithPath: directory)
 
+            // Whichever direction of the redesign this run is in. The surfaces are
+            // sized by the theme, so a dark shot and a light one are the two
+            // widths the design specifies rather than one compromise.
+            let theme = ThemeStore.shared.theme
+
             func panel(_ id: NodeID) -> AnyView {
                 guard let index = document.index(of: id) else { return AnyView(EmptyView()) }
                 return AnyView(
                     NodePanel(
                         node: document[index], document: document, scores: scores,
-                        onSelect: { _ in }, onClose: {}
+                        onSelect: { _ in }, onClose: {}, onFocus: { _ in }, onReview: { _ in }
                     )
-                    .background(PanelTheme.background))
+                    .background(theme.panelFill.color))
             }
 
             // A learned node with history, a frontier node, a decayed node, and a
@@ -45,7 +50,7 @@
                 "analysis.svc",
             ] {
                 write(panel(id), to: root.appendingPathComponent("panel-\(id.rawValue).png"),
-                    size: CGSize(width: 360, height: 900))
+                    size: CGSize(width: theme.panelWidth, height: 900))
             }
 
             write(
@@ -53,20 +58,31 @@
                     ReviewSidebar(
                         document: document, scores: scores, onSelect: { _ in }, onClose: {}
                     )
-                    .background(PanelTheme.background)),
+                    .background(theme.canvasEdge.color)),
                 to: root.appendingPathComponent("sidebar.png"),
-                size: CGSize(width: 268, height: 720))
+                size: CGSize(width: theme.railWidth, height: 800))
 
-            // Phase 7: the focus view over the same goal the fixture story is
-            // about. Rendered like every overlay before it — NSHostingView +
-            // cacheDisplay (D4.10; ImageRenderer blanks ScrollView content).
+            // The command line, at the design's frame width.
+            write(
+                AnyView(
+                    CommandBar(
+                        document: document, scores: scores,
+                        selection: "analysis.svc.ftc-part-2", onSelect: { _ in }
+                    )
+                    .background(theme.canvasEdge.color)),
+                to: root.appendingPathComponent("command-bar.png"),
+                size: CGSize(width: 1280, height: theme.barHeight))
+
+            // Phase 7's focus view, at the design's own 1280×800 frame. Rendered
+            // like every overlay before it — NSHostingView + cacheDisplay (D4.10;
+            // ImageRenderer blanks ScrollView content).
             write(
                 AnyView(
                     FocusView(
                         goal: "analysis.svc.ftc-part-2", document: document, scores: scores,
                         onSelect: { _ in }, onExit: {})),
                 to: root.appendingPathComponent("focus-ftc-part-2.png"),
-                size: CGSize(width: 1200, height: 760))
+                size: CGSize(width: 1280, height: 800))
 
             assessment(document: document, scores: scores, into: root)
 

@@ -14,6 +14,11 @@ struct ContentView: View {
     @State private var attempt: Attempt?
     /// §5.3's placement flow.
     @State private var isPlacing = false
+    /// The renderer's zoom band, pushed up when it changes. The map legends are
+    /// drawn from mid zoom on, matching the design's frames.
+    @State private var band: ZoomBand = .overview
+
+    @Environment(\.colorScheme) private var systemAppearance
 
     struct FocusTarget {
         var goal: NodeID
@@ -28,11 +33,9 @@ struct ContentView: View {
     }
 
     var body: some View {
+        let theme = ThemeStore.shared.theme
         ZStack {
-            Color(
-                red: Palette.background.x, green: Palette.background.y, blue: Palette.background.z
-            )
-            .ignoresSafeArea()
+            theme.canvasEdge.color.ignoresSafeArea()
 
             if let renderer = SceneStore.shared.renderer, let scene = SceneStore.shared.scene {
                 GraphMetalView(
@@ -42,23 +45,74 @@ struct ContentView: View {
                     isNavigationSuspended: focus != nil
                 )
                 .ignoresSafeArea()
-                .overlay(alignment: .bottomLeading) { hint }
-                .overlay(alignment: .leading) { sidebar(scene: scene, renderer: renderer) }
-                .overlay { focusOverlay(scene: scene, renderer: renderer) }
-                .overlay(alignment: .trailing) {
+                .overlay(alignment: .top) { commandBar(scene: scene, renderer: renderer) }
+                .overlay(alignment: .bottom) { legends }
+                .overlay(alignment: .topLeading) { sidebar(scene: scene, renderer: renderer) }
+                .overlay(alignment: .topTrailing) {
                     if let selection, let index = scene.document.index(of: selection) {
                         panel(for: scene.document[index], renderer: renderer)
                     }
                 }
+                .overlay { focusOverlay(scene: scene, renderer: renderer) }
                 // Assessment sits above everything: a problem sheet and the
                 // placement flow are modal by nature, and both are dismissible.
                 .overlay { problemOverlay(scene: scene) }
                 .overlay { placementOverlay(scene: scene, renderer: renderer) }
+                .onAppear {
+                    band = renderer.band
+                    renderer.onBandChange = { band = $0 }
+                }
             } else {
                 LoadFailureView(message: SceneStore.shared.errorMessage ?? "Unknown load failure.")
             }
         }
-        .frame(minWidth: 640, minHeight: 400)
+        .frame(minWidth: 860, minHeight: 560)
+        // The redesign is two directions of one design, and which one is showing
+        // is the system's call — unless `MATHTREE_THEME` pinned it, which is how
+        // the two frames are captured side by side.
+        .onAppear { applyAppearance() }
+        .onChange(of: systemAppearance) { applyAppearance() }
+    }
+
+    private func applyAppearance() {
+        ThemeStore.shared.follow(systemAppearance)
+        SceneStore.shared.renderer?.setTheme(ThemeStore.shared.theme)
+    }
+
+    // MARK: - Chrome
+
+    @ViewBuilder
+    private func commandBar(scene: GraphScene, renderer: GraphRenderer) -> some View {
+        if focus == nil {
+            CommandBar(
+                document: scene.document,
+                scores: SceneStore.shared.scores,
+                selection: selection,
+                onSelect: { id in
+                    selection = id
+                    renderer.center(on: id)
+                })
+        }
+    }
+
+    /// The design puts both legends along the bottom of the map from mid zoom on.
+    /// They clear the rail rather than hiding behind it, and step aside entirely
+    /// for focus mode and the modal flows.
+    @ViewBuilder
+    private var legends: some View {
+        let theme = ThemeStore.shared.theme
+        if focus == nil, attempt == nil, !isPlacing, band != .overview {
+            HStack(alignment: .bottom) {
+                EdgeLegend()
+                Spacer(minLength: 24)
+                ScoreScale()
+            }
+            .padding(.horizontal, theme.isDark ? 20 : 24)
+            .padding(.bottom, theme.isDark ? 18 : 20)
+            .padding(.leading, isRailVisible ? theme.railWidth : 0)
+            .padding(.trailing, selection == nil ? 0 : theme.panelWidth)
+            .transition(.opacity)
+        }
     }
 
     // MARK: - Focus mode
@@ -166,12 +220,21 @@ struct ContentView: View {
         }
     }
 
+    private var isRailVisible: Bool {
+        isSidebarVisible && focus == nil && SceneStore.shared.scores != nil
+    }
+
     /// The review queue and the frontier (§5.4, §4.5). Absent when there is no
     /// user state to show — the map is still fully usable without it — and while
     /// focus mode owns the screen.
+    ///
+    /// A scrim under the command bar rather than a panel beside it: the redesign
+    /// has the map run edge to edge and the rail fade out over it, so there is no
+    /// border here and no material.
     @ViewBuilder
     private func sidebar(scene: GraphScene, renderer: GraphRenderer) -> some View {
-        if isSidebarVisible, focus == nil, let scores = SceneStore.shared.scores {
+        let theme = ThemeStore.shared.theme
+        if isRailVisible, let scores = SceneStore.shared.scores {
             ReviewSidebar(
                 document: scene.document,
                 scores: scores,
@@ -184,11 +247,8 @@ struct ContentView: View {
                 onPlace: { isPlacing = true },
                 onClose: { isSidebarVisible = false }
             )
-            .frame(width: 268)
-            .background(.ultraThinMaterial)
-            .overlay(alignment: .trailing) {
-                Rectangle().fill(.white.opacity(0.08)).frame(width: 1)
-            }
+            .frame(width: theme.railWidth)
+            .padding(.top, theme.barHeight)
             .transition(.move(edge: .leading))
         }
     }
@@ -198,7 +258,8 @@ struct ContentView: View {
     /// overlays the focus view, so a syllabus entry can be read and reported
     /// without leaving the syllabus.
     private func panel(for node: Node, renderer: GraphRenderer) -> some View {
-        NodePanel(
+        let theme = ThemeStore.shared.theme
+        return NodePanel(
             node: node,
             document: renderer.scene.document,
             scores: SceneStore.shared.scores,
@@ -212,30 +273,12 @@ struct ContentView: View {
                 : { id in enterFocus(id, renderer: renderer) },
             onReview: { review($0) }
         )
-        .frame(width: 360)
-        .background(.ultraThinMaterial)
+        .frame(width: theme.panelWidth)
+        .padding(.top, focus == nil ? theme.barHeight : 0)
         .overlay(alignment: .leading) {
-            Rectangle().fill(.white.opacity(0.08)).frame(width: 1)
+            Rectangle().fill(theme.rule.color).frame(width: 1)
         }
         .transition(.move(edge: .trailing))
-    }
-
-    /// Map-mode hint only: the focus overlay covers it and carries its own
-    /// "esc to go back" in the breadcrumb.
-    private var hint: some View {
-        Text(
-            "scroll to pan · pinch or ⌘-scroll to zoom · click a node · esc to close · f to fit · r for review"
-        )
-            .font(.system(size: 11, weight: .regular, design: .default))
-            .foregroundStyle(.white.opacity(0.28))
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            // Clears the sidebar rather than hiding behind it.
-            .padding(
-                .leading,
-                isSidebarVisible && focus == nil && SceneStore.shared.scores != nil ? 268 : 0
-            )
-            .allowsHitTesting(false)
     }
 }
 
@@ -245,13 +288,14 @@ struct LoadFailureView: View {
     let message: String
 
     var body: some View {
+        let theme = ThemeStore.shared.theme
         VStack(alignment: .leading, spacing: 14) {
             Text("Knowledge Tree could not load its content.")
-                .font(.system(size: 17, weight: .medium))
-                .foregroundStyle(.white.opacity(0.9))
+                .font(Typeface.sans(17, .medium))
+                .foregroundStyle(theme.ink.color)
             Text(message)
-                .font(.system(size: 12, weight: .regular, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.6))
+                .font(Typeface.mono(12))
+                .foregroundStyle(theme.inkMuted.color)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
         }

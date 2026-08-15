@@ -45,7 +45,7 @@ struct ProblemSheet: View {
         ZStack {
             // A scrim, so the map behind reads as backdrop rather than as content
             // competing for attention.
-            Color.black.opacity(0.55)
+            ThemeStore.shared.theme.scrim.color
                 .ignoresSafeArea()
                 .onTapGesture { onDismiss() }
 
@@ -83,13 +83,13 @@ struct ProblemSheet: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 if let progress {
                     Text(progress)
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(1.1)
+                        .font(Typeface.mono(10, .medium))
+                        .tracking(Typeface.tracking(0.18, at: 10))
                         .foregroundStyle(PanelTheme.accent)
                 } else {
                     Text(chain == nil ? "PROBLEM" : "WHERE DID IT BREAK?")
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(1.1)
+                        .font(Typeface.mono(10, .medium))
+                        .tracking(Typeface.tracking(0.18, at: 10))
                         .foregroundStyle(PanelTheme.tertiaryText)
                 }
                 Spacer(minLength: 0)
@@ -99,7 +99,7 @@ struct ProblemSheet: View {
                 Text("·")
                 Text(problem.id.rawValue)
             }
-            .font(.system(size: 10.5))
+            .font(Typeface.sans(10.5))
             .foregroundStyle(PanelTheme.tertiaryText)
 
             HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -121,7 +121,7 @@ struct ProblemSheet: View {
                         .compactMap { document.index(of: $0).map { document[$0].title } }
                         .joined(separator: ", ")
                 )
-                .font(.system(size: 10.5))
+                .font(Typeface.sans(10.5))
                 .foregroundStyle(PanelTheme.tertiaryText)
             }
         }
@@ -142,7 +142,7 @@ struct ProblemSheet: View {
                 withAnimation(.easeOut(duration: 0.18)) { isAnswerVisible = true }
             }
             Text("Work it out first — the grade you give yourself is the measurement.")
-                .font(.system(size: 10.5))
+                .font(Typeface.sans(10.5))
                 .foregroundStyle(PanelTheme.tertiaryText)
         }
     }
@@ -150,8 +150,8 @@ struct ProblemSheet: View {
     private var answer: some View {
         VStack(alignment: .leading, spacing: 7) {
             Text("ANSWER")
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(1.1)
+                .font(Typeface.mono(10, .medium))
+                .tracking(Typeface.tracking(0.18, at: 10))
                 .foregroundStyle(PanelTheme.tertiaryText)
             MathTextView(source: problem.answer, size: 13.5, color: PanelTheme.primaryText)
         }
@@ -162,13 +162,13 @@ struct ProblemSheet: View {
         if !problem.rubric.isEmpty {
             VStack(alignment: .leading, spacing: 7) {
                 Text("A CORRECT SOLUTION")
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(1.1)
+                    .font(Typeface.mono(10, .medium))
+                    .tracking(Typeface.tracking(0.18, at: 10))
                     .foregroundStyle(PanelTheme.tertiaryText)
                 ForEach(Array(problem.rubric.enumerated()), id: \.offset) { _, criterion in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text("—")
-                            .font(.system(size: 12))
+                            .font(Typeface.sans(12))
                             .foregroundStyle(PanelTheme.tertiaryText)
                         MathTextView(source: criterion, size: 12.5, color: PanelTheme.secondaryText)
                     }
@@ -182,7 +182,7 @@ struct ProblemSheet: View {
     private var grading: some View {
         VStack(alignment: .leading, spacing: 7) {
             Text("How did it go?")
-                .font(.system(size: 11))
+                .font(Typeface.sans(11))
                 .foregroundStyle(PanelTheme.secondaryText)
             HStack(spacing: 6) {
                 ForEach(ProblemOutcome.allCases, id: \.self) { outcome in
@@ -197,7 +197,7 @@ struct ProblemSheet: View {
                 "A pass records this problem's targets and, more weakly, their "
                     + "prerequisites (§4.3). A miss asks where it broke first."
             )
-            .font(.system(size: 10.5))
+            .font(Typeface.sans(10.5))
             .foregroundStyle(PanelTheme.tertiaryText)
         }
     }
@@ -240,7 +240,7 @@ private struct DiagnosisChainView: View {
                     + "question. Pick where it actually broke — weakest first — or try a "
                     + "problem there instead of deciding."
             )
-            .font(.system(size: 12.5))
+            .font(Typeface.sans(12.5))
             .foregroundStyle(PanelTheme.secondaryText)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -260,7 +260,7 @@ private struct DiagnosisChainView: View {
                     "\(chain.count - Self.visible) more prerequisites are not shown — "
                         + "they are further from the failure than anything above."
                 )
-                .font(.system(size: 10.5))
+                .font(Typeface.sans(10.5))
                 .foregroundStyle(PanelTheme.tertiaryText)
             }
 
@@ -271,7 +271,7 @@ private struct DiagnosisChainView: View {
             // The honest statement of what walking away does. An abandoned
             // diagnosis writes nothing, by design and by test.
             Text("Closing without choosing records nothing.")
-                .font(.system(size: 10.5))
+                .font(Typeface.sans(10.5))
                 .foregroundStyle(PanelTheme.tertiaryText)
         }
     }
@@ -303,11 +303,11 @@ private struct CandidateRow: View {
                             color: isHovering ? .white : PanelTheme.primaryText)
                     } else {
                         Text(candidate.id.rawValue)
-                            .font(.system(size: 13))
+                            .font(Typeface.sans(13))
                             .foregroundStyle(PanelTheme.primaryText)
                     }
                     Text(subtitle)
-                        .font(.system(size: 10.5))
+                        .font(Typeface.sans(10.5))
                         .foregroundStyle(PanelTheme.tertiaryText)
                 }
                 Spacer(minLength: 0)
@@ -318,7 +318,7 @@ private struct CandidateRow: View {
                 if isHovering, let onProbe, let probe = candidate.probe {
                     Button { onProbe(probe, candidate.id) } label: {
                         Text("test it")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(Typeface.sans(10, .medium))
                             .foregroundStyle(PanelTheme.accent)
                     }
                     .buttonStyle(.plain)
@@ -345,8 +345,10 @@ private struct CandidateRow: View {
     }
 }
 
-/// A flat button in the sheet's idiom, matching `SelfReportButton`'s weight so the
-/// two instruments do not look like different applications.
+/// The sheets' action, in the redesign's one affordance shape: a word with a rule
+/// under it. `isProminent` now means "takes the accent" rather than "gets a fill",
+/// which is the whole substance of turn 1's subtraction — the sheets keep every
+/// action they had, and none of them is a box any more.
 struct SheetButton: View {
     let title: String
     var isProminent = false
@@ -357,25 +359,19 @@ struct SheetButton: View {
     @State private var isHovering = false
 
     var body: some View {
+        let theme = ThemeStore.shared.theme
+        let colour = tint ?? (isProminent ? theme.action.color : theme.inkMuted.color)
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(
-                    isHovering ? (tint ?? PanelTheme.primaryText) : (tint ?? PanelTheme.secondaryText)
-                )
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(
-                            isProminent
-                                ? PanelTheme.accent.opacity(isHovering ? 0.28 : 0.18)
-                                : (isHovering ? PanelTheme.rowHighlight : Color.clear)))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 5)
-                        .strokeBorder(
-                            isProminent ? PanelTheme.accent.opacity(0.5) : PanelTheme.separator,
-                            lineWidth: 1))
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title)
+                    .font(Typeface.sans(12.5, isProminent ? .medium : .regular))
+                    .foregroundStyle(colour)
+                Rectangle()
+                    .fill(colour.opacity(isProminent ? (isHovering ? 0.85 : 0.45) : (isHovering ? 0.5 : 0)))
+                    .frame(height: 1)
+            }
+            .fixedSize()
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
