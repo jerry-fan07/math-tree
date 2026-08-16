@@ -40,11 +40,11 @@ struct SheetCard<Content: View>: View {
             .frame(height: min(max(contentHeight, 40), maxHeight))
         }
         .frame(width: width)
-        .background(PanelTheme.background)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        // Square, rule-bordered and unshadowed: turn 1 drops radii and glows
+        // everywhere else, and a modal is still one of the redesign's surfaces —
+        // it is just temporarily the only one.
+        .background(ThemeStore.shared.theme.panelFill.color)
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(PanelTheme.separator, lineWidth: 1))
-        .shadow(color: .black.opacity(0.5), radius: 30, y: 12)
+            Rectangle().strokeBorder(ThemeStore.shared.theme.rule.color, lineWidth: 1))
     }
 }

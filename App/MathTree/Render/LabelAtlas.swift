@@ -29,6 +29,10 @@ final class LabelAtlas {
 
     private let device: MTLDevice
     private let backingScale: CGFloat
+    /// Baked in, not read live: the two directions of the redesign disagree about
+    /// the tier-1 face, so a glyph page belongs to exactly one appearance. The
+    /// renderer throws the atlas away and builds a new one when it switches.
+    private let theme: Theme
 
     private var pageBytes: [[UInt8]] = []
     private var shelfX = 0
@@ -41,9 +45,10 @@ final class LabelAtlas {
     private(set) var builtCount = 0
     private(set) var stats = Stats()
 
-    init(device: MTLDevice, backingScale: CGFloat) {
+    init(device: MTLDevice, backingScale: CGFloat, theme: Theme) {
         self.device = device
         self.backingScale = max(backingScale, 1)
+        self.theme = theme
     }
 
     /// Rasterise every spec up to and including `tier`. Returns true when new
@@ -64,7 +69,7 @@ final class LabelAtlas {
                 instances.append(
                     LabelInstance(
                         anchor: .zero, sizePt: .zero, uvMin: .zero, uvMax: .zero,
-                        rgba: 0, page: 0, offsetPt: 0, fadeStart: spec.tier.labelFadeStart))
+                        rgba: 0, page: 0, offsetPt: 0, fadeStart: spec.fadeStart))
             }
             builtCount += 1
         }
@@ -83,18 +88,34 @@ final class LabelAtlas {
     private func rasterise(_ spec: GraphScene.LabelSpec, dirtyPages: inout Set<Int>)
         -> LabelInstance?
     {
-        let weight: NSFont.Weight
+        // The redesign's three label registers. A branch name is a mono, uppercase,
+        // wide-tracked eyebrow in both directions — it is the map's own chrome, not
+        // its content. A subbranch is the one place the two directions differ in
+        // *face* rather than colour: sans against the dark canvas, serif on paper.
+        // Everything below is the reading sans.
+        let pointSize = spec.tier.labelPointSize * backingScale
+        let text: String
+        let font: NSFont
+        var tracking: CGFloat = 0
         switch spec.tier {
-        case .branch: weight = .semibold
-        case .subbranch: weight = .medium
-        default: weight = .regular
+        case .branch:
+            text = spec.text.uppercased()
+            font = Typeface.nsMono(pointSize, .medium)
+            tracking = Typeface.tracking(0.16, at: pointSize)
+        case .subbranch:
+            text = spec.text
+            font = theme.isDark ? Typeface.nsSans(pointSize) : Typeface.nsSerif(pointSize)
+        default:
+            text = spec.text
+            font = Typeface.nsSans(pointSize)
         }
-        let font = NSFont.systemFont(ofSize: spec.tier.labelPointSize * backingScale, weight: weight)
-        let attributes: [NSAttributedString.Key: Any] = [
+
+        var attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: CGColor(gray: 1.0, alpha: 1.0),
         ]
-        let attributed = NSAttributedString(string: spec.text, attributes: attributes)
+        if tracking != 0 { attributes[.kern] = tracking }
+        let attributed = NSAttributedString(string: text, attributes: attributes)
         var line = CTLineCreateWithAttributedString(attributed)
 
         let maxWidth = Double(Self.maxLabelWidthPt * backingScale)
@@ -146,10 +167,10 @@ final class LabelAtlas {
             sizePt: SIMD2(Float(boxWidth) / Float(backingScale), Float(boxHeight) / Float(backingScale)),
             uvMin: SIMD2(Float(slot.x) / size, Float(slot.y) / size),
             uvMax: SIMD2(Float(slot.x + boxWidth) / size, Float(slot.y + boxHeight) / size),
-            rgba: Palette.labelColor(hue: spec.hue, tier: spec.tier),
+            rgba: Palette.labelColor(tier: spec.tier, theme: theme),
             page: UInt32(slot.page),
             offsetPt: spec.offsetPt,
-            fadeStart: spec.tier.labelFadeStart)
+            fadeStart: spec.fadeStart)
     }
 
     private func allocate(width: Int, height: Int) -> (page: Int, x: Int, y: Int) {

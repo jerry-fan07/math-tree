@@ -43,7 +43,7 @@ final class SceneStore {
             timings.documentLoadMs = (CFAbsoluteTimeGetCurrent() - loadStart) * 1000
 
             let buildStart = CFAbsoluteTimeGetCurrent()
-            let scene = GraphScene(document: document)
+            let scene = GraphScene(document: document, theme: ThemeStore.shared.theme)
             timings.sceneBuildMs = (CFAbsoluteTimeGetCurrent() - buildStart) * 1000
             self.scene = scene
 

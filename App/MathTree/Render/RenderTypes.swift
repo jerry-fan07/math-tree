@@ -92,6 +92,18 @@ extension DrawParams {
     }
 }
 
+/// 48 B. The canvas behind everything: an elliptical gradient from `core` at
+/// `center` to `edge` at `stop`, in viewport fractions. The light direction sets
+/// both colours to its paper tone, which makes the same pass a flat fill.
+struct BackgroundParams {
+    var core: SIMD4<Float>
+    var edge: SIMD4<Float>
+    var center: SIMD2<Float>
+    var radius: SIMD2<Float>
+    var stop: Float
+    var pad: Float = 0
+}
+
 /// Packs a colour into the rgba8 word the shaders unpack. Components are
 /// straight (non-premultiplied) here; the fragment shaders premultiply on the
 /// way out, matching the `.one` / `.oneMinusSourceAlpha` blend of D3.4.

@@ -173,9 +173,7 @@ struct GraphMetalView: NSViewRepresentable {
         let view = GraphMTKView(frame: .zero, device: renderer.device)
         view.colorPixelFormat = .bgra8Unorm
         view.framebufferOnly = true
-        view.clearColor = MTLClearColor(
-            red: Palette.background.x, green: Palette.background.y, blue: Palette.background.z,
-            alpha: 1)
+        view.clearColor = renderer.clearColor
         // Driven by the display link while the reveal animates; the renderer
         // pauses the view when it settles and interaction asks for single frames.
         view.enableSetNeedsDisplay = false
@@ -192,6 +190,7 @@ struct GraphMetalView: NSViewRepresentable {
     }
 
     func updateNSView(_ view: GraphMTKView, context: Context) {
+        view.clearColor = renderer.clearColor
         view.onSelect = { selection = $0 }
         view.onToggleSidebar = onToggleSidebar
         view.onEscape = onEscape

@@ -37,11 +37,17 @@ extension MathText {
 /// primitive whereas `Text`'s honouring of the *attribute* of the same name has varied
 /// across OS releases — and this panel cannot be checked by eye from CI.
 struct MathTextView: View {
+    /// Which face the *prose* runs take. Maths is always the serif — that is what
+    /// makes a variable read as a variable. The redesign's light direction sets a
+    /// node's title and its statement in the serif as well, which is the one place
+    /// a caller asks for something other than the default.
+    enum Face { case sans, serif }
+
     let source: String
     var size: CGFloat = 13
     var weight: Font.Weight = .regular
     var color: Color = PanelTheme.primaryText
-    var mathDesign: Font.Design = .serif
+    var face: Face = .sans
     var underline: Bool = false
 
     var body: some View {
@@ -50,17 +56,17 @@ struct MathTextView: View {
             .fixedSize(horizontal: false, vertical: true)
     }
 
+    private func font(_ pointSize: CGFloat, isMath: Bool) -> Font {
+        if isMath || face == .serif { return Typeface.serif(pointSize, weight) }
+        return Typeface.sans(pointSize, weight)
+    }
+
     private var text: Text {
         let runs = MathText.runs(source.trimmingCharacters(in: .whitespacesAndNewlines))
         guard !runs.isEmpty else { return Text(verbatim: "") }
         return runs.reduce(Text(verbatim: "")) { accumulated, run in
             var piece = Text(verbatim: run.text)
-                .font(
-                    .system(
-                        size: max(size * run.sizeMultiplier, 6),
-                        weight: weight,
-                        design: run.isMath ? mathDesign : .default)
-                )
+                .font(font(max(size * run.sizeMultiplier, 6), isMath: run.isMath))
                 .baselineOffset(size * run.baselineMultiplier)
             if underline { piece = piece.underline() }
             return accumulated + piece

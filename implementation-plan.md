@@ -237,6 +237,21 @@ M2 (single-variable calculus content) is a **parallel authoring track**, not a c
 
 ---
 
+## Turn 1 — Graph redesign import
+
+Not a numbered phase: an outside design pass over what Phases 4–8 built, imported from the `Graph Redesign` design project. Two directions of one design — **1a Observatory** on the dark canvas, **1b Ledger** on paper — which are the same layout and the same encoding inverted, so they ship as one theme system rather than two skins.
+
+**Tasks**
+- Split §4.5's channel: branch hue and score luminance, authored in Oklch.
+- Cut the chrome to two surfaces — a command line and one detail column — plus a rail that is a scrim over the map.
+- Re-draw focus mode as §6.2's topological order made literal, in columns — Phase 11's subject path included, since it is the same view.
+- Import the prototype's greedy label cull.
+
+**Deliverable**: both appearances, following the system, pinnable with `MATHTREE_THEME` for reproducible captures.
+**Exit criterion**: the map, the rail, the panel and focus mode render in both directions at the design's own 1280×800 frame; the whole test suite still passes; no §4.5, §5.x or §6.5 behaviour changes, only what is drawn.
+
+---
+
 ## Decision log
 
 Decisions made during implementation that deviate from, or resolve an option left open by, the plan above. Newest phase last.
@@ -617,6 +632,46 @@ Half of "learn linear algebra" is foundations, and the honest thing is to say so
 
 **D11.7 — Known gaps.**
 The sidebar lists **branches only**, not subbranches, and sits **below the due queue**: 82 subbranch offers would bury the review queue the sidebar is named for, twelve branch rows above it would push the first due node off a 720-point sidebar, and the panel already offers any subbranch you click. There is no way to *filter* a path — no "just the linear algebra, I'll take the foundations on faith" — and no way to mark an imported step as skipped; §2.3's AND semantics say a prerequisite is required, and §11.2's OR-prerequisites are the open question that would change that. Nothing persists which subject you were last learning: the path is recomputed from the log every time, which is correct but means the app has no notion of "the course I am on" to return you to — and since "Learn this" on a step *retargets* the focus (Phase 7's behaviour, unchanged), one click from inside a path replaces it, with only the full map to come back to. The whole-branch mini-graph is honest and dense — `foundations` is 195 nodes in a 29 × 22 grid — and while it scrolls rather than clips, D9.9's finding stands unchanged: legibility is the constraint here, not frame rate, and a subject path is one more place that wants the content-driven LOD rule D3.6 named. Progress is counted in **nodes**, unweighted: mastering 25 one-line definitions and mastering 25 landmark theorems read identically, and `prominence` is sitting right there unused.
+
+### Turn 1
+
+Turn 1 is not a numbered phase, so its decisions are numbered `DT1.x` — Phase 11 landed on `D11.x` first, and one identifier for two unrelated decisions is worse than an ugly prefix.
+
+**DT1.1 — Hue is the branch, luminance is the score, and §4.5 is amended to say so.**
+Phase 6 spent hue on retrievability (deep blue → teal → green) and left the branch hue to the structural hubs, which meant the two questions the overview exists to answer — *where in mathematics is this* and *how well do I know it* — competed for one channel. D6.1 had already noticed the collision from the other side: it desaturated the hubs because the Foundations hub at hue 152° was indistinguishable from a mastered node. The redesign separates them instead. A content node takes its branch's hue and moves only lightness and chroma with the score; a structural node takes a near-neutral and no score at all (§2.1 — it is not learnable). Two independent channels, so a fresh user sees the taxonomy and a placed one sees both at once.
+
+The ramp had to move to **Oklch** for that to hold. In HSV a lightness walk at hue 58° (yellow) is far lighter than the same walk at 276° (violet), so an equally-known node in two branches would read as two different scores; in Oklch it does not. `OKLCH.swift` converts; nothing else in the app uses it.
+
+`ScoreRamp` is deliberately **unchanged**. It owns §4.5's *model* colour, which is what `--probe` prints, what `Scripts/check-score-determinism.sh` diffs and what `ScoreDisplayTests` pins — none of which is about what is on screen. What moved is the display's input: `ScoreVisuals` now carries ramp *positions* rather than colours, which is exactly what lets one score snapshot paint either appearance without recomputing a score. Switching appearance is a buffer rewrite, never a fold.
+
+**DT1.2 — Edges go monochrome, and §4.4 is better served by it.**
+§6.1 said "edges inherit blended endpoint colors". Under DT1.1 that would put a third colour system on a canvas that already carries two, and the design's own note is explicit that the map should carry its colour through its nodes. So `contains` filaments take one dim tone and `requires`/`relates` take one lit tone, with Phase 4's directional weights kept as pure intensity — a filament is still bright at the hub and faded at the child, which is what makes branches read as galaxies. §4.4 ("edge scores render as the edge's color intensity") is *more* literally implemented than before: an exercised `relates` edge moves its alpha, which is what that sentence asks for and what a second hue system was obscuring.
+
+Node radii come down to roughly half Phase 6's, and the hub halo is deleted. Both are the design's, and both are load-bearing rather than taste: at the old sizes the hue-per-branch fills merge into discs of colour and the `contains` filaments disappear under their own endpoints. The design document recreated Phase 6's sizes beside its own for exactly this comparison.
+
+**DT1.3 — Two surfaces, and the deviations from the frames are all additive.**
+Chrome is a rule-separated command line (wordmark, taxonomy breadcrumb, three read-outs), a review rail that is a *scrim* fading out over the map rather than a bordered panel, and one opaque detail column. Chips, cards, filled buttons, radii, shadows and the panel sparkline are gone; the one affordance shape left is a word with a rule under it.
+
+Four things the frames do not draw are kept, and the reason in each case is that the frame's omission would cost a *capability*, not a decoration: **Scheduled** is the only place the app says when the next review is coming; **Diagnostics** is where D5.8's fold defects surface instead of a log nobody reads; **self-report** is the only instrument for a node the bank cannot ask about (§5.4's "whenever possible" cuts both ways, and D6.3 still governs its shape); and the panel's **details grid** is Phase 4's exit criterion — "every field of every node kind" — restyled, not removed. One thing the frames *do* draw is dropped: the mid-zoom "112 nodes in view" stat, because the renderer culls by LOD prefix rather than by frustum and cannot count it. A number the app cannot compute is worse than one fewer number.
+
+`MATHTREE_THEME` pins the appearance process-wide rather than being a snapshot flag: `--probe` and `MATHTREE_PANEL_SHOT` need the same control, and a headless run has no system appearance to fall back on. Without it the theme follows `colorScheme`.
+
+**DT1.4 — Focus mode's columns are the diagram.**
+Phase 7 drew a node-link canvas beside a numbered syllabus, which said the same thing twice — the canvas's columns *were* the syllabus's order. Turn 1 draws `FocusPlan.columns` as columns and drops the canvas. What that gives up is which stage-*n* node feeds which stage-*n+1* node; the column order still carries the dependency by construction, and the panel still lists exact prerequisites, so the fact is available rather than illustrated. The design adds one distinction `FocusPlan` does not model: a stage of unmet nodes that have been learned once and slipped is labelled DECAYED rather than UNMET, which is a display read-out over §4.5's states, not a fifth role.
+
+**DT1.5 — The label cull is part of the design, and it is solved over a ladder of zooms.**
+The prototype's support code culls labels greedily — tier order, three candidate offsets, dropped if nothing clears — and its frames are legible because of it. Ported, with one change forced by the difference between a prototype and a map: the prototype had two fixed frames and the app zooms continuously. So `LabelCull` solves the same greedy placement at seven zoom ratios and gives each label the zoom at which it *first* fits, which the existing per-instance `fadeStart` already knows how to render. A label keeps its offset once it has one, so nothing jumps sides as the camera moves; a branch name is never dropped, because §6.1 puts hub labels at overview unconditionally. Deterministic by construction — fixed ladder, the scene's own tier-then-id order, the shipped layout — so ground rule 5 still holds. Box widths are estimated from the point size rather than measured through Core Text: the cost of being wrong is one label kept or dropped at the margin, and the alternative is a text engine on the first-paint path.
+
+**DT1.6 — Fonts are asked for, not bundled.**
+The design specifies IBM Plex Sans, IBM Plex Mono and Source Serif 4. None ship with macOS. `Typeface` resolves each by family name and falls back to SF Pro, SF Mono and New York, so the *roles* survive everywhere — a mono, wide-tracked, uppercase eyebrow reads as an eyebrow either way, and Ledger's serif/sans contrast holds with New York against SF Pro. If the Plex family is installed, the frames match the design document exactly. Bundling a megabyte of font binaries into a repository whose ground rules keep third-party dependencies out was the alternative.
+
+**DT1.7 — Phase 11's subject path is the same view, so it is the same columns.**
+Turn 1 and Phase 11 were written against the same file from opposite ends: Phase 11 generalized focus mode's *goal* to a `FocusGoal` and grew the node-link canvas a scroll view to fit a 23-column subject path (D11.4); Turn 1 deleted that canvas. Merging them kept Phase 11's semantics whole and re-drew them in the column view — `FocusGoal` on the view, "LEARNING PATH" against "PREREQUISITE PATH" on the eyebrow, D11.5's imported steps set quiet with their origin branch named on the row, and the two empty states (outlined-but-unwritten, all-mastered) as words instead of a blank column. D11.4's measurement survives its implementation: the columns scroll horizontally for exactly the reason the canvas needed to, and a subject is what makes it unmissable.
+
+One read-out changes shape with the mode rather than being computed twice. A node focus counts progress over the plan's own nodes — displayed plus elided, which is "how far along this chain am I". A subject counts `metTargets / targets`, because "37 of 50 nodes of linear algebra" is §6.5's headline and the prerequisites imported from Foundations are not part of the subject the user asked for. Same bar, different denominator, and the denominator is the honest one in each case.
+
+**DT1.8 — Known gaps.**
+The live appearance *switch* — `GraphRenderer.setTheme`, which rewrites colour words in place and re-rasterises the atlas because the two directions disagree about the tier-1 face — has never executed in verification: every capture pinned `MATHTREE_THEME` at launch, and there is no headless way to drive a system-appearance change here. `Scripts/check-score-determinism.sh` could not be run either: `--probe` needs a window server this environment does not have, and it fails identically on the pre-turn-1 build ("probe: no frame completed within 12s"), so this is environmental rather than a regression. The label cull's nominal viewport is 1280×800 — a much wider window shows the same labels, further apart, rather than more of them. And the mid-zoom legends key off the zoom band rather than off whether a highlight is actually on screen, so they appear on any mid-zoom frame, hovered or not.
 
 ---
 

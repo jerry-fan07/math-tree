@@ -34,19 +34,19 @@ struct NodePanel: View {
     var onReview: ((NodeID) -> Void)? = nil
 
     var body: some View {
+        let theme = ThemeStore.shared.theme
         VStack(alignment: .leading, spacing: 0) {
-            header
-            Rectangle()
-                .fill(PanelTheme.separator)
-                .frame(height: 1)
+            header(theme)
+            Rule()
+            if let scores {
+                ScoreSection(node: node, scores: scores, onReview: onReview)
+                    .padding(.horizontal, theme.isDark ? 28 : 30)
+                    .padding(.vertical, 20)
+                Rule()
+            }
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    if let scores {
-                        ScoreSection(node: node, scores: scores, onReview: onReview)
-                    }
-                    learnAction
-                    statementSection
-                    summarySection
+                    statementSection(theme)
                     prerequisitesSection
                     dependentsSection
                     containsSection
@@ -54,49 +54,61 @@ struct NodePanel: View {
                     detailsSection
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 18)
-                .padding(.top, 18)
-                .padding(.bottom, 28)
+                .padding(.horizontal, theme.isDark ? 28 : 30)
+                .padding(.top, 22)
+                .padding(.bottom, 24)
             }
+            footer(theme)
         }
-        // Nearly opaque rather than fully: the panel owns its own contrast and must stay
-        // legible whatever is behind it, but the last 14 % lets a material or the graph
-        // canvas show through so the panel reads as sitting *over* the map, not beside it.
-        .background(PanelTheme.background.opacity(0.86))
+        // The one fully opaque surface in the redesign. Phase 6's panel was 86 %
+        // so the map showed through; turn 1 wants a reading column that is a
+        // reading column, and the rail is where the map is allowed to bleed.
+        .background(theme.panelFill.color)
+        .background(.ultraThinMaterial)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     // MARK: - Header
 
-    private var header: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 9) {
-                MathTextView(source: node.title, size: 17, weight: .semibold)
-                    .accessibilityAddTraits(.isHeader)
-                badges
+    /// Title, and one mono line saying what this is. The redesign replaces the two
+    /// bordered chips with `THEOREM · LANDMARK · analysis.svc.ftc-part-2` — the
+    /// same three facts, set as metadata instead of as decoration, and now with
+    /// the id visible without hovering.
+    private func header(_ theme: Theme) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 16) {
+                MathTextView(
+                    source: node.title,
+                    size: theme.isDark ? 21 : 24,
+                    color: theme.inkStrong.color,
+                    face: theme.isDark ? .sans : .serif
+                )
+                .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 0)
+                PanelCloseButton(action: onClose)
             }
-            Spacer(minLength: 0)
-            PanelCloseButton(action: onClose)
-        }
-        .padding(.horizontal, 18)
-        .padding(.top, 16)
-        .padding(.bottom, 14)
-    }
-
-    private var badges: some View {
-        HStack(spacing: 6) {
-            chip(node.kind.rawValue, color: PanelTheme.color(for: node.kind))
-            chip(prominenceChipText, color: PanelTheme.secondaryText)
+            Text(metaLine)
+                .font(Typeface.mono(10.5))
+                .tracking(Typeface.tracking(0.1, at: 10.5))
+                .foregroundStyle(theme.eyebrow.color)
+                .textSelection(.enabled)
                 .help(prominenceExplanation)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(.horizontal, theme.isDark ? 28 : 30)
+        .padding(.top, theme.isDark ? 26 : 28)
+        .padding(.bottom, 20)
     }
 
-    /// Structural nodes are implicitly maximal prominence for display (§2.1); the authored
-    /// value is still shown, in the tooltip and in the details grid, because it is a field.
-    private var prominenceChipText: String {
-        node.kind.isStructural
-            ? "prominence implicit"
-            : "prominence \(node.prominence.rawValue) · \(PanelTheme.label(for: node.prominence))"
+    /// Structural nodes are implicitly maximal prominence for display (§2.1); the
+    /// authored value is still shown, in the tooltip and in the details grid,
+    /// because it is a field.
+    private var metaLine: String {
+        let prominence =
+            node.kind.isStructural
+            ? "PROMINENCE IMPLICIT"
+            : PanelTheme.label(for: node.prominence).uppercased()
+        return "\(node.kind.rawValue.uppercased()) · \(prominence) · \(node.id.rawValue)"
     }
 
     private var prominenceExplanation: String {
@@ -108,64 +120,79 @@ struct NodePanel: View {
             : "Prominence drives display size and label visibility, never semantics (§2.1)."
     }
 
-    private func chip(_ text: String, color: Color) -> some View {
-        Text(text)
-            .font(.system(size: 10.5, weight: .medium))
-            .tracking(0.3)
-            .foregroundStyle(color)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .overlay(
-                RoundedRectangle(cornerRadius: 4)
-                    .strokeBorder(color.opacity(0.32), lineWidth: 1))
+    // MARK: - Footer
+
+    /// The panel's two actions, on one rule-separated line: §6.1's "learn this"
+    /// as the accented one, §5.2's problem beside it. Both were boxed controls
+    /// before; the redesign has no boxed controls.
+    ///
+    /// On a content node the action asks "what do I need to learn to get to this?"
+    /// (§6.2); on a branch or subbranch it asks the question §6.5 added, "take me
+    /// through all of this". A structural node is still not *learnable* (§2.1) — it
+    /// is a name for a set of nodes that are, which is what the subject plan aims at.
+    @ViewBuilder
+    private func footer(_ theme: Theme) -> some View {
+        let canProbe = onReview != nil && (scores?.canProbe(node.id) ?? false)
+        if onFocus != nil || canProbe {
+            VStack(spacing: 0) {
+                Rule()
+                HStack(alignment: .firstTextBaseline) {
+                    if let onFocus {
+                        if node.kind.isContent {
+                            TextAction(
+                                title: "Learn this →", size: 13,
+                                accessibilityHint: "Opens focus mode with this node as the goal"
+                            ) { onFocus(.node(node.id)) }
+                        } else {
+                            TextAction(
+                                title: "Learn \(node.title) →", size: 13,
+                                accessibilityHint:
+                                    "Opens the guided path through every node in this subject"
+                            ) { onFocus(.subject(node.id)) }
+                        }
+                    }
+                    Spacer(minLength: 16)
+                    if canProbe, let onReview {
+                        TextAction(
+                            title: "Review with a problem", size: 12.5, weight: .regular,
+                            isQuiet: true,
+                            accessibilityHint: "Opens a problem that targets this node"
+                        ) { onReview(node.id) }
+                    }
+                }
+                .padding(.horizontal, theme.isDark ? 28 : 30)
+                .padding(.top, 18)
+                .padding(.bottom, theme.isDark ? 22 : 24)
+            }
+        }
     }
 
     // MARK: - Sections
 
-    /// The door into focus mode. On a content node it asks "what do I need to learn
-    /// to get to this?" (§6.2); on a branch or subbranch it asks the question §6.5
-    /// added, "take me through all of this". A structural node is still not
-    /// *learnable* (§2.1) — it is a name for a set of nodes that are, which is
-    /// exactly what the subject plan aims at.
+    /// Statement and summary as one block, which is how the design sets them: the
+    /// statement in the reading face (serif on paper), the summary under it in the
+    /// sans, no second heading between them.
     @ViewBuilder
-    private var learnAction: some View {
-        if let onFocus {
-            if node.kind.isContent {
-                LearnThisButton(
-                    title: "Learn this", caption: "prerequisite path",
-                    hint: "Opens focus mode with this node as the goal",
-                    action: { onFocus(.node(node.id)) })
-            } else {
-                LearnThisButton(
-                    title: "Learn \(node.title)", caption: "guided path",
-                    hint: "Opens the guided path through every node in this subject",
-                    action: { onFocus(.subject(node.id)) })
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var statementSection: some View {
-        if let statement = node.statement?.trimmingCharacters(in: .whitespacesAndNewlines),
-            !statement.isEmpty
-        {
-            section("Statement") {
-                MathTextView(source: statement, size: 13.5)
-                    .lineSpacing(5)
-                    .textSelection(.enabled)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var summarySection: some View {
-        if let summary = node.summary?.trimmingCharacters(in: .whitespacesAndNewlines),
-            !summary.isEmpty
-        {
-            section("Summary") {
-                MathTextView(source: summary, size: 12.5, color: PanelTheme.secondaryText)
-                    .lineSpacing(4)
-                    .textSelection(.enabled)
+    private func statementSection(_ theme: Theme) -> some View {
+        let statement = node.statement?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let summary = node.summary?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !statement.isEmpty || !summary.isEmpty {
+            section(statement.isEmpty ? "Summary" : "Statement") {
+                VStack(alignment: .leading, spacing: 9) {
+                    if !statement.isEmpty {
+                        MathTextView(
+                            source: statement, size: theme.isDark ? 14 : 15,
+                            color: theme.ink.color, face: theme.isDark ? .sans : .serif
+                        )
+                        .lineSpacing(theme.isDark ? 6 : 7)
+                        .textSelection(.enabled)
+                    }
+                    if !summary.isEmpty {
+                        MathTextView(source: summary, size: 13, color: theme.inkMuted.color)
+                            .lineSpacing(5)
+                            .textSelection(.enabled)
+                    }
+                }
             }
         }
     }
@@ -242,18 +269,18 @@ struct NodePanel: View {
             VStack(alignment: .leading, spacing: 9) {
                 detailRow("id") {
                     Text(node.id.rawValue)
-                        .font(.system(size: 11.5, design: .monospaced))
+                        .font(Typeface.mono(11.5))
                         .foregroundStyle(PanelTheme.secondaryText)
                         .textSelection(.enabled)
                 }
                 detailRow("kind") {
                     Text(node.kind.rawValue)
-                        .font(.system(size: 12))
+                        .font(Typeface.sans(12))
                         .foregroundStyle(PanelTheme.secondaryText)
                 }
                 detailRow("prominence") {
                     Text(verbatim: prominenceDetailText)
-                        .font(.system(size: 12))
+                        .font(Typeface.sans(12))
                         .foregroundStyle(PanelTheme.secondaryText)
                 }
                 detailRow("parent") {
@@ -261,7 +288,7 @@ struct NodePanel: View {
                         NodeReferenceLink(id: parent, document: document, onSelect: onSelect)
                     } else {
                         Text("— top-level branch")
-                            .font(.system(size: 12))
+                            .font(Typeface.sans(12))
                             .foregroundStyle(PanelTheme.tertiaryText)
                     }
                 }
@@ -281,7 +308,7 @@ struct NodePanel: View {
                         emptyValue
                     } else {
                         Text(node.tags.joined(separator: ", "))
-                            .font(.system(size: 12))
+                            .font(Typeface.sans(12))
                             .foregroundStyle(PanelTheme.secondaryText)
                     }
                 }
@@ -327,18 +354,8 @@ struct NodePanel: View {
     private func section<Content: View>(
         _ title: String, count: Int? = nil, @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 6) {
-                Text(title.uppercased())
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(1.1)
-                    .foregroundStyle(PanelTheme.tertiaryText)
-                if let count {
-                    Text("\(count)")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(PanelTheme.tertiaryText.opacity(0.7))
-                }
-            }
+        VStack(alignment: .leading, spacing: 10) {
+            Eyebrow(title: title, count: count)
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -353,19 +370,20 @@ struct NodePanel: View {
         }
         // Rows carry their own hit-target padding; pull it back so titles line up with the
         // section headers above them.
-        .padding(.horizontal, -8)
+        .padding(.horizontal, -4)
     }
 
     private func note(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12))
-            .foregroundStyle(PanelTheme.tertiaryText)
+            .font(Typeface.sans(12.5))
+            .foregroundStyle(ThemeStore.shared.theme.inkMuted.color)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private var emptyValue: some View {
         Text("—")
-            .font(.system(size: 12))
-            .foregroundStyle(PanelTheme.tertiaryText)
+            .font(Typeface.sans(12))
+            .foregroundStyle(ThemeStore.shared.theme.inkFaint.color)
     }
 
     private func detailRow<Content: View>(
@@ -373,8 +391,8 @@ struct NodePanel: View {
     ) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(label)
-                .font(.system(size: 10.5))
-                .foregroundStyle(PanelTheme.tertiaryText)
+                .font(Typeface.mono(10))
+                .foregroundStyle(ThemeStore.shared.theme.inkFaint.color)
                 .frame(width: 76, alignment: .leading)
             content()
             Spacer(minLength: 0)
@@ -382,61 +400,21 @@ struct NodePanel: View {
     }
 }
 
-/// The focus-mode entry. Its own view for the same reason as the close button:
-/// hover state must not invalidate the whole panel.
-private struct LearnThisButton: View {
-    let title: String
-    let caption: String
-    let hint: String
-    let action: () -> Void
-    @State private var isHovering = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 7) {
-                Image(systemName: "scope")
-                    .font(.system(size: 11, weight: .medium))
-                Text(title)
-                    .font(.system(size: 12, weight: .medium))
-                    .lineLimit(1)
-                Spacer(minLength: 4)
-                Text(caption)
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(
-                        isHovering ? PanelTheme.secondaryText : PanelTheme.tertiaryText)
-            }
-            .foregroundStyle(PanelTheme.accent)
-            .padding(.horizontal, 11)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(isHovering ? PanelTheme.rowHighlight : Color.clear))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .strokeBorder(PanelTheme.accent.opacity(isHovering ? 0.55 : 0.32), lineWidth: 1))
-            .contentShape(RoundedRectangle(cornerRadius: 6))
-        }
-        .buttonStyle(.plain)
-        .onHover { isHovering = $0 }
-        .accessibilityLabel("\(title) — \(caption)")
-        .accessibilityHint(hint)
-    }
-}
-
-/// Close affordance. Its own view so the hover state does not invalidate the whole panel.
+/// Close affordance. Its own view so the hover state does not invalidate the whole
+/// panel — and, in the redesign, the word `esc` rather than an `✕` in a circle:
+/// the keystroke is the real affordance and the panel may as well name it.
 private struct PanelCloseButton: View {
     let action: () -> Void
     @State private var isHovering = false
 
     var body: some View {
+        let theme = ThemeStore.shared.theme
         Button(action: action) {
-            Image(systemName: "xmark")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(isHovering ? PanelTheme.primaryText : PanelTheme.tertiaryText)
-                .frame(width: 22, height: 22)
-                .background(
-                    Circle().fill(isHovering ? PanelTheme.rowHighlight : Color.clear))
-                .contentShape(Circle())
+            Text("esc")
+                .font(Typeface.mono(theme.isDark ? 13 : 12.5))
+                .foregroundStyle((isHovering ? theme.ink : theme.inkFaint).color)
+                .padding(.top, theme.isDark ? 4 : 6)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }

@@ -30,7 +30,7 @@ struct PlacementView: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.62).ignoresSafeArea()
+            ThemeStore.shared.theme.scrim.color.ignoresSafeArea()
 
             if let probe = placement.nextProbe {
                 ProblemSheet(
@@ -67,7 +67,7 @@ struct PlacementView: View {
         VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .firstTextBaseline) {
                     Text("Where are you?")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(Typeface.sans(17, .semibold))
                         .foregroundStyle(PanelTheme.primaryText)
                     Spacer(minLength: 0)
                     SidebarCloseButton(symbol: "xmark", label: "Close placement", action: onExit)
@@ -78,7 +78,7 @@ struct PlacementView: View {
                         + "is short — a pass says you have the prerequisites too, and a miss "
                         + "says where to look next."
                 )
-                .font(.system(size: 12.5))
+                .font(Typeface.sans(12.5))
                 .foregroundStyle(PanelTheme.secondaryText)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -101,7 +101,7 @@ struct PlacementView: View {
                         "No problem bank is loaded, so there is nothing to probe with. "
                             + "Run: swift run ContentBuild build"
                     )
-                    .font(.system(size: 11))
+                    .font(Typeface.sans(11))
                     .foregroundStyle(PanelTheme.warning)
                 }
 
@@ -116,7 +116,7 @@ struct PlacementView: View {
                 // §5.3: "Placement is optional and resumable." Both halves said out
                 // loud, because a questionnaire that looks mandatory is one.
             Text("Optional, and resumable — you can close this and pick it up later.")
-                .font(.system(size: 10.5))
+                .font(Typeface.sans(10.5))
                 .foregroundStyle(PanelTheme.tertiaryText)
         }
     }
@@ -132,7 +132,7 @@ struct PlacementView: View {
         return VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(placement.session?.isCommitted == true ? "Placed" : "That is enough")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(Typeface.sans(17, .semibold))
                         .foregroundStyle(PanelTheme.primaryText)
                     Spacer(minLength: 0)
                     SidebarCloseButton(symbol: "xmark", label: "Close placement", action: onExit)
@@ -142,7 +142,7 @@ struct PlacementView: View {
                     "\(placement.session?.answers.count ?? 0) problems settled \(known.count) "
                         + "nodes. Your edge sits here:"
                 )
-                .font(.system(size: 12.5))
+                .font(Typeface.sans(12.5))
                 .foregroundStyle(PanelTheme.secondaryText)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -161,13 +161,13 @@ struct PlacementView: View {
                             + "settled — no problem in the bank targets them. They stay unlearned "
                             + "until something asks."
                     )
-                    .font(.system(size: 10.5))
+                    .font(Typeface.sans(10.5))
                     .foregroundStyle(PanelTheme.tertiaryText)
                 }
 
                 if placement.session?.isCommitted == true {
                     Text("Recorded. Everything above it is on the map.")
-                        .font(.system(size: 11))
+                        .font(Typeface.sans(11))
                         .foregroundStyle(PanelTheme.secondaryText)
                     SheetButton(title: "Back to the map", isProminent: true) { onExit() }
                 } else {
@@ -190,7 +190,7 @@ struct PlacementView: View {
                             + "faster than a real review until a problem confirms it. The problems "
                             + "you answered are already recorded either way."
                     )
-                    .font(.system(size: 10.5))
+                    .font(Typeface.sans(10.5))
                     .foregroundStyle(PanelTheme.tertiaryText)
                 }
         }
