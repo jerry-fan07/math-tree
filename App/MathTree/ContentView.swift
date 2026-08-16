@@ -2,6 +2,10 @@ import GraphCore
 import SwiftUI
 
 struct ContentView: View {
+    /// Which tree this window shows. Each window owns one store; nothing below
+    /// this view reaches for a singleton, so the same view serves every tree.
+    var store: SceneStore = .shared
+
     @State private var selection: NodeID?
     /// Open by default: §5.4's review surfacing is the loop the product is *for*,
     /// so it should not be behind a discovery step.
@@ -34,7 +38,7 @@ struct ContentView: View {
             )
             .ignoresSafeArea()
 
-            if let renderer = SceneStore.shared.renderer, let scene = SceneStore.shared.scene {
+            if let renderer = store.renderer, let scene = store.scene {
                 GraphMetalView(
                     renderer: renderer, selection: $selection,
                     onToggleSidebar: { isSidebarVisible.toggle() },
@@ -55,7 +59,7 @@ struct ContentView: View {
                 .overlay { problemOverlay(scene: scene) }
                 .overlay { placementOverlay(scene: scene, renderer: renderer) }
             } else {
-                LoadFailureView(message: SceneStore.shared.errorMessage ?? "Unknown load failure.")
+                LoadFailureView(message: store.errorMessage ?? "Unknown load failure.")
             }
         }
         .frame(minWidth: 640, minHeight: 400)
@@ -91,7 +95,7 @@ struct ContentView: View {
             isPlacing = false
         } else if selection != nil {
             selection = nil
-        } else if focus != nil, let renderer = SceneStore.shared.renderer {
+        } else if focus != nil, let renderer = store.renderer {
             exitFocus(renderer: renderer)
         }
     }
@@ -102,14 +106,14 @@ struct ContentView: View {
     /// self-report otherwise — the panel and the sidebar both call this, so the
     /// routing lives in one place.
     private func review(_ id: NodeID) {
-        guard let scores = SceneStore.shared.scores, let problem = scores.nextProblem(for: id)
+        guard let scores = store.scores, let problem = scores.nextProblem(for: id)
         else { return }
         attempt = Attempt(problem: problem, subject: id)
     }
 
     @ViewBuilder
     private func problemOverlay(scene: GraphScene) -> some View {
-        if let attempt, let scores = SceneStore.shared.scores, !isPlacing {
+        if let attempt, let scores = store.scores, !isPlacing {
             ProblemSheet(
                 problem: attempt.problem,
                 subject: attempt.subject,
@@ -134,8 +138,8 @@ struct ContentView: View {
 
     @ViewBuilder
     private func placementOverlay(scene: GraphScene, renderer: GraphRenderer) -> some View {
-        if isPlacing, let scores = SceneStore.shared.scores,
-            let placement = SceneStore.shared.placement
+        if isPlacing, let scores = store.scores,
+            let placement = store.placement
         {
             PlacementView(
                 document: scene.document,
@@ -154,7 +158,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private func focusOverlay(scene: GraphScene, renderer: GraphRenderer) -> some View {
-        if let focus, let scores = SceneStore.shared.scores {
+        if let focus, let scores = store.scores {
             FocusView(
                 goal: focus.goal,
                 document: scene.document,
@@ -171,11 +175,11 @@ struct ContentView: View {
     /// focus mode owns the screen.
     @ViewBuilder
     private func sidebar(scene: GraphScene, renderer: GraphRenderer) -> some View {
-        if isSidebarVisible, focus == nil, let scores = SceneStore.shared.scores {
+        if isSidebarVisible, focus == nil, let scores = store.scores {
             ReviewSidebar(
                 document: scene.document,
                 scores: scores,
-                placement: SceneStore.shared.placement,
+                placement: store.placement,
                 onSelect: { id in
                     selection = id
                     renderer.center(on: id)
@@ -201,13 +205,13 @@ struct ContentView: View {
         NodePanel(
             node: node,
             document: renderer.scene.document,
-            scores: SceneStore.shared.scores,
+            scores: store.scores,
             onSelect: { id in
                 selection = id
                 if focus == nil { renderer.center(on: id) }
             },
             onClose: { selection = nil },
-            onFocus: SceneStore.shared.scores == nil
+            onFocus: store.scores == nil
                 ? nil
                 : { id in enterFocus(id, renderer: renderer) },
             onReview: { review($0) }
@@ -233,7 +237,7 @@ struct ContentView: View {
             // Clears the sidebar rather than hiding behind it.
             .padding(
                 .leading,
-                isSidebarVisible && focus == nil && SceneStore.shared.scores != nil ? 268 : 0
+                isSidebarVisible && focus == nil && store.scores != nil ? 268 : 0
             )
             .allowsHitTesting(false)
     }

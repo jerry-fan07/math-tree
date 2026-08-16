@@ -17,6 +17,8 @@ import simd
 /// - `MATHTREE_SNAPSHOT_HOVER` — `auto` (default) hovers the anchor node at
 ///   detail zoom so the prerequisite/dependent highlight is visible; `none`
 ///   disables it; any node id hovers that node.
+/// - `MATHTREE_SNAPSHOT_TREE` — `quant` snapshots the quant tree instead of the
+///   math tree (the same artifacts-and-renderer path the quant window takes).
 ///
 /// The environment rather than flags because of D3.7: `--flag value` pairs on an
 /// AppKit command line get parsed into `NSUserDefaults` and can stop the window
@@ -34,7 +36,7 @@ enum Snapshot {
         }
         let sizePt = parseSize(environment["MATHTREE_SNAPSHOT_SIZE"]) ?? CGSize(width: 1280, height: 800)
 
-        let store = SceneStore.shared
+        let store = environment["MATHTREE_SNAPSHOT_TREE"] == "quant" ? SceneStore.quant : .shared
         guard let renderer = store.renderer, let scene = store.scene else {
             fail(store.errorMessage ?? "renderer unavailable")
         }

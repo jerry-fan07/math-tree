@@ -15,6 +15,17 @@ BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
 swift run -c "$CONFIG" ContentBuild build --out "$ROOT/build/content"
 swift run -c "$CONFIG" ContentBuild layout --out "$ROOT/build/content"
 
+# The quant-interview tree: same pipeline, its own roots (TreeSpec.quant). Its
+# problem bank directory does not exist yet, which ProblemLoader treats as an
+# empty bank — passed explicitly so the math bank is never validated against
+# the quant graph.
+swift run -c "$CONFIG" ContentBuild build \
+    --content "$ROOT/content-quant" --problems "$ROOT/content-quant-problems" \
+    --out "$ROOT/build/quant"
+swift run -c "$CONFIG" ContentBuild layout \
+    --content "$ROOT/content-quant" --problems "$ROOT/content-quant-problems" \
+    --out "$ROOT/build/quant"
+
 APP="$ROOT/build/MathTree.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -29,6 +40,10 @@ done
 
 cp "$ROOT/build/content/graph.json" "$ROOT/build/content/layout.json" \
    "$ROOT/build/content/problems.json" "$APP/Contents/Resources/"
+
+mkdir -p "$APP/Contents/Resources/quant"
+cp "$ROOT/build/quant/graph.json" "$ROOT/build/quant/layout.json" \
+   "$ROOT/build/quant/problems.json" "$APP/Contents/Resources/quant/"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
