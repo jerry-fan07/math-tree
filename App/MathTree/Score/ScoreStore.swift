@@ -53,6 +53,9 @@ final class ScoreStore {
     private(set) var frontier: Set<NodeID> = []
     /// Every scored node, most overdue first (§5.4's scheduler read-out).
     private(set) var schedule: [ScheduledReview] = []
+    /// §6.5: every branch with how much of it is held — the list a subject is
+    /// chosen from, kept on the snapshot so it shares the snapshot's clock.
+    private(set) var subjects: [SubjectSummary] = []
     /// Log corruption and fold defects, surfaced rather than swallowed (D5.8).
     private(set) var diagnostics: [String] = []
     /// The instant this snapshot was evaluated at. Every colour, due flag and
@@ -65,6 +68,11 @@ final class ScoreStore {
 
     /// Called after every recompute — how the renderer learns to repaint.
     var onChange: (() -> Void)?
+
+    /// Resolves a node's branch hue for the chrome (`ScoreFormat`). Installed by
+    /// `SceneStore` once its scene exists, so score dots are painted in this
+    /// tree's hues; previews and headless folds leave it nil and fall back.
+    var hueResolver: ((NodeID) -> Float?)?
 
     var isClockPinned: Bool { pinnedNow != nil }
     var now: Date { pinnedNow ?? Date() }
@@ -160,6 +168,7 @@ final class ScoreStore {
         evaluatedAt = now
         frontier = Set(Frontier.compute(graph: graph, state: state, at: now, config: config))
         schedule = ReviewQueue.all(graph: graph, state: state, at: now, config: config)
+        subjects = Subjects.branches(graph: graph, state: state, at: now, config: config)
         revision += 1
         onChange?()
     }

@@ -57,9 +57,34 @@ enum ScoreFormat {
 
     /// The swatch colour: a frontier node is grey *plus* an accent, exactly as it
     /// is drawn on the map, so the panel and the graph agree at a glance.
+    ///
+    /// Resolved through the same two channels the map uses — the node's branch hue
+    /// and its position on §4.5's ramp — rather than through `ScoreRamp`'s own
+    /// colour. That is the point of the redesign's encoding, and it only holds if
+    /// a dot in the rail is literally the colour of the dot on the map.
     @MainActor
     static func color(of id: NodeID, in scores: ScoreStore) -> Color {
-        Color(scores.color(of: id))
+        fill(of: id, in: scores).color
+    }
+
+    @MainActor
+    static func fill(of id: NodeID, in scores: ScoreStore) -> ThemeColor {
+        let theme = ThemeStore.shared.theme
+        guard case let .learned(retrievability) = state(of: id, in: scores) else {
+            return theme.unlearnedFill
+        }
+        return theme.contentFill(
+            rampT: ScoreRamp.rampT(forRetrievability: retrievability), hue: hue(of: id, in: scores))
+    }
+
+    /// The branch hue a node inherits. The scene owns the assignment (sorted branch
+    /// id → seed hue, so the map keeps its colours across rebuilds) and installs a
+    /// resolver on its tree's `ScoreStore` — resolved per store, not through the
+    /// shared singleton, so the quant window's dots wear that tree's hues.
+    /// Previews and the failure path have no scene and fall back to the first seed.
+    @MainActor
+    static func hue(of id: NodeID, in scores: ScoreStore) -> Float {
+        scores.hueResolver?(id) ?? Palette.hue(forBranchIndex: 0)
     }
 
     /// Relative to the snapshot's clock, not to `Date()` — under `MATHTREE_NOW`

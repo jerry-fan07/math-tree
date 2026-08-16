@@ -132,10 +132,14 @@ enum Probe {
 
             let interaction = interactionChecks(renderer: renderer)
             let edgeTotal = scene.edges.reduce(0) { $0 + $1.count }
+            // `appearance` below is which direction of the redesign the packed
+            // colour words belong to. Two runs in different appearances *should*
+            // differ; `check-score-determinism.sh` compares runs in the same one.
             return """
                 {
                   "app": "MathTree",
                   "phase": 7,
+                  "appearance": "\(renderer.theme.appearance.rawValue)",
                   "scores": \(scores(renderer: renderer)),
                   "focus": \(focus(renderer: renderer)),
                   "content": {

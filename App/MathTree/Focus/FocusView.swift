@@ -1,17 +1,37 @@
 import GraphCore
 import SwiftUI
 
-/// §6.2's focus mode: the goal's `requires`-ancestor subgraph, laid out
-/// left-to-right in topological order, beside the ordered unmet set as a
-/// syllabus (§5.4). The layout itself — columns, rows, met-boundary compression
-/// — comes from `FocusPlan` in GraphCore, where it is testable; this view
-/// contributes point spacing, colour and interaction.
+/// §6.2's focus mode and §6.5's guided path, which are one screen because they
+/// are one computation: the `requires`-ancestor subgraph of the goal — where "the
+/// goal" is either a node or every node of a subject — laid out left-to-right in
+/// topological order (§5.4). The layout itself — columns, rows, met-boundary
+/// compression — comes from `FocusPlan` in GraphCore, where it is testable; this
+/// view contributes spacing, colour and interaction.
+///
+/// The redesign collapses Phase 7's two halves into one. It had a node-link
+/// canvas on the left and a numbered syllabus on the right, which said the same
+/// thing twice: the canvas's columns *were* the syllabus's order. Turn 1 draws
+/// the columns as columns — one rule-separated stage each, met stages set small
+/// and quiet, the unmet chain at reading size, the goal last behind an accent
+/// rule — and puts the count on a progress bar at the foot.
+///
+/// What that gives up is the edges: the design's frame has no lines between
+/// stages, so "which of stage 2 feeds which of stage 3" is no longer drawn. The
+/// column order still carries the dependency (a node is in stage *n* because its
+/// deepest prerequisite is in stage *n−1*), and the node panel still lists exact
+/// prerequisites, so the fact is available rather than illustrated.
+///
+/// A subject changes what the same columns *say*, not how they are drawn (DT1.7):
+/// the eyebrow reads LEARNING PATH, the steps that come from outside the subject
+/// are set quiet with their origin branch named (§6.5, D11.5), there is no goal
+/// row because a subject's own nodes are steps rather than an arrival, and the
+/// progress bar counts targets instead of the whole plan.
 ///
 /// The view recomputes its plan whenever the score snapshot changes (`revision`
-/// is observable), so reviewing a syllabus node from the panel visibly compresses
-/// it out of the chain — the loop the product is for, closed inside one screen.
+/// is observable), so reviewing a node from the panel visibly compresses it out
+/// of the chain — the loop the product is for, closed inside one screen.
 struct FocusView: View {
-    let goal: NodeID
+    let focus: FocusGoal
     let document: GraphDocument
     let scores: ScoreStore
     var onSelect: (NodeID) -> Void
@@ -21,355 +41,394 @@ struct FocusView: View {
         // Read on purpose: registers observation of the snapshot, so a recorded
         // review or a decay tick recomputes the plan.
         _ = scores.revision
+        let theme = ThemeStore.shared.theme
         let plan = FocusPlan.compute(
-            goal: goal, graph: scores.graph, state: scores.state, at: scores.evaluatedAt,
+            focus: focus, graph: scores.graph, state: scores.state, at: scores.evaluatedAt,
             config: scores.config)
 
         return VStack(spacing: 0) {
-            breadcrumb
-            Rectangle().fill(PanelTheme.separator).frame(height: 1)
             if let plan {
-                HStack(spacing: 0) {
-                    FocusMiniGraph(plan: plan, document: document, scores: scores, onSelect: onSelect)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    Rectangle().fill(PanelTheme.separator).frame(width: 1)
-                    FocusSyllabus(plan: plan, document: document, scores: scores, onSelect: onSelect)
-                        .frame(width: 316)
+                header(plan, theme)
+                Rule()
+                if plan.placed.isEmpty {
+                    emptyPlan(plan, theme)
+                } else {
+                    stages(plan, theme)
                 }
+                progress(plan, theme)
             } else {
-                // Unreachable through the UI (the action is only offered on
-                // content nodes) but stale artifacts deserve words, not a blank.
-                Text("This node has no focus view — it is not a learnable content node.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(PanelTheme.secondaryText)
+                // Unreachable through the UI (both actions are gated on kind) but
+                // stale artifacts deserve words, not a blank.
+                Text("This has no focus view — it is neither a learnable node nor a subject.")
+                    .font(Typeface.sans(13))
+                    .foregroundStyle(theme.inkMuted.color)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        // Nearly opaque, like the node panel: the map is still faintly present
-        // underneath, which is what makes the return transition read as
-        // continuity of place rather than a scene change (§6.2).
-        .background(PanelTheme.background.opacity(0.94))
+        .background(theme.canvasEdge.color)
+        .background(.ultraThinMaterial)
     }
 
-    private var breadcrumb: some View {
-        HStack(spacing: 14) {
-            Button(action: onExit) {
-                HStack(spacing: 5) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 10, weight: .semibold))
-                    Text("Full map")
-                        .font(.system(size: 12, weight: .medium))
-                }
-                .foregroundStyle(PanelTheme.accent)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Return to the full map")
-
-            Rectangle().fill(PanelTheme.separator).frame(width: 1, height: 22)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("FOCUS")
-                    .font(.system(size: 9, weight: .semibold))
-                    .tracking(1.2)
-                    .foregroundStyle(PanelTheme.tertiaryText)
-                if let index = document.index(of: goal) {
-                    MathTextView(source: document[index].title, size: 14, weight: .semibold)
-                }
-            }
-
-            Spacer(minLength: 0)
-
-            Text("esc to go back")
-                .font(.system(size: 10.5))
-                .foregroundStyle(PanelTheme.tertiaryText)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-    }
-}
-
-// MARK: - Mini-graph
-
-/// The ancestor subgraph as a canvas: one draw pass over the plan's columns, so
-/// a subgraph of any plausible depth stays a single view. Hit-testing is a
-/// nearest-point walk over the same geometry the canvas drew — there are no
-/// per-node subviews to fall out of sync with.
-private struct FocusMiniGraph: View {
-    let plan: FocusPlan
-    let document: GraphDocument
-    let scores: ScoreStore
-    var onSelect: (NodeID) -> Void
-
-    @State private var hovered: NodeID?
-
-    var body: some View {
-        GeometryReader { proxy in
-            let points = layout(in: proxy.size)
-            ZStack(alignment: .bottomLeading) {
-                Canvas { context, _ in
-                    draw(in: &context, points: points)
-                }
-                legend
-            }
-            .contentShape(Rectangle())
-            .onContinuousHover { phase in
-                switch phase {
-                case let .active(location): hovered = node(at: location, points: points)
-                case .ended: hovered = nil
-                }
-            }
-            .onTapGesture { location in
-                if let id = node(at: location, points: points) { onSelect(id) }
-            }
-        }
-        .pointerStyle(hovered == nil ? .default : .link)
-        .accessibilityLabel("Prerequisite graph for the focused goal")
+    private var title: String {
+        document.index(of: focus.id).map { document[$0].title } ?? focus.id.rawValue
     }
 
-    // MARK: Geometry
+    // MARK: - Header
 
-    /// Columns spread across the width, each column vertically centred. The
-    /// spacing clamps rather than scrolls: the whole point of the view is seeing
-    /// the entire chain at once, and the corpus this design admits (§7) keeps
-    /// ancestor subgraphs at map scale, not document scale.
-    private func layout(in size: CGSize) -> [NodeID: CGPoint] {
-        let insetX: CGFloat = 84
-        let insetY: CGFloat = 64
-        let columnCount = plan.columns.count
-        let maxRows = plan.columns.map(\.count).max() ?? 1
-
-        let columnSpacing =
-            columnCount > 1
-            ? min(200, max(96, (size.width - insetX * 2) / CGFloat(columnCount - 1))) : 0
-        let rowSpacing =
-            maxRows > 1 ? min(76, max(44, (size.height - insetY * 2) / CGFloat(maxRows - 1))) : 0
-
-        let spanX = CGFloat(max(columnCount - 1, 0)) * columnSpacing
-        let originX = max(insetX, (size.width - spanX) / 2)
-
-        var points: [NodeID: CGPoint] = [:]
-        for (column, ids) in plan.columns.enumerated() {
-            let spanY = CGFloat(ids.count - 1) * rowSpacing
-            let originY = max(insetY, (size.height - spanY) / 2)
-            for (row, id) in ids.enumerated() {
-                points[id] = CGPoint(
-                    x: originX + CGFloat(column) * columnSpacing,
-                    y: originY + CGFloat(row) * rowSpacing)
-            }
-        }
-        return points
-    }
-
-    private func node(at location: CGPoint, points: [NodeID: CGPoint]) -> NodeID? {
-        var best: (id: NodeID, distance: CGFloat)?
-        for (id, point) in points {
-            let distance = hypot(point.x - location.x, point.y - location.y)
-            if distance < (best?.distance ?? 18), distance < 18 { best = (id, distance) }
-        }
-        return best?.id
-    }
-
-    // MARK: Drawing
-
-    private func radius(for role: FocusPlan.Role) -> CGFloat {
-        switch role {
-        case .goal: 9
-        case .unmet: 6.5
-        // §6.2: met prerequisites are *compressed* — present, small, quiet.
-        case .metBoundary: 3.5
-        }
-    }
-
-    private func fill(for id: NodeID) -> Color {
-        Color(scores.color(of: id))
-    }
-
-    private func draw(in context: inout GraphicsContext, points: [NodeID: CGPoint]) {
-        // Edges first, painter's order, exactly like the map.
-        for edge in plan.edges {
-            guard let from = points[edge.from], let to = points[edge.to] else { continue }
-            var path = Path()
-            path.move(to: from)
-            // A horizontal-leaning cubic reads as flow without an arrowhead.
-            let pull = (to.x - from.x) * 0.45
-            path.addCurve(
-                to: to,
-                control1: CGPoint(x: from.x + pull, y: from.y),
-                control2: CGPoint(x: to.x - pull, y: to.y))
-            let intoUnmet = plan.placed[edge.to]?.role != .metBoundary
-            context.stroke(
-                path,
-                with: .linearGradient(
-                    Gradient(colors: [
-                        fill(for: edge.from).opacity(intoUnmet ? 0.38 : 0.22),
-                        fill(for: edge.to).opacity(intoUnmet ? 0.55 : 0.28),
-                    ]),
-                    startPoint: from, endPoint: to),
-                lineWidth: intoUnmet ? 1.4 : 1.0)
-        }
-
-        for (id, point) in points {
-            guard let placed = plan.placed[id] else { continue }
-            let r = radius(for: placed.role)
-            let rect = CGRect(x: point.x - r, y: point.y - r, width: r * 2, height: r * 2)
-            let compressed = placed.role == .metBoundary
-
-            context.fill(
-                Path(ellipseIn: rect),
-                with: .color(fill(for: id).opacity(compressed ? 0.6 : 1)))
-
-            // The same accents the map wears: gold for frontier, a bright ring
-            // for the hover, a steady ring for the goal.
-            if scores.isFrontier(id) {
-                context.stroke(
-                    Path(ellipseIn: rect.insetBy(dx: -3.5, dy: -3.5)),
-                    with: .color(Color(ScoreRamp.frontierAccent)), lineWidth: 1.4)
-            }
-            if placed.role == .goal {
-                context.stroke(
-                    Path(ellipseIn: rect.insetBy(dx: -4.5, dy: -4.5)),
-                    with: .color(.white.opacity(0.85)), lineWidth: 1.2)
-            }
-            if id == hovered {
-                context.stroke(
-                    Path(ellipseIn: rect.insetBy(dx: -6, dy: -6)),
-                    with: .color(.white.opacity(0.9)), lineWidth: 1.3)
-            }
-
-            if let index = document.index(of: id) {
-                var text = Text(MathText.attributedString(document[index].title, baseSize: 10.5))
-                    .font(.system(size: compressed ? 9.5 : 10.5))
-                text = text.foregroundStyle(
-                    compressed
-                        ? PanelTheme.tertiaryText
-                        : (placed.role == .goal ? PanelTheme.primaryText : PanelTheme.secondaryText))
-                // Labels wrap inside their own column's width and alternate
-                // above/below by column parity — adjacent columns share rows
-                // constantly (that is what a layered layout does), and two long
-                // titles on the same side of the same row run into each other.
-                // Found by rendering, not reasoned out: the first focus panel
-                // shot had "…⇒ integrable" colliding with "FTC, Part I".
-                let resolved = context.resolve(text)
-                let maxWidth: CGFloat = compressed ? 120 : 150
-                let size = resolved.measure(in: CGSize(width: maxWidth, height: 64))
-                let above = placed.column.isMultiple(of: 2) == false
-                let originY = above ? point.y - r - 8 - size.height : point.y + r + 8
-                context.draw(
-                    resolved,
-                    in: CGRect(
-                        x: point.x - size.width / 2, y: originY,
-                        width: size.width, height: size.height))
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var legend: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            if plan.elidedMetCount > 0 {
-                Text(
-                    plan.elidedMetCount == 1
-                        ? "1 earlier prerequisite you already know is not shown"
-                        : "\(plan.elidedMetCount) earlier prerequisites you already know are not shown"
+    private func header(_ plan: FocusPlan, _ theme: Theme) -> some View {
+        HStack(alignment: .bottom, spacing: 24) {
+            VStack(alignment: .leading, spacing: theme.isDark ? 9 : 10) {
+                Text(focus.isSubject ? "LEARNING PATH" : "PREREQUISITE PATH")
+                    .font(Typeface.mono(10.5))
+                    .tracking(Typeface.tracking(0.18, at: 10.5))
+                    .foregroundStyle(theme.eyebrow.color)
+                MathTextView(
+                    source: title,
+                    size: theme.isDark ? 26 : 28,
+                    weight: theme.isDark ? .light : .regular,
+                    color: theme.inkStrong.color,
+                    face: theme.isDark ? .sans : .serif
                 )
+                .accessibilityAddTraits(.isHeader)
             }
-            if !plan.metBoundary.isEmpty {
-                Text("small dots — already known")
+            Spacer(minLength: 0)
+            HStack(spacing: 22) {
+                if focus.isSubject {
+                    Text("\(plan.syllabus.count) steps")
+                    // The honest headline of a subject path: how much of the work
+                    // is not in the subject at all (D11.5). §2.4's cross-branch
+                    // `requires` edges, as something the user has to act on.
+                    if !plan.importedSteps.isEmpty {
+                        Text("\(plan.importedSteps.count) imported")
+                    }
+                } else {
+                    Text("\(plan.displayedCount + plan.elidedMetCount) nodes")
+                    Text("\(metCount(plan)) met")
+                }
+                if readyCount(plan) > 0 {
+                    Text("\(readyCount(plan)) ready now")
+                        .foregroundStyle(theme.attention.color)
+                }
+                Button(action: onExit) {
+                    Text("esc — full map")
+                        .foregroundStyle(theme.statEmphasis.color)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Return to the full map")
             }
+            .font(Typeface.mono(11))
+            .foregroundStyle(theme.stat.color)
+            .fixedSize()
         }
-        .font(.system(size: 10.5))
-        .foregroundStyle(PanelTheme.tertiaryText)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .allowsHitTesting(false)
+        .padding(.horizontal, theme.isDark ? 40 : 44)
+        .padding(.top, theme.isDark ? 30 : 32)
+        .padding(.bottom, theme.isDark ? 22 : 24)
     }
-}
 
-// MARK: - Syllabus
+    // MARK: - Stages
 
-/// §5.4 rendered literally: "that ordered set *is* the personalized syllabus".
-/// Rows are the panel's own reference rows, so score dots, frontier accents and
-/// math titles stay one visual language across the app.
-private struct FocusSyllabus: View {
-    let plan: FocusPlan
-    let document: GraphDocument
-    let scores: ScoreStore
-    var onSelect: (NodeID) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-            ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
-                    if plan.syllabus.isEmpty {
-                        emptyState
-                    } else {
-                        ForEach(Array(plan.syllabus.enumerated()), id: \.element) { index, id in
-                            step(number: index + 1, id: id)
+    /// One column per topological stage, separated by rules. Horizontally
+    /// scrollable rather than compressed: a long chain is a real answer to "what
+    /// do I need for this", and squeezing eight stages into five columns' width
+    /// would make it unreadable exactly when it matters most. D11.4 measured what
+    /// that is worth — `linear-algebra` is 23 stages against the FTC's 13.
+    private func stages(_ plan: FocusPlan, _ theme: Theme) -> some View {
+        let inset: CGFloat = theme.isDark ? 40 : 44
+        return GeometryReader { proxy in
+            // A short chain fills the frame — the design's five columns are five
+            // fifths of the width, not five fixed slabs with a gap at the end. A
+            // long one falls back to a readable minimum and scrolls.
+            let available = proxy.size.width - inset * 2
+            let count = CGFloat(max(plan.columns.count, 1))
+            let width = max((available - (count - 1)) / count, 232)
+            ScrollView(.horizontal) {
+                HStack(alignment: .top, spacing: 0) {
+                    ForEach(Array(plan.columns.enumerated()), id: \.offset) { index, ids in
+                        stage(plan, index: index, ids: ids, width: width, theme: theme)
+                        if index < plan.columns.count - 1 {
+                            Rectangle().fill(theme.hairline.color).frame(width: 1)
                         }
                     }
-                    goalRow
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 12)
+                .padding(.horizontal, inset)
+                .frame(minHeight: proxy.size.height, alignment: .top)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var header: some View {
-        HStack(spacing: 6) {
-            Text("SYLLABUS")
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(1.1)
-                .foregroundStyle(PanelTheme.tertiaryText)
-            Text("\(plan.syllabus.count)")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundStyle(PanelTheme.tertiaryText.opacity(0.7))
-            Spacer(minLength: 0)
+    private func stage(
+        _ plan: FocusPlan, index: Int, ids: [NodeID], width: CGFloat, theme: Theme
+    ) -> some View {
+        let compressed = ids.allSatisfy { plan.placed[$0]?.role == .metBoundary }
+        return VStack(alignment: .leading, spacing: 14) {
+            Text("STAGE \(index + 1) · \(stageLabel(plan, ids: ids))")
+                .font(Typeface.mono(10))
+                .tracking(Typeface.tracking(0.16, at: 10))
+                .foregroundStyle(theme.eyebrow.fading(0.7).color)
+            VStack(alignment: .leading, spacing: compressed ? 11 : 16) {
+                ForEach(ids, id: \.self) { id in
+                    row(plan, id: id, theme: theme)
+                }
+                if index == 0, plan.elidedMetCount > 0 {
+                    Text(elidedNote(plan))
+                        .font(Typeface.mono(10))
+                        .foregroundStyle(theme.inkFaint.fading(0.7).color)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 16)
-        .padding(.bottom, 8)
+        .padding(.horizontal, 22)
+        .padding(.vertical, theme.isDark ? 26 : 28)
+        .frame(width: width, alignment: .leading)
     }
 
-    private func step(number: Int, id: NodeID) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 2) {
-            Text("\(number)")
-                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                .foregroundStyle(PanelTheme.tertiaryText)
-                .frame(width: 20, alignment: .trailing)
-                .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 3 }
-            NodeReferenceRow(id: id, document: document, scores: scores, onSelect: onSelect)
+    /// In subject mode the elided set includes met *targets* — a mastered node of
+    /// the subject that nothing unmet requires is compressed out like any other.
+    /// Calling those "prerequisites" would be wrong twice over, so the noun
+    /// changes with the mode.
+    private func elidedNote(_ plan: FocusPlan) -> String {
+        if focus.isSubject {
+            return "\(plan.elidedMetCount) nodes you already know are not shown"
         }
+        return plan.elidedMetCount == 1
+            ? "1 earlier prerequisite you already know is not shown"
+            : "\(plan.elidedMetCount) earlier prerequisites you already know are not shown"
+    }
+
+    /// What the stage *is*, in the design's vocabulary. `FocusPlan` knows met from
+    /// unmet; "decayed" is the distinction the design adds on top — an unmet stage
+    /// whose nodes have been learned once and have slipped below the threshold is a
+    /// different problem from one that is new.
+    private func stageLabel(_ plan: FocusPlan, ids: [NodeID]) -> String {
+        if !focus.isSubject, ids.contains(plan.goal) { return "GOAL" }
+        if ids.allSatisfy({ plan.placed[$0]?.role == .metBoundary }) { return "MET" }
+        // A subject stage made entirely of steps borrowed from elsewhere is the
+        // detour D11.5 insists on naming, and naming it on the stage as well as on
+        // the row is what makes the shape of the path readable at a glance.
+        if focus.isSubject, ids.allSatisfy({ !plan.isTarget($0) }) { return "IMPORTED" }
+        let decayed = ids.contains { id in
+            guard plan.placed[id]?.role != .metBoundary else { return false }
+            if case .learned = ScoreFormat.state(of: id, in: scores) { return true }
+            return false
+        }
+        return decayed ? "DECAYED" : "UNMET"
     }
 
     @ViewBuilder
-    private var emptyState: some View {
-        Text(
-            plan.goalIsMet
-                ? "Mastered — every prerequisite is met, and so is the goal."
-                : "Every prerequisite is met. This is ready to learn — open it and report how it goes."
-        )
-        .font(.system(size: 12))
-        .foregroundStyle(PanelTheme.secondaryText)
-        .fixedSize(horizontal: false, vertical: true)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+    private func row(_ plan: FocusPlan, id: NodeID, theme: Theme) -> some View {
+        let role = plan.placed[id]?.role ?? .unmet
+        if role == .goal {
+            goalRow(plan, id: id, theme: theme)
+        } else {
+            FocusRow(
+                id: id, document: document, scores: scores,
+                // §6.2: met prerequisites are *compressed* — present, small, quiet.
+                isCompressed: role == .metBoundary,
+                // §6.5: a step inside the subject is the work; a step from another
+                // branch is the toll on the way to it. Same row, quieter.
+                origin: origin(plan, of: id),
+                onSelect: onSelect)
+        }
     }
 
+    /// The branch a step was imported from, shown only when the step is not part of
+    /// the subject being learned — inside Linear Algebra, "Linear Algebra" on every
+    /// row is noise.
+    private func origin(_ plan: FocusPlan, of id: NodeID) -> String? {
+        guard focus.isSubject, !plan.isTarget(id) else { return nil }
+        guard let index = document.index(of: id), let parent = document[index].parent else {
+            return nil
+        }
+        return branchTitle(of: parent)
+    }
+
+    private func branchTitle(of id: NodeID) -> String? {
+        guard let index = document.index(of: id) else { return nil }
+        let node = document[index]
+        if let parent = node.parent { return branchTitle(of: parent) }
+        return node.title
+    }
+
+    /// The goal, behind the accent rule the design gives it — the only place in
+    /// focus mode the accent appears, because it is the only thing the whole view
+    /// is pointing at. Node goals only: a subject has no single destination, so
+    /// `FocusPlan` never gives one of its nodes the `.goal` role.
+    private func goalRow(_ plan: FocusPlan, id: NodeID, theme: Theme) -> some View {
+        Button { onSelect(id) } label: {
+            VStack(alignment: .leading, spacing: 7) {
+                if let index = document.index(of: id) {
+                    MathTextView(
+                        source: document[index].title,
+                        size: theme.isDark ? 17 : 19,
+                        color: theme.inkStrong.color,
+                        face: theme.isDark ? .sans : .serif)
+                }
+                Text(goalSubtitle(plan))
+                    .font(Typeface.mono(11))
+                    .foregroundStyle(theme.inkFaint.color)
+            }
+            .padding(.leading, 16)
+            .overlay(alignment: .leading) {
+                Rectangle().fill(theme.actionRule.color).frame(width: 1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func goalSubtitle(_ plan: FocusPlan) -> String {
+        if plan.goalIsMet { return "goal · mastered" }
+        let steps = plan.syllabus.count
+        if steps == 0 { return "goal · ready to learn" }
+        return "goal · \(steps) node\(steps == 1 ? "" : "s") away"
+    }
+
+    // MARK: - Empty
+
+    /// Nothing to draw. For a node goal that means every prerequisite is met; for a
+    /// subject it is usually the other thing entirely — §7.1 fixes the outline
+    /// before the content, so most of the map is subjects with nothing authored in
+    /// them yet. Two different facts, and a blank column states neither.
+    private func emptyPlan(_ plan: FocusPlan, _ theme: Theme) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(emptyHeadline(plan).uppercased())
+                .font(Typeface.mono(10.5))
+                .tracking(Typeface.tracking(0.18, at: 10.5))
+                .foregroundStyle(theme.eyebrow.color)
+            Text(emptyMessage(plan))
+                .font(Typeface.sans(theme.isDark ? 15 : 16))
+                .foregroundStyle(theme.inkMuted.color)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 520, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(.horizontal, theme.isDark ? 40 : 44)
+        .padding(.top, theme.isDark ? 34 : 36)
+    }
+
+    private func emptyHeadline(_ plan: FocusPlan) -> String {
+        plan.targets.isEmpty ? "Not authored yet" : "Nothing left"
+    }
+
+    private func emptyMessage(_ plan: FocusPlan) -> String {
+        if plan.targets.isEmpty {
+            return "\(title) is on the map but has no content authored yet, so there is no path "
+                + "through it to draw."
+        }
+        if focus.isSubject {
+            return "Mastered — all \(plan.targets.count) nodes in \(title) are above the threshold."
+        }
+        return plan.goalIsMet
+            ? "Mastered — every prerequisite is met, and so is the goal."
+            : "Every prerequisite is met. This is ready to learn — open it and report how it goes."
+    }
+
+    // MARK: - Progress
+
+    /// A node focus counts progress over the plan's own nodes; a subject counts its
+    /// targets, because "37 of 50 nodes of linear algebra" is §6.5's headline and
+    /// the prerequisites imported from elsewhere are not part of what was asked
+    /// for. Same bar, and in each mode the honest denominator (DT1.7). An
+    /// unauthored subject has no denominator at all, and "0 / 0" under a paragraph
+    /// that has just said so is the kind of read-out the redesign is subtracting.
     @ViewBuilder
-    private var goalRow: some View {
-        Rectangle().fill(PanelTheme.separator).frame(height: 1)
-            .padding(.vertical, 8)
-            .padding(.horizontal, 8)
-        HStack(alignment: .firstTextBaseline, spacing: 2) {
-            Image(systemName: "scope")
-                .font(.system(size: 9.5))
-                .foregroundStyle(PanelTheme.tertiaryText)
-                .frame(width: 20, alignment: .trailing)
-                .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 2 }
-            NodeReferenceRow(id: plan.goal, document: document, scores: scores, onSelect: onSelect)
+    private func progress(_ plan: FocusPlan, _ theme: Theme) -> some View {
+        let total = focus.isSubject ? plan.targets.count : plan.displayedCount + plan.elidedMetCount
+        let met = focus.isSubject ? plan.metTargets.count : metCount(plan)
+        if total > 0 {
+            HStack(spacing: 16) {
+                MeasureBar(value: Double(met) / Double(total), height: 2, tint: theme.measure)
+                Text(focus.isSubject ? "\(met) / \(total) mastered" : "\(met) / \(total) met")
+                    .font(Typeface.mono(10.5))
+                    .foregroundStyle(theme.stat.color)
+                    .fixedSize()
+            }
+            .padding(.horizontal, theme.isDark ? 40 : 44)
+            .padding(.bottom, theme.isDark ? 26 : 28)
+            .padding(.top, 8)
+            .accessibilityLabel("\(met) of \(total) mastered")
+        }
+    }
+
+    /// Everything the plan compressed out, plus the boundary it kept — the elided
+    /// nodes are met by definition, which is why they were elided.
+    private func metCount(_ plan: FocusPlan) -> Int {
+        plan.metBoundary.count + plan.elidedMetCount + (plan.goalIsMet ? 1 : 0)
+    }
+
+    private func readyCount(_ plan: FocusPlan) -> Int {
+        plan.placed.keys.filter { scores.isFrontier($0) }.count
+    }
+}
+
+/// One prerequisite. Its own view so hovering does not invalidate the whole plan.
+private struct FocusRow: View {
+    let id: NodeID
+    let document: GraphDocument
+    let scores: ScoreStore
+    let isCompressed: Bool
+    /// §6.5: the branch this step was imported from, when it is not part of the
+    /// subject being learned. Present is the signal — the row sets itself quiet.
+    var origin: String?
+    let onSelect: (NodeID) -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        let theme = ThemeStore.shared.theme
+        let isDue = scores.isDue(id)
+        let isQuiet = isCompressed || origin != nil
+        Button { onSelect(id) } label: {
+            HStack(alignment: .firstTextBaseline, spacing: isCompressed ? 9 : 10) {
+                ScoreDot(id: id, scores: scores, diameter: isQuiet ? 5 : 6)
+                    .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 4 }
+                VStack(alignment: .leading, spacing: 4) {
+                    if let index = document.index(of: id) {
+                        MathTextView(
+                            source: document[index].title,
+                            size: isCompressed ? 12 : (theme.isDark ? 14 : 14.5),
+                            color: (isQuiet ? theme.inkMuted : theme.ink).color)
+                    }
+                    // The one thing focus mode is for saying: this is what is
+                    // standing between you and the goal *right now*.
+                    if isDue, !isCompressed {
+                        Text("due — review to unblock")
+                            .font(Typeface.mono(11))
+                            .foregroundStyle(theme.attention.color)
+                    } else if let origin, !origin.isEmpty {
+                        Text(origin)
+                            .font(Typeface.mono(10.5))
+                            .foregroundStyle(theme.inkFaint.fading(0.75).color)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 8)
+                Text(readout)
+                    .font(Typeface.mono(isCompressed ? 10 : 10.5))
+                    .foregroundStyle((isCompressed ? theme.eyebrowCount : theme.rowTrailing).color)
+            }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(isHovering ? theme.rowHighlight.color : .clear)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .help(origin.map { "\(id.rawValue) — from \($0)" } ?? id.rawValue)
+    }
+
+    /// Met rows print the bare percentage the design sets ("94"); unmet rows have
+    /// nothing to print and stay blank rather than showing a zero.
+    private var readout: String {
+        switch ScoreFormat.state(of: id, in: scores) {
+        case let .learned(retrievability):
+            return "\(Int((min(max(retrievability, 0), 1) * 100).rounded()))"
+        case .frontier: return "ready"
+        case .attempted: return "missed"
+        case .unlearned: return ""
         }
     }
 }
@@ -380,13 +439,24 @@ private struct FocusSyllabus: View {
 
 #Preview("Focus mode") {
     FocusView(
-        goal: "analysis.svc.zero-deriv-const",
+        focus: .node("analysis.svc.zero-deriv-const"),
         document: NodePanelPreviewData.document,
         scores: NodePanelPreviewData.scores(),
         onSelect: { print("select \($0)") },
         onExit: { print("exit") }
     )
-    .frame(width: 1100, height: 700)
+    .frame(width: 1280, height: 800)
+}
+
+#Preview("Subject path") {
+    FocusView(
+        focus: .subject("analysis.svc"),
+        document: NodePanelPreviewData.document,
+        scores: NodePanelPreviewData.scores(),
+        onSelect: { print("select \($0)") },
+        onExit: { print("exit") }
+    )
+    .frame(width: 1280, height: 800)
 }
 
 #endif

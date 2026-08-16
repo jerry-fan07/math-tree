@@ -52,7 +52,7 @@ final class SceneStore {
             timings.documentLoadMs = (CFAbsoluteTimeGetCurrent() - loadStart) * 1000
 
             let buildStart = CFAbsoluteTimeGetCurrent()
-            let scene = GraphScene(document: document)
+            let scene = GraphScene(document: document, theme: ThemeStore.shared.theme)
             timings.sceneBuildMs = (CFAbsoluteTimeGetCurrent() - buildStart) * 1000
             self.scene = scene
 
@@ -77,6 +77,7 @@ final class SceneStore {
             self.problems = problems
 
             let scores = ScoreStore(document: document, problems: problems.bank, tree: tree)
+            scores.hueResolver = { scene.hue(of: $0) }
             self.scores = scores
             placement = PlacementStore(scores: scores, bank: problems.bank, tree: tree)
             scores.onChange = { [weak renderer] in

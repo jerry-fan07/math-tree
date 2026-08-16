@@ -196,8 +196,10 @@ This is the "FSRS incorporating graph data as a parameter" requirement made conc
 ### 4.5 Color mapping
 
 - **Unlearned** (no state): neutral gray, low opacity — visually recedes.
-- **Learned**: continuous gradient by retrievability — proposed cold-to-warm ramp: deep blue (≈0.3, badly decayed) → teal → green (≈0.95+, solid). Decayed nodes thus remain visibly *colored* (they were learned) but cool and dim, distinct from gray unlearned nodes.
+- **Learned**: continuous gradient by retrievability, from badly decayed (≈0.3) to solid (≈0.95+). Decayed nodes remain visibly *colored* (they were learned) but dim and washed out, distinct from gray unlearned nodes.
 - **Frontier** (unlearned, all prerequisites above a mastery threshold τ ≈ 0.85): gray with a subtle accent ring — these are "what you could learn next," the actionable set the whole product points at.
+
+**Which channel carries it** (amended in turn 1, [DT1.1](implementation-plan.md#turn-1)): the gradient moves *luminance*, not hue. A node's hue is its branch's, so the map encodes two independent facts at once — where in mathematics a node sits, and how well it is known. On the dark canvas a solid node is bright and a decayed one sinks toward the background; on the light one a solid node is dense ink and a decayed one is washed out. The original proposal — a deep-blue → teal → green hue walk — survives as the *model's* colour: `ScoreRamp` still computes it, the probe still prints it, and it is what the scoring tests pin. What the display shows is a function of that model's ramp position, not of its colour.
 
 ---
 
@@ -225,7 +227,7 @@ Placement is optional and resumable: a user can skip it and let the picture fill
 
 - The FSRS scheduler surfaces due reviews; the user reviews via problems, not flashcard-style restatement, whenever possible.
 - On a **failed** problem, the system disambiguates *which* knowledge failed: offer the prerequisite chain of the target node and let the user (or a follow-up micro-problem) localize the gap. The failure evidence lands on the localized node, not automatically on the whole chain.
-- This is also the loop where "learning a new topic branches off known nodes": pick a goal node, compute its unmet prerequisite ancestors, order them topologically — that ordered set *is* the personalized syllabus.
+- This is also the loop where "learning a new topic branches off known nodes": pick a goal node, compute its unmet prerequisite ancestors, order them topologically — that ordered set *is* the personalized syllabus. The goal may equally be a whole *subject* rather than one node ([§6.5](#65-subject-paths)); the computation is identical with a goal set instead of a goal.
 
 ---
 
@@ -233,17 +235,21 @@ Placement is optional and resumable: a user can skip it and let the picture fill
 
 ### 6.1 Overview: Obsidian-style graph, with discipline
 
-Primary view is a minimalist force-directed graph (dark background, dot nodes, hairline edges) in the spirit of Obsidian's graph view — but at this node count, an undisciplined hairball is useless, so the design is **level-of-detail (LOD) first**:
+Primary view is a minimalist force-directed graph (dot nodes, hairline edges) in the spirit of Obsidian's graph view — but at this node count, an undisciplined hairball is useless, so the design is **level-of-detail (LOD) first**:
 
 - **Overview zoom**: only `branch`/`subbranch` hubs and `prominence: 2` nodes render labels; hubs render large; `prominence: 0` nodes shrink to near-dots; `contains` clustering dominates the layout so branches form visible galaxies.
 - **Mid zoom**: subbranch neighborhoods; `prominence ≥ 1` labels appear; `requires` edges become distinguishable (subtle arrowheads) from `relates` edges (dashed/fainter).
 - **Detail zoom**: everything labeled; hovering a node highlights its direct prerequisites and dependents; clicking opens the node panel (statement, summary, score, review history, "learn this" action).
 
-Color encodes score throughout ([§4.5](#45-color-mapping)). Edges inherit blended endpoint colors; `relates` edges show their own score.
+Color encodes score throughout ([§4.5](#45-color-mapping)).
+
+**Chrome and canvas** (amended in turn 1, [DT1.1](implementation-plan.md#turn-1)–[DT1.3](implementation-plan.md#turn-1)): the screen is two surfaces over the map — a rule-separated command line across the top and one detail column — in two appearances, *Observatory* on a near-black canvas and *Ledger* on paper, following the system. Edges are monochrome hairlines rather than blends of their endpoints' colors: with hue now naming the branch, a third color system on the same canvas is noise, and §4.4's edge score is carried as intensity, which is the form that section actually specifies.
 
 ### 6.2 Focus mode (the learning view)
 
 Selecting a goal node switches to **focus mode**: the display reduces to the node's `requires`-ancestor subgraph, laid out left-to-right in topological order, colored by score. Met prerequisites are compressed; the unmet chain is prominent. This is the "branch off what you know to reach new knowledge" vision rendered literally, and it doubles as the syllabus view ([§5.4](#54-ongoing-review--diagnosis)). A breadcrumb returns to the full graph with a smooth animated transition (zoom-out, not a cut — continuity of place is part of the minimalist feel).
+
+Turn 1 draws the topological order as *columns* rather than as a node-link diagram ([DT1.4](implementation-plan.md#turn-1)): one rule-separated stage per column, met stages small and quiet, the unmet chain at reading size, the goal last behind an accent rule, and a progress bar at the foot. Edges between stages are not drawn — the column a node sits in already says where it falls in the order, and its exact prerequisites are in the node panel.
 
 ### 6.3 Alternatives considered
 
@@ -258,6 +264,17 @@ Selecting a goal node switches to **focus mode**: the display reduces to the nod
 - **Layout is precomputed offline** at content-build time and shipped as coordinates in `graph.json`. The client never runs a cold force simulation on the full graph; at most it runs local relaxation on the visible neighborhood. First paint is instant and deterministic (the map always looks the same — spatial memory becomes navigation).
 - **GPU-accelerated rendering** is required at this scale (thousands of nodes, tens of thousands of edges); CPU-drawn canvas/SVG will not hold 60 fps. In the native macOS app this means Metal (instanced rendering) with SpriteKit as the fallback; a web client would use WebGL (sigma.js, Cosmograph). Choose after a render spike with a synthetic 10k-node graph (M1, [§9](#9-roadmap)).
 - Progressive reveal on first load: hubs fade in first, then constellation fill — sub-second total, no spinners.
+
+### 6.5 Subject paths
+
+A user does not only arrive with "I want to understand the FTC". They arrive with **"I want to learn linear algebra"** — a subject, not a result. That is the same question with a goal *set*, so it is the same view ([§6.2](#62-focus-mode-the-learning-view)) with a different goal:
+
+- The **targets** of a `branch` or `subbranch` goal are every content node it contains, at any taxonomy depth, following the `contains` DAG so cross-listed topics ([§2.3](#23-edge-types)) count as part of both subjects that list them. Structural nodes are never targets: they carry no score ([§2.1](#21-node-taxonomy)).
+- The **path** is the unmet members of (targets ∪ their `requires`-ancestors), in the topological order [§5.4](#54-ongoing-review--diagnosis) defines. A subject's own nodes are steps like any other, so — unlike a single-node goal, which is the arrival rather than a step — they appear in the list.
+- Steps *outside* the subject are marked as such. This is the point rather than a detail: at this granularity, "learn linear algebra" from cold is half foundations, and a path that hid that would be lying about the work. It is also [§2.4](#24-resolving-the-hubhierarchy-tension)'s cross-branch `requires` edges finally becoming something the user acts on rather than something the layout has to cope with.
+- Progress is `met targets / targets` — the read-out a subject has and a single node does not, and the basis for a "which subject should I open" list, which is how a subject gets chosen without first finding its hub on a map the user does not know yet.
+
+Everything else — met-boundary compression, the frontier's definition of "met", the left-to-right topological order — is §6.2 unchanged, which after turn 1 means the same stage columns ([DT1.7](implementation-plan.md#turn-1)): a subject's eyebrow reads LEARNING PATH rather than PREREQUISITE PATH, its imported steps are set quiet with their origin branch named, and its progress bar counts targets instead of the plan. A subject with no content authored yet ([§7.1](#71-process) fixes the outline before the content, so this is the common case for now) yields an empty path, which the display states rather than draws.
 
 ---
 
@@ -303,6 +320,7 @@ Shifu integration is a **data contract, not a code dependency**: Shifu will push
 - **M4 — Assessment**: tagged problem bank for the built content; adaptive placement; graph-propagated implicit reviews.
 - **M5 — Scale content** across the undergraduate curriculum, subbranch by subbranch.
 - **M6 — Shifu integration** via the evidence contract.
+- **M7 — Subject paths** ([§6.5](#65-subject-paths)): a branch or subbranch as the goal, chosen by name.
 
 ---
 

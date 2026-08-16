@@ -1,14 +1,40 @@
 import Foundation
 
-/// §6.2's focus mode and §5.4's syllabus, as one pure computation: given a goal
-/// node and the user's knowledge state, what stands between them and it, and in
-/// what order?
+/// What a focus session is aimed at.
+///
+/// §6.2 wrote focus mode against a single goal node. §6.5 adds the other question
+/// a knowledge graph obviously answers and the vision asks for outright — *"teach
+/// me linear algebra"* — which is the same computation with a goal **set**: every
+/// content node the subject contains. Both cases share one plan type, because
+/// everything downstream of "which nodes am I aiming at" is identical.
+public enum FocusGoal: Hashable, Sendable {
+    /// §6.2: one content node. "What do I need to learn to get to X?"
+    case node(NodeID)
+    /// §6.5: a `branch` or `subbranch`, all of it. "Take me through X."
+    case subject(NodeID)
+
+    /// The focused id, whichever kind it is — the breadcrumb's identity.
+    public var id: NodeID {
+        switch self {
+        case let .node(id), let .subject(id): id
+        }
+    }
+
+    public var isSubject: Bool {
+        if case .subject = self { return true }
+        return false
+    }
+}
+
+/// §6.2's focus mode, §6.5's guided path and §5.4's syllabus, as one pure
+/// computation: given a goal — a node or a whole subject — and the user's
+/// knowledge state, what stands between them and it, and in what order?
 ///
 /// The display half (a left-to-right topologically ordered mini-graph) lives here
 /// too, down to columns and row order, because the app target has no test target —
 /// this module is the only place the Phase 7 exit criterion ("the syllabus order
-/// is a valid topological order and omits exactly the met prerequisites") can be
-/// asserted. The app contributes nothing but point spacing.
+/// is a valid topological order and omits exactly the met prerequisites") and
+/// Phase 11's can be asserted. The app contributes nothing but point spacing.
 ///
 /// "Met" is exactly the frontier's notion (§4.5): FSRS state exists *and*
 /// retrievability is strictly above τ. A learned-but-decayed prerequisite is
@@ -17,7 +43,9 @@ import Foundation
 public struct FocusPlan: Hashable, Sendable {
     /// How one displayed node participates in the plan.
     public enum Role: Hashable, Sendable {
-        /// The destination itself, always the last column.
+        /// The destination itself, always the last column. Node goals only: a
+        /// subject has no single destination, so its own nodes are steps like any
+        /// other (§6.5).
         case goal
         /// An unmet prerequisite — a syllabus entry, rendered prominent.
         case unmet
@@ -42,20 +70,25 @@ public struct FocusPlan: Hashable, Sendable {
         public let to: NodeID
     }
 
-    public let goal: NodeID
-    /// Whether the goal itself is met (possible: focusing on something already
-    /// mastered is a legitimate way to inspect what it rests on).
-    public let goalIsMet: Bool
-    /// §5.4: the ordered unmet prerequisite set — the personalized syllabus.
-    /// Excludes the goal; a valid topological order of the `requires` relation
-    /// restricted to unmet ancestors (including precedence through met
-    /// intermediates).
+    public let focus: FocusGoal
+    /// The nodes the plan is aiming at: `[goal]` for a node focus, every content
+    /// node the subject contains for a subject focus (§6.5). Empty is legitimate
+    /// and common — most of §7.1's outline is subbranches with no content yet.
+    public let targets: Set<NodeID>
+    /// The targets already mastered — the progress read-out a subject needs and a
+    /// single node does not.
+    public let metTargets: Set<NodeID>
+    /// §5.4: the ordered unmet set — the personalized syllabus. A valid topological
+    /// order of the `requires` relation restricted to unmet nodes (including
+    /// precedence through met intermediates). For a node focus this is the unmet
+    /// *ancestors* and excludes the goal; for a subject the targets are steps too,
+    /// so they are in it.
     public let syllabus: [NodeID]
-    /// Met ancestors directly required by an unmet node or the goal — the visible
+    /// Met nodes directly required by an unmet node or the goal — the visible
     /// edge of what the user already knows.
     public let metBoundary: [NodeID]
-    /// Met ancestors *behind* the boundary, elided from display entirely. The
-    /// count is shown so compression reads as compression, not as absence.
+    /// Met nodes *behind* the boundary, elided from display entirely. The count is
+    /// shown so compression reads as compression, not as absence.
     public let elidedMetCount: Int
     /// Every displayed node with its column and row, keyed by id.
     public let placed: [NodeID: PlacedNode]
@@ -64,13 +97,30 @@ public struct FocusPlan: Hashable, Sendable {
     /// Direct `requires` edges between displayed nodes.
     public let edges: [Edge]
 
+    /// The focused id, node or subject.
+    public var goal: NodeID { focus.id }
+
+    /// Whether there is nothing left: the goal node is met, or every node of the
+    /// subject is. A subject with no content authored yet is *not* complete —
+    /// there is nothing to have learned.
+    public var goalIsMet: Bool { !targets.isEmpty && metTargets.count == targets.count }
+
     public var displayedCount: Int { placed.count }
+
+    /// Whether `id` belongs to the subject itself, as opposed to being a
+    /// prerequisite pulled in from elsewhere in the graph. The distinction is the
+    /// point of §6.5: "learn linear algebra" legitimately sends you to foundations
+    /// first, and the path should say which steps are the detour.
+    public func isTarget(_ id: NodeID) -> Bool { targets.contains(id) }
+
+    /// Steps of the syllabus that lie outside the subject — met prerequisites
+    /// elsewhere in the graph that have to be picked up on the way.
+    public var importedSteps: [NodeID] { syllabus.filter { !targets.contains($0) } }
 
     // MARK: - Computation
 
-    /// Build the plan for `goal`, or nil when `goal` is not a learnable content
-    /// node (structural nodes have no prerequisites by invariant, and "learn
-    /// this" is not a thing a branch supports).
+    /// Build the plan for a single goal node, or nil when `goal` is not a learnable
+    /// content node.
     public static func compute(
         goal: NodeID,
         graph: KnowledgeGraph,
@@ -78,8 +128,48 @@ public struct FocusPlan: Hashable, Sendable {
         at now: Date,
         config: ScoringConfig = ScoringConfig()
     ) -> FocusPlan? {
-        guard let goalNode = graph[goal], goalNode.kind.isContent else { return nil }
+        compute(focus: .node(goal), graph: graph, state: state, at: now, config: config)
+    }
+
+    /// Build the guided path through a whole subject (§6.5), or nil when `subject`
+    /// is not a `branch`/`subbranch`. A subject with no content authored yet
+    /// returns an *empty plan*, not nil: "Topology is outlined but unwritten" is a
+    /// true answer, and the common one until §7's corpus is finished.
+    public static func compute(
+        subject: NodeID,
+        graph: KnowledgeGraph,
+        state: ScoreState,
+        at now: Date,
+        config: ScoringConfig = ScoringConfig()
+    ) -> FocusPlan? {
+        compute(focus: .subject(subject), graph: graph, state: state, at: now, config: config)
+    }
+
+    public static func compute(
+        focus: FocusGoal,
+        graph: KnowledgeGraph,
+        state: ScoreState,
+        at now: Date,
+        config: ScoringConfig = ScoringConfig()
+    ) -> FocusPlan? {
+        guard let node = graph[focus.id] else { return nil }
         let fsrs = FSRS(parameters: config.fsrs)
+
+        /// The goal node, when there is a single one. A subject leaves it nil, and
+        /// every branch below reads as "the distinguished destination, if any" —
+        /// which is exactly the one thing the two modes differ by.
+        let destination: NodeID?
+        let targets: [NodeID]
+        switch focus {
+        case let .node(id):
+            guard node.kind.isContent else { return nil }
+            destination = id
+            targets = [id]
+        case let .subject(id):
+            guard node.kind.isStructural else { return nil }
+            destination = nil
+            targets = graph.contentDescendants(of: id)
+        }
 
         // Frontier's exact notion, deliberately — D7.1: the gold rings and the
         // syllabus must not be able to disagree at the margin. `isLearned` rather
@@ -90,18 +180,19 @@ public struct FocusPlan: Hashable, Sendable {
             return fsrs.retrievability(of: memory, at: now) > config.masteryThreshold
         }
 
-        // The requires-ancestor subgraph (§6.2). Structural ids are excluded
-        // defensively, mirroring Frontier: they carry no score, so one reached
-        // through a bad edge would sit unmet in every syllabus forever.
-        let ancestors = graph.requiresAncestors(of: goal)
+        // The requires-ancestor subgraph of the whole target set (§6.2, §6.5).
+        // Structural ids are excluded defensively, mirroring Frontier: they carry
+        // no score, so one reached through a bad edge would sit unmet in every
+        // syllabus forever.
+        let ancestors = graph.requiresAncestors(ofAll: targets)
             .filter { graph[$0]?.kind.isContent == true }
-        let subgraph = Set(ancestors + [goal])
+        let subgraph = Set(ancestors).union(targets)
 
-        // Longest-path layering over the FULL ancestor subgraph, met and unmet
-        // alike. Any directed path strictly increases the layer, so (layer, id)
-        // order is a valid topological order even when one unmet node precedes
-        // another only through met intermediates — which (layer, id) over a
-        // pruned subgraph would get wrong.
+        // Longest-path layering over the FULL subgraph, met and unmet alike. Any
+        // directed path strictly increases the layer, so (layer, id) order is a
+        // valid topological order even when one unmet node precedes another only
+        // through met intermediates — which (layer, id) over a pruned subgraph
+        // would get wrong.
         var layer: [NodeID: Int] = [:]
         func layerOf(_ id: NodeID) -> Int {
             if let known = layer[id] { return known }
@@ -115,24 +206,26 @@ public struct FocusPlan: Hashable, Sendable {
         }
         for id in subgraph.sorted() { _ = layerOf(id) }
 
-        let unmet = ancestors.filter { !isMet($0) }
-        let unmetSet = Set(unmet)
-        let syllabus = unmet.sorted { (layer[$0]!, $0) < (layer[$1]!, $1) }
+        // Everything that can be a step or a known node: the subgraph, less the
+        // single destination when there is one (it is the arrival, not a step).
+        let pool = destination.map { subgraph.subtracting([$0]) } ?? subgraph
+        let unmetSet = pool.filter { !isMet($0) }
+        let syllabus = unmetSet.sorted { (layer[$0]!, $0) < (layer[$1]!, $1) }
 
-        // §6.2's compression: a met ancestor is displayed only where the unmet
-        // chain actually touches it — as a direct prerequisite of an unmet node
-        // or of the goal. Met nodes behind that boundary are elided and counted.
+        // §6.2's compression: a met node is displayed only where the unmet chain
+        // actually touches it — as a direct prerequisite of an unmet node or of the
+        // destination. Met nodes behind that boundary are elided and counted.
         var boundary: Set<NodeID> = []
-        for id in unmet + [goal] {
+        for id in unmetSet.union(destination.map { [$0] } ?? []) {
             for prerequisite in graph.prerequisites(of: id)
             where subgraph.contains(prerequisite) && !unmetSet.contains(prerequisite)
-                && prerequisite != goal
+                && prerequisite != destination
             {
                 boundary.insert(prerequisite)
             }
         }
-        let metCount = ancestors.count - unmet.count
-        let displayed = unmetSet.union(boundary).union([goal])
+        let metCount = pool.count - unmetSet.count
+        let displayed = unmetSet.union(boundary).union(destination.map { [$0] } ?? [])
 
         // Columns: the distinct layers that survive into the displayed set,
         // compacted so elision never leaves an empty column.
@@ -170,7 +263,7 @@ public struct FocusPlan: Hashable, Sendable {
         for id in displayed {
             placed[id] = PlacedNode(
                 id: id,
-                role: id == goal ? .goal : (unmetSet.contains(id) ? .unmet : .metBoundary),
+                role: id == destination ? .goal : (unmetSet.contains(id) ? .unmet : .metBoundary),
                 column: columnOfLayer[layer[id]!]!,
                 row: row[id]!)
         }
@@ -183,8 +276,9 @@ public struct FocusPlan: Hashable, Sendable {
         }
 
         return FocusPlan(
-            goal: goal,
-            goalIsMet: isMet(goal),
+            focus: focus,
+            targets: Set(targets),
+            metTargets: Set(targets.filter(isMet)),
             syllabus: syllabus,
             metBoundary: boundary.sorted(),
             elidedMetCount: metCount - boundary.count,

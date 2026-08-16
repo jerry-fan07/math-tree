@@ -1081,7 +1081,7 @@ topics:
 - Bertrand's box / three cards (2/3, not 1/2)
 - Airplane seat problem (answer 1/2, the two-absorbing-states argument)
 - Two envelopes: where the 5/4 argument breaks
-- St. Petersburg: infinite EV, finite willingness to pay
+- St. Petersburg is authored in §8 as `quant-probability.expectation.st-petersburg` — relate to it if needed, do not re-author it
 - Simpson's paradox with a worked table; lurking aggregation in PnL attribution
 - Base-rate neglect recap (relates disease test)
 - Sleeping-beauty style ambiguity (prominence 0, light)
@@ -1090,7 +1090,6 @@ spine:
 - `quant-puzzles.prob-paradoxes.boy-girl` (example) — how the sampling protocol changes the answer
 - `quant-puzzles.prob-paradoxes.airplane-seat` (example) — the 1/2 by symmetry of the two fixed points
 - `quant-puzzles.prob-paradoxes.two-envelopes` (example) — the broken expectation argument
-- `quant-puzzles.prob-paradoxes.st-petersburg` (example) — unbounded EV meets bounded utility
 - `quant-puzzles.prob-paradoxes.simpson` (example) — aggregation reverses comparisons
 
 ## 54. quant-puzzles.nim-games — Take-Away & Combinatorial Games

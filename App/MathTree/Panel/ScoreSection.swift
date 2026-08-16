@@ -7,13 +7,19 @@ import SwiftUI
 /// Phase 8 makes problems the instrument (§5.2) and demotes self-report to the
 /// fallback §5.4 allows ("via problems ... *whenever possible*"). Both are here,
 /// and which one leads is decided by the bank: a node it can ask about gets the
-/// problem button first, everything else keeps the three confidence levels.
+/// problem action, everything else keeps the three confidence levels.
 ///
 /// Self-report stays affirmative only, and the reason is unchanged (D6.3): the
 /// frontier is defined by the *absence* of a successful retrieval (§4.5), so a
 /// self-reported failure would be a claim about knowledge nobody measured. A
 /// missed *problem* is different in kind — a measurement, with §5.4's diagnosis to
 /// decide where it lands — which is why `missed` exists there and not here.
+///
+/// The redesign renames it: the panel's second block is **Retrievability**, a
+/// number and a 3 pt bar rather than a swatch, a headline and a sparkline. The
+/// sparkline is gone deliberately — it was the panel's only chart, it plotted six
+/// points, and its whole message ("this has been reviewed a few times, and it is
+/// holding") is carried by the bar plus the count beneath it.
 struct ScoreSection: View {
     let node: Node
     let scores: ScoreStore
@@ -29,26 +35,22 @@ struct ScoreSection: View {
     private var history: [ScoreFold.ReviewPoint] { scores.history(of: node.id) }
 
     var body: some View {
+        let theme = ThemeStore.shared.theme
         VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 6) {
-                Text("KNOWLEDGE")
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(1.1)
-                    .foregroundStyle(PanelTheme.tertiaryText)
-            }
             if node.kind.isStructural {
                 // §2.1: structural nodes are navigation, not knowledge.
                 Text("Structural node — a hub, not something to learn, so it carries no score.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(PanelTheme.tertiaryText)
+                    .font(Typeface.sans(12.5))
+                    .foregroundStyle(theme.inkMuted.color)
+                    .fixedSize(horizontal: false, vertical: true)
             } else {
-                readout
-                if !history.isEmpty { historyBlock }
-                selfReport
+                readout(theme)
+                selfReport(theme)
                 if let failure {
                     Text(failure)
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color(red: 0.94, green: 0.60, blue: 0.52))
+                        .font(Typeface.mono(10.5))
+                        .foregroundStyle(theme.warning.color)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -57,58 +59,58 @@ struct ScoreSection: View {
 
     // MARK: - Read-out
 
-    private var readout: some View {
-        HStack(alignment: .center, spacing: 11) {
-            swatch
-            VStack(alignment: .leading, spacing: 2) {
-                Text(state.title)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(PanelTheme.primaryText)
+    /// Label, value, bar, and the two facts underneath: when it is next owed, and
+    /// what the number was built from.
+    private func readout(_ theme: Theme) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Retrievability")
+                    .font(Typeface.sans(12.5))
+                    .foregroundStyle(theme.inkMuted.color)
+                Spacer(minLength: 12)
+                Text(valueText)
+                    .font(Typeface.mono(12.5, .medium))
+                    .foregroundStyle(valueColor(theme).color)
                     .help(state.detail)
+            }
+            // Only a learned node gets a bar. An empty track beside "ready" would
+            // read as a measured zero, and §4.5's whole point is that unlearned is
+            // not a low score — it is the absence of one.
+            if case let .learned(retrievability) = state {
+                MeasureBar(value: retrievability, tint: valueColor(theme))
+            }
+            HStack(alignment: .firstTextBaseline) {
                 Text(ScoreFormat.due(scores.nextDue(of: node.id), relativeTo: scores.evaluatedAt))
-                    .font(.system(size: 11.5))
                     .foregroundStyle(
-                        scores.isDue(node.id) ? PanelTheme.accent : PanelTheme.secondaryText)
-            }
-            Spacer(minLength: 0)
-        }
-    }
-
-    /// The dot the node wears on the map, at the size the panel can afford — grey
-    /// with an accent ring on the frontier, exactly as §4.5 draws it.
-    private var swatch: some View {
-        ZStack {
-            Circle()
-                .fill(ScoreFormat.color(of: node.id, in: scores))
-                .frame(width: 15, height: 15)
-            if scores.isFrontier(node.id) {
-                Circle()
-                    .strokeBorder(Color(ScoreRamp.frontierAccent), lineWidth: 1.6)
-                    .frame(width: 24, height: 24)
-            }
-        }
-        .frame(width: 26, height: 26)
-    }
-
-    // MARK: - History
-
-    private var historyBlock: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            ScoreSparkline(
-                history: history,
-                fsrs: scores.fsrs,
-                now: scores.evaluatedAt,
-                threshold: scores.config.masteryThreshold)
-            HStack(spacing: 8) {
+                        scores.isDue(node.id) ? theme.attention.color : theme.inkFaint.color)
+                Spacer(minLength: 12)
                 Text(reviewCountText)
-                if let last = history.last {
-                    Text("·")
-                    Text("last \(ScoreFormat.elapsed(since: last.event.at, to: scores.evaluatedAt))")
-                }
-                Spacer(minLength: 0)
+                    .foregroundStyle(theme.inkFaint.color)
             }
-            .font(.system(size: 10.5))
-            .foregroundStyle(PanelTheme.tertiaryText)
+            .font(Typeface.mono(10.5))
+        }
+    }
+
+    /// A learned node prints the modelled probability; the other three states of
+    /// §4.5 print what they are, because a percentage would be a number nobody
+    /// measured (D8.3).
+    private var valueText: String {
+        switch state {
+        case let .learned(retrievability): String(format: "%.2f", retrievability)
+        case .frontier: "ready"
+        case .attempted: "missed"
+        case .unlearned: "—"
+        }
+    }
+
+    /// The bar and the number take the map's own colour for this node, so the
+    /// panel is a read-out of the dot the user clicked rather than a second
+    /// opinion about it. Off the ramp, they fall back to the theme's neutral.
+    private func valueColor(_ theme: Theme) -> ThemeColor {
+        switch state {
+        case .learned: ScoreFormat.fill(of: node.id, in: scores)
+        case .frontier: theme.attention
+        case .attempted, .unlearned: theme.inkFaint
         }
     }
 
@@ -120,74 +122,43 @@ struct ScoreSection: View {
         let direct = history.count - implicit
         var parts: [String] = []
         if direct > 0 { parts.append("\(direct) review\(direct == 1 ? "" : "s")") }
-        if implicit > 0 { parts.append("\(implicit) exercised") }
-        return parts.isEmpty ? "no reviews" : parts.joined(separator: " · ")
+        if implicit > 0 { parts.append("\(implicit) implicit") }
+        if let last = history.last {
+            parts.append("last \(ScoreFormat.elapsed(since: last.event.at, to: scores.evaluatedAt))")
+        }
+        return parts.isEmpty ? "no reviews yet" : parts.joined(separator: " · ")
     }
 
     // MARK: - Self-report
 
-    private var selfReport: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if canProbe, let onReview {
-                SheetButton(
-                    title: history.isEmpty ? "Try a problem" : "Review with a problem",
-                    isProminent: true
-                ) { onReview(node.id) }
-                Text(
-                    "\(scores.problems(targeting: node.id).count) problem"
-                        + "\(scores.problems(targeting: node.id).count == 1 ? "" : "s") for this node."
-                )
-                .font(.system(size: 10.5))
-                .foregroundStyle(PanelTheme.tertiaryText)
-                .padding(.bottom, 2)
-            }
-            // Kept beside the problem rather than hidden behind it: §5.4 says
-            // problems "whenever possible", and someone who has just worked
-            // through a topic elsewhere should not have to invent a wrong answer
-            // to record what they know.
+    /// Kept, though the design's frame does not draw it: §5.4 routes to a problem
+    /// "whenever possible", and for a node the bank cannot ask about this is the
+    /// *only* way to record what someone knows. Restyled to the redesign's one
+    /// affordance shape — three underlined words rather than three bordered pills.
+    private func selfReport(_ theme: Theme) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
             Text(canProbe ? "Or just mark it" : (history.isEmpty ? "I know this" : "Review"))
-                .font(.system(size: 11))
-                .foregroundStyle(PanelTheme.secondaryText)
-            HStack(spacing: 6) {
+                .font(Typeface.sans(11.5))
+                .foregroundStyle(theme.inkFaint.color)
+            HStack(spacing: 16) {
                 ForEach(SelfReportConfidence.allCases, id: \.self) { confidence in
-                    SelfReportButton(confidence: confidence) { record(confidence) }
+                    TextAction(
+                        title: confidence.title, size: 11.5, isQuiet: true,
+                        accessibilityHint: confidence.detail
+                    ) { record(confidence) }
                 }
             }
             Text("Marks this and, more weakly, its prerequisites (§4.3).")
-                .font(.system(size: 10.5))
-                .foregroundStyle(PanelTheme.tertiaryText)
+                .font(Typeface.mono(10))
+                .foregroundStyle(theme.inkFaint.fading(0.75).color)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(.top, 4)
     }
 
     private func record(_ confidence: SelfReportConfidence) {
         failure = scores.record(confidence, on: node.id)
             ? nil
             : (scores.diagnostics.last ?? "could not record this review")
-    }
-}
-
-/// One confidence level. Its own view so hovering it does not invalidate the panel.
-private struct SelfReportButton: View {
-    let confidence: SelfReportConfidence
-    let action: () -> Void
-    @State private var isHovering = false
-
-    var body: some View {
-        Button(action: action) {
-            Text(confidence.title)
-                .font(.system(size: 11.5, weight: .medium))
-                .foregroundStyle(isHovering ? PanelTheme.primaryText : PanelTheme.secondaryText)
-                .padding(.horizontal, 11)
-                .padding(.vertical, 5)
-                .background(
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(isHovering ? PanelTheme.rowHighlight : Color.clear))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 5)
-                        .strokeBorder(PanelTheme.separator, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-        .onHover { isHovering = $0 }
-        .help(confidence.detail)
     }
 }

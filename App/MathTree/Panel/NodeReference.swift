@@ -12,58 +12,72 @@ import SwiftUI
 /// kind colour without it. That is what makes the Requires list answer §5.4's diagnosis
 /// question — *which* prerequisite is weak — at a glance, and it keeps one colour language
 /// between the panel and the map instead of two.
+///
+/// The redesign flattens the row: no card, no radius, and the kind moved out of a
+/// per-row subtitle. What is left is the design's three columns — dot, title,
+/// read-out — with the `relates` note (§2.3, which is content in its own right)
+/// still set underneath when there is one.
 struct NodeReferenceRow: View {
     let id: NodeID
     let document: GraphDocument
-    /// The `relates` note (§2.3 — the connection is knowledge, so it is shown, not hidden
-    /// behind a tooltip).
+    /// The `relates` note.
     var note: String?
+    /// Where this node comes from, when that is the interesting fact about it —
+    /// §6.5's path shows the branch a step was imported from, because "you have to
+    /// go through Foundations first" is the answer the user came for.
+    var origin: String?
     var scores: ScoreStore?
+    var titleSize: CGFloat = 13
     var onSelect: (NodeID) -> Void
 
     @State private var isHovering = false
 
     var body: some View {
+        let theme = ThemeStore.shared.theme
         if let index = document.index(of: id) {
             let target = document[index]
             Button {
                 onSelect(id)
             } label: {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    dot(for: target)
-                        .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
-                    VStack(alignment: .leading, spacing: 3) {
-                        MathTextView(
-                            source: target.title, size: 12.5,
-                            color: isHovering ? .white : PanelTheme.primaryText)
-                        Text(subtitle(for: target))
-                            .font(.system(size: 10))
-                            .foregroundStyle(PanelTheme.tertiaryText)
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    dot(for: target, theme: theme)
+                        .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 4 }
+                    VStack(alignment: .leading, spacing: 4) {
+                        MathTextView(source: target.title, size: titleSize, color: theme.rowTitle.color)
                         if let note, !note.isEmpty {
-                            MathTextView(source: note, size: 11.5, color: PanelTheme.secondaryText)
-                                .padding(.top, 1)
+                            MathTextView(source: note, size: 12, color: theme.inkMuted.color)
                         }
                     }
-                    Spacer(minLength: 0)
+                    Spacer(minLength: 8)
+                    // §6.5's origin, when there is one. A bordered chip in the
+                    // Phase 11 frame; the redesign has no chips, so it is set as
+                    // quiet text before the read-out — same fact, one less box.
+                    if let origin, !origin.isEmpty {
+                        Text(origin)
+                            .font(Typeface.mono(10))
+                            .foregroundStyle(theme.inkFaint.fading(0.75).color)
+                            .lineLimit(1)
+                    }
+                    Text(readout(for: target))
+                        .font(Typeface.mono(10.5))
+                        .foregroundStyle(theme.rowTrailing.color)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 4)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(isHovering ? PanelTheme.rowHighlight : Color.clear))
-                .contentShape(RoundedRectangle(cornerRadius: 5))
+                .background(isHovering ? theme.rowHighlight.color : .clear)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .onHover { isHovering = $0 }
-            .accessibilityLabel("\(target.title), \(target.kind.rawValue)")
+            .help("\(target.kind.rawValue) · \(target.id.rawValue)")
+            .accessibilityLabel("\(target.title), \(target.kind.rawValue), \(readout(for: target))")
             .accessibilityHint("Opens this node")
         } else {
             Text(id.rawValue)
-                .font(.system(size: 11.5, design: .monospaced))
-                .foregroundStyle(PanelTheme.tertiaryText)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
+                .font(Typeface.mono(11))
+                .foregroundStyle(theme.inkFaint.color)
+                .padding(.vertical, 4)
                 .help("Not present in the loaded graph — rebuild content artifacts")
         }
     }
@@ -71,37 +85,26 @@ struct NodeReferenceRow: View {
     /// Score when there is one; kind colour otherwise. Structural nodes are never
     /// scored (§2.1), so they always show their kind.
     @ViewBuilder
-    private func dot(for target: Node) -> some View {
+    private func dot(for target: Node, theme: Theme) -> some View {
         if let scores, target.kind.isContent {
-            ZStack {
-                Circle()
-                    .fill(ScoreFormat.color(of: target.id, in: scores))
-                    .frame(width: 6, height: 6)
-                if scores.isFrontier(target.id) {
-                    Circle()
-                        .strokeBorder(Color(ScoreRamp.frontierAccent), lineWidth: 1)
-                        .frame(width: 11, height: 11)
-                }
-            }
-            .frame(width: 12, height: 12)
+            ScoreDot(id: target.id, scores: scores)
         } else {
             Circle()
                 .fill(PanelTheme.color(for: target.kind))
                 .frame(width: 6, height: 6)
-                .frame(width: 12, height: 12)
+                .frame(width: 10.8, height: 10.8)
         }
     }
 
-    /// The kind is still the primary fact about a reference; the score joins it
-    /// rather than replacing it, so the row stays readable with no user state.
-    private func subtitle(for target: Node) -> String {
+    /// A structural reference has no score, so it says what it is; a content one
+    /// says where it sits on §4.5's three states.
+    private func readout(for target: Node) -> String {
         guard let scores, target.kind.isContent else { return target.kind.rawValue }
         switch ScoreFormat.state(of: target.id, in: scores) {
-        case .unlearned: return "\(target.kind.rawValue) · unlearned"
-        case .frontier: return "\(target.kind.rawValue) · ready to learn"
-        case .attempted: return "\(target.kind.rawValue) · missed, not yet learned"
-        case let .learned(retrievability):
-            return "\(target.kind.rawValue) · \(ScoreFormat.percent(retrievability))"
+        case .unlearned: return "new"
+        case .frontier: return "ready"
+        case .attempted: return "missed"
+        case let .learned(retrievability): return ScoreFormat.percent(retrievability)
         }
     }
 }
@@ -115,21 +118,22 @@ struct NodeReferenceLink: View {
     @State private var isHovering = false
 
     var body: some View {
+        let theme = ThemeStore.shared.theme
         if let index = document.index(of: id) {
             let target = document[index]
             Button {
                 onSelect(id)
             } label: {
                 MathTextView(
-                    source: target.title, size: 12, color: PanelTheme.accent,
+                    source: target.title, size: 12, color: theme.action.color,
                     underline: isHovering)
             }
             .buttonStyle(.plain)
             .onHover { isHovering = $0 }
         } else {
             Text(id.rawValue)
-                .font(.system(size: 11.5, design: .monospaced))
-                .foregroundStyle(PanelTheme.tertiaryText)
+                .font(Typeface.mono(11))
+                .foregroundStyle(theme.inkFaint.color)
         }
     }
 }
