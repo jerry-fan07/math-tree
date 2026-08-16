@@ -10,6 +10,45 @@ struct MathTreeApp: App {
         // `MATHTREE_SNAPSHOT` is set: rendering is offscreen, so a snapshot needs
         // no window and never reaches the window server.
         Snapshot.runIfRequested()
+        #if DEBUG
+            // The corpus self-check (D4.9): `MATHTREE_MATH_CHECK=1` renders every
+            // LaTeX-bearing field of the content *and* the problem bank, prints the
+            // linearised statements to be read, and exits non-zero on a finding.
+            // Here rather than in `applicationDidFinishLaunching` for the same
+            // reason as the snapshot: the check is pure text over the loaded
+            // artifacts, so it must not wait on — or require — the window server.
+            // The quant tree is checked in the same pass: unbuilt artifacts are
+            // merely noted (the check still means something without them), but
+            // artifacts that exist and fail to load are a failure — a silently
+            // unchecked corpus is the one outcome this check exists to prevent.
+            if MathText.Check.isRequested {
+                // A check that was asked for and cannot run must fail, not idle:
+                // with no scene there is no window to read an error from, and the
+                // pre-fix behaviour — skip silently, then sit in the event loop
+                // headless — read as a hang wherever the artifacts were missing.
+                guard let scene = SceneStore.shared.scene else {
+                    FileHandle.standardError.write(
+                        Data("math check: \(SceneStore.shared.errorMessage ?? "no scene")\n".utf8))
+                    exit(2)
+                }
+                var additional: [GraphDocument] = []
+                do {
+                    additional.append(
+                        try GraphDocument.load(
+                            from: GraphDocument.searchDirectories(
+                                subdirectory: TreeSpec.quant.subdirectory)))
+                } catch GraphDocumentError.artifactsNotFound {
+                    print("note: quant artifacts not built — quant tree not checked")
+                } catch {
+                    FileHandle.standardError.write(
+                        Data("math check: quant tree failed to load: \(error)\n".utf8))
+                    exit(2)
+                }
+                MathText.Check.runIfRequested(
+                    document: scene.document, problems: SceneStore.shared.problems,
+                    additionalDocuments: additional)
+            }
+        #endif
     }
 
     var body: some Scene {
@@ -40,32 +79,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             runSmokeTest()
         }
         #if DEBUG
-            // The corpus self-check (D4.9): `MATHTREE_MATH_CHECK=1` renders every
-            // LaTeX-bearing field of the content *and* the problem bank, prints the
-            // linearised statements to be read, and exits non-zero on a finding.
-            // Needs the artifacts loaded, so it runs here. The quant tree is
-            // checked in the same pass: unbuilt artifacts are merely noted (the
-            // check still means something without them), but artifacts that exist
-            // and fail to load are a failure — a silently unchecked corpus is the
-            // one outcome this check exists to prevent.
-            if MathText.Check.isRequested, let scene = SceneStore.shared.scene {
-                var additional: [GraphDocument] = []
-                do {
-                    additional.append(
-                        try GraphDocument.load(
-                            from: GraphDocument.searchDirectories(
-                                subdirectory: TreeSpec.quant.subdirectory)))
-                } catch GraphDocumentError.artifactsNotFound {
-                    print("note: quant artifacts not built — quant tree not checked")
-                } catch {
-                    FileHandle.standardError.write(
-                        Data("math check: quant tree failed to load: \(error)\n".utf8))
-                    exit(2)
-                }
-                MathText.Check.runIfRequested(
-                    document: scene.document, problems: SceneStore.shared.problems,
-                    additionalDocuments: additional)
-            }
             // Runs here rather than in `MathTreeApp.init` because `NSHostingView`
             // needs a live run loop to complete a layout pass; a snapshot taken
             // before launch finishes captures an unlaid-out view.
