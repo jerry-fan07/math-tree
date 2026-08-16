@@ -24,9 +24,10 @@ struct NodePanel: View {
     /// Navigate to another node (prerequisite/dependent links, `relates`, taxonomy).
     var onSelect: (NodeID) -> Void
     var onClose: () -> Void
-    /// §6.1's "learn this" action — enter §6.2's focus mode with this node as the
-    /// goal. `nil` (previews, no user state) renders the panel without it.
-    var onFocus: ((NodeID) -> Void)? = nil
+    /// §6.1's "learn this" action — enter focus mode with this node as the goal
+    /// (§6.2) or, on a `branch`/`subbranch`, with the whole subject as the goal
+    /// (§6.5). `nil` (previews, no user state) renders the panel without it.
+    var onFocus: ((FocusGoal) -> Void)? = nil
     /// §5.2's instrument: open a problem for this node. `nil` when no bank is
     /// loaded, which leaves Phase 6's self-report as the only reviewer (§5.4's
     /// "whenever possible" cuts both ways).
@@ -124,19 +125,31 @@ struct NodePanel: View {
     /// The panel's two actions, on one rule-separated line: §6.1's "learn this"
     /// as the accented one, §5.2's problem beside it. Both were boxed controls
     /// before; the redesign has no boxed controls.
+    ///
+    /// On a content node the action asks "what do I need to learn to get to this?"
+    /// (§6.2); on a branch or subbranch it asks the question §6.5 added, "take me
+    /// through all of this". A structural node is still not *learnable* (§2.1) — it
+    /// is a name for a set of nodes that are, which is what the subject plan aims at.
     @ViewBuilder
     private func footer(_ theme: Theme) -> some View {
-        let canLearn = onFocus != nil && node.kind.isContent
         let canProbe = onReview != nil && (scores?.canProbe(node.id) ?? false)
-        if canLearn || canProbe {
+        if onFocus != nil || canProbe {
             VStack(spacing: 0) {
                 Rule()
                 HStack(alignment: .firstTextBaseline) {
-                    if canLearn, let onFocus {
-                        TextAction(
-                            title: "Learn this →", size: 13,
-                            accessibilityHint: "Opens focus mode with this node as the goal"
-                        ) { onFocus(node.id) }
+                    if let onFocus {
+                        if node.kind.isContent {
+                            TextAction(
+                                title: "Learn this →", size: 13,
+                                accessibilityHint: "Opens focus mode with this node as the goal"
+                            ) { onFocus(.node(node.id)) }
+                        } else {
+                            TextAction(
+                                title: "Learn \(node.title) →", size: 13,
+                                accessibilityHint:
+                                    "Opens the guided path through every node in this subject"
+                            ) { onFocus(.subject(node.id)) }
+                        }
                     }
                     Spacer(minLength: 16)
                     if canProbe, let onReview {
@@ -553,6 +566,7 @@ enum NodePanelPreviewData {
         document: NodePanelPreviewData.document,
         scores: NodePanelPreviewData.scores(),
         onSelect: { print("select \($0)") },
+        onLearnSubject: { print("learn \($0)") },
         onClose: { print("close") }
     )
     .frame(width: 268, height: 720)

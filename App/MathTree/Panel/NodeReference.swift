@@ -22,6 +22,10 @@ struct NodeReferenceRow: View {
     let document: GraphDocument
     /// The `relates` note.
     var note: String?
+    /// Where this node comes from, when that is the interesting fact about it —
+    /// §6.5's path shows the branch a step was imported from, because "you have to
+    /// go through Foundations first" is the answer the user came for.
+    var origin: String?
     var scores: ScoreStore?
     var titleSize: CGFloat = 13
     var onSelect: (NodeID) -> Void
@@ -45,6 +49,15 @@ struct NodeReferenceRow: View {
                         }
                     }
                     Spacer(minLength: 8)
+                    // §6.5's origin, when there is one. A bordered chip in the
+                    // Phase 11 frame; the redesign has no chips, so it is set as
+                    // quiet text before the read-out — same fact, one less box.
+                    if let origin, !origin.isEmpty {
+                        Text(origin)
+                            .font(Typeface.mono(10))
+                            .foregroundStyle(theme.inkFaint.fading(0.75).color)
+                            .lineLimit(1)
+                    }
                     Text(readout(for: target))
                         .font(Typeface.mono(10.5))
                         .foregroundStyle(theme.rowTrailing.color)

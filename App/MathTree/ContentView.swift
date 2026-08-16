@@ -21,7 +21,7 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var systemAppearance
 
     struct FocusTarget {
-        var goal: NodeID
+        var goal: FocusGoal
         var returnCamera: Camera
     }
 
@@ -120,8 +120,8 @@ struct ContentView: View {
     /// Enter (or retarget) focus mode. The return camera is captured once, on
     /// first entry: focusing deeper from inside focus mode must not overwrite
     /// where "Full map" goes back to.
-    private func enterFocus(_ goal: NodeID, renderer: GraphRenderer) {
-        guard let target = renderer.focusCamera(on: goal) else { return }
+    private func enterFocus(_ goal: FocusGoal, renderer: GraphRenderer) {
+        guard let target = renderer.focusCamera(on: goal.id) else { return }
         let returnCamera = focus?.returnCamera ?? renderer.camera
         renderer.flyCamera(to: target)
         selection = nil
@@ -210,7 +210,7 @@ struct ContentView: View {
     private func focusOverlay(scene: GraphScene, renderer: GraphRenderer) -> some View {
         if let focus, let scores = SceneStore.shared.scores {
             FocusView(
-                goal: focus.goal,
+                focus: focus.goal,
                 document: scene.document,
                 scores: scores,
                 onSelect: { id in selection = id },
@@ -245,6 +245,9 @@ struct ContentView: View {
                 },
                 onReview: { review($0) },
                 onPlace: { isPlacing = true },
+                // §6.5's entry point that does not require finding a hub on the
+                // map first: pick the subject by name, get the path.
+                onLearnSubject: { enterFocus(.subject($0), renderer: renderer) },
                 onClose: { isSidebarVisible = false }
             )
             .frame(width: theme.railWidth)
@@ -270,7 +273,7 @@ struct ContentView: View {
             onClose: { selection = nil },
             onFocus: SceneStore.shared.scores == nil
                 ? nil
-                : { id in enterFocus(id, renderer: renderer) },
+                : { goal in enterFocus(goal, renderer: renderer) },
             onReview: { review($0) }
         )
         .frame(width: theme.panelWidth)

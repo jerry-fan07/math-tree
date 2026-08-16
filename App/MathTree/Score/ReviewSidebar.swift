@@ -30,6 +30,8 @@ struct ReviewSidebar: View {
     /// problem sheet or to self-report; the sidebar only asks.
     var onReview: (NodeID) -> Void = { _ in }
     var onPlace: () -> Void = {}
+    /// §6.5's entry point. `nil` in previews, where there is no map to fly.
+    var onLearnSubject: ((NodeID) -> Void)?
     var onClose: () -> Void
 
     private static let upcomingLimit = 8
@@ -44,6 +46,12 @@ struct ReviewSidebar: View {
                 // diagnostics, i.e. the common case.
                 VStack(alignment: .leading, spacing: 22) {
                     dueList
+                    // Below the queue on purpose: this file's header calls review
+                    // surfacing "the loop the product is for", and twelve subject
+                    // rows above it would push the first due node off the rail.
+                    // Subjects sit beside the frontier instead, which is the other
+                    // forward-looking list.
+                    subjectList
                     Rule()
                     frontierList
                     upcomingList
@@ -85,6 +93,50 @@ struct ReviewSidebar: View {
                 rows(scores.due.map(\.id))
             }
         }
+    }
+
+    /// §6.5: "learn linear algebra" as something you can *ask for by name*. The
+    /// map already contains every branch as a hub, but finding one on a graph you
+    /// do not know yet is the wrong first step for someone whose whole question is
+    /// where to start.
+    ///
+    /// Only authored subjects are listed. §7.1 puts the outline in before the
+    /// content, so most branches would otherwise appear as offers that lead to an
+    /// empty path — `validate` already reports the outline's coverage, and this is
+    /// not the place to relitigate it.
+    @ViewBuilder
+    private var subjectList: some View {
+        let authored = orderedSubjects
+        if let onLearnSubject, !authored.isEmpty {
+            Rule()
+            section("Learn a subject", count: authored.count) {
+                VStack(alignment: .leading, spacing: 1) {
+                    ForEach(authored, id: \.id) { summary in
+                        SubjectRow(
+                            summary: summary,
+                            title: title(of: summary.id),
+                            action: { onLearnSubject(summary.id) })
+                    }
+                }
+                .padding(.horizontal, -4)
+            }
+        }
+    }
+
+    /// Least-known first: the list is a place to start, and a branch already at 90 %
+    /// is not where starting happens. Ties by title, so the order is stable.
+    private var orderedSubjects: [SubjectSummary] {
+        scores.subjects
+            .filter(\.isAuthored)
+            .sorted { left, right in
+                if left.fraction != right.fraction { return left.fraction < right.fraction }
+                return title(of: left.id).localizedStandardCompare(title(of: right.id))
+                    == .orderedAscending
+            }
+    }
+
+    private func title(of id: NodeID) -> String {
+        document.index(of: id).map { document[$0].title } ?? id.rawValue
     }
 
     private var frontierList: some View {
@@ -225,6 +277,59 @@ struct ReviewSidebar: View {
             .lineSpacing(3)
             .foregroundStyle(ThemeStore.shared.theme.inkMuted.color)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// One subject offer: name, how much of it is already held, and one click into
+/// §6.5's path.
+///
+/// Built from the same parts as `NodeRow` rather than from Phase 11's chip-and-
+/// radius row — the rail has one row shape, and a subject is a row in it. The
+/// measure bar replaces the read-out because "how much of this do I have" is the
+/// number that decides which subject to open, and it is the only place in the rail
+/// where a proportion beats a percentage.
+private struct SubjectRow: View {
+    let summary: SubjectSummary
+    let title: String
+    let action: () -> Void
+    @State private var isHovering = false
+
+    var body: some View {
+        let theme = ThemeStore.shared.theme
+        Button(action: action) {
+            HStack(spacing: 6) {
+                MathTextView(source: title, size: 12.5, color: theme.rowTitle.color)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                if isHovering {
+                    Text("path →")
+                        .font(Typeface.sans(10.5, .medium))
+                        .foregroundStyle(theme.action.color)
+                } else {
+                    // Compact on purpose: "3 / 195 mastered" does not fit the rail,
+                    // so the bar carries the proportion and the digits stay bare.
+                    HStack(spacing: 6) {
+                        MeasureBar(
+                            value: summary.fraction, height: 2,
+                            tint: summary.isComplete ? theme.action : nil
+                        )
+                        .frame(width: 46)
+                        Text("\(summary.met)/\(summary.total)")
+                            .font(Typeface.mono(10))
+                            .foregroundStyle(theme.rowTrailing.color)
+                            .fixedSize()
+                    }
+                }
+            }
+            .padding(.vertical, 2)
+            .padding(.horizontal, 4)
+            .background(isHovering ? theme.rowHighlight.color : .clear)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .help("\(summary.met) of \(summary.total) nodes mastered — open the guided path")
+        .accessibilityLabel("Learn \(title), \(summary.met) of \(summary.total) mastered")
     }
 }
 

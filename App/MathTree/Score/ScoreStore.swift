@@ -53,6 +53,9 @@ final class ScoreStore {
     private(set) var frontier: Set<NodeID> = []
     /// Every scored node, most overdue first (§5.4's scheduler read-out).
     private(set) var schedule: [ScheduledReview] = []
+    /// §6.5: every branch with how much of it is held — the list a subject is
+    /// chosen from, kept on the snapshot so it shares the snapshot's clock.
+    private(set) var subjects: [SubjectSummary] = []
     /// Log corruption and fold defects, surfaced rather than swallowed (D5.8).
     private(set) var diagnostics: [String] = []
     /// The instant this snapshot was evaluated at. Every colour, due flag and
@@ -155,6 +158,7 @@ final class ScoreStore {
         evaluatedAt = now
         frontier = Set(Frontier.compute(graph: graph, state: state, at: now, config: config))
         schedule = ReviewQueue.all(graph: graph, state: state, at: now, config: config)
+        subjects = Subjects.branches(graph: graph, state: state, at: now, config: config)
         revision += 1
         onChange?()
     }

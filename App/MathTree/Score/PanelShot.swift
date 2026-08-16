@@ -56,11 +56,15 @@
             write(
                 AnyView(
                     ReviewSidebar(
-                        document: document, scores: scores, onSelect: { _ in }, onClose: {}
+                        document: document, scores: scores, onSelect: { _ in },
+                        onLearnSubject: { _ in }, onClose: {}
                     )
                     .background(theme.canvasEdge.color)),
                 to: root.appendingPathComponent("sidebar.png"),
-                size: CGSize(width: theme.railWidth, height: 800))
+                // Taller than the design's rail since Phase 11: the subject list is
+                // a dozen more rows under the queue, and a shot cropped above them
+                // would pass without ever showing the feature.
+                size: CGSize(width: theme.railWidth, height: 900))
 
             // The command line, at the design's frame width.
             write(
@@ -79,10 +83,26 @@
             write(
                 AnyView(
                     FocusView(
-                        goal: "analysis.svc.ftc-part-2", document: document, scores: scores,
-                        onSelect: { _ in }, onExit: {})),
+                        focus: .node("analysis.svc.ftc-part-2"), document: document,
+                        scores: scores, onSelect: { _ in }, onExit: {})),
                 to: root.appendingPathComponent("focus-ftc-part-2.png"),
                 size: CGSize(width: 1280, height: 800))
+
+            // Phase 11: the same view with a whole subject as the goal (§6.5).
+            // Linear Algebra is the case worth looking at — every one of its
+            // authored nodes is reachable only through Foundations, so the path
+            // has to show a detour before it shows any linear algebra at all.
+            // Topology is the other state entirely: outlined by §7.1 and not yet
+            // written, which is a plan with no columns and has to be words.
+            for subject: NodeID in ["linear-algebra", "analysis", "topology"] {
+                write(
+                    AnyView(
+                        FocusView(
+                            focus: .subject(subject), document: document, scores: scores,
+                            onSelect: { _ in }, onExit: {})),
+                    to: root.appendingPathComponent("path-\(subject.rawValue).png"),
+                    size: CGSize(width: 1280, height: 800))
+            }
 
             assessment(document: document, scores: scores, into: root)
 
@@ -265,7 +285,7 @@
             write(
                 AnyView(
                     FocusView(
-                        goal: id, document: document, scores: store,
+                        focus: .node(id), document: document, scores: store,
                         onSelect: { _ in }, onExit: {})),
                 to: root.appendingPathComponent("focus-after-report.png"),
                 size: CGSize(width: 1200, height: 760))

@@ -111,6 +111,31 @@ public struct KnowledgeGraph: Sendable {
 
     public func containedChildren(of id: NodeID) -> [NodeID] { containedChildrenByParent[id] ?? [] }
 
+    /// Every learnable node inside a subject, at any taxonomy depth — the membership
+    /// question §6.5 asks of a branch or subbranch.
+    ///
+    /// Descends the `contains` **DAG** (`containedChildren`), not the primary tree:
+    /// §2.3 says a secondary parent is there precisely because the topic belongs to
+    /// that subject too, and generating functions being cross-listed under
+    /// Probability is a claim that you cannot say you know Probability without them.
+    /// A node reachable both ways appears once.
+    ///
+    /// Structural nodes are dropped rather than returned alongside their contents:
+    /// they carry no score (§2.1), so one in a target set would sit unmet forever.
+    public func contentDescendants(of id: NodeID) -> [NodeID] {
+        guard nodesByID[id] != nil else { return [] }
+        var visited: Set<NodeID> = [id]
+        var stack: [NodeID] = [id]
+        var found: [NodeID] = []
+        while let next = stack.popLast() {
+            for child in containedChildren(of: next) where visited.insert(child).inserted {
+                if nodesByID[child]?.kind.isContent == true { found.append(child) }
+                stack.append(child)
+            }
+        }
+        return found.sorted()
+    }
+
     public func prerequisites(of id: NodeID) -> [NodeID] { prerequisitesByNode[id] ?? [] }
 
     public func dependents(of id: NodeID) -> [NodeID] { dependentsByPrerequisite[id] ?? [] }
@@ -125,29 +150,39 @@ public struct KnowledgeGraph: Sendable {
         requiresAncestorsByDepth(of: id, maxDepth: maxDepth).map(\.id)
     }
 
+    /// Every transitive prerequisite of *any* node in `ids`, sorted, excluding the
+    /// start set itself. One traversal rather than one per start, so a subject-sized
+    /// goal set (§6.5) costs what its reachable region costs, not what it costs
+    /// times the number of targets — the same regions overlap almost entirely.
+    public func requiresAncestors(ofAll ids: some Sequence<NodeID>) -> [NodeID] {
+        reach(from: ids, maxDepth: nil, neighbors: prerequisitesByNode).map(\.id)
+    }
+
     /// Every node that transitively requires `id`, sorted.
     public func requiresDescendants(of id: NodeID, maxDepth: Int? = nil) -> [NodeID] {
         requiresDescendantsByDepth(of: id, maxDepth: maxDepth).map(\.id)
     }
 
     public func requiresAncestorsByDepth(of id: NodeID, maxDepth: Int? = nil) -> [ReachedNode] {
-        reach(from: id, maxDepth: maxDepth, neighbors: prerequisitesByNode)
+        reach(from: CollectionOfOne(id), maxDepth: maxDepth, neighbors: prerequisitesByNode)
     }
 
     public func requiresDescendantsByDepth(of id: NodeID, maxDepth: Int? = nil) -> [ReachedNode] {
-        reach(from: id, maxDepth: maxDepth, neighbors: dependentsByPrerequisite)
+        reach(from: CollectionOfOne(id), maxDepth: maxDepth, neighbors: dependentsByPrerequisite)
     }
 
     /// Breadth-first so `depth` is the shortest distance, and visit-marked so a
-    /// diamond is deduped and an (invalid) cycle still terminates.
+    /// diamond is deduped and an (invalid) cycle still terminates. With several
+    /// starts, `depth` is the shortest distance from the *nearest* of them.
     private func reach(
-        from start: NodeID,
+        from starts: some Sequence<NodeID>,
         maxDepth: Int?,
         neighbors: [NodeID: [NodeID]]
     ) -> [ReachedNode] {
-        guard nodesByID[start] != nil else { return [] }
-        var visited: Set<NodeID> = [start]
-        var frontier: [NodeID] = [start]
+        let resolved = starts.filter { nodesByID[$0] != nil }
+        guard !resolved.isEmpty else { return [] }
+        var visited: Set<NodeID> = Set(resolved)
+        var frontier: [NodeID] = resolved
         var found: [ReachedNode] = []
         var depth = 0
         while !frontier.isEmpty {

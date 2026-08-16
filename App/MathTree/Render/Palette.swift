@@ -101,7 +101,7 @@ enum LODTier: Int, CaseIterable, Sendable, Comparable {
 ///
 /// Structural hubs are exempt as before: they are not learnable (§2.1), so they
 /// take no score colour and the redesign paints them near-neutral rather than
-/// hued, leaving the branch hues entirely to the content (D11.1, which is where
+/// hued, leaving the branch hues entirely to the content (DT1.1, which is where
 /// D6.1's desaturated hubs were heading).
 enum Palette {
     /// Curated first, golden-angle after. Hand-picked hues keep the first handful
