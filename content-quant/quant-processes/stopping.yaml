@@ -11,3 +11,401 @@ nodes:
     parent: quant-processes
     also_under: []
     tags: []
+
+  - id: quant-processes.stopping.stopping-problem
+    kind: definition
+    prominence: 1
+    title: "The optimal stopping problem"
+    statement: >
+      You observe rewards $Y_1, Y_2, \dots$ one at a time; having seen $Y_n$ you
+      must either stop and collect $Y_n$ or discard it and go on. A strategy is a
+      stopping time $\tau$ — whether you stop at $n$ may depend on
+      $Y_1,\dots,Y_n$ and on nothing later — and the problem is to maximize
+      $\mathbb{E}[Y_\tau]$ over all such $\tau$. Three switches must be pinned
+      before you compute anything: the horizon (a finite $N$, or infinite), what
+      you observe (the value itself, or only how it ranks against what came
+      before), and whether a discarded reward can be reclaimed. This is a single
+      agent against chance; nobody is choosing a best response to your rule.
+    summary: >
+      Take-it-or-leave-it decisions along a sequence you see one term at a time:
+      pick a stopping time to maximize the expected reward you walk away with.
+    parent: quant-processes.stopping
+    also_under: []
+    requires:
+      - quant-processes.martingales.stopping-time
+    relates: []
+    tags: []
+
+  - id: quant-processes.stopping.value-function
+    kind: definition
+    prominence: 1
+    title: "Value function and the stop-versus-continue comparison"
+    statement: >
+      Fix a horizon $N$ and let $V_n$ be the best expected reward obtainable from
+      time $n$ onward, given the information $\mathcal{F}_n$ carried by the first
+      $n$ observations. At the deadline there is no choice, so $V_N = Y_N$;
+      earlier, $V_n = \max\left(Y_n, \mathbb{E}[V_{n+1} \mid
+      \mathcal{F}_n]\right)$ — the better of the reward in hand and the
+      continuation value, which is the conditional expectation of playing on
+      optimally. The optimal rule follows: stop at the first $n$ with
+      $Y_n \ge \mathbb{E}[V_{n+1} \mid \mathcal{F}_n]$. The sequence $V_n$ is the
+      Snell envelope, the smallest supermartingale dominating $Y_n$, so it can
+      only drift downward as options expire.
+    summary: >
+      The value of the game from here on is the max of stopping now and the
+      expected value of continuing — one comparison, made at every date.
+    parent: quant-processes.stopping
+    also_under: []
+    requires:
+      - quant-processes.stopping.stopping-problem
+    relates:
+      - id: quant-processes.martingales.ost
+        note: >
+          The value process is a supermartingale dominating the reward, so
+          optional stopping is exactly what caps any stopping rule's payoff at
+          $V_1$ — no rule can beat the envelope it sits under.
+    tags: []
+
+  - id: quant-processes.stopping.backward-induction
+    kind: technique
+    prominence: 2
+    title: "Backward induction"
+    statement: >
+      When the horizon is finite, solve the last stage first and walk backwards.
+      Steps: (1) name the state you carry into a stage, usually the reward
+      currently in hand plus the number of chances left; (2) write the value at
+      the final stage, where you must accept whatever you hold; (3) for each
+      earlier stage compute the continuation value $\mathbb{E}[V_{n+1}]$ and stop
+      exactly when the current reward reaches it, which turns the comparison into
+      a threshold; (4) recurse back to stage $1$, which delivers both the fair
+      price of the game and the thresholds that implement it. Decision-theoretic
+      version: you optimize against chance, so continuation values are
+      expectations rather than an opponent's equilibrium replies.
+    summary: >
+      Price the last decision, then the one before it, and so on back to the
+      start — the standard machine for any finite-horizon stopping question.
+    parent: quant-processes.stopping
+    also_under: []
+    requires:
+      - quant-processes.stopping.value-function
+    relates: []
+    tags: []
+
+  - id: quant-processes.stopping.dice-game
+    kind: example
+    prominence: 1
+    title: "The dice re-roll ladder: 3.5, 4.25, 14/3"
+    statement: >
+      A fair die pays its face value, and with up to $k$ rolls you may re-roll,
+      keeping the face you finally accept. One roll: $V_1 = 3.5$. Two rolls: the
+      second roll is worth $3.5$, so on the first roll keep $4$, $5$ or $6$ and
+      re-roll otherwise, giving $V_2 = \frac{4+5+6}{6} + \frac{3}{6}(3.5) = 2.5 +
+      1.75 = 4.25$. Three rolls: the continuation value is now $4.25$, so the
+      first roll keeps only $5$ or $6$, while the second roll reverts to keeping
+      $4$ and up; $V_3 = \frac{5+6}{6} + \frac{4}{6}(4.25) = \frac{11}{6} +
+      \frac{17}{6} = \frac{28}{6} = \frac{14}{3} \approx 4.67$. The threshold
+      falls as chances run out — be fussy early, accept anything at the end.
+    summary: >
+      The interview staple worked out: $3.5$ with one roll, $4.25$ with two
+      (keep $4$+), $14/3 \approx 4.67$ with three (keep $5$+, then $4$+).
+    parent: quant-processes.stopping
+    also_under: []
+    requires:
+      - quant-processes.stopping.backward-induction
+    relates:
+      - id: quant-tools.recurrences.first-step-analysis
+        note: >
+          Same move in the other direction: first-step analysis conditions on the
+          next outcome to build one equation, and the ladder conditions on the
+          next roll to build one value from the previous horizon.
+    tags: []
+
+  - id: quant-processes.stopping.dice-ladder-limit
+    kind: proposition
+    prominence: 0
+    title: "Continuing the ladder to the limit"
+    statement: >
+      The ladder obeys $V_{k+1} = \mathbb{E}[\max(X, V_k)]$ for a fair die $X$,
+      because one extra roll buys the better of the new face and the old game.
+      While $4 < V_k < 5$ only $5$ and $6$ are kept, so $V_{k+1} = \frac{11}{6} +
+      \frac{2}{3}V_k$, giving $V_4 = \frac{89}{18} \approx 4.94$ and
+      $V_5 = \frac{277}{54} \approx 5.13$. Once $V_k > 5$ only a $6$ is worth
+      keeping and $V_{k+1} = 1 + \frac{5}{6}V_k$, so $6 - V_{k+1} =
+      \frac{5}{6}(6 - V_k)$ and $V_k \to 6$ geometrically. Sanity check on the
+      limit: with unlimited free rolls simply wait for a six, which pays $6$ and
+      costs nothing but an average of $6$ rolls.
+    summary: >
+      Extra rolls keep helping but with fast-shrinking returns: $4.94$, $5.13$,
+      and then a $5/6$-per-roll approach to the ceiling of $6$.
+    parent: quant-processes.stopping
+    also_under: []
+    requires:
+      - quant-processes.stopping.dice-game
+    relates: []
+    tags: []
+
+  - id: quant-processes.stopping.one-step-lookahead
+    kind: technique
+    prominence: 1
+    title: "One-step lookahead"
+    statement: >
+      Full backward induction is hopeless when the horizon is long or infinite.
+      The one-stage look-ahead rule replaces the true continuation value with the
+      value of taking exactly one more observation and then stopping: stop at the
+      first time the reward in hand satisfies $Y_n \ge \mathbb{E}[Y_{n+1} \mid
+      \mathcal{F}_n]$, net of any cost of continuing. Equivalently, let $B$ be
+      the set of states in which one more step does not pay for itself, and stop
+      on first entry into $B$. Reach for it on every re-roll or search question:
+      it collapses an optimization over all rules into a single comparison. In
+      general it is only a heuristic; the condition that makes it exactly optimal
+      is next.
+    summary: >
+      Stop as soon as taking one more observation would not pay — the cheap
+      surrogate for the full continuation value, and often the exact answer.
+    parent: quant-processes.stopping
+    also_under: []
+    requires:
+      - quant-processes.stopping.backward-induction
+    relates: []
+    tags: []
+
+  - id: quant-processes.stopping.monotone-case
+    kind: proposition
+    prominence: 0
+    title: "When one-step lookahead is optimal: monotone problems"
+    statement: >
+      Call the problem monotone if the one-stage look-ahead set $B$ — the states
+      where one more observation does not pay — is closed: once the process
+      enters $B$ it stays there with probability $1$. For a monotone problem with
+      a finite horizon the one-stage look-ahead rule is optimal, and it stays
+      optimal over an infinite horizon under a mild integrability condition such
+      as $\mathbb{E}[\sup_n Y_n] < \infty$. The reason is blunt: if one more step
+      does not pay and never will, no longer plan can pay either. Independent
+      offers with a fixed cost per look are monotone. The dice ladder is not: its
+      $B = \{X \ge 4\}$ is not closed, and lookahead's "keep $4$+" scores
+      $\frac{37}{8} = 4.625$ over three rolls against the optimal $14/3$.
+    summary: >
+      Lookahead is exactly optimal when the "don't continue" region is one you
+      can never leave; otherwise it is a good guess that can be beaten.
+    parent: quant-processes.stopping
+    also_under: []
+    requires:
+      - quant-processes.stopping.one-step-lookahead
+      - quant-processes.stopping.dice-game
+    relates: []
+    tags: []
+
+  - id: quant-processes.stopping.reroll-fee
+    kind: technique
+    prominence: 1
+    title: "Re-roll games with a fee"
+    statement: >
+      Charge $c$ for each re-roll and the horizon may be infinite, because the
+      fee does the work of a deadline. Writing $V$ for the value of the whole
+      game, $V = \mathbb{E}[\max(X, V - c)]$: accept the current draw iff it
+      beats the continuation value net of the fee, so the rule is "accept
+      $X \ge V - c$". Solve by guessing the accept set, computing $V$, then
+      checking the guess reproduces itself. Fair die with $c = 0.5$: guess
+      $\{4,5,6\}$, get $V = \frac{4+5+6}{6} + \frac{3}{6}(V - c)$, hence
+      $V = 5 - c = 4.5$, and $V - c = 4$ confirms the guess. At $c = 1$ the
+      accept set widens to $\{3,4,5,6\}$ and $V = 4$. Equivalent lookahead form:
+      pay to continue only while $\mathbb{E}[(X - x)^{+}] > c$.
+    summary: >
+      With a fee per re-roll the game solves itself by a fixed point: accept
+      anything at or above $V - c$, which for a die at $50$ cents means $4$+ and
+      $V = 4.5$.
+    parent: quant-processes.stopping
+    also_under: []
+    requires:
+      - quant-processes.stopping.dice-game
+      - quant-processes.stopping.one-step-lookahead
+    relates: []
+    tags: []
+
+  - id: quant-processes.stopping.house-selling
+    kind: example
+    prominence: 1
+    title: "House selling: search with a cost per offer"
+    statement: >
+      Offers arrive as independent $U(0,1)$ draws, each look costs $c$, and you
+      accept or reject on the spot, maximizing price minus total search cost. The
+      problem is monotone, so one-stage lookahead is optimal: buy another look
+      only while the expected improvement $\mathbb{E}[(X - x)^{+}] =
+      \frac{(1-x)^{2}}{2}$ exceeds $c$. That gives the stationary threshold
+      $x^{*} = 1 - \sqrt{2c}$, which is also the value of the search. Take
+      $c = 0.02$: accept the first offer $\ge 0.8$; the number of offers is
+      geometric with mean $1/0.2 = 5$, the accepted price averages
+      $\mathbb{E}[U \mid U \ge 0.8] = 0.9$, and $0.9 - 5(0.02) = 0.8 = x^{*}$.
+    summary: >
+      A fixed reservation price $1 - \sqrt{2c}$ answers the whole problem: at
+      $c = 0.02$ hold out for $0.8$, expect five offers, and net exactly $0.8$.
+    parent: quant-processes.stopping
+    also_under: []
+    requires:
+      - quant-processes.stopping.reroll-fee
+      - quant-processes.stopping.monotone-case
+      - quant-probability.continuous.uniform
+    relates: []
+    tags: []
+
+  - id: quant-processes.stopping.recall
+    kind: definition
+    prominence: 0
+    title: "Recall, and what you are allowed to observe"
+    statement: >
+      Two modelling switches move the answer more than any algebra. Recall: with
+      recall a rejected reward can still be claimed later, so the payoff is
+      $\max_{k \le n} Y_k$ and patience is nearly free; without recall the
+      rejection is irrevocable, which is what makes stopping a genuine decision.
+      Observation: under full information you see the numerical value and know
+      the law it came from (dice, offers); under rank-only information you see
+      just how the current item compares with those before it, so absolute
+      quality is never revealed. Say both out loud before solving — "no recall,
+      ranks only, must land the very best" is a different problem from "iid
+      uniform offers with recall", and they have different answers.
+    summary: >
+      Whether a rejected item can be taken back, and whether you see values or
+      only relative ranks, define which stopping problem you are actually in.
+    parent: quant-processes.stopping
+    also_under: []
+    requires:
+      - quant-processes.stopping.stopping-problem
+    relates: []
+    tags: []
+
+  - id: quant-processes.stopping.best-so-far
+    kind: proposition
+    prominence: 1
+    title: "Best so far: the only items worth taking"
+    statement: >
+      Present $n$ distinct items in uniformly random order. Item $i$ is best so
+      far — a candidate — if it beats all $i-1$ items before it. By symmetry the
+      largest of the first $i$ is equally likely to occupy any of those $i$
+      positions, so $\Pr(\text{item } i \text{ is best so far}) = 1/i$, and these
+      events are independent across $i$. Two consequences drive every rank-only
+      rule. Given that item $i$ is best so far, it is the overall best with
+      probability $i/n$, increasing in $i$: late candidates are the valuable
+      ones. Anything not best so far is certainly not the overall best, so it is
+      never worth accepting. A run of $n$ items throws up only about $\ln n$
+      candidates.
+    summary: >
+      Position $i$ leads the field with probability $1/i$, and such a leader is
+      the true best with probability $i/n$ — the two facts the secretary problem
+      runs on.
+    parent: quant-processes.stopping
+    also_under: []
+    requires:
+      - quant-processes.stopping.recall
+    relates:
+      - id: quant-probability.conditional.symmetry-exchangeability
+        note: >
+          Both rest on the same exchangeability: in a uniformly random order
+          every position is equally likely to hold the maximum of the first $i$,
+          exactly as every deck position is equally likely to hold an ace.
+    tags: []
+
+  - id: quant-processes.stopping.secretary
+    kind: example
+    prominence: 2
+    title: "Secretary problem: skip n/e, then take the next best so far"
+    statement: >
+      $n$ applicants of distinct quality arrive in uniformly random order; you
+      learn only relative ranks, accept or reject irrevocably on the spot, and
+      win only by hiring the single best. Backward induction shows the optimum is
+      a cutoff rule: reject the first $r-1$ outright, then hire the first
+      applicant who is best so far (take the last applicant if none appears). You
+      win when the overall best sits at some position $i \ge r$ and the best of
+      the first $i-1$ fell in the rejected sample, so for $r \ge 2$ the success
+      probability is $\sum_{i=r}^{n} \frac{1}{n}\cdot\frac{r-1}{i-1} =
+      \frac{r-1}{n}\left(\frac{1}{r-1} + \dots + \frac{1}{n-1}\right)$. With
+      $x = r/n$ this tends to $x\ln(1/x)$, maximal at $x = 1/e$: skip about
+      $37\%$, win with probability $1/e \approx 0.368$. At $n = 100$, $r = 38$
+      scores $0.371$.
+    summary: >
+      Reject the first $n/e$ applicants to calibrate, then take the first one
+      better than all of them — and land the best of $n$ about $37\%$ of the
+      time, however large $n$ is.
+    parent: quant-processes.stopping
+    also_under: []
+    requires:
+      - quant-processes.stopping.best-so-far
+      - quant-processes.stopping.backward-induction
+      - quant-tools.series-calculus.harmonic-numbers
+    relates: []
+    tags: []
+
+  - id: quant-processes.stopping.secretary-variants
+    kind: example
+    prominence: 0
+    title: "Secretary variants and what they change"
+    statement: >
+      The $1/e$ answer is fragile to both the objective and the information.
+      Minimizing the expected rank of your hire, instead of maximizing the chance
+      of the very best, is a far friendlier problem: the optimal expected rank
+      tends to about $3.87$ as $n \to \infty$, so you can reliably land near the
+      top while almost never hitting it. Full information — actual values, drawn
+      from a known law — raises the chance of catching the maximum to about
+      $0.580$, because each value can be judged against the distribution rather
+      than only against its predecessors. When $n$ itself is unknown, a
+      time-based cutoff still guarantees at least $1/e$. Ask which objective is
+      scored before quoting $37\%$.
+    summary: >
+      Change the payoff or hand over the actual numbers and the rule changes:
+      expected rank $\approx 3.87$, full information $\approx 0.580$.
+    parent: quant-processes.stopping
+    also_under: []
+    requires:
+      - quant-processes.stopping.secretary
+    relates: []
+    tags: []
+
+  - id: quant-processes.stopping.prophet-gap
+    kind: proposition
+    prominence: 0
+    title: "The prophet gap: hindsight is worth at most a factor of two"
+    statement: >
+      No stopping rule collects $\max_n Y_n$, since a decision at time $n$ cannot
+      consult the future, whereas a prophet who sees the whole sequence collects
+      $\mathbb{E}[\max_n Y_n]$. Prophet inequality: if $Y_1,\dots,Y_N$ are
+      independent, nonnegative, and have known laws, then a single fixed
+      threshold $t$ — for instance the $t$ with $\Pr(\max_n Y_n \ge t) = 1/2$ —
+      already achieves $\mathbb{E}[Y_\tau] \ge \frac{1}{2}\mathbb{E}[\max_n
+      Y_n]$, and the constant $\frac{1}{2}$ cannot be improved: with $Y_1 = 1$
+      and $Y_2 = 1/\varepsilon$ with probability $\varepsilon$ and $0$ otherwise,
+      the prophet gets $2 - \varepsilon$ while every rule gets $1$. Use it as a
+      ceiling on how much cleverness is worth.
+    summary: >
+      Foresight at most doubles your take, and a single fixed threshold already
+      captures half of it — so simple rules are rarely far from optimal.
+    parent: quant-processes.stopping
+    also_under: []
+    requires:
+      - quant-processes.stopping.value-function
+    relates: []
+    tags: []
+
+  - id: quant-processes.stopping.early-exercise
+    kind: intuition
+    prominence: 0
+    title: "Early exercise as optimal stopping"
+    statement: >
+      An American option is this subbranch's problem in a finance costume: at
+      each date the holder compares the intrinsic value of exercising now against
+      the continuation value of holding on, and the optimal exercise policy is
+      the stopping time at which intrinsic first overtakes continuation. On a
+      binomial tree that is literally backward induction — value the final date,
+      then roll back taking the max of intrinsic value and discounted
+      continuation at every node. The standard fact that an American call on a
+      non-dividend-paying stock is never exercised early is precisely the
+      statement that its continuation value dominates intrinsic everywhere; an
+      American put has no such guarantee, so its exercise boundary is real.
+      Pricing proper belongs to the options branch.
+    summary: >
+      Early exercise is stopping: exercise when intrinsic value first beats
+      continuation value, computed by rolling a tree backwards.
+    parent: quant-processes.stopping
+    also_under: []
+    requires:
+      - quant-processes.stopping.one-step-lookahead
+    relates: []
+    tags: []
