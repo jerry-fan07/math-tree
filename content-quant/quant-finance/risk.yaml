@@ -11,3 +11,424 @@ nodes:
     parent: quant-finance
     also_under: []
     tags: []
+
+  - id: quant-finance.risk.loss-distribution
+    kind: definition
+    prominence: 1
+    title: "The loss distribution"
+    statement: >
+      Fix a horizon $h$ and a book worth $V_0$. The loss over the horizon is
+      $L = -(V_h - V_0)$, so losses are positive and profits negative — the sign
+      convention every risk report uses. Every measure below is a functional of
+      the law of $L$: value at risk reads one point of its CDF, expected
+      shortfall averages a tail, drawdown looks at the whole path instead of the
+      endpoint. Three choices must be stated before any number means anything:
+      the horizon (one day for a trading desk, ten days for regulatory capital,
+      a year for credit), the confidence level ($95\%$ or $99\%$), and whether
+      returns are arithmetic or log. A quoted "two million of risk" with none of
+      these attached is not a quantity.
+    summary: >
+      Risk numbers are read off the distribution of loss over a stated horizon
+      at a stated confidence level — quote all three or the number is empty.
+    parent: quant-finance.risk
+    also_under: []
+    requires: []
+    relates: []
+    tags: []
+
+  - id: quant-finance.risk.var
+    kind: definition
+    prominence: 2
+    title: "Value at Risk"
+    statement: >
+      For $\alpha \in (0,1)$ the value at risk is the $\alpha$-quantile of the
+      loss, $\operatorname{VaR}_{\alpha}(L) = \inf\{x : \Pr(L \le x) \ge
+      \alpha\}$ — the smallest loss level that is not exceeded with probability
+      $\alpha$. Equivalently $\Pr(L > \operatorname{VaR}_{\alpha}) \le 1 -
+      \alpha$: a $99\%$ one-day VaR of two million says the desk loses more than
+      two million on roughly one day in a hundred. It says nothing about how much
+      more — a book that loses $2.1$ million on that day and one that loses
+      $200$ million carry the same VaR. Two misreadings to refuse in an
+      interview: it is not a worst case, and it is not an expected loss.
+    summary: >
+      The loss level breached with probability $1-\alpha$ — a quantile of the
+      loss distribution, silent about everything beyond it.
+    parent: quant-finance.risk
+    also_under: []
+    requires:
+      - quant-finance.risk.loss-distribution
+      - quant-probability.random-variables.quantiles
+    relates: []
+    tags: []
+
+  - id: quant-finance.risk.normal-var
+    kind: example
+    prominence: 1
+    title: "Normal VaR worked"
+    statement: >
+      Assume daily P&L is normal with mean $0$ and standard deviation
+      $\sigma = 1\%$ of book value. Standardizing gives
+      $\operatorname{VaR}_{\alpha} = z_{\alpha}\sigma$ with $z_{\alpha}$ the
+      standard normal quantile. Since $z_{0.99} = 2.326$, the $99\%$ one-day VaR
+      is $2.326 \times 1\% = 2.33\%$ of the book — $2.33$ million on a $100$
+      million portfolio. At $95\%$, $z_{0.95} = 1.645$ gives $1.65\%$. With a
+      drift the formula is $z_{\alpha}\sigma - \mu h$, which matters only at long
+      horizons because the mean scales with $h$ while the deviation scales with
+      $\sqrt{h}$. The whole computation is one multiplication, which is precisely
+      why the normality assumption is the first thing an interviewer attacks.
+    summary: >
+      $\operatorname{VaR}_{\alpha} = z_{\alpha}\sigma$: at $\sigma = 1\%$ daily,
+      the $99\%$ one-day VaR is $2.33\%$ and the $95\%$ figure is $1.65\%$.
+    parent: quant-finance.risk
+    also_under: []
+    requires:
+      - quant-finance.risk.var
+      - quant-probability.continuous.normal
+    relates: []
+    tags: []
+
+  - id: quant-finance.risk.var-subadditivity
+    kind: proposition
+    prominence: 1
+    title: "VaR is not subadditive"
+    statement: >
+      A risk measure is subadditive when $\rho(A+B) \le \rho(A) + \rho(B)$:
+      merging two books never manufactures risk. VaR violates this. Take two
+      independent bonds, each repaying $50$ unless its issuer defaults, which
+      happens with probability $4\%$. For one bond $\Pr(L > 0) = 0.04 < 0.05$, so
+      $\operatorname{VaR}_{0.95} = 0$. Hold both: at least one defaults with
+      probability $1 - 0.96^{2} = 7.84\% > 5\%$, so the portfolio's $95\%$ VaR is
+      $50$, strictly more than $0 + 0$. Diversifying raised the measured risk.
+      Two consequences bite in practice — VaR cannot be safely allocated across
+      desks, and optimizing against a VaR limit rewards stuffing losses just
+      beyond the quantile, as selling far out-of-the-money options does.
+    summary: >
+      Two independent $4\%$-default bonds each have zero $95\%$ VaR while the
+      pair has $50$ — so VaR can punish diversification and resist allocation.
+    parent: quant-finance.risk
+    also_under: []
+    requires:
+      - quant-finance.risk.var
+    relates: []
+    tags: []
+
+  - id: quant-finance.risk.expected-shortfall
+    kind: definition
+    prominence: 2
+    title: "Expected shortfall"
+    statement: >
+      Expected shortfall — also conditional VaR or tail VaR — is the mean loss
+      given that the VaR level is breached:
+      $\operatorname{ES}_{\alpha} = \mathbb{E}[L \mid L \ge
+      \operatorname{VaR}_{\alpha}]$, equivalently the average of
+      $\operatorname{VaR}_{u}$ over $u \in (\alpha, 1)$, which is the form to use
+      when the loss law has atoms. It repairs both VaR defects: it responds to
+      the size of tail losses, and it is subadditive, so a merged book never
+      scores worse than the sum of its parts. For a zero-mean normal loss,
+      $\operatorname{ES}_{\alpha} = \sigma\varphi(z_{\alpha})/(1-\alpha)$; at
+      $\alpha = 0.99$ and $\sigma = 1\%$ this is $2.67\%$ against the $2.33\%$
+      VaR. Basel's market-risk capital moved from $99\%$ VaR to $97.5\%$ ES,
+      which coincides under normality and exceeds it under fat tails.
+    summary: >
+      The average loss in the tail beyond VaR — subadditive and sensitive to tail
+      size, $2.67\sigma$ at $99\%$ normal against VaR's $2.33\sigma$.
+    parent: quant-finance.risk
+    also_under: []
+    requires:
+      - quant-finance.risk.var-subadditivity
+      - quant-finance.risk.normal-var
+    relates: []
+    tags: []
+
+  - id: quant-finance.risk.coherence
+    kind: definition
+    prominence: 0
+    title: "Coherent risk measures"
+    statement: >
+      A measure $\rho$ on losses is coherent when it satisfies four axioms:
+      monotonicity ($L_1 \le L_2$ pointwise forces $\rho(L_1) \le \rho(L_2)$),
+      translation invariance ($\rho(L + c) = \rho(L) + c$, so holding cash $c$
+      reduces risk by exactly $c$), positive homogeneity ($\rho(\lambda L) =
+      \lambda\rho(L)$ for $\lambda \ge 0$), and subadditivity. VaR satisfies the
+      first three and fails the fourth; expected shortfall satisfies all four.
+      Two caveats worth naming: positive homogeneity ignores liquidity, since
+      doubling a position more than doubles the cost of unwinding it, and ES is
+      not elicitable — there is no scoring function it uniquely minimizes — which
+      is what makes backtesting it awkward.
+    summary: >
+      The four axioms a sane risk measure should obey; ES passes all of them and
+      VaR fails subadditivity, though homogeneity ignores liquidity entirely.
+    parent: quant-finance.risk
+    also_under: []
+    requires:
+      - quant-finance.risk.expected-shortfall
+    relates: []
+    tags: []
+
+  - id: quant-finance.risk.fat-tails
+    kind: proposition
+    prominence: 1
+    title: "Fat tails and the normal's failure"
+    statement: >
+      Daily equity returns show excess kurtosis of roughly $3$ to $10$ against
+      the normal's $0$, so plugging normal quantiles into a VaR formula
+      understates the far tail. Under normality a $5\sigma$ day has probability
+      $5.7 \times 10^{-7}$, about one day in seven thousand years of $252$-day
+      years; indices deliver several a decade, and 19 October 1987 was a $-20\%$
+      move against a daily $\sigma$ near $1\%$. Consequences: normal-based $99\%$
+      VaR is materially too small and the error widens as $\alpha \to 1$; the gap
+      between ES and VaR is far larger than the normal $2.67$ versus $2.33$; and
+      a Student $t$ with $4$ to $6$ degrees of freedom fits daily returns much
+      better. Aggregation thins tails, so monthly returns look far more normal
+      than daily ones.
+    summary: >
+      Returns are heavy-tailed, so normal VaR understates exactly the losses you
+      care about — the error grows with the confidence level.
+    parent: quant-finance.risk
+    also_under: []
+    requires:
+      - quant-finance.risk.normal-var
+      - quant-statistics.descriptive.skew-kurtosis
+    relates: []
+    tags: []
+
+  - id: quant-finance.risk.var-estimation
+    kind: technique
+    prominence: 1
+    title: "Estimating VaR and ES"
+    statement: >
+      Three standard routes. Parametric (variance–covariance): estimate
+      $\Sigma$, report $z_{\alpha}\sqrt{w'\Sigma w}$ — instant, but wrong
+      in the tail and blind to option convexity. Historical simulation: revalue
+      today's book on the last $500$ daily moves, sort, take the fifth worst for
+      $99\%$ — no distributional assumption, but the tail is only as rich as the
+      sample and no loss larger than the worst day observed can ever appear.
+      Monte Carlo: simulate under a chosen model, which merely relocates the
+      assumption. The binding constraint is data: a $99\%$ quantile from $250$
+      days rests on about $2.5$ observations, and ES averages an even smaller
+      set. Fixes are fitting a $t$, extreme-value theory on threshold
+      exceedances, and exponentially weighting recent data.
+    summary: >
+      Parametric, historical and Monte Carlo VaR, and the sample-size problem
+      underneath all three: the tail quantile rests on a handful of days.
+    parent: quant-finance.risk
+    also_under: []
+    requires:
+      - quant-finance.risk.fat-tails
+      - quant-finance.risk.expected-shortfall
+    relates: []
+    tags: []
+
+  - id: quant-finance.risk.backtesting
+    kind: technique
+    prominence: 0
+    title: "Backtesting a VaR model"
+    statement: >
+      Count exceptions — days on which the realized loss exceeded the VaR
+      reported that morning. At $99\%$ over $250$ trading days the expected count
+      is $2.5$, and under the null the count is binomial with $n = 250$ and
+      $p = 0.01$, so the observed number can be tested directly. Basel's traffic
+      light applies a capital penalty at $5$ to $9$ exceptions and rejects the
+      model at $10$ or more, a count whose null probability is well under $1\%$.
+      Two distinct failures show up: too many exceptions, meaning the model is
+      too tight, and clustered exceptions, meaning the independence assumption
+      broke — volatility clustering delivers breaches in bunches even when the
+      unconditional rate is right, which is what independence tests are for.
+    summary: >
+      Count the days the loss beat the VaR: $2.5$ expected per year at $99\%$,
+      and check that breaches are neither too many nor bunched together.
+    parent: quant-finance.risk
+    also_under: []
+    requires:
+      - quant-finance.risk.var-estimation
+    relates: []
+    tags: []
+
+  - id: quant-finance.risk.vol-scaling
+    kind: technique
+    prominence: 1
+    title: "Square-root-of-time scaling"
+    statement: >
+      To convert a one-period volatility to $T$ periods, multiply by $\sqrt{T}$:
+      $\sigma_T = \sigma\sqrt{T}$. The rule comes from variances adding across
+      the $T$ increments, which requires them to be uncorrelated with a common
+      variance — independent and identically distributed is the usual sufficient
+      condition — and uses nothing about normality. Worked: a daily $\sigma$ of
+      $1\%$ annualizes to $1\% \times \sqrt{252} = 15.9\%$, and a ten-day $99\%$
+      VaR is $\sqrt{10} \approx 3.16$ times the one-day number, which is exactly
+      the regulatory shortcut. Means scale with $T$ while risk scales with
+      $\sqrt{T}$, so the Sharpe ratio also scales with $\sqrt{T}$ — the reason a
+      daily edge invisible against daily noise is a large annual number.
+    summary: >
+      Volatility grows like $\sqrt{T}$ when increments are uncorrelated with
+      equal variance: $1\%$ daily is $15.9\%$ a year, ten-day VaR is $3.16\times$.
+    parent: quant-finance.risk
+    also_under: []
+    requires:
+      - quant-finance.risk.normal-var
+    relates: []
+    tags: []
+
+  - id: quant-finance.risk.scaling-failure
+    kind: proposition
+    prominence: 1
+    title: "When √t scaling breaks"
+    statement: >
+      For two periods $\operatorname{Var}(r_1 + r_2) = 2\sigma^{2}(1+\rho)$, so
+      the honest multiplier is $\sqrt{2}\sqrt{1+\rho}$ and $\sqrt{T}$ is correct
+      only at $\rho = 0$; in general
+      $\operatorname{Var}(\sum_{t=1}^{T} r_t) = \sigma^{2}\left(T +
+      2\sum_{k=1}^{T-1}(T-k)\rho_k\right)$. Three failure modes. Positive
+      autocorrelation — trend-following P&L, or illiquid books whose stale marks
+      smooth real moves — makes $\sqrt{T}$ understate, and smoothed monthly marks
+      are the classic route to a flattering reported Sharpe. Negative
+      autocorrelation, as in mean-reverting market-making P&L, makes it
+      overstate. Volatility clustering means the $\sigma$ measured in a calm
+      month is not the $\sigma$ that governs the next one, so the level is wrong
+      even at zero autocorrelation.
+    summary: >
+      Autocorrelation breaks the $\sqrt{T}$ rule in both directions, and
+      clustering means the volatility you measured is not the one you will get.
+    parent: quant-finance.risk
+    also_under: []
+    requires:
+      - quant-finance.risk.vol-scaling
+      - quant-statistics.time-series.vol-clustering
+    relates: []
+    tags: []
+
+  - id: quant-finance.risk.drawdown
+    kind: definition
+    prominence: 1
+    title: "Drawdown and recovery arithmetic"
+    statement: >
+      With equity path $V_t$ and running peak $M_t = \max_{s \le t} V_s$, the
+      drawdown is $D_t = (M_t - V_t)/M_t$ and the maximum drawdown over a window
+      is $\max_t D_t$. Recovery is asymmetric because returns compound: a loss of
+      $x$ requires a gain of $x/(1-x)$ to get back to the peak. Down $10\%$ needs
+      $+11.1\%$, down $20\%$ needs $+25\%$, down $50\%$ needs $+100\%$, down
+      $90\%$ needs $+900\%$. At a $10\%$ annual return, climbing out of a $50\%$
+      hole takes $\ln 2/\ln 1.1 \approx 7.3$ years of doing everything right.
+      Unlike VaR this is a property of the whole path rather than of a
+      one-period loss, and it is the number investors actually redeem on.
+    summary: >
+      Peak-to-trough decline, with compounding making recovery brutal: $-50\%$
+      demands $+100\%$, and at $10\%$ a year that is over seven years.
+    parent: quant-finance.risk
+    also_under: []
+    requires:
+      - quant-finance.risk.loss-distribution
+    relates: []
+    tags: []
+
+  - id: quant-finance.risk.drawdown-vs-vol
+    kind: proposition
+    prominence: 0
+    title: "Drawdown depth versus volatility and drift"
+    statement: >
+      Drawdowns are dug by volatility and filled in by drift. For a driftless
+      random walk the expected maximum drawdown over horizon $T$ grows like
+      $\sigma\sqrt{T}$, with a constant of roughly $1.25$. With positive drift
+      $\mu$ the drawdown process is stationary: at a typical time it is
+      exponentially distributed with mean $\sigma^{2}/(2\mu)$, and the maximum
+      over $[0,T]$ then grows only logarithmically in $T$. Writing $\mu =
+      S\sigma$ for Sharpe ratio $S$, the typical drawdown is $\sigma/(2S)$ — a
+      Sharpe-$1$ strategy running $20\%$ annual volatility sits around $10\%$
+      under water and will visit several times that. Halving volatility cuts
+      drawdown fourfold; doubling the edge only halves it.
+    summary: >
+      Typical drawdown scales as $\sigma^{2}/(2\mu)$, so it is quadratic in
+      volatility and only linear in edge — cutting risk beats chasing return.
+    parent: quant-finance.risk
+    also_under: []
+    requires:
+      - quant-finance.risk.drawdown
+      - quant-finance.risk.vol-scaling
+    relates: []
+    tags: []
+
+  - id: quant-finance.risk.leverage-ruin
+    kind: proposition
+    prominence: 2
+    title: "Leverage turns volatility into ruin"
+    statement: >
+      Leverage $L$ scales both sides of the ledger, so expected log growth is
+      $g(L) = L\mu - L^{2}\sigma^{2}/2$ — the Kelly parabola, peaking at
+      $L^{*} = \mu/\sigma^{2}$ and crossing zero at $2L^{*}$. Past double-Kelly
+      leverage a genuinely profitable strategy loses money almost surely, with no
+      bad luck required; the $-L^{2}\sigma^{2}/2$ drag does the killing. A second
+      and harder floor sits underneath: an equity-financed position at leverage
+      $L$ is wiped out by an adverse move of $1/L$, so $5\times$ dies on $20\%$,
+      and margin calls force the sale earlier still, converting a drawdown that
+      would have recovered into a permanent loss. That absorbing barrier at zero
+      is gambler's ruin against an infinitely rich opponent: size relative to
+      bankroll, not edge, decides whether you survive to collect it.
+    summary: >
+      Leverage above twice Kelly kills growth with certainty, and the margin
+      barrier makes a temporary drawdown absorbing — ruin, not underperformance.
+    parent: quant-finance.risk
+    also_under: []
+    requires:
+      - quant-finance.risk.drawdown
+      - quant-games.kelly.overbetting
+      - quant-processes.ruin.infinite-opponent
+    relates: []
+    tags: []
+
+  - id: quant-finance.risk.limits-and-stops
+    kind: technique
+    prominence: 0
+    title: "Position limits, stops and vol targeting"
+    statement: >
+      Limits are not optimizations; they bound the tail you cannot estimate.
+      Three tools in practice. Position limits cap notional, delta or vega per
+      name, sector and desk, so that no single wrong estimate can reach the
+      absorbing barrier. Drawdown triggers cut gross exposure by a fixed schedule
+      once equity falls a set distance below its peak, which caps the compounding
+      damage at the cost of locking in losses when the strategy is merely
+      unlucky. Volatility targeting rescales positions by
+      $\sigma_{\text{target}}/\sigma_{\text{forecast}}$, keeping risk roughly
+      stationary and cutting size automatically as volatility clusters upward.
+      Set the sizes off half-Kelly rather than full, because $\mu$ is estimated
+      and the growth curve punishes overshoot far harder than undershoot.
+    summary: >
+      Hard caps, drawdown de-risking and vol targeting — crude rules that keep
+      estimation error away from the absorbing barrier.
+    parent: quant-finance.risk
+    also_under: []
+    requires:
+      - quant-finance.risk.leverage-ruin
+    relates:
+      - id: quant-games.kelly.fractional
+        note: >
+          Half-Kelly is the sizing counterpart of a position limit: both trade a
+          little growth for a large reduction in the damage done when the edge
+          estimate turns out to be too optimistic.
+    tags: []
+
+  - id: quant-finance.risk.correlation-breakdown
+    kind: proposition
+    prominence: 1
+    title: "Correlation breakdown in stress"
+    statement: >
+      Portfolio risk is computed from a correlation matrix estimated in calm
+      markets, and correlations rise precisely when the diversification is
+      needed: in 2008 equity, credit, commodity and hedge-fund returns converged
+      toward one as leveraged holders sold everything at once. Part of that is
+      real, a common deleveraging factor; part is measurement, since conditioning
+      even a fixed-$\rho$ bivariate normal sample on large moves raises the
+      sample correlation. The modelling failure is deeper — a bivariate normal
+      has zero tail dependence, assigning almost no probability to both legs
+      crashing together, so calm-period portfolio VaR understates joint crashes
+      structurally. The working rule is to stress-test at $\rho \to 1$ and to
+      count independent bets rather than positions.
+    summary: >
+      Diversification thins out exactly in a crisis: correlations converge,
+      Gaussian models carry no tail dependence, so stress-test at $\rho \to 1$.
+    parent: quant-finance.risk
+    also_under: []
+    requires:
+      - quant-finance.risk.var-estimation
+      - quant-finance.portfolio.diversification
+    relates: []
+    tags: []

@@ -12,3 +12,446 @@ nodes:
     parent: quant-finance
     also_under: []
     tags: []
+
+  - id: quant-finance.portfolio.portfolio-weights
+    kind: definition
+    prominence: 1
+    title: "Portfolio weights and portfolio return"
+    statement: >
+      A portfolio of $n$ assets is a weight vector $w = (w_1,\dots,w_n)$ with
+      $\sum_i w_i = 1$, where $w_i$ is the fraction of capital in asset $i$;
+      $w_i < 0$ is a short position and $\sum_i |w_i| > 1$ is leverage. Its
+      one-period simple return is $R_p = \sum_i w_i R_i$, so by linearity of
+      expectation $\mathbb{E}[R_p] = \sum_i w_i \mu_i$ — the weighted average of
+      the individual means, with no independence assumed and no correlation
+      entering. Worked: $60\%$ in an asset with $\mu_1 = 8\%$ and $40\%$ in one
+      with $\mu_2 = 12\%$ earns $0.6(8) + 0.4(12) = 9.6\%$ on average. One trap:
+      simple returns are additive across assets, log returns are additive across
+      time, and mixing the two is the standard error.
+    summary: >
+      Fractions of capital summing to one; the portfolio's expected return is
+      just the weighted average of the assets' expected returns.
+    parent: quant-finance.portfolio
+    also_under: []
+    requires:
+      - quant-probability.expectation.linearity
+    relates: []
+    tags: []
+
+  - id: quant-finance.portfolio.portfolio-variance
+    kind: proposition
+    prominence: 2
+    title: "Portfolio variance"
+    statement: >
+      With covariance matrix $\Sigma$, entries
+      $\Sigma_{ij} = \operatorname{Cov}(R_i,R_j)$ and
+      $\Sigma_{ii} = \sigma_i^{2}$, the portfolio variance is
+      $\operatorname{Var}(R_p) = \sum_i \sum_j w_i w_j \Sigma_{ij}$, written
+      $w'\Sigma w$. That is $n$ variance terms against $n(n-1)$ covariance
+      terms, so in a large book the covariances, not the individual
+      volatilities, decide the risk. Two assets:
+      $\sigma_p^{2} = w^{2}\sigma_1^{2} + (1-w)^{2}\sigma_2^{2}
+      + 2w(1-w)\rho\sigma_1\sigma_2$. Worked with $w = 0.6$,
+      $\sigma_1 = 20\%$, $\sigma_2 = 30\%$, $\rho = 0.5$:
+      $0.36(0.04) + 0.16(0.09) + 2(0.24)(0.03) = 0.0432$, so
+      $\sigma_p = 20.8\%$, strictly below the weighted average volatility of
+      $24\%$ — and it is below it whenever $\rho < 1$.
+    summary: >
+      $w'\Sigma w$: variances on the diagonal, covariance cross-terms
+      everywhere else, and the cross-terms dominate once you hold many names.
+    parent: quant-finance.portfolio
+    also_under: []
+    requires:
+      - quant-finance.portfolio.portfolio-weights
+      - quant-probability.joint.variance-sum
+    relates: []
+    tags: []
+
+  - id: quant-finance.portfolio.covariance-psd
+    kind: proposition
+    prominence: 0
+    title: "The covariance matrix is positive semidefinite"
+    statement: >
+      Because $w'\Sigma w = \operatorname{Var}(w'R) \ge 0$ for every $w$, the
+      covariance matrix is symmetric positive semidefinite: no choice of weights
+      can produce a negative variance. It is singular exactly when some nonzero
+      $w$ has $\operatorname{Var}(w'R) = 0$, that is when some combination of
+      the assets is riskless — a duplicated holding, or a spread that is
+      identically zero. Practical consequences: a $\Sigma$ estimated from fewer
+      periods $T$ than assets $n$ has rank at most $T$ and is automatically
+      singular, so an optimizer handed it will invent zero-risk portfolios.
+      Correlations must be jointly consistent as well: $\rho_{12} = \rho_{13} =
+      0.9$ forces $\rho_{23} \ge 0.62$, since the $3 \times 3$ determinant
+      $1 - a^{2} - b^{2} - c^{2} + 2abc$ must stay nonnegative.
+    summary: >
+      Variances cannot be negative, so $\Sigma$ is PSD — which constrains what
+      correlation numbers can coexist and exposes when an estimate is degenerate.
+    parent: quant-finance.portfolio
+    also_under: []
+    requires:
+      - quant-finance.portfolio.portfolio-variance
+      - quant-tools.linear-algebra.psd
+    relates: []
+    tags: []
+
+  - id: quant-finance.portfolio.correlation-extremes
+    kind: proposition
+    prominence: 1
+    title: "The correlation extremes ρ = ±1"
+    statement: >
+      Two assets at weights $w$ and $1-w$ with $w \in [0,1]$. At $\rho = 1$ the
+      variance is a perfect square and $\sigma_p = w\sigma_1 + (1-w)\sigma_2$:
+      risk is the weighted average of risks and diversification buys exactly
+      nothing. At $\rho = -1$ it is the other square,
+      $\sigma_p = |w\sigma_1 - (1-w)\sigma_2|$, which hits zero at
+      $w = \sigma_2/(\sigma_1+\sigma_2)$; with $\sigma_1 = 20\%$ and
+      $\sigma_2 = 30\%$ that is $w = 0.6$, where $0.6(20) = 0.4(30) = 12$ and
+      the portfolio is riskless. In between, $\sigma_p^{2}$ is increasing in
+      $\rho$ with slope $2w(1-w)\sigma_1\sigma_2 > 0$, so the entire
+      diversification benefit is the gap between $\rho$ and $1$.
+    summary: >
+      Perfect positive correlation means no benefit at all; perfect negative
+      correlation lets one weight cancel the risk completely.
+    parent: quant-finance.portfolio
+    also_under: []
+    requires:
+      - quant-finance.portfolio.portfolio-variance
+      - quant-probability.joint.correlation
+    relates:
+      - id: quant-finance.arbitrage.no-arbitrage
+        note: >
+          The $\rho = -1$ mix is a synthetic riskless asset, so no-arbitrage
+          forces it to earn exactly the risk-free rate — otherwise the two
+          assets could be traded against cash for a free lunch.
+    tags: []
+
+  - id: quant-finance.portfolio.diversification
+    kind: theorem
+    prominence: 1
+    title: "Diversification: average covariance is the floor"
+    statement: >
+      Hold $n$ assets at equal weights $1/n$, each with variance $\sigma^{2}$
+      and average pairwise covariance $\bar{c}$. Then
+      $\sigma_p^{2} = \sigma^{2}/n + (1 - 1/n)\bar{c} \to \bar{c}$ as
+      $n \to \infty$: the individual variances wash out at rate $1/n$ and what
+      survives is the average covariance. With a common correlation $\bar\rho$
+      this is $\sigma_p^{2} = \sigma^{2}[\bar\rho + (1-\bar\rho)/n]$. Worked at
+      $\sigma = 30\%$, $\bar\rho = 0.3$: one name gives $30\%$, ten names give
+      $\sigma_p^{2} = 0.09(0.37)$ hence $18.3\%$, and the floor at $n = \infty$
+      is $0.30\sqrt{0.3} = 16.4\%$. Risk vanishes only in the uncorrelated case
+      $\bar{c} = 0$, at the $\sigma/\sqrt{n}$ rate. Ten to twenty names capture
+      most of the benefit; the remaining descent to the floor is slow.
+    summary: >
+      Equal-weighting many assets kills the specific variances but not the
+      shared covariance, so risk falls to $\sqrt{\bar c}$ and stops.
+    parent: quant-finance.portfolio
+    also_under: []
+    requires:
+      - quant-finance.portfolio.portfolio-variance
+    relates: []
+    tags: []
+
+  - id: quant-finance.portfolio.systematic-idiosyncratic
+    kind: intuition
+    prominence: 1
+    title: "Systematic risk is paid for, idiosyncratic risk is not"
+    statement: >
+      The floor $\bar{c}$ splits every asset's risk in two. The part that
+      cancels in a large portfolio — idiosyncratic, specific, diversifiable —
+      can be removed for free by anyone willing to hold many names, so a
+      competitive market pays no premium for carrying it. The part that does not
+      cancel is the common exposure a diversified holder is still stuck with,
+      and only that part can command expected return. Two consequences
+      interviews probe: a wildly volatile stock that is uncorrelated with
+      everything else is a low-risk addition to a book, so total volatility is
+      the wrong measure of a position's risk; and if you are being paid for
+      standalone volatility, it is because you are the one investor who cannot
+      diversify it away.
+    summary: >
+      Only the undiversifiable part of an asset's risk deserves a return, which
+      is why a position's marginal contribution matters more than its own vol.
+    parent: quant-finance.portfolio
+    also_under: []
+    requires:
+      - quant-finance.portfolio.diversification
+    relates: []
+    tags: []
+
+  - id: quant-finance.portfolio.min-variance
+    kind: proposition
+    prominence: 1
+    title: "Two-asset minimum-variance portfolio"
+    statement: >
+      Minimizing $\sigma_p^{2}(w)$ is a one-variable quadratic with positive
+      leading coefficient, so the derivative vanishes at a unique minimum:
+      $w^{*} = (\sigma_2^{2} - \rho\sigma_1\sigma_2)/
+      (\sigma_1^{2} + \sigma_2^{2} - 2\rho\sigma_1\sigma_2)$ in asset 1, with
+      achieved variance $\sigma_1^{2}\sigma_2^{2}(1-\rho^{2})/
+      (\sigma_1^{2} + \sigma_2^{2} - 2\rho\sigma_1\sigma_2)$. Worked at
+      $\sigma_1 = 20\%$, $\sigma_2 = 30\%$, $\rho = 0.2$: numerator
+      $0.09 - 0.012 = 0.078$, denominator $0.13 - 0.024 = 0.106$, so
+      $w^{*} = 73.6\%$ and $\sigma_p = 18.1\%$, under both standalone
+      volatilities. At $\rho = 0$ this is inverse-variance weighting
+      $w^{*} = \sigma_2^{2}/(\sigma_1^{2}+\sigma_2^{2})$, and $w^{*}$ leaves
+      $[0,1]$ — the minimum-variance portfolio shorts one leg — exactly when
+      $\rho > \min(\sigma_1,\sigma_2)/\max(\sigma_1,\sigma_2)$.
+    summary: >
+      The lowest-risk mix of two assets in closed form: tilt toward the safer
+      one, and short the other once correlation exceeds the volatility ratio.
+    parent: quant-finance.portfolio
+    also_under: []
+    requires:
+      - quant-finance.portfolio.portfolio-variance
+    relates: []
+    tags: []
+
+  - id: quant-finance.portfolio.markowitz-lagrange
+    kind: technique
+    prominence: 0
+    title: "Markowitz weights by Lagrange multipliers"
+    statement: >
+      For $n$ assets: minimize $w'\Sigma w$ subject to $w'\mathbf{1} = 1$. Form
+      $L = w'\Sigma w - \lambda(w'\mathbf{1} - 1)$; stationarity gives
+      $2\Sigma w = \lambda\mathbf{1}$, hence $w \propto \Sigma^{-1}\mathbf{1}$
+      rescaled so the weights sum to one — the global minimum-variance
+      portfolio, and it depends on $\Sigma$ alone, never on the expected
+      returns. Adding a target-return constraint $w'\mu = \mu_0$ with a second
+      multiplier gives $w \propto \Sigma^{-1}(a\mathbf{1} + b\mu)$ for scalars
+      $a, b$ determined by the two constraints. The weakness is visible in the
+      formula: inverting a noisy estimated $\Sigma$ amplifies estimation error
+      along its near-null directions, which is why unconstrained Markowitz
+      weights come out enormous and offsetting.
+    summary: >
+      Constrained variance minimization solved with a multiplier:
+      $w \propto \Sigma^{-1}\mathbf{1}$, elegant on paper and unstable on
+      estimated inputs.
+    parent: quant-finance.portfolio
+    also_under: []
+    requires:
+      - quant-finance.portfolio.min-variance
+      - quant-tools.optimization.lagrange
+    relates: []
+    tags: []
+
+  - id: quant-finance.portfolio.efficient-frontier
+    kind: definition
+    prominence: 1
+    title: "Efficient frontier"
+    statement: >
+      Solving the constrained problem once for each attainable target mean
+      $\mu_0$ traces the minimum-variance frontier in the $(\sigma, \mu)$ plane:
+      a hyperbola, equivalently a parabola in $(\sigma^{2}, \mu)$, whose
+      leftmost point is the global minimum-variance portfolio. Only the upper
+      branch is efficient — for any portfolio below the vertex there is one at
+      the same risk with strictly higher mean, so the lower branch is dominated
+      and never held. Two-fund separation: because the solutions are linear in
+      the multipliers, every frontier portfolio is a combination of any two
+      distinct frontier portfolios. Adding an asset can only move the frontier
+      up and to the left, since every old portfolio stays available at weight
+      zero in the new name.
+    summary: >
+      The upper edge of the attainable risk–return region: best mean for each
+      level of risk, and every point on it is a blend of any two others.
+    parent: quant-finance.portfolio
+    also_under: []
+    requires:
+      - quant-finance.portfolio.markowitz-lagrange
+    relates: []
+    tags: []
+
+  - id: quant-finance.portfolio.sharpe
+    kind: definition
+    prominence: 2
+    title: "Sharpe ratio and √252 annualization"
+    statement: >
+      $S = (\mathbb{E}[R_p] - r_f)/\sigma_p$: excess return per unit of
+      volatility, the slope of the line from the risk-free rate to the portfolio
+      in the $(\sigma,\mu)$ plane. It is invariant to leverage, since scaling a
+      position scales numerator and denominator alike, so it measures quality
+      rather than size. Under iid returns means grow like $t$ and standard
+      deviations like $\sqrt{t}$, so Sharpe grows like $\sqrt{t}$: annualize a
+      daily figure by $\sqrt{252} \approx 15.87$. Worked: a daily excess mean of
+      $0.04\%$ on a daily vol of $1\%$ is a daily Sharpe of $0.04$, hence about
+      $10.1\%$ excess return on $15.9\%$ annual volatility and $S \approx 0.63$.
+      The iid hypothesis carries the whole argument — positive autocorrelation
+      makes true annual risk exceed $\sigma\sqrt{252}$ and overstates $S$.
+    summary: >
+      Excess return divided by volatility, scaled to a year by $\sqrt{252}$ —
+      the standard quality score for a strategy, and blind to leverage.
+    parent: quant-finance.portfolio
+    also_under: []
+    requires:
+      - quant-finance.portfolio.portfolio-variance
+    relates: []
+    tags: []
+
+  - id: quant-finance.portfolio.tangency
+    kind: proposition
+    prominence: 1
+    title: "Capital allocation line and the tangency portfolio"
+    statement: >
+      Mix a risky portfolio $P$ with the risk-free asset, putting weight $a$ in
+      $P$: the mean is $r_f + a(\mu_P - r_f)$ and the volatility is
+      $a\sigma_P$, so as $a$ varies the pair sweeps a straight line out of
+      $(0, r_f)$ whose slope is exactly $P$'s Sharpe ratio. An investor wants
+      the steepest available line, so the optimal risky holding is the frontier
+      portfolio where the line is tangent — the tangency portfolio, which is by
+      construction the maximum-Sharpe portfolio, with weights
+      $\propto \Sigma^{-1}(\mu - r_f\mathbf{1})$. Two-fund separation follows:
+      everyone holds the same risky mix and expresses risk appetite only through
+      $a$, with $a > 1$ a levered position sitting further out the same line.
+    summary: >
+      With a risk-free asset available, every efficient portfolio is cash plus
+      the single maximum-Sharpe portfolio, in whatever proportion suits you.
+    parent: quant-finance.portfolio
+    also_under: []
+    requires:
+      - quant-finance.portfolio.efficient-frontier
+      - quant-finance.portfolio.sharpe
+    relates: []
+    tags: []
+
+  - id: quant-finance.portfolio.growth-optimal-leverage
+    kind: proposition
+    prominence: 0
+    title: "Growth-optimal leverage and g = r_f + S²/2"
+    statement: >
+      Run leverage $f$ on a portfolio with excess mean $\mu_e$ and volatility
+      $\sigma$, rebalanced continuously. Log wealth then grows at
+      $g(f) = r_f + f\mu_e - f^{2}\sigma^{2}/2$, the subtracted term being
+      volatility drag. This is a concave quadratic, maximized at
+      $f^{*} = \mu_e/\sigma^{2}$, with maximum
+      $g(f^{*}) = r_f + \mu_e^{2}/(2\sigma^{2}) = r_f + S^{2}/2$. Two readings
+      an interviewer is after: the best achievable growth depends on the
+      portfolio only through its Sharpe ratio, so $S$ is the quantity that
+      compounds; and optimal leverage is large for low-volatility strategies —
+      $S = 1$ at $\sigma = 16\%$ gives $f^{*} = 6.25$ — which is why the full
+      amount is estimation-error suicide and practitioners run a fraction of it.
+    summary: >
+      Maximizing log growth over leverage turns Sharpe into growth:
+      $g = r_f + S^{2}/2$ at leverage $\mu_e/\sigma^{2}$.
+    parent: quant-finance.portfolio
+    also_under: []
+    requires:
+      - quant-finance.portfolio.sharpe
+    relates:
+      - id: quant-games.kelly.log-growth
+        note: >
+          This is Kelly sizing in continuous form: the same expected-log-wealth
+          objective, with the discrete edge and odds replaced by drift and
+          variance, giving $f^{*} = \mu_e/\sigma^{2}$ instead of $(bp-q)/b$.
+    tags: []
+
+  - id: quant-finance.portfolio.beta-capm
+    kind: definition
+    prominence: 2
+    title: "Beta and the CAPM"
+    statement: >
+      $\beta_i = \operatorname{Cov}(R_i, R_m)/\operatorname{Var}(R_m)
+      = \rho_{im}\sigma_i/\sigma_m$ — precisely the slope of a regression of the
+      asset's returns on the market's, so beta is a regression coefficient
+      before it is anything else. It is linear in weights, so a portfolio's beta
+      is the weighted average of its holdings' betas, and the market has
+      $\beta = 1$ by construction. CAPM asserts that in equilibrium only this
+      exposure is compensated:
+      $\mathbb{E}[R_i] - r_f = \beta_i(\mathbb{E}[R_m] - r_f)$, the security
+      market line. Worked: $\beta = 1.2$ with $r_f = 3\%$ and an equity premium
+      of $5\%$ gives $3 + 1.2(5) = 9\%$. Hedging use: shorting $\beta$ dollars
+      of index per dollar of stock leaves a beta-neutral position.
+    summary: >
+      Beta is the regression slope on the market, and CAPM prices an asset off
+      that slope alone: expected excess return $= \beta \times$ market premium.
+    parent: quant-finance.portfolio
+    also_under: []
+    requires:
+      - quant-finance.portfolio.systematic-idiosyncratic
+      - quant-statistics.regression.beta-cov-var
+    relates: []
+    tags: []
+
+  - id: quant-finance.portfolio.alpha-information-ratio
+    kind: definition
+    prominence: 1
+    title: "Alpha, residual risk and the information ratio"
+    statement: >
+      Write $R_i - r_f = \alpha_i + \beta_i(R_m - r_f) + \varepsilon_i$ with
+      $\mathbb{E}[\varepsilon_i] = 0$ and $\varepsilon_i$ uncorrelated with the
+      market. Alpha is the intercept, the return not explained by market
+      exposure, and $\omega_i = \sigma(\varepsilon_i)$ is residual or
+      idiosyncratic risk. The variance splits cleanly as
+      $\sigma_i^{2} = \beta_i^{2}\sigma_m^{2} + \omega_i^{2}$, and the
+      regression $R^{2}$ is $\rho_{im}^{2}$. The information ratio
+      $\operatorname{IR} = \alpha/\omega$ is the Sharpe ratio of the residual,
+      and it is what a market-neutral book is judged on: $\alpha = 3\%$ a year
+      against $\omega = 6\%$ is $\operatorname{IR} = 0.5$. Alpha is always
+      benchmark-relative — change the model and yesterday's alpha becomes
+      today's beta.
+    summary: >
+      What is left after market exposure is stripped out: alpha as intercept,
+      residual vol as its risk, and their ratio as the skill score.
+    parent: quant-finance.portfolio
+    also_under: []
+    requires:
+      - quant-finance.portfolio.beta-capm
+    relates: []
+    tags: []
+
+  - id: quant-finance.portfolio.breadth
+    kind: proposition
+    prominence: 1
+    title: "Fundamental law: IR ≈ IC·√breadth"
+    statement: >
+      Let $\operatorname{IC}$ be the correlation between your forecast and the
+      realized return on a single bet, and let $\operatorname{BR}$ be the number
+      of independent bets taken per year. If the $\operatorname{IC}$ is the same
+      across bets, the bets are independent, and risk is allocated across them
+      optimally, then
+      $\operatorname{IR} \approx \operatorname{IC}\sqrt{\operatorname{BR}}$.
+      Worked: an undetectable $\operatorname{IC} = 0.05$ applied to
+      $\operatorname{BR} = 1000$ bets gives
+      $0.05\sqrt{1000} \approx 1.58$, while the same skill used on $4$ bets a
+      year gives $0.10$, indistinguishable from noise; matching $1.58$ on those
+      $4$ bets would demand $\operatorname{IC} = 0.79$, which nobody has. The
+      reading: many small independent edges beat one big bet, and doubling
+      $\operatorname{IR}$ costs four times the breadth.
+    summary: >
+      Skill times the square root of the number of independent bets — the reason
+      a tiny edge repeated thousands of times is a career and used four times is
+      nothing.
+    parent: quant-finance.portfolio
+    also_under: []
+    requires:
+      - quant-finance.portfolio.alpha-information-ratio
+    relates:
+      - id: quant-statistics.testing.sample-size
+        note: >
+          Breadth is the sample size of your edge: the same
+          $(\sigma/\text{effect})^{2}$ arithmetic that says how many
+          observations resolve a small effect says how many bets are needed
+          before a small IC shows up as a track record.
+    tags: []
+
+  - id: quant-finance.portfolio.effective-breadth
+    kind: intuition
+    prominence: 0
+    title: "Correlated bets shrink effective breadth"
+    statement: >
+      Breadth counts independent bets, not positions. If $N$ bets have average
+      pairwise correlation $\bar\rho$, the variance of their equal-weighted sum
+      is $N[1 + (N-1)\bar\rho]$ times a single bet's, so the effective number of
+      independent bets is $N/[1 + (N-1)\bar\rho]$, capped at $1/\bar\rho$ as
+      $N \to \infty$. Worked: $100$ positions with $\bar\rho = 0.1$ behave like
+      $100/10.9 \approx 9.2$ bets, cutting the information ratio from
+      $10\operatorname{IC}$ to about $3\operatorname{IC}$; at $\bar\rho = 0.5$
+      the effective count is under $2$. This is the diversification floor seen
+      from the alpha side — a hundred variations on one idea, or a hundred
+      analysts reading the same news, is one bet.
+    summary: >
+      Overlapping signals collapse into far fewer real bets, so effective
+      breadth saturates at $1/\bar\rho$ no matter how many positions you add.
+    parent: quant-finance.portfolio
+    also_under: []
+    requires:
+      - quant-finance.portfolio.breadth
+    relates: []
+    tags: []
