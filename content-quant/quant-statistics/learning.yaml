@@ -12,3 +12,495 @@ nodes:
     parent: quant-statistics
     also_under: []
     tags: []
+
+  - id: quant-statistics.learning.supervised-setup
+    kind: definition
+    prominence: 1
+    title: "Supervised learning setup"
+    statement: >
+      A pair $(X, Y)$ has an unknown joint law $P$, and the training set is $n$
+      draws $(x_i, y_i)$ from $P$, assumed independent. A learner picks a
+      predictor $\hat f$ from a hypothesis class $\mathcal{F}$ so as to minimize
+      the risk $R(f) = \mathbb{E}[L(Y, f(X))]$ under a chosen loss $L$: squared
+      loss $(y - f(x))^{2}$ for regression, log loss or $0$–$1$ loss for
+      classification. Under squared loss the unbeatable predictor is the
+      regression function $f^{*}(x) = \mathbb{E}[Y \mid X = x]$, so supervised
+      learning is estimating a conditional mean from finitely many samples. The
+      independence assumption is the first thing markets break — returns are
+      serially dependent and their joint law drifts.
+    summary: >
+      Data are draws from a joint law, the goal is small expected loss on the
+      next draw, and under squared loss the target being estimated is
+      $\mathbb{E}[Y \mid X]$.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-probability.joint.joint-law
+    relates: []
+    tags: []
+
+  - id: quant-statistics.learning.generalization-gap
+    kind: definition
+    prominence: 1
+    title: "In-sample versus out-of-sample error"
+    statement: >
+      The empirical risk $\hat R(f) = \frac{1}{n}\sum_{i=1}^{n} L(y_i, f(x_i))$
+      is what fitting minimizes; the risk $R(f)$ on a fresh draw is what you get
+      paid for. Their difference $R(\hat f) - \hat R(\hat f)$, the
+      generalization gap, is positive on average because the same data that
+      scored the model also chose it. For squared loss the optimism has an exact
+      form, $\mathbb{E}[R - \hat R] = \frac{2}{n}\sum_{i}
+      \operatorname{Cov}(\hat y_i, y_i)$, which for a linear fit with $p$ free
+      parameters and noise variance $\sigma^{2}$ equals $2p\sigma^{2}/n$: each
+      parameter spent buys back about $2\sigma^{2}/n$ of fake accuracy. Training
+      error is a biased report, never a neutral one.
+    summary: >
+      Training error understates true error by an amount that grows with the
+      number of parameters and shrinks like $1/n$ — quoting in-sample
+      performance is quoting a biased number.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-statistics.learning.supervised-setup
+    relates: []
+    tags: []
+
+  - id: quant-statistics.learning.overfitting
+    kind: definition
+    prominence: 2
+    title: "Overfitting"
+    statement: >
+      A model overfits when it reproduces structure that is in the training
+      sample but not in $P$ — noise memorized as signal. The signature is a
+      widening gap: as flexibility increases, training error keeps falling while
+      held-out error turns and rises. A polynomial of degree $n-1$ through $n$
+      points has zero training error and no predictive content whatsoever. What
+      drives overfitting is capacity in the widest sense — parameters, tree
+      depth, features searched, and every modelling choice made after looking at
+      the data — and what defends against it is sample size. In return
+      prediction the signal is a tiny fraction of total variance, so a flexible
+      fit is mostly fitting noise by construction.
+    summary: >
+      Fitting the sample instead of the population: training error falls,
+      out-of-sample error rises, and the culprit is model capacity relative to
+      the data you have.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-statistics.learning.generalization-gap
+    relates: []
+    tags: []
+
+  - id: quant-statistics.learning.bias-variance
+    kind: theorem
+    prominence: 2
+    title: "Bias–variance decomposition"
+    statement: >
+      Fix a point $x$ and let $Y = f(x) + \varepsilon$ with
+      $\mathbb{E}[\varepsilon] = 0$, $\operatorname{Var}(\varepsilon) =
+      \sigma^{2}$, and $\varepsilon$ independent of the training set $D$ that
+      produced $\hat f$. Then the expected squared prediction error at $x$
+      splits into three nonnegative pieces:
+      $\mathbb{E}[(Y - \hat f(x))^{2}] = \sigma^{2}
+      + (f(x) - \mathbb{E}_D[\hat f(x)])^{2}
+      + \operatorname{Var}_D(\hat f(x))$ — irreducible noise, squared bias, and
+      variance. The cross terms vanish precisely because $\varepsilon$ is
+      centred and independent of $D$. Only the last two terms answer to
+      modelling: $\sigma^{2}$ is a floor no model gets under, and flexibility
+      buys bias reduction by paying in variance.
+    summary: >
+      Prediction error is irreducible noise plus squared bias plus variance; the
+      noise term is a hard floor and the remaining two move in opposite
+      directions as the model gets more flexible.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-statistics.learning.overfitting
+      - quant-statistics.estimation.bias-mse
+    relates: []
+    tags: []
+
+  - id: quant-statistics.learning.complexity-dial
+    kind: intuition
+    prominence: 1
+    title: "The complexity dial and where to set it"
+    statement: >
+      Most model families have a single knob that trades bias for variance:
+      polynomial degree, tree depth, number of features, the inverse penalty
+      $1/\lambda$. Turning it up drives bias down and variance up, so held-out
+      error is U-shaped and the optimum sits where the marginal bias reduction
+      stops paying for the marginal variance. Two things move that minimum. More
+      data shrinks variance at fixed bias, so the optimum drifts right as $n$
+      grows. A low signal-to-noise ratio — a monthly equity return $R^{2}$ of
+      half a percent is typical — makes $\sigma^{2}$ dominate, pinning the
+      optimum far to the left, which is why three features routinely beat three
+      hundred in trading research.
+    summary: >
+      One knob, a U-shaped error curve: more data pushes the best setting toward
+      complexity, and weak signal pushes it hard toward simplicity.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-statistics.learning.bias-variance
+    relates: []
+    tags: []
+
+  - id: quant-statistics.learning.train-val-test
+    kind: definition
+    prominence: 1
+    title: "Train, validation and test splits"
+    statement: >
+      Three disjoint roles, not three arbitrary piles. The training set fits
+      parameters at one fixed model configuration; the validation set scores
+      configurations against each other and picks the winner; the test set is
+      opened once, after everything is frozen, to report an honest number. A
+      common allocation is $60/20/20$, tilted toward training when $n$ is small.
+      The rule that matters is that any data used to make a decision has been
+      spent: peek at the test set, retune, and re-score, and it has quietly
+      become a second validation set whose error is optimistic by exactly the
+      amount you tuned against it.
+    summary: >
+      Fit on one slice, choose on a second, report on a third — and the third is
+      only honest while it stays unopened.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-statistics.learning.generalization-gap
+    relates: []
+    tags: []
+
+  - id: quant-statistics.learning.cross-validation
+    kind: technique
+    prominence: 1
+    title: "k-fold cross-validation"
+    statement: >
+      Reach for it when one held-out split is too small to score models
+      reliably. Mechanics: partition the $n$ observations at random into $k$
+      folds of near-equal size; for $j = 1,\dots,k$, fit on the $n - n/k$ points
+      outside fold $j$ and record the average loss $e_j$ on the $n/k$ points
+      inside it; report $\frac{1}{k}\sum_{j=1}^{k} e_j$. Every observation is
+      predicted exactly once, always by a model that never saw it. $k = 5$ or
+      $10$ is standard. Leave-one-out ($k = n$) is nearly unbiased for the error
+      at sample size $n-1$ but costs $n$ fits and its near-identical training
+      sets make the average noisy, while small $k$ trains on less data and so
+      reports pessimistically.
+    summary: >
+      Rotate the held-out fold $k$ times and average: every point gets predicted
+      out of sample, at the cost of $k$ fits.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-statistics.learning.train-val-test
+      - quant-statistics.learning.overfitting
+    relates:
+      - id: quant-statistics.simulation.bootstrap
+        note: >
+          Both resample the one dataset you have to say something about
+          sampling variability — the bootstrap targets the standard error of an
+          estimate, cross-validation the out-of-sample error of a fit.
+    tags: []
+
+  - id: quant-statistics.learning.regularization
+    kind: technique
+    prominence: 1
+    title: "Regularization as complexity control"
+    statement: >
+      Rather than choosing a model size, fit a large model and penalize it:
+      minimize $\hat R(\beta) + \lambda\,\Omega(\beta)$, with
+      $\Omega(\beta) = \sum_j \beta_j^{2}$ for ridge and
+      $\Omega(\beta) = \sum_j |\beta_j|$ for lasso. The penalty turns the
+      complexity dial continuously — $\lambda \to 0$ recovers the unpenalized
+      fit, $\lambda \to \infty$ kills every coefficient — buying variance
+      reduction at the price of bias, a trade that pays whenever noise
+      dominates. Two mechanics: standardize the predictors first, since a
+      penalty on raw coefficients is not scale invariant, and leave the
+      intercept unpenalized. Lasso's corners set coefficients exactly to zero;
+      ridge only shrinks them.
+    summary: >
+      Penalize coefficient size instead of counting parameters — a continuous
+      complexity knob whose strength $\lambda$ is chosen by validation.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-statistics.learning.bias-variance
+      - quant-statistics.regression.ridge-lasso
+    relates:
+      - id: quant-statistics.bayesian.shrinkage
+        note: >
+          Ridge is the posterior mode under a Gaussian prior centred at zero, so
+          the penalty strength $\lambda$ plays exactly the role of prior
+          precision and shrinkage is the same phenomenon seen twice.
+    tags: []
+
+  - id: quant-statistics.learning.hyperparameter-selection
+    kind: technique
+    prominence: 1
+    title: "Choosing hyperparameters honestly"
+    statement: >
+      Pick $\lambda$, tree depth or feature count by cross-validating a grid and
+      taking the minimum — then do not quote that minimum as your out-of-sample
+      error. Selecting the best of many noisy scores is itself a form of
+      fitting: the winner's score is optimistic, and the bias grows with the
+      number of configurations tried. Two fixes. Nested cross-validation puts
+      the selection in an inner loop and estimates error in an outer loop that
+      never sees the choice. Simpler, keep a test set that is opened only after
+      selection. Worth the habit: the one-standard-error rule takes the simplest
+      configuration whose score is within one standard error of the best.
+    summary: >
+      The cross-validation score of the configuration you selected is not an
+      honest error estimate — nest the selection or hold out data it never
+      touched.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-statistics.learning.cross-validation
+      - quant-statistics.learning.regularization
+    relates: []
+    tags: []
+
+  - id: quant-statistics.learning.gradient-descent
+    kind: technique
+    prominence: 1
+    title: "Gradient descent"
+    statement: >
+      When the loss has no closed-form minimizer, iterate
+      $\theta_{t+1} = \theta_t - \eta\,\nabla L(\theta_t)$ — step downhill, with
+      the learning rate $\eta$ setting the distance. The one-dimensional
+      quadratic $L(\theta) = \frac{1}{2}a\theta^{2}$, $a > 0$, tells the whole
+      story: the update is $\theta_{t+1} = (1 - \eta a)\theta_t$, which
+      converges exactly when $|1 - \eta a| < 1$, that is $0 < \eta < 2/a$. At
+      $\eta = 1/a$ it lands on the minimum in one step, above that it oscillates
+      while still converging, and at $\eta > 2/a$ it diverges. Too small is
+      merely slow; too large is fatal. For convex $L$ with a suitably small
+      fixed step the iterates reach a global minimum, and badly differing
+      curvature across directions makes the path zig-zag.
+    summary: >
+      Follow the negative gradient with step size $\eta$; on a quadratic of
+      curvature $a$ anything under $2/a$ converges and anything above it blows
+      up.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-statistics.learning.supervised-setup
+      - quant-tools.optimization.foc
+    relates: []
+    tags: []
+
+  - id: quant-statistics.learning.sgd
+    kind: technique
+    prominence: 0
+    title: "Stochastic and mini-batch gradient descent"
+    statement: >
+      A full gradient costs $O(n)$ per step, which is wasted early in training
+      when any roughly downhill direction will do. Replace it with the gradient
+      on a random mini-batch of size $b \ll n$: the batch gradient is an
+      unbiased estimate of the full gradient, so steps are downhill on average,
+      and each costs $O(b)$. The price is noise — the iterates rattle around the
+      optimum rather than settling — so the step size must decay, the classical
+      sufficient condition being $\sum_t \eta_t = \infty$ together with
+      $\sum_t \eta_t^{2} < \infty$. One pass through the reshuffled data is an
+      epoch, and with $n$ large the first epoch usually does most of the work.
+    summary: >
+      Trade an exact gradient for many cheap noisy ones; convergence then needs
+      a decaying learning rate.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-statistics.learning.gradient-descent
+    relates: []
+    tags: []
+
+  - id: quant-statistics.learning.logistic-regression
+    kind: technique
+    prominence: 1
+    title: "Logistic regression"
+    statement: >
+      For a binary label write the linear index
+      $\eta(x) = \beta_0 + \beta_1 x_1 + \dots + \beta_p x_p$ and model
+      $\Pr(Y = 1 \mid x) = 1/(1 + e^{-\eta(x)})$, equivalently
+      $\ln\frac{p}{1-p} = \eta(x)$: the log-odds are linear, so a unit rise in
+      $x_j$ multiplies the odds by $e^{\beta_j}$. Fit by maximizing the
+      log-likelihood $\sum_i [\,y_i \ln p_i + (1 - y_i)\ln(1 - p_i)\,]$, which
+      is the same thing as minimizing log loss. That objective is convex in
+      $\beta$, so there are no local minima, but it has no closed form and is
+      solved by gradient descent or Newton steps. Perfectly separable data drive
+      the coefficients to infinity unless a penalty is added.
+    summary: >
+      Linear model on the log-odds scale, fitted by maximizing a convex
+      likelihood — the default classifier and the baseline every fancier one
+      must beat.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-statistics.learning.gradient-descent
+      - quant-statistics.regression.ols
+    relates:
+      - id: quant-probability.foundations.odds
+        note: >
+          The coefficients live on the log-odds scale defined there, so
+          exponentiating one gives the multiplicative effect on the odds of the
+          event rather than on its probability.
+    tags: []
+
+  - id: quant-statistics.learning.classification-metrics
+    kind: definition
+    prominence: 1
+    title: "Precision, recall and the confusion matrix"
+    statement: >
+      A threshold turns scores into calls and sorts outcomes into true positives
+      $\mathrm{TP}$, false positives $\mathrm{FP}$, false negatives
+      $\mathrm{FN}$ and true negatives $\mathrm{TN}$. Precision
+      $= \mathrm{TP}/(\mathrm{TP} + \mathrm{FP})$ is how often a positive call
+      is right; recall $= \mathrm{TP}/(\mathrm{TP} + \mathrm{FN})$ is how much
+      of the positive class you caught; the $F_1$ score is their harmonic mean
+      $2PR/(P+R)$. Raising the threshold buys precision and sells recall.
+      Accuracy is the trap: with a $1\%$ positive rate, calling every case
+      negative scores $99\%$ accuracy with zero recall. Precision also moves
+      with the base rate, so it describes the problem as much as the classifier.
+    summary: >
+      Precision is the hit rate of your positive calls, recall the share of
+      positives you found — and accuracy is meaningless under class imbalance.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-statistics.learning.logistic-regression
+    relates: []
+    tags: []
+
+  - id: quant-statistics.learning.roc-auc
+    kind: definition
+    prominence: 1
+    title: "ROC curve and AUC"
+    statement: >
+      Sweep the decision threshold across its whole range and plot the true
+      positive rate $\mathrm{TPR} = \mathrm{TP}/(\mathrm{TP} + \mathrm{FN})$
+      against the false positive rate
+      $\mathrm{FPR} = \mathrm{FP}/(\mathrm{FP} + \mathrm{TN})$; the curve runs
+      from $(0,0)$ to $(1,1)$ and the area under it is the AUC. Its clean
+      reading is a probability: $\mathrm{AUC} = \Pr(\text{random positive
+      scores above random negative})$, counting ties as half, so $0.5$ is a coin
+      flip and $1$ is perfect ranking. Being a ranking statistic, AUC is
+      unchanged by any increasing transform of the score and ignores class
+      balance — a model at AUC $0.8$ with a $1\%$ positive rate can still have
+      useless precision, so read a precision–recall curve alongside it.
+    summary: >
+      One number for ranking quality: the chance a random positive outscores a
+      random negative, blind to threshold and to class balance.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-statistics.learning.classification-metrics
+    relates: []
+    tags: []
+
+  - id: quant-statistics.learning.trees-ensembles
+    kind: technique
+    prominence: 1
+    title: "Trees, bagging and boosting"
+    statement: >
+      A regression tree splits recursively, at each node taking the feature and
+      threshold that most reduce squared error (Gini or entropy for
+      classification), and predicts the mean of each leaf; depth and minimum
+      leaf size are its complexity dial. Trees capture interactions for free and
+      ignore monotone rescaling of features, but a deep tree is nearly unbiased
+      and wildly high-variance. Bagging averages $B$ trees fitted to bootstrap
+      resamples: the mean of identically distributed fits with pairwise
+      correlation $\rho$ has variance
+      $\rho\sigma^{2} + (1 - \rho)\sigma^{2}/B$, so decorrelating beats adding
+      trees, and random forests decorrelate by sampling features at each split.
+      Boosting instead grows small trees on residuals in sequence, attacking
+      bias, and overfits unless stopped early.
+    summary: >
+      Deep trees are low-bias and high-variance; bagging and random forests
+      average that variance away, while boosting works the bias side and needs
+      early stopping.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-statistics.learning.bias-variance
+    relates: []
+    tags: []
+
+  - id: quant-statistics.learning.leakage
+    kind: proposition
+    prominence: 2
+    title: "Feature leakage and look-ahead bias"
+    statement: >
+      A feature leaks when it carries information that was not available at the
+      instant the decision it feeds is taken, and a backtest built on leaked
+      features measures nothing at all. The canonical case: a signal computed
+      from today's closing price, applied to a trade filled at that same close.
+      The rule cannot be evaluated until the close exists, yet the fill is
+      assumed at the close, so the strategy buys at a price it already knew —
+      the fix is to lag the signal by at least one bar and fill at the next
+      tradable price. Leakage also enters through the pipeline: standardizing,
+      winsorizing or selecting features on the full sample pushes held-out
+      information into training, so every such step must be refitted inside each
+      fold.
+    summary: >
+      Using information the trade could not have had — same-close signals,
+      full-sample scaling — inflates a backtest to a level nobody has ever
+      earned live.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-statistics.learning.cross-validation
+    relates: []
+    tags: []
+
+  - id: quant-statistics.learning.walk-forward
+    kind: technique
+    prominence: 1
+    title: "Walk-forward validation for time series"
+    statement: >
+      Random $k$-fold cross-validation is invalid on a time series: it trains on
+      the future to predict the past, and autocorrelated or overlapping
+      observations place near-duplicates on both sides of a split. Walk forward
+      instead — fit on everything up to time $t$, evaluate on the block
+      $(t, t+h]$, roll forward, and average the block losses — using either an
+      expanding window (all history) or a rolling one (fixed lookback, better
+      under regime change). Insert an embargo gap between train and test blocks
+      at least as long as the label horizon, so a target measured over the next
+      $h$ days cannot overlap the training window. The costs are fewer effective
+      test points and thin training data in the early blocks.
+    summary: >
+      Respect the arrow of time: train on the past, test on the block that
+      follows, and embargo enough data that the label cannot straddle the split.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-statistics.learning.leakage
+    relates:
+      - id: quant-statistics.time-series.acf
+        note: >
+          Serial correlation is exactly why random folds fail here: neighbouring
+          observations are near-duplicates, so a shuffled split leaves almost
+          the same information on both sides.
+    tags: []
+
+  - id: quant-statistics.learning.backtest-overfitting
+    kind: proposition
+    prominence: 1
+    title: "Backtest overfitting: the best of many strategies"
+    statement: >
+      Search $N$ strategies that all have genuinely zero edge. Over $T$ years
+      each in-sample Sharpe estimate has standard error roughly $1/\sqrt{T}$,
+      and the largest of $N$ independent standard normals is about
+      $\sqrt{2\ln N}$, so trying $N = 1000$ variants over $T = 4$ years yields a
+      best backtest Sharpe near $\sqrt{2\ln 1000}/2 \approx 1.86$ out of pure
+      noise. The winner's in-sample Sharpe is a selection statistic, not an
+      estimate of its edge. The defences are the multiple-testing ones: count
+      every configuration tried, including the abandoned ones, deflate the
+      reported Sharpe by the number of trials, and reserve a period of data no
+      variant has ever touched.
+    summary: >
+      Try a thousand strategies on four years of data and the best one shows a
+      Sharpe near $1.9$ with no edge at all — the number of trials is part of
+      the result.
+    parent: quant-statistics.learning
+    also_under: []
+    requires:
+      - quant-statistics.learning.overfitting
+      - quant-statistics.testing.multiple-testing
+    relates: []
+    tags: []
