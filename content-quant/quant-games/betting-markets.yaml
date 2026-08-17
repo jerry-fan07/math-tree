@@ -11,3 +11,263 @@ nodes:
     parent: quant-games
     also_under: []
     tags: []
+
+  - id: quant-games.betting-markets.odds-formats
+    kind: definition
+    prominence: 1
+    title: "Odds formats and their conversions"
+    statement: >
+      Odds are quoted three ways, all encoding the same payout multiple.
+      Decimal odds $d$ return $d$ per unit staked if the bet wins, a profit
+      of $d-1$; fractional odds $b/a$ pay a profit of $b/a$ per unit
+      staked, so $d = b/a + 1$. American odds quote profit on a stake of
+      $100$: positive odds $A$ profit $A$ on a stake of $100$, so
+      $d = 1 + A/100$; negative odds $A$ require staking $|A|$ to profit
+      $100$, so $d = 1 + 100/|A|$. Worked: American $+150$ is decimal
+      $2.50$ (fractional $3/2$); American $-200$ is decimal $1.50$
+      (fractional $1/2$) — the same market typically quotes the favorite
+      negative and the underdog positive.
+    summary: >
+      Decimal, fractional and American odds are three labels for the same
+      payout multiple — convert through decimal odds as the common
+      currency.
+    parent: quant-games.betting-markets
+    also_under: []
+    requires:
+      - quant-probability.foundations.odds
+    relates: []
+    tags: []
+
+  - id: quant-games.betting-markets.implied-probability
+    kind: definition
+    prominence: 1
+    title: "Implied probability"
+    statement: >
+      Decimal odds $d$ imply a probability $p = 1/d$ for the priced
+      outcome — the break-even win rate at which the bet is fair. Worked:
+      decimal $2.50$ implies $p = 1/2.50 = 0.40$, i.e. $40\%$; decimal
+      $1.50$ implies $p = 1/1.50 \approx 0.667$, i.e. $66.7\%$. Converting
+      to decimal odds first makes this the one formula needed for any
+      quoted format. A quoted probability is only "implied" — it is the
+      bookmaker's price, not a claim about the true chance, and a book
+      that prices every outcome will price them to sum above $100\%$ (the
+      overround).
+    summary: >
+      Flip the decimal odds to read off the market's break-even
+      probability, $p = 1/d$ — the price a bookmaker is quoting, not
+      necessarily the truth.
+    parent: quant-games.betting-markets
+    also_under: []
+    requires:
+      - quant-games.betting-markets.odds-formats
+    relates: []
+    tags: []
+
+  - id: quant-games.betting-markets.overround
+    kind: definition
+    prominence: 2
+    title: "Overround (vig)"
+    statement: >
+      A bookmaker's full set of prices on a market implies probabilities
+      that sum to more than $100\%$; the excess over $100\%$ is the
+      overround (vig, juice) — margin built into the prices and extracted
+      regardless of outcome. Worked: a two-outcome book quotes both sides
+      at decimal $1.90$. Each side implies $1/1.90 \approx 0.5263$, so the
+      sum is $2 \times 0.5263 \approx 1.0526$, an overround of about
+      $5.3\%$. On a fair, zero-margin book the implied probabilities would
+      sum to exactly $100\%$; a bettor facing a $5.3\%$ overround is
+      laying a house edge before any skill enters the bet.
+    summary: >
+      Implied probabilities across a full market sum above $100\%$; the
+      excess is the bookmaker's structural edge — about $5.3\%$ on a
+      $1.90/1.90$ book.
+    parent: quant-games.betting-markets
+    also_under: []
+    requires:
+      - quant-games.betting-markets.implied-probability
+    relates: []
+    tags: []
+
+  - id: quant-games.betting-markets.devigging
+    kind: technique
+    prominence: 1
+    title: "De-vigging"
+    statement: >
+      To recover a bookmaker's fair, no-margin probabilities, sum the
+      implied probabilities across the market to get $S > 1$, then divide
+      each implied probability by $S$; the results are nonnegative and sum
+      to exactly $1$. This proportional method assumes the margin is
+      spread evenly across outcomes in probability space — a
+      simplification, but the standard first move when a "true"
+      probability is needed for an edge calculation. Reach for it whenever
+      a strategy compares its own view to a market price: comparing
+      against the raw implied probability silently credits the
+      bookmaker's margin to the market.
+    summary: >
+      Divide every implied probability by their sum to strip out the
+      overround and recover probabilities that add to $100\%$.
+    parent: quant-games.betting-markets
+    also_under: []
+    requires:
+      - quant-games.betting-markets.overround
+    relates: []
+    tags: []
+
+  - id: quant-games.betting-markets.favorite-underdog-vig
+    kind: example
+    prominence: 0
+    title: "De-vigging a −200/+150 moneyline"
+    statement: >
+      A moneyline quotes a favorite at American $-200$ and the underdog at
+      American $+150$. Converting to decimal, $-200$ is $1.50$ (implied
+      $1/1.50 \approx 66.7\%$) and $+150$ is $2.50$ (implied
+      $1/2.50 = 40\%$); the two sum to $106.7\%$, a $6.7\%$ overround.
+      De-vigging divides each by $1.067$: the favorite's fair probability
+      is $66.7/106.7 \approx 62.5\%$ and the underdog's is
+      $40/106.7 \approx 37.5\%$ — the market's best estimate once the
+      margin is removed, and the number to compare against your own view.
+    summary: >
+      A $-200/+150$ moneyline carries $6.7\%$ overround; stripping it out
+      gives fair odds of about $62.5\%$ favorite, $37.5\%$ underdog.
+    parent: quant-games.betting-markets
+    also_under: []
+    requires:
+      - quant-games.betting-markets.devigging
+    relates: []
+    tags: []
+
+  - id: quant-games.betting-markets.bet-ev
+    kind: technique
+    prominence: 1
+    title: "Expected value of a bet"
+    statement: >
+      A bet is positive expected value when your own probability estimate
+      $p$ clears the price you are actually paid at: with decimal odds
+      $d$, the edge per unit staked is $\text{EV} = p \cdot d - 1$ (win
+      $d-1$ with probability $p$, lose $1$ with probability $1-p$). A
+      positive edge only requires your $p$ to differ from the market's; it
+      says nothing about variance, and a small positive edge on a
+      long-shot can still be a poor bet at size. Compare $p$ against the
+      de-vigged fair probability, not the raw implied one, or the house
+      margin looks like part of your edge.
+    summary: >
+      Edge equals your probability times the decimal payout minus one —
+      the single number that separates a genuinely good bet from a fair
+      coin flip.
+    parent: quant-games.betting-markets
+    also_under: []
+    requires:
+      - quant-games.betting-markets.implied-probability
+      - quant-games.ev-games.fair-value
+    relates: []
+    tags: []
+
+  - id: quant-games.betting-markets.ev-bet-worked
+    kind: example
+    prominence: 0
+    title: "Pricing a positive-EV bet"
+    statement: >
+      You believe a team wins with probability $0.55$; a bookmaker offers
+      decimal odds $2.10$ (implied probability $1/2.10 \approx 47.6\%$).
+      The edge is $\text{EV} = 0.55 \times 2.10 - 1 = 0.155$, a $15.5\%$
+      expected profit per unit staked, computed from the price you
+      actually get paid at ($2.10$), not from any fair-probability
+      adjustment. The implied probability only marks the break-even
+      threshold: since your $0.55$ clears the market's $47.6\%$ by a wide
+      margin, the bet is worth taking at this size regardless of how the
+      book's margin is distributed across the other outcomes.
+    summary: >
+      A $55\%$ true win probability against $2.10$ decimal odds is a
+      $15.5\%$ edge, computed straight from the price actually paid.
+    parent: quant-games.betting-markets
+    also_under: []
+    requires:
+      - quant-games.betting-markets.bet-ev
+    relates: []
+    tags: []
+
+  - id: quant-games.betting-markets.dutch-book
+    kind: technique
+    prominence: 2
+    title: "Dutch book across bookmakers"
+    statement: >
+      When two bookmakers price the same two-outcome event so their
+      implied probabilities sum to less than $1$, a Dutch book locks in
+      profit regardless of outcome: stake $\text{stake}_i = T \cdot p_i /
+      S$ on each outcome $i$, where $p_i = 1/d_i$, $S = \sum_i p_i < 1$,
+      and $T$ is the total bankroll committed; every outcome then pays
+      exactly $T/S > T$. Worked: book A offers decimal $2.10$ on outcome X
+      ($p_X \approx 0.4762$), book B offers decimal $2.05$ on outcome Y
+      ($p_Y \approx 0.4878$), so $S \approx 0.9640$. With $T = 1000$: stake
+      about $494$ on X and $506$ on Y; either outcome pays
+      $1000/0.9640 \approx 1037.35$, a guaranteed profit of about $37.35$
+      ($3.7\%$ of bankroll), locked in the moment both bets are placed.
+    summary: >
+      When two books' implied probabilities sum below $100\%$, sizing
+      stakes proportional to each implied probability guarantees the same
+      profit whichever side wins.
+    parent: quant-games.betting-markets
+    also_under: []
+    requires:
+      - quant-games.betting-markets.implied-probability
+    relates:
+      - id: quant-games.kelly.kelly-fraction
+        note: >
+          Both size stakes from probabilities, but Kelly grows a single
+          repeated bet's bankroll while a Dutch book splits one bankroll
+          across simultaneous mutually exclusive outcomes to guarantee a
+          profit.
+    tags: []
+
+  - id: quant-games.betting-markets.hedging-bets
+    kind: technique
+    prominence: 1
+    title: "Hedging an open bet"
+    statement: >
+      To lock in a profit on a bet already placed, stake an offsetting
+      amount on the complementary outcome so the total payout is equal
+      whichever side wins. With an original stake $S_0$ at decimal odds
+      $O_0$ (payout $S_0 O_0$ if it wins) and a hedge available at decimal
+      odds $O_1$ on the opposite outcome, the equalizing hedge stake is
+      $H = S_0 O_0 / O_1$, since it forces $S_0 O_0 = H O_1$. Worked: $100$
+      staked at decimal $3.00$ (payout $300$ if it wins); the opposing
+      outcome is later available at decimal $1.80$, so
+      $H = 100 \times 3.00 / 1.80 \approx 166.67$. Either way the payout is
+      $300$, against total stakes of $266.67$, locking a guaranteed profit
+      of about $33.33$ regardless of the result.
+    summary: >
+      Bet the opposite outcome at today's odds in the amount that
+      equalizes the payout, turning an open position into a fixed,
+      guaranteed profit.
+    parent: quant-games.betting-markets
+    also_under: []
+    requires:
+      - quant-games.betting-markets.odds-formats
+    relates: []
+    tags: []
+
+  - id: quant-games.betting-markets.line-movement
+    kind: intuition
+    prominence: 0
+    title: "Line movement: sharp vs. square money"
+    statement: >
+      Odds move because money moves them: a bookmaker shortens a price
+      after heavy action on one side, both to balance its book and because
+      informed ("sharp") money is itself evidence about the true
+      probability. "Square" money — public bets driven by team loyalty or
+      narrative rather than edge — tends to push lines in predictable,
+      exploitable directions, which is why sharp bettors often bet early,
+      before the public volume arrives. A line move against your bet is
+      not necessarily bad news about your own edge; it can just mean the
+      market's fair probability estimate has itself updated. Reading who
+      moved the line, not just that it moved, is the actual signal.
+    summary: >
+      Lines move because someone with information bet — distinguishing
+      sharp money from square money tells you whether a shift is signal or
+      noise.
+    parent: quant-games.betting-markets
+    also_under: []
+    requires:
+      - quant-games.betting-markets.bet-ev
+    relates: []
+    tags: []
