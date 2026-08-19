@@ -1,0 +1,464 @@
+# quant-statistics.time-series — Time Series
+# Outline node (31 in content-quant/outline.md's authoring order).
+
+nodes:
+  - id: quant-statistics.time-series
+    kind: subbranch
+    title: "Time Series"
+    summary: >
+      Serial dependence and mean reversion — AR(1), autocorrelation,
+      unit roots, and the stylized facts of returns.
+    parent: quant-statistics
+    also_under: []
+    tags: []
+
+  - id: quant-statistics.time-series.stationarity
+    kind: definition
+    prominence: 1
+    title: "Weak stationarity and white noise"
+    statement: >
+      A series $\{x_t\}$ is weakly (covariance) stationary if three things hold
+      for every $t$: the mean $\mathbb{E}[x_t] = \mu$ is constant, the variance
+      $\operatorname{Var}(x_t) = \gamma_0$ is finite and constant, and
+      $\operatorname{Cov}(x_t, x_{t+k}) = \gamma_k$ depends on the lag $k$ alone
+      and not on where you stand in time. Strict stationarity — the entire joint
+      law is shift-invariant — is stronger, and the two coincide for Gaussian
+      series. White noise is the simplest stationary series: mean $0$, variance
+      $\sigma^{2}$, and $\gamma_k = 0$ for every $k \ne 0$. Note that white noise
+      is weaker than iid: it forbids linear dependence only, which is exactly the
+      loophole real return series exploit. Without stationarity a sample mean or
+      variance estimates nothing.
+    summary: >
+      Constant mean, constant variance, and autocovariance that depends only on
+      the lag — the condition that lets one path stand in for the ensemble.
+    parent: quant-statistics.time-series
+    also_under: []
+    requires:
+      - quant-probability.joint.covariance
+    relates: []
+    tags: []
+
+  - id: quant-statistics.time-series.acf
+    kind: definition
+    prominence: 1
+    title: "Autocorrelation function"
+    statement: >
+      For a weakly stationary series the autocovariance at lag $k$ is
+      $\gamma_k = \operatorname{Cov}(x_t, x_{t+k})$ and the autocorrelation is
+      $\rho_k = \gamma_k/\gamma_0$, so $\rho_0 = 1$, $\rho_{-k} = \rho_k$ and
+      $|\rho_k| \le 1$. The correlogram — $\rho_k$ plotted against $k$ — is the
+      first diagnostic anyone runs, because its shape names the model: geometric
+      decay means autoregressive, a clean cut-off after lag $q$ means moving
+      average of order $q$, and decay so slow it never really dies means a unit
+      root. Not every sequence is a legal ACF: the matrix with entries
+      $\rho_{|i-j|}$ must be positive semidefinite, since it is the correlation
+      matrix of $(x_1,\dots,x_n)$, which rules out arbitrary combinations of
+      large positive and negative lags.
+    summary: >
+      Correlation of the series with its own past, lag by lag — the shape of the
+      correlogram is what tells you which model generated the data.
+    parent: quant-statistics.time-series
+    also_under: []
+    requires:
+      - quant-statistics.time-series.stationarity
+      - quant-probability.joint.correlation
+    relates: []
+    tags: []
+
+  - id: quant-statistics.time-series.sample-acf
+    kind: technique
+    prominence: 0
+    title: "Reading a sample ACF"
+    statement: >
+      Estimate $\hat{\rho}_k = \dfrac{\sum_{t=1}^{n-k}(x_t - \bar{x})(x_{t+k} -
+      \bar{x})}{\sum_{t=1}^{n}(x_t - \bar{x})^{2}}$ — the same denominator at
+      every lag, which keeps the estimated ACF positive semidefinite. Under the
+      null that the data are iid noise, $\hat{\rho}_k$ is approximately
+      $N(0, 1/n)$ for each fixed $k \ge 1$, giving the standard bands
+      $\pm 1.96/\sqrt{n} \approx \pm 2/\sqrt{n}$: with $n = 250$ daily
+      observations, anything inside $\pm 0.13$ is noise. Two cautions: the bands
+      are pointwise, so about one lag in twenty pierces them by chance — test the
+      first $m$ lags jointly (Ljung–Box) before believing a lone spike — and
+      $\hat{\rho}_k$ is biased toward zero and very noisy once $k$ is an
+      appreciable fraction of $n$.
+    summary: >
+      Sample autocorrelations sit inside $\pm 2/\sqrt{n}$ under white noise;
+      judge the pattern jointly, because isolated spikes are free.
+    parent: quant-statistics.time-series
+    also_under: []
+    requires:
+      - quant-statistics.time-series.acf
+    relates: []
+    tags: []
+
+  - id: quant-statistics.time-series.ar1
+    kind: definition
+    prominence: 2
+    title: "AR(1) process"
+    statement: >
+      $x_t = c + \phi x_{t-1} + \varepsilon_t$, where $\varepsilon_t$ is white
+      noise of variance $\sigma^{2}$ uncorrelated with the past. A stationary
+      solution exists, and is unique, exactly when $|\phi| < 1$. Take
+      expectations for the mean $\mu = c/(1-\phi)$; take variances of the
+      stationary solution for $\gamma_0 = \phi^{2}\gamma_0 + \sigma^{2}$, hence
+      $\operatorname{Var}(x_t) = \sigma^{2}/(1-\phi^{2})$, which blows up as
+      $|\phi| \to 1$. Unrolling the recursion gives the equivalent form
+      $x_t - \mu = \sum_{j \ge 0} \phi^{j}\varepsilon_{t-j}$: today's shock is
+      still worth $\phi^{j}$ of itself $j$ periods later. Signs matter —
+      $\phi > 0$ is persistence, $\phi < 0$ alternation, $\phi = 0$ white noise.
+      Worked: $\phi = 0.9$, $\sigma = 1$ gives variance $1/0.19 \approx 5.26$.
+    summary: >
+      One lag of memory plus fresh noise: stationary when $|\phi| < 1$, with mean
+      $c/(1-\phi)$ and variance $\sigma^{2}/(1-\phi^{2})$.
+    parent: quant-statistics.time-series
+    also_under: []
+    requires:
+      - quant-statistics.time-series.stationarity
+    relates:
+      - id: quant-processes.ito.ou
+        note: >
+          The Ornstein–Uhlenbeck process is the continuous-time AR(1): sampling
+          it on a grid of spacing $\Delta$ yields exactly an AR(1) with
+          $\phi = e^{-\theta\Delta}$, so the reversion rate $\theta$ and the
+          coefficient $\phi$ are the same fact told on two clocks.
+    tags: []
+
+  - id: quant-statistics.time-series.ar1-acf
+    kind: proposition
+    prominence: 1
+    title: "AR(1) autocorrelation decays geometrically"
+    statement: >
+      For a stationary AR(1) with $|\phi| < 1$, the autocovariances satisfy
+      $\gamma_k = \phi\,\gamma_{k-1}$, so
+      $\gamma_k = \phi^{k}\sigma^{2}/(1-\phi^{2})$ and
+      $\rho_k = \phi^{k}$ for $k \ge 0$. Derivation (the Yule–Walker equation):
+      multiply the centred recursion by $x_{t-k}$ and take expectations;
+      $\varepsilon_t$ is uncorrelated with the past, so only the $\phi$ term
+      survives. The ACF therefore never reaches zero but decays exponentially —
+      for $\phi = 0.9$ the first lags read $0.9, 0.81, 0.73, 0.66$ — and it
+      alternates in sign when $\phi < 0$. The partial autocorrelation behaves
+      oppositely: it equals $\phi$ at lag $1$ and $0$ at every later lag, because
+      once you condition on yesterday, older values add nothing.
+    summary: >
+      $\rho_k = \phi^{k}$: geometric decay in the ACF, and a single nonzero spike
+      in the PACF — the fingerprint of one lag of memory.
+    parent: quant-statistics.time-series
+    also_under: []
+    requires:
+      - quant-statistics.time-series.ar1
+      - quant-statistics.time-series.acf
+    relates: []
+    tags: []
+
+  - id: quant-statistics.time-series.half-life
+    kind: technique
+    prominence: 1
+    title: "Half-life of mean reversion"
+    statement: >
+      A shock to a stationary AR(1) is worth $\phi^{k}$ after $k$ periods, so the
+      time to decay halfway solves $\phi^{h} = 1/2$, giving
+      $h = \ln 2 / \ln(1/\phi)$. Worked: $\phi = 0.9$ gives
+      $h = 0.6931/0.1054 \approx 6.6$ periods, so a daily spread with lag-1
+      autocorrelation $0.9$ gives back half of any dislocation in under seven
+      trading days. Reference points: $\phi = 0.5$ has half-life exactly $1$
+      period, $\phi = 0.99$ about $69$, and $h \to \infty$ as $\phi \to 1$ — the
+      unit-root boundary. Invert it to quote a coefficient from a horizon:
+      $\phi = 2^{-1/h}$. Always answer in periods; "$\phi = 0.97$" means nothing
+      until the interviewer knows the sampling frequency.
+    summary: >
+      $\ln 2/\ln(1/\phi)$ converts a reversion coefficient into a number of
+      periods — $6.6$ for $\phi = 0.9$, exactly $1$ for $\phi = 0.5$.
+    parent: quant-statistics.time-series
+    also_under: []
+    requires:
+      - quant-statistics.time-series.ar1-acf
+    relates: []
+    tags: []
+
+  - id: quant-statistics.time-series.forecast
+    kind: proposition
+    prominence: 1
+    title: "Forecasting an AR(1)"
+    statement: >
+      The mean-squared-error-minimizing $k$-step forecast of a stationary AR(1)
+      is $\mathbb{E}[x_{t+k} \mid x_t, x_{t-1}, \dots] = \mu +
+      \phi^{k}(x_t - \mu)$: the forecast slides geometrically back to the
+      unconditional mean, and past values before $x_t$ are irrelevant. Its error
+      variance is $\sigma^{2}(1-\phi^{2k})/(1-\phi^{2})$, rising from
+      $\sigma^{2}$ at $k = 1$ to the unconditional variance
+      $\sigma^{2}/(1-\phi^{2})$ as $k \to \infty$ — far enough ahead, the model
+      knows nothing the histogram did not. The one-step forecast explains a
+      fraction $\phi^{2}$ of the variance, so $\phi = 0.3$ buys only $9\%$: a
+      statistically solid autocorrelation can still be economically negligible.
+    summary: >
+      Forecast $\mu + \phi^{k}(x_t - \mu)$, with error variance climbing to the
+      unconditional variance; predictability is $\phi^{2}$, not $\phi$.
+    parent: quant-statistics.time-series
+    also_under: []
+    requires:
+      - quant-statistics.time-series.ar1
+    relates: []
+    tags: []
+
+  - id: quant-statistics.time-series.ma1
+    kind: definition
+    prominence: 1
+    title: "MA(1) process"
+    statement: >
+      $x_t = \mu + \varepsilon_t + \theta\varepsilon_{t-1}$ with
+      $\varepsilon_t$ white noise of variance $\sigma^{2}$. Unlike AR(1) it is
+      weakly stationary for every $\theta$, being a finite window over the
+      shocks: $\gamma_0 = (1+\theta^{2})\sigma^{2}$,
+      $\gamma_1 = \theta\sigma^{2}$, and $\gamma_k = 0$ for $k \ge 2$. Hence
+      $\rho_1 = \theta/(1+\theta^{2})$ and the ACF cuts off dead after lag $1$.
+      A consequence worth carrying: $|\rho_1| \le 1/2$, attained at
+      $\theta = \pm 1$, so no MA(1) can show strong lag-one correlation. The
+      values $\theta$ and $1/\theta$ give identical autocovariances; the
+      invertible root $|\theta| < 1$ is the one to fit, since only then can the
+      shocks be recovered from observed history.
+    summary: >
+      A weighted window of the last two shocks: always stationary, ACF zero
+      beyond lag $1$, and $|\rho_1|$ capped at $1/2$.
+    parent: quant-statistics.time-series
+    also_under: []
+    requires:
+      - quant-statistics.time-series.acf
+    relates: []
+    tags: []
+
+  - id: quant-statistics.time-series.ar-ma-signatures
+    kind: technique
+    prominence: 1
+    title: "Reading AR versus MA off the correlograms"
+    statement: >
+      The Box–Jenkins identification table, worth knowing cold. ACF tails off
+      geometrically while the PACF cuts off after lag $p$: AR($p$). ACF cuts off
+      after lag $q$ while the PACF tails off: MA($q$). Both tail off: ARMA. ACF
+      near $1$ and falling almost linearly across many lags: not stationary,
+      difference it first. Because sample correlograms wobble inside
+      $\pm 2/\sqrt{n}$, read the pattern rather than individual bars, and break
+      ties toward the smaller model — an AR(1) with modest $\phi$ and an MA(1)
+      are nearly indistinguishable in a short sample, and the parsimonious fit
+      forecasts better out of sample.
+    summary: >
+      Which correlogram cuts off and which tails off names the model: cut-off in
+      the PACF means AR, cut-off in the ACF means MA.
+    parent: quant-statistics.time-series
+    also_under: []
+    requires:
+      - quant-statistics.time-series.ar1-acf
+      - quant-statistics.time-series.ma1
+      - quant-statistics.time-series.sample-acf
+    relates: []
+    tags: []
+
+  - id: quant-statistics.time-series.higher-order
+    kind: definition
+    prominence: 0
+    title: "AR(p), MA(q) and ARMA"
+    statement: >
+      AR($p$) is $x_t = c + \phi_1 x_{t-1} + \dots + \phi_p x_{t-p} +
+      \varepsilon_t$, and it is stationary exactly when every root of
+      $1 - \phi_1 z - \dots - \phi_p z^{p} = 0$ lies outside the unit circle;
+      $|\phi| < 1$ is the $p = 1$ case of that condition, and no simple
+      coefficient bound replaces it in general. MA($q$) is stationary always and
+      invertible under the matching root condition on its own polynomial.
+      ARMA($p,q$) mixes the two and buys short parameter lists; ARIMA($p,d,q$) is
+      an ARMA fitted to the $d$-th difference. The Yule–Walker equations turn the
+      ACF into estimates of the $\phi_i$ cheaply, while software maximizes the
+      likelihood. Interviews seldom leave AR(1) and MA(1) — what they check is
+      that you know the general condition is about roots.
+    summary: >
+      The general families: stationarity and invertibility are root conditions on
+      the lag polynomials, with $|\phi| < 1$ as the first-order special case.
+    parent: quant-statistics.time-series
+    also_under: []
+    requires:
+      - quant-statistics.time-series.ar-ma-signatures
+    relates: []
+    tags: []
+
+  - id: quant-statistics.time-series.unit-root
+    kind: proposition
+    prominence: 2
+    title: "Unit root: φ = 1 changes everything"
+    statement: >
+      Setting $\phi = 1$ turns the AR(1) into a random walk,
+      $x_t = x_{t-1} + \varepsilon_t = x_0 + \sum_{s \le t}\varepsilon_s$, and
+      none of the stationary theory survives. The variance
+      $\operatorname{Var}(x_t) = t\sigma^{2}$ grows without bound, there is no
+      mean to revert to, shocks are permanent rather than fading like $\phi^{k}$,
+      and the half-life is infinite; an added constant $c$ becomes a
+      deterministic trend $ct$. Diagnosis: the sample ACF of such a series stays
+      near $1$ and falls almost linearly, and the formal test regresses
+      $\Delta x_t$ on $x_{t-1}$ and asks whether that slope is $0$
+      (Dickey–Fuller). The trap is that under the null this $t$-statistic is not
+      normal — the $5\%$ critical value is about $-2.86$, not $-1.96$.
+    summary: >
+      At $\phi = 1$ variance grows like $t$ and shocks never decay; testing for
+      it needs Dickey–Fuller critical values, not normal ones.
+    parent: quant-statistics.time-series
+    also_under: []
+    requires:
+      - quant-statistics.time-series.ar1
+      - quant-processes.random-walks.ssrw
+    relates: []
+    tags: []
+
+  - id: quant-statistics.time-series.differencing
+    kind: technique
+    prominence: 1
+    title: "Differencing to stationarity"
+    statement: >
+      When a series carries a unit root, model its first difference
+      $\Delta x_t = x_t - x_{t-1}$, which is stationary — the meaning of writing
+      $x_t \sim I(1)$ and $\Delta x_t \sim I(0)$. Differencing also removes a
+      linear deterministic trend. This is why finance works in returns and not
+      prices: log prices behave like an $I(1)$ series, while
+      $r_t = \Delta \log P_t = \log(P_t/P_{t-1})$ is close to stationary and can
+      be averaged, correlated and tested. The cost of overdoing it: differencing
+      an already-stationary series injects a non-invertible MA(1) component that
+      no fitted model can undo — differencing white noise gives exactly
+      $\theta = -1$ and doubles its variance. Match the cure to the disease —
+      detrend a trend-stationary series by regression, difference a unit-root
+      series.
+    summary: >
+      One difference converts $I(1)$ to $I(0)$, which is exactly why returns
+      rather than prices are the modelling unit; do not difference twice.
+    parent: quant-statistics.time-series
+    also_under: []
+    requires:
+      - quant-statistics.time-series.unit-root
+    relates: []
+    tags: []
+
+  - id: quant-statistics.time-series.spurious-regression
+    kind: example
+    prominence: 1
+    title: "Spurious regression between random walks"
+    statement: >
+      Simulate two completely independent random walks $x_t$ and $y_t$ and
+      regress $y$ on $x$. Granger and Newbold's experiment: at $n = 50$ the
+      slope's $t$-statistic exceeds $1.96$ in magnitude around $70\%$ of the
+      time, $R^{2}$ is routinely a few tenths, and the Durbin–Watson statistic
+      sits near $0$ because the residuals are themselves $I(1)$. More data does
+      not rescue you — the $t$-statistic diverges like $\sqrt{n}$ instead of
+      settling. The cause is that OLS standard errors assume well-behaved
+      residuals, and integrated residuals make them wrong by an unbounded factor.
+      Tell: a Durbin–Watson below the $R^{2}$. Cure: regress differences on
+      differences, or first establish cointegration.
+    summary: >
+      Two unrelated random walks regress onto each other with a big $R^{2}$ and a
+      huge $t$-statistic — the classic way to discover a relationship that is not
+      there.
+    parent: quant-statistics.time-series
+    also_under: []
+    requires:
+      - quant-statistics.time-series.unit-root
+      - quant-statistics.regression.ols
+    relates: []
+    tags: []
+
+  - id: quant-statistics.time-series.cointegration
+    kind: definition
+    prominence: 0
+    title: "Cointegration"
+    statement: >
+      Two $I(1)$ series $x_t$ and $y_t$ are cointegrated when some linear
+      combination $y_t - \beta x_t$ is stationary: each wanders without bound,
+      but they do not wander apart. The coefficient $\beta$ is the cointegrating
+      vector, read in practice as a hedge ratio, and the stationary spread it
+      produces typically looks like a mean-reverting AR(1) with a finite
+      half-life. Engle–Granger test: estimate $\beta$ by least squares on the
+      levels, then test the residual for a unit root using critical values
+      adjusted for the fact that the residual was fitted. Under cointegration the
+      levels regression is not spurious but super-consistent, with $\beta$
+      converging at rate $n$ rather than $\sqrt{n}$.
+    summary: >
+      Two wandering series tied by a stationary spread — the case in which
+      regressing levels on levels is legitimate rather than spurious.
+    parent: quant-statistics.time-series
+    also_under: []
+    requires:
+      - quant-statistics.time-series.spurious-regression
+      - quant-statistics.time-series.differencing
+    relates: []
+    tags: []
+
+  - id: quant-statistics.time-series.effective-sample-size
+    kind: proposition
+    prominence: 1
+    title: "Autocorrelation inflates the variance of a sample mean"
+    statement: >
+      For a stationary series,
+      $\operatorname{Var}(\bar{x}_n) = \dfrac{\gamma_0}{n}\left(1 +
+      2\sum_{k=1}^{n-1}\left(1 - \dfrac{k}{n}\right)\rho_k\right)$. For an AR(1)
+      with large $n$ the bracket tends to $(1+\phi)/(1-\phi)$, so the iid formula
+      $\gamma_0/n$ is off by that factor and the effective sample size is
+      $n(1-\phi)/(1+\phi)$. Worked: $\phi = 0.5$ triples the variance, so
+      standard errors are $\sqrt{3} \approx 1.73$ times larger and $n_{\text{eff}}
+      = n/3$; $\phi = 0.9$ inflates it $19$-fold; negative $\phi = -0.5$ shrinks
+      it to a third. This is why an autocorrelated P&L stream makes a naive
+      $t$-statistic on its mean far too confident.
+    summary: >
+      Positive serial correlation multiplies the variance of the sample mean by
+      $(1+\phi)/(1-\phi)$ — $19\times$ at $\phi = 0.9$ — so naive error bars lie.
+    parent: quant-statistics.time-series
+    also_under: []
+    requires:
+      - quant-statistics.time-series.ar1-acf
+    relates: []
+    tags: []
+
+  - id: quant-statistics.time-series.vol-clustering
+    kind: proposition
+    prominence: 2
+    title: "Stylized facts of return series"
+    statement: >
+      Four facts hold across liquid assets and sampling frequencies. First,
+      returns are close to linearly unpredictable: daily $|\rho_1|$ is typically
+      under $0.05$ and the sample ACF sits inside the $\pm 2/\sqrt{n}$ bands past
+      the first microstructure lags. Second, $|r_t|$ and $r_t^{2}$ are strongly
+      and persistently autocorrelated, still visibly positive at lags of months —
+      volatility clustering, large moves following large moves of either sign.
+      Third, returns are heavy-tailed, daily kurtosis running well above the
+      normal's $3$ and thinning as you aggregate to monthly. Fourth, the leverage
+      effect: negative equity returns raise future volatility more than positive
+      ones do.
+    summary: >
+      The level of returns is nearly white noise while their scale is strongly
+      forecastable — uncorrelated returns, clustered volatility, fat tails.
+    parent: quant-statistics.time-series
+    also_under: []
+    requires:
+      - quant-statistics.time-series.sample-acf
+      - quant-statistics.time-series.differencing
+    relates: []
+    tags: []
+
+  - id: quant-statistics.time-series.level-versus-scale
+    kind: intuition
+    prominence: 0
+    title: "Direction is hard, size is easy"
+    statement: >
+      The stylized facts split a return series into two very different
+      forecasting problems. Its sign carries almost no autocorrelation, because
+      any exploitable linear predictability in the level is arbitraged away and
+      an AR(1) with $\phi = 0.02$ explains $0.04\%$ of variance. Its magnitude is
+      highly persistent, because volatility is driven by information flow and
+      liquidity conditions that change on a slow clock, and nobody profits by
+      trading away the fact that today is a turbulent day. Practical reading:
+      treat conditional variance as forecastable and conditional mean as barely
+      so; the whole ARCH/GARCH literature, which sits outside this subbranch,
+      exists to model the first.
+    summary: >
+      Efficient markets erase predictability in the level of returns but leave it
+      untouched in their scale — which is why vol models work and signals are
+      hard.
+    parent: quant-statistics.time-series
+    also_under: []
+    requires:
+      - quant-statistics.time-series.vol-clustering
+      - quant-statistics.time-series.forecast
+    relates: []
+    tags: []

@@ -86,14 +86,23 @@ extension GraphDocument {
     /// Search order: the app bundle's resources, then the directory holding the
     /// executable, then `build/content` under the working directory — so a
     /// bundled `MathTree.app` and a bare `swift run` both find artifacts.
-    static func searchDirectories() -> [URL] {
-        var directories: [URL] = []
-        if let resources = Bundle.main.resourceURL { directories.append(resources) }
-        directories.append(Bundle.main.bundleURL.deletingLastPathComponent())
+    ///
+    /// A non-nil `subdirectory` namespaces every root: `Resources/quant`,
+    /// `build/quant`, and so on. The math tree stays at the roots themselves so
+    /// existing bundles keep loading.
+    static func searchDirectories(subdirectory: String? = nil) -> [URL] {
+        var bases: [URL] = []
+        if let resources = Bundle.main.resourceURL { bases.append(resources) }
+        bases.append(Bundle.main.bundleURL.deletingLastPathComponent())
         let workingDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        directories.append(workingDirectory.appendingPathComponent("build/content"))
-        directories.append(workingDirectory)
-        return directories
+        guard let subdirectory else {
+            return bases + [
+                workingDirectory.appendingPathComponent("build/content"), workingDirectory,
+            ]
+        }
+        return bases.map { $0.appendingPathComponent(subdirectory) } + [
+            workingDirectory.appendingPathComponent("build").appendingPathComponent(subdirectory)
+        ]
     }
 
     static func load(from directories: [URL] = searchDirectories()) throws -> GraphDocument {

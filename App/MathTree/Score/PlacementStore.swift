@@ -39,6 +39,7 @@ final class PlacementStore {
     init(
         scores: ScoreStore,
         bank: ProblemBank,
+        tree: TreeSpec = .math,
         config: PlacementConfig = PlacementConfig(),
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) {
@@ -46,10 +47,10 @@ final class PlacementStore {
         self.bank = bank
         self.config = config
 
-        if let override = environment["MATHTREE_PLACEMENT"], !override.isEmpty {
+        if let override = environment[tree.placementEnvironmentKey], !override.isEmpty {
             url = URL(fileURLWithPath: (override as NSString).expandingTildeInPath)
         } else if let base = try? EvidenceLog.defaultURL() {
-            url = base.deletingLastPathComponent().appendingPathComponent("placement.json")
+            url = base.deletingLastPathComponent().appendingPathComponent(tree.placementFileName)
         } else {
             url = nil
         }

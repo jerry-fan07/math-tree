@@ -1,0 +1,396 @@
+# quant-games.ev-games — Expected-Value Games
+# Outline node (38 in content-quant/outline.md's authoring order).
+# Re-roll games with a fee, and the general stopping machinery, are authored in
+# §22 quant-processes.stopping; bet sizing is §39 quant-games.kelly; games with
+# a strategic opponent are §40 quant-games.game-theory. Pointers only here.
+
+nodes:
+  - id: quant-games.ev-games
+    kind: subbranch
+    title: "Expected-Value Games"
+    summary: >
+      Pricing simple games — fair value, symmetry, options to re-roll,
+      and when variance should change your answer.
+    parent: quant-games
+    also_under: []
+    tags: []
+
+  - id: quant-games.ev-games.fair-value
+    kind: definition
+    prominence: 2
+    title: "Fair value of a game"
+    statement: >
+      A game paying a random amount $X$ once has fair value $\mathbb{E}[X]$: at
+      that price neither side expects a profit, so it is the number you quote
+      when asked "what would you pay to play?". Your edge at price $p$ is
+      $\mathbb{E}[X] - p$ — positive when you buy below fair value, negative
+      above it — so a game worth $4.5$ is one you should be equally happy to buy
+      at $4$ or sell at $5$, the same half-dollar edge either side. Two
+      consequences interviewers probe: the
+      price depends only on the law of the payoff and not on the mechanism that
+      generates it, and a game with several payoff components is priced by
+      adding the components' values. Fair value is a one-shot, risk-neutral
+      number; bankroll and appetite for variance enter afterwards.
+    summary: >
+      The fair price of a one-shot game is its expected payoff, and your edge is
+      that expected payoff minus the price you actually pay.
+    parent: quant-games.ev-games
+    also_under: []
+    requires:
+      - quant-probability.expectation.expectation
+    relates: []
+    tags: []
+
+  - id: quant-games.ev-games.pay-per-pip
+    kind: example
+    prominence: 1
+    title: "The pay-per-pip die"
+    statement: >
+      Roll one fair die and collect a dollar per pip. The payoff is uniform on
+      $\{1,\dots,6\}$, so the fair value is $(1+2+3+4+5+6)/6 = 3.5$ and any
+      entry fee below $3.5$ is an edge. Three variants that catch people. Paid
+      the square of the face, the game is worth
+      $\mathbb{E}[X^{2}] = 91/6 \approx 15.17$, not $3.5^{2} = 12.25$: a payoff
+      function may not be pushed through the expectation. Paid $10$ only when a
+      six shows, it is worth $10/6 \approx 1.67$. Paid the total of two dice, it
+      is worth $3.5 + 3.5 = 7$, and that addition needs no independence, so the
+      answer is unchanged if the second die is forced to differ from the first.
+    summary: >
+      The pay-per-pip die is worth exactly $3.5$; paying the square of the face
+      makes it $91/6 \approx 15.17$, not $12.25$.
+    parent: quant-games.ev-games
+    also_under: []
+    requires:
+      - quant-games.ev-games.fair-value
+    relates: []
+    tags: []
+
+  - id: quant-games.ev-games.symmetry-pricing
+    kind: technique
+    prominence: 1
+    title: "Symmetry pricing"
+    statement: >
+      Look for symmetry before writing any sum; it often prices the game
+      outright, and otherwise it checks the algebra you were about to do. Three
+      moves. First, if $c - X$ has the same law as $X$ then the game is worth
+      $c/2$: the total of two dice is symmetric about $7$, so it is worth $7$.
+      Second, if a known total $T$ splits among $k$ exchangeable parts then each
+      part is worth $T/k$: the $364$ pips of a deck scored $A = 1$ through
+      $K = 13$ split among four exchangeable thirteen-card hands, so each hand
+      is worth $91$. Third, a zero-sum game invariant under swapping the two
+      players is worth $0$ to each, so neither seat is worth paying for.
+    summary: >
+      A payoff symmetric about $c$ is worth $c/2$, exchangeable parts of a known
+      total split it evenly, and a symmetric zero-sum seat is worth nothing.
+    parent: quant-games.ev-games
+    also_under: []
+    requires:
+      - quant-games.ev-games.fair-value
+      - quant-probability.expectation.symmetry-expectation
+    relates: []
+    tags: []
+
+  - id: quant-games.ev-games.condition-first-draw
+    kind: technique
+    prominence: 1
+    title: "Pricing by conditioning on the first roll or draw"
+    statement: >
+      When a game unfolds in stages, price it by splitting on the first outcome:
+      $\mathbb{E}[X] = \sum_i \Pr(\text{first outcome is } i)\,
+      \mathbb{E}[X \mid \text{first outcome is } i]$. The move that makes it
+      work is naming the value of the not-yet-played remainder as an unknown and
+      writing one equation for it. Roll a die, then roll that many dice and
+      collect the total: conditioning on the first face $N$ gives
+      $\mathbb{E}[X] = \mathbb{E}[3.5\,N] = 3.5 \times 3.5 = 12.25$. Roll until
+      the first six, collecting a dollar per roll: with $V$ the value of the
+      game, $V = 1 + (5/6)V$, so $V = 6$. Use it whenever the game restarts,
+      shrinks, or changes state after the first card or roll.
+    summary: >
+      Split on the first roll or card, price each branch, and average — the
+      standard way to collapse a multi-stage game into one equation.
+    parent: quant-games.ev-games
+    also_under: []
+    requires:
+      - quant-games.ev-games.fair-value
+      - quant-probability.conditioning.condition-first-step
+    relates: []
+    tags: []
+
+  - id: quant-games.ev-games.option-value
+    kind: intuition
+    prominence: 1
+    title: "The right to look is worth money"
+    statement: >
+      Being allowed to see an outcome and then choose is worth strictly more
+      than committing in advance, because
+      $\mathbb{E}[\max(X,Y)] \ge \max(\mathbb{E}[X], \mathbb{E}[Y])$, with
+      equality only when one alternative dominates with probability $1$. Price
+      the difference rather than merely noting it. A fair die is worth $3.5$;
+      the right to see the face and instead take a guaranteed $3.5$ is worth
+      $\mathbb{E}[\max(X, 3.5)] = (4+5+6)/6 + (3/6)(3.5) = 4.25$, so the option
+      is worth $0.75$. Optionality is paid for out of variance: widen the spread
+      of $X$ around the same mean and the choice becomes worth more, which is
+      why a re-roll, a free look, and an option on a stock are the same object.
+    summary: >
+      A choice made after seeing the outcome is worth $\mathbb{E}[\max]$ rather
+      than $\max\mathbb{E}$ — against a certain $3.5$, a fair die look is worth
+      $0.75$.
+    parent: quant-games.ev-games
+    also_under: []
+    requires:
+      - quant-games.ev-games.fair-value
+    relates:
+      - id: quant-probability.inequalities.jensen
+        note: >
+          The option value is precisely the Jensen gap for the convex function
+          $x \mapsto \max(x,c)$, so more variance in the underlying payoff
+          widens it.
+    tags: []
+
+  - id: quant-games.ev-games.dice-reroll
+    kind: example
+    prominence: 1
+    title: "Re-roll dice games as a price list"
+    statement: >
+      A fair die pays its face value and you may re-roll, keeping the face you
+      accept. Backward induction gives the ladder $V_1 = 3.5$, $V_2 = 4.25$
+      (keep $4$ or better), $V_3 = 14/3 \approx 4.67$ (keep $5$ or better, then
+      $4$ or better) and $V_4 = 89/18 \approx 4.94$. Read as prices: the
+      three-roll game is fair at $14/3$, so a $5$ entry fee is a sell and a $4$
+      fee is a buy. The marginal option values are $V_2 - V_1 = 0.75$,
+      $V_3 - V_2 = 5/12 \approx 0.42$ and $V_4 - V_3 = 5/18 \approx 0.28$: each
+      extra chance is worth less than the last, and the ladder creeps toward the
+      ceiling of $6$. Charging a fee per re-roll instead of capping the count
+      replaces the ladder by a fixed point, solved the same way.
+    summary: >
+      The $3.5 / 4.25 / 14/3$ ladder read as a price list, with the option value
+      of each additional roll decaying $0.75$, $0.42$, $0.28$.
+    parent: quant-games.ev-games
+    also_under: []
+    requires:
+      - quant-games.ev-games.option-value
+      - quant-processes.stopping.dice-game
+    relates: []
+    tags: []
+
+  - id: quant-games.ev-games.commit-versus-see
+    kind: example
+    prominence: 0
+    title: "Deciding as you go costs money"
+    statement: >
+      Compare two three-roll dice games. In the re-roll game each face must be
+      accepted or discarded before the next is seen, and the game is worth
+      $14/3 \approx 4.67$. In the pay-the-best game you simply roll three times
+      and collect the largest face: from $\Pr(M \le k) = (k/6)^{3}$ the pmf is
+      $\Pr(M = k) = (k^{3} - (k-1)^{3})/216$, so
+      $\mathbb{E}[M] = (1 + 14 + 57 + 148 + 305 + 546)/216 = 1071/216
+      = 119/24 \approx 4.96$. The gap of about $0.29$ is the price of
+      irrevocability — the same three observations are worth less when each must
+      be judged before the rest arrive. Interviewers switch between the two
+      phrasings deliberately, so repeat the rules back before answering.
+    summary: >
+      Three rolls keeping the best are worth $119/24 \approx 4.96$ against
+      $14/3 \approx 4.67$ when you must decide as you go.
+    parent: quant-games.ev-games
+    also_under: []
+    requires:
+      - quant-games.ev-games.dice-reroll
+    relates: []
+    tags: []
+
+  - id: quant-games.ev-games.next-card-red
+    kind: example
+    prominence: 1
+    title: "Stopping the deck to bet on red"
+    statement: >
+      A shuffled deck is turned one card at a time; at any moment you may stop
+      and bet that the next card is red, winning a dollar if it is and losing
+      one if it is black, and if you never call you must bet on the last card.
+      What is the game worth? Nothing. With $R$ reds and $B$ blacks unseen the
+      next card is red with probability $R/(R+B)$, and that fraction is a
+      martingale — revealing one card of either colour leaves its conditional
+      expectation unchanged — so every stopping rule pays
+      $2 \cdot (26/52) - 1 = 0$. No rule can make the card you finally bet on
+      redder than the $1/2$ you started with. The variant paying a dollar for
+      red and nothing for black is worth $1/2$ for the same reason.
+    summary: >
+      Waiting for a black-heavy run before betting the next card is red is worth
+      exactly $0$: the red fraction is a martingale, so no rule beats $1/2$.
+    parent: quant-games.ev-games
+    also_under: []
+    requires:
+      - quant-games.ev-games.symmetry-pricing
+    relates:
+      - id: quant-processes.martingales.ost
+        note: >
+          The red fraction is a bounded martingale and the call is a bounded
+          stopping time, so optional stopping is the theorem that forbids any
+          rule from beating the starting probability.
+    tags: []
+
+  - id: quant-games.ev-games.red-black-stopping
+    kind: example
+    prominence: 1
+    title: "Stopping on colours for the remaining surplus"
+    statement: >
+      Same deck, different payoff: cards are turned one at a time and you may
+      stop whenever you like, collecting a dollar for every red still unseen and
+      paying a dollar for every black still unseen, with $0$ if you run the deck
+      out. Unlike the guess-the-next-card game this is worth real money, because
+      you may wait for a black-heavy run and quit while the remainder is
+      red-rich. With $r$ reds and $b$ blacks left,
+      $V(r,b) = \max\left(r - b,\; \frac{r}{r+b}V(r-1,b) +
+      \frac{b}{r+b}V(r,b-1)\right)$, with $V(r,0) = r$ and $V(0,b) = 0$. Small
+      cases: $V(1,1) = 1/2$, $V(2,2) = 2/3$, $V(5,5) \approx 1.12$. The full
+      deck gives $V(26,26) \approx 2.62$, and $V(n,n)$ grows only like
+      $\sqrt{n}$.
+    summary: >
+      Quit while the unseen cards are red-rich: the recursion values the full
+      deck at about $2.62$, against $0$ for the next-card version.
+    parent: quant-games.ev-games
+    also_under: []
+    requires:
+      - quant-games.ev-games.next-card-red
+      - quant-games.ev-games.condition-first-draw
+      - quant-processes.stopping.backward-induction
+    relates: []
+    tags: []
+
+  - id: quant-games.ev-games.card-value-draw
+    kind: example
+    prominence: 1
+    title: "Drawing cards for value"
+    statement: >
+      Score cards $A = 1$ through $K = 13$. The deck totals
+      $4(1 + \cdots + 13) = 364$, so a single card drawn at random is worth
+      $364/52 = 7$. Because expectation adds whether or not the draws are
+      independent, a game paying the total of a five-card hand dealt without
+      replacement is worth $5 \times 7 = 35$ — exactly what it would be with
+      replacement, since dealing without replacement moves the variance but
+      never the price. The same decomposition prices counting games: a dollar
+      per ace in a five-card hand is worth $5 \times (4/52) = 5/13 \approx
+      0.385$, and a dollar per suit represented is worth
+      $4\left(1 - \binom{39}{5}/\binom{52}{5}\right) = 4(1 - 0.2215)
+      \approx 3.11$.
+    summary: >
+      A random card is worth $7$ and a five-card hand $35$ — dependence from
+      dealing without replacement changes the variance but not the fair price.
+    parent: quant-games.ev-games
+    also_under: []
+    requires:
+      - quant-games.ev-games.pay-per-pip
+    relates: []
+    tags: []
+
+  - id: quant-games.ev-games.ace-positions
+    kind: example
+    prominence: 1
+    title: "Pricing deck-position games"
+    statement: >
+      Shuffle a deck and price the position games off one fact: the four aces
+      cut the $48$ non-aces into five exchangeable gaps, so each gap averages
+      $48/5 = 9.6$ cards. Hence a game paying a dollar per card dealt before the
+      first ace is worth $9.6$, a game paying the position of the first ace is
+      worth $10.6$, and by the mirror argument the last ace sits at
+      $53 - 10.6 = 42.4$ on average. The exchangeability of the gaps is the
+      whole derivation, so these numbers are worth carrying into the room rather
+      than recomputing. Watch the phrasing: "cards before the first ace" and
+      "position of the first ace" differ by exactly one, and both are asked.
+    summary: >
+      Five exchangeable gaps of $9.6$ non-aces price the whole family: first ace
+      at $10.6$, last ace at $42.4$.
+    parent: quant-games.ev-games
+    also_under: []
+    requires:
+      - quant-games.ev-games.symmetry-pricing
+      - quant-probability.conditional.symmetry-exchangeability
+    relates: []
+    tags: []
+
+  - id: quant-games.ev-games.risk-aversion
+    kind: intuition
+    prominence: 2
+    title: "Expected value is not the whole answer at size"
+    statement: >
+      Expected value prices a game correctly only while the stake is small
+      against your bankroll. Offered a coin flip that wins $1.1$ million dollars
+      or loses $1$ million, the fair value is a positive $50$ thousand and
+      almost everyone declines — and they are not being irrational. What a
+      bettor with wealth $W$ maximizes is $\mathbb{E}[u(W + X)]$ for a concave
+      utility $u$, and concavity means each lost dollar hurts more than each won
+      dollar helps. Two rules follow. Refuse any bet that can wipe you out,
+      however favourable, because ruin is absorbing and there is no next game.
+      Otherwise take the positive edge, but at a size small enough that the
+      concavity barely bites — a sizing question, settled by log-wealth
+      maximization in the Kelly subbranch, not a question about the edge.
+    summary: >
+      At size the objective is expected utility, not expected value, so a
+      concave bettor can rationally decline a clearly positive-EV bet.
+    parent: quant-games.ev-games
+    also_under: []
+    requires:
+      - quant-games.ev-games.fair-value
+    relates: []
+    tags: []
+
+  - id: quant-games.ev-games.certainty-equivalent
+    kind: definition
+    prominence: 1
+    title: "Certainty equivalent and risk premium"
+    statement: >
+      The certainty equivalent of a game $X$ at wealth $W$ is the sure amount
+      $c$ solving $u(W + c) = \mathbb{E}[u(W + X)]$: the price at which you are
+      exactly indifferent to playing, and therefore your reservation price. The
+      risk
+      premium $\mathbb{E}[X] - c$ is nonnegative for concave $u$ and measures
+      what you would pay to be rid of the risk. Arrow–Pratt: for a small bet the
+      premium is about
+      $\tfrac{1}{2}A(W)\operatorname{Var}(X)$, where $A = -u''/u'$. Worked with
+      logarithmic utility at $W = 100$ thousand and a fair coin flip for $10$
+      thousand: $c = \sqrt{110000 \times 90000} - 100000 \approx -501$, so a
+      zero-EV flip is worth about $-500$, matching
+      $\tfrac{1}{2}(1/W)\operatorname{Var}(X) = 10^{8}/(2 \times 10^{5}) = 500$.
+    summary: >
+      The sure amount you would swap the game for; expected payoff minus it is
+      the risk premium, roughly $\tfrac{1}{2}A\operatorname{Var}$ for small bets.
+    parent: quant-games.ev-games
+    also_under: []
+    requires:
+      - quant-games.ev-games.risk-aversion
+    relates:
+      - id: quant-probability.inequalities.jensen
+        note: >
+          Jensen applied to a concave utility is exactly the statement that the
+          certainty equivalent sits at or below the expected payoff, so the risk
+          premium is never negative.
+    tags: []
+
+  - id: quant-games.ev-games.repeated-edge
+    kind: intuition
+    prominence: 1
+    title: "A small edge needs enormous repetition"
+    statement: >
+      A thin edge is a business only if you can repeat it, and repetition works
+      because expectation adds linearly while noise grows like $\sqrt{n}$. Take
+      an even-money bet won with probability $0.505$ at a stake of one dollar:
+      the edge is $0.01$ per bet and the variance is essentially $1$. After ten
+      thousand bets the mean profit is $100$ dollars with standard deviation
+      $100$ — a coin flip on whether the year was profitable. After a million
+      bets the mean is $10$ thousand against a standard deviation of $1$
+      thousand, a ten-sigma result. Two lessons: an edge you cannot repeat is
+      nearly worthless, and the binding constraint on repeating it is surviving
+      the drawdowns, which is a sizing question rather than an EV question.
+    summary: >
+      Edge accumulates like $n$ and noise like $\sqrt{n}$, so a $1\%$ edge needs
+      about ten thousand bets before it is even one standard deviation.
+    parent: quant-games.ev-games
+    also_under: []
+    requires:
+      - quant-games.ev-games.risk-aversion
+    relates:
+      - id: quant-probability.limits.root-n
+        note: >
+          The same square-root arithmetic seen from the estimation side: a
+          sample mean's error shrinks like $1/\sqrt{n}$, which is why a fixed
+          per-bet edge takes so many bets to clear the noise.
+    tags: []

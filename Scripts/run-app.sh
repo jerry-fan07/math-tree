@@ -30,6 +30,9 @@ mkdir -p "$STATE/intake"
 export MATHTREE_EVIDENCE_LOG="$STATE/evidence.jsonl"
 export MATHTREE_INTAKE="$STATE/intake"
 export MATHTREE_PLACEMENT="$STATE/placement.json"
+# The quant tree's state (TreeSpec.quant) is isolated for the same reason.
+export MATHTREE_QUANT_EVIDENCE_LOG="$STATE/evidence-quant.jsonl"
+export MATHTREE_QUANT_PLACEMENT="$STATE/placement-quant.json"
 
 Scripts/bundle-app.sh "$CONFIG"
 

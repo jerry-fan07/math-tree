@@ -1,0 +1,468 @@
+# quant-programming.algorithms — Algorithmic Patterns
+# Outline node (57 in content-quant/outline.md's authoring order).
+#
+# NEEDS: quant-programming.data-structures.queue — BFS's frontier is a FIFO
+# queue and DFS's is a stack; §56 lists "stack and queue" as a topic but exposes
+# no spine id for them, so `bfs-dfs` anchors on the hash-map (visited set) and
+# heap (the Dijkstra upgrade) spine nodes instead.
+
+nodes:
+  - id: quant-programming.algorithms
+    kind: subbranch
+    title: "Algorithmic Patterns"
+    summary: >
+      The recurring solves — binary search (including on the answer),
+      sorting facts, two pointers, dynamic programming, and graph
+      traversal.
+    parent: quant-programming
+    also_under: []
+    tags: []
+
+  - id: quant-programming.algorithms.binary-search
+    kind: technique
+    prominence: 2
+    title: "Binary search"
+    statement: >
+      Reach for it whenever a sorted array, or any monotone predicate, lets a
+      single probe eliminate half the candidates. Mechanics on a sorted array
+      $a_0,\dots,a_{n-1}$: maintain a half-open window $[\ell, r)$ known to
+      contain the answer, probe $m = \ell + \lfloor (r-\ell)/2 \rfloor$, and
+      move $\ell$ or $r$ past $m$ according to the comparison, stopping when
+      $\ell = r$. Each step halves the window, so the cost is $O(\log n)$
+      probes: $20$ cover a million entries, $30$ cover a billion. Two habits
+      remove the off-by-one bugs that sink candidates. Fix one invariant in
+      words and never break it (everything below $\ell$ is too small, everything
+      at or above $r$ is not), and write the midpoint as
+      $\ell + (r-\ell)/2$ rather than $(\ell + r)/2$, which can overflow.
+    summary: >
+      Halve the candidate range with every probe — $O(\log n)$ on sorted data,
+      provided you pin one loop invariant down in words and hold to it.
+    parent: quant-programming.algorithms
+    also_under: []
+    requires:
+      - quant-programming.complexity.big-o
+    relates: []
+    tags: []
+
+  - id: quant-programming.algorithms.binary-search-answer
+    kind: technique
+    prominence: 1
+    title: "Binary search on the answer"
+    statement: >
+      The sorted array need not exist. Whenever the question reads "find the
+      smallest $x$ that works" and feasibility is monotone — $x$ feasible
+      implies every larger $x$ feasible — binary search the answer space rather
+      than the data. Recipe: (1) write a checker $\mathrm{ok}(x)$ deciding
+      feasibility in $O(n)$, usually a greedy simulation; (2) bracket the answer
+      with an obviously infeasible lower end and an obviously feasible upper
+      end; (3) binary search for the first $x$ where $\mathrm{ok}$ turns true.
+      Total cost $O(n \log R)$ over a range of width $R$, so the search itself
+      is essentially free and the checker is the whole algorithm. Verifying
+      monotonicity is the real work: if feasibility can switch back off, the
+      method returns a wrong answer silently.
+    summary: >
+      When feasibility is monotone in $x$, search over candidate answers instead
+      of over the input and let a linear feasibility check do the deciding.
+    parent: quant-programming.algorithms
+    also_under: []
+    requires:
+      - quant-programming.algorithms.binary-search
+    relates: []
+    tags: []
+
+  - id: quant-programming.algorithms.ship-capacity
+    kind: example
+    prominence: 1
+    title: "Least ship capacity to deliver in D days"
+    statement: >
+      Packages of weights $w_1,\dots,w_n$ must ship in the given order within
+      $D$ days, each day loading a contiguous prefix of what remains; find the
+      smallest capacity $C$ that suffices. Feasibility is monotone — a larger
+      ship never needs more days — so binary search $C$. The checker is greedy:
+      keep loading the current day until the next package would exceed $C$, then
+      open a new day, counting days in $O(n)$. Bracket with $\max_i w_i$ (one
+      package must fit) and $\sum_i w_i$ (everything in one day). Worked with
+      $w = 1,2,\dots,10$ and $D = 5$: the bracket is $[10, 55]$; at $C = 15$ the
+      greedy days are $\{1,\dots,5\}$, $\{6,7\}$, $\{8\}$, $\{9\}$, $\{10\}$,
+      exactly $5$, feasible; at $C = 14$ the same scan needs $6$ days. The
+      answer is $C = 15$, found in about $\log_{2} 45 \approx 6$ probes.
+    summary: >
+      The canonical search-on-the-answer problem: an $O(n)$ greedy day-counter
+      inside a search over capacities returns $15$ for weights $1$ to $10$ in
+      $5$ days.
+    parent: quant-programming.algorithms
+    also_under: []
+    requires:
+      - quant-programming.algorithms.binary-search-answer
+    relates: []
+    tags: []
+
+  - id: quant-programming.algorithms.sorting-lower-bound
+    kind: theorem
+    prominence: 1
+    title: "The n log n comparison-sorting lower bound"
+    statement: >
+      Any algorithm that sorts $n$ distinct items using only pairwise
+      comparisons performs $\Omega(n \log n)$ comparisons in the worst case.
+      Proof: the run is a path down a binary decision tree whose leaves must
+      include all $n!$ orderings, so some root-to-leaf path has length at least
+      $\log_{2}(n!)$, and Stirling turns that into
+      $\log_{2}(n!) = n\log_{2} n - n\log_{2} e + O(\log n) \sim n \log_{2} n$.
+      Merge sort and heapsort meet the bound, so $\Theta(n\log n)$ is the exact
+      comparison complexity. The hypothesis is doing nothing but comparing: with
+      keys from a small integer range $\{0,\dots,k\}$ you may tally occurrences
+      and read them back, which is counting sort at $O(n+k)$, and radix sort
+      escapes the same way by reading digits.
+    summary: >
+      Sorting by comparison cannot beat $n\log_{2} n$, because $n!$ possible
+      answers need that many yes/no bits — counting and radix sorts escape only
+      by never comparing.
+    parent: quant-programming.algorithms
+    also_under: []
+    requires:
+      - quant-programming.complexity.big-o
+      - quant-puzzles.strategies.info-lower-bound
+    relates: []
+    tags: []
+
+  - id: quant-programming.algorithms.two-pointers
+    kind: technique
+    prominence: 1
+    title: "Two pointers"
+    statement: >
+      Two indices walk a sorted array, or a pair of sorted arrays, and never
+      back up, so the sweep costs $O(n)$ once the data is sorted. The archetype
+      is the converging pair: $i$ at the front, $j$ at the back, and a quantity
+      such as $a_i + a_j$ that is monotone in each index, rising when $i$ moves
+      right and falling when $j$ moves left. Each move then discards a whole
+      block of candidate pairs at once, which is the same discard argument that
+      makes binary search correct, run linearly instead of logarithmically. The
+      same-direction variant merges two sorted lists, dedupes in place, or
+      partitions around a pivot. Two questions before using it: is the data
+      ordered on the quantity you compare, and does moving a pointer provably
+      rule out every pair it steps over?
+    summary: >
+      Sweep sorted data with two indices that only ever move forward; each step
+      provably eliminates a block of candidates, giving $O(n)$ after the sort.
+    parent: quant-programming.algorithms
+    also_under: []
+    requires:
+      - quant-programming.algorithms.binary-search
+    relates: []
+    tags: []
+
+  - id: quant-programming.algorithms.pair-sum
+    kind: example
+    prominence: 1
+    title: "Two-sum in a sorted array"
+    statement: >
+      Given a sorted array and a target $T$, decide whether two entries sum to
+      $T$. Set $i = 0$, $j = n-1$ and loop on $s = a_i + a_j$: report the pair
+      if $s = T$, increment $i$ if $s < T$, decrement $j$ if $s > T$.
+      Correctness: when $s < T$, entry $a_i$ paired with anything at or below
+      $a_j$ still falls short, so no surviving pair uses index $i$ and dropping
+      it costs nothing. At most $n$ moves happen, so this is $O(n)$ time and
+      $O(1)$ extra space. On $a = 1,3,4,6,8,11$ with $T = 12$ the first probe
+      $1 + 11$ already answers. If the input is unsorted, sorting first costs
+      $\Theta(n\log n)$ and no comparison sort does better, so the right answer
+      becomes a hash set of seen values queried for $T - a_i$: $O(n)$ expected
+      time at $O(n)$ space.
+    summary: >
+      Converging pointers settle the sorted two-sum in one $O(n)$ pass with no
+      extra memory; on unsorted input the hash-set version beats paying for the
+      sort.
+    parent: quant-programming.algorithms
+    also_under: []
+    requires:
+      - quant-programming.algorithms.two-pointers
+      - quant-programming.algorithms.sorting-lower-bound
+    relates: []
+    tags: []
+
+  - id: quant-programming.algorithms.sliding-window
+    kind: technique
+    prominence: 1
+    title: "Sliding window"
+    statement: >
+      Keep a window $[\ell, r]$ over a sequence together with an aggregate — a
+      sum, a count of distinct values, a frequency table — that updates in
+      $O(1)$ when an element enters at $r$ or leaves at $\ell$. Fixed-width
+      windows just slide. Variable windows follow the greedy rule: advance $r$
+      by one, then while the window violates the constraint advance $\ell$.
+      Since each index enters once and leaves once, the total work is $O(n)$
+      despite the nested loops — an amortized argument, not a bound on the inner
+      loop. The method is legal only when the constraint is monotone under
+      shrinking: "sum $\le S$" with nonnegative entries qualifies, because
+      dropping an element can only help, while entries of mixed sign break it
+      and send you to prefix sums instead.
+    summary: >
+      Extend the right edge, then pull the left edge in while the window is
+      illegal — amortized $O(n)$, valid only when shrinking always restores
+      legality.
+    parent: quant-programming.algorithms
+    also_under: []
+    requires:
+      - quant-programming.algorithms.two-pointers
+    relates: []
+    tags: []
+
+  - id: quant-programming.algorithms.prefix-sums
+    kind: technique
+    prominence: 1
+    title: "Prefix sums"
+    statement: >
+      Precompute $P_0 = 0$ and $P_k = a_1 + \dots + a_k$ in one $O(n)$ pass;
+      every range sum is then $\sum_{i=\ell}^{r} a_i = P_r - P_{\ell-1}$ in
+      $O(1)$. The trade is $O(n)$ extra space to turn $q$ range queries from
+      $O(qn)$ into $O(n+q)$. Three variants earn their keep: a difference array
+      absorbs $q$ range updates at $O(1)$ each and rebuilds the array in $O(n)$;
+      a two-dimensional table answers rectangle queries by inclusion–exclusion,
+      $P_{r_2,c_2} - P_{r_1-1,c_2} - P_{r_2,c_1-1} + P_{r_1-1,c_1-1}$; and
+      storing seen prefix values in a hash map counts subarrays summing to $T$
+      in one pass, since $P_r - P_{\ell-1} = T$ is a lookup of $P_r - T$. Watch
+      overflow — prefixes grow like $n \max_i |a_i|$ even when the entries are
+      small.
+    summary: >
+      One cumulative pass buys $O(1)$ range sums forever, and paired with a hash
+      map of seen prefixes it counts target-sum subarrays in linear time.
+    parent: quant-programming.algorithms
+    also_under: []
+    requires: []
+    relates: []
+    tags: []
+
+  - id: quant-programming.algorithms.dp
+    kind: technique
+    prominence: 2
+    title: "Dynamic programming"
+    statement: >
+      Dynamic programming applies to problems with optimal substructure — the
+      answer assembles from answers to smaller instances — and overlapping
+      subproblems, so that naive recursion recomputes the same state
+      exponentially often. The drill is always the same four steps: name the
+      state, write the transition as a recurrence, fix the base cases, then
+      either memoize the recursion top-down or fill a table bottom-up in an
+      order where every dependency is already resolved. Cost is (number of
+      states) $\times$ (work per transition), which is the complexity estimate
+      an interviewer is listening for. Memoization is easier to derive from the
+      brute force; tabulation dodges recursion depth and admits rolling arrays
+      that cut space to the last row or two. Non-overlapping subproblems mean
+      divide and conquer, not DP.
+    summary: >
+      Name a state, write its recurrence, cache the results — the cost is states
+      times transition, and memoization and tabulation are the same table read
+      in opposite directions.
+    parent: quant-programming.algorithms
+    also_under: []
+    requires:
+      - quant-tools.recurrences.linear-recurrence
+    relates:
+      - id: quant-puzzles.classics.egg-drop
+        note: >
+          The two-egg puzzle is exactly this table, with state (eggs remaining,
+          floors remaining) and a min-over-max transition; the $n(n+1)/2 \ge
+          100$ closed form is the shape the DP table converges to.
+      - id: quant-processes.stopping.backward-induction
+        note: >
+          Backward induction is dynamic programming on a time-indexed state:
+          solve the final stage, then step back one stage at a time, which is
+          bottom-up tabulation applied to a decision problem.
+    tags: []
+
+  - id: quant-programming.algorithms.kadane
+    kind: example
+    prominence: 1
+    title: "Kadane's maximum subarray"
+    statement: >
+      Find the largest sum over contiguous nonempty subarrays of
+      $a_1,\dots,a_n$. State: $b_k$ is the best sum of a subarray ending exactly
+      at index $k$. Transition: $b_k = \max(a_k,\; b_{k-1} + a_k)$ — extend the
+      best block ending at $k-1$ or start fresh, and starting fresh is right
+      exactly when $b_{k-1} < 0$. The answer is $\max_k b_k$, computed in one
+      $O(n)$ pass with $O(1)$ memory. Worked on $-2, 1, -3, 4, -1, 2, 1, -5, 4$:
+      the $b$ values are $-2, 1, -2, 4, 3, 5, 6, 1, 5$, so the answer is $6$,
+      from the block $4, -1, 2, 1$. The prefix-sum reading is the same fact: the
+      best subarray ending at $r$ is $P_r - \min_{\ell < r} P_\ell$, so one
+      running minimum of the prefixes suffices.
+    summary: >
+      Best-ending-here in one line, $b_k = \max(a_k, b_{k-1}+a_k)$, gives the
+      maximum subarray sum in a single $O(n)$ pass — $6$ on the textbook array.
+    parent: quant-programming.algorithms
+    also_under: []
+    requires:
+      - quant-programming.algorithms.prefix-sums
+      - quant-programming.algorithms.dp
+    relates: []
+    tags: []
+
+  - id: quant-programming.algorithms.coin-change
+    kind: example
+    prominence: 1
+    title: "Coin change by dynamic programming"
+    statement: >
+      Denominations $c_1,\dots,c_m$ are available without limit: use the fewest
+      coins totalling $T$. State $f(t)$ is the fewest coins summing to $t$, with
+      $f(0) = 0$ and $f(t) = \infty$ where unreachable. Recurrence
+      $f(t) = 1 + \min\{f(t - c_j) \mid c_j \le t\}$, filled for
+      $t = 1,\dots,T$ at $O(mT)$ time and $O(T)$ space. Worked with coins
+      $1, 3, 4$ and $T = 6$: the table is $f = 0, 1, 2, 1, 1, 2, 2$, so
+      $f(6) = 2$, namely $3+3$, while greedily taking the largest coin gives
+      $4+1+1 = 3$ — the standard proof that greedy fails on general
+      denominations. Counting the number of ways instead uses the same table
+      with the coin loop outside the amount loop, or permutations get
+      double-counted.
+    summary: >
+      $f(t) = 1 + \min_j f(t-c_j)$ fills an $O(mT)$ table; with coins $1,3,4$ it
+      makes $6$ from two coins where greedy needs three.
+    parent: quant-programming.algorithms
+    also_under: []
+    requires:
+      - quant-programming.algorithms.dp
+    relates: []
+    tags: []
+
+  - id: quant-programming.algorithms.grid-paths
+    kind: example
+    prominence: 0
+    title: "Counting grid paths"
+    statement: >
+      Count monotone lattice paths from $(0,0)$ to $(m,n)$ using only right and
+      up steps. The DP is $f(i,j) = f(i-1,j) + f(i,j-1)$ with
+      $f(i,0) = f(0,j) = 1$, an $O(mn)$ table whose real value is that blocked
+      cells are handled by setting $f = 0$ there, which the closed form cannot
+      do. Unobstructed, a path is a word with $m$ rights and $n$ ups, so the
+      count is $\binom{m+n}{m}$; for $m = n = 3$ that is $\binom{6}{3} = 20$.
+      Imposing the constraint that the path never crosses above the diagonal
+      cuts $\binom{2n}{n}$ to the $n$-th Catalan number
+      $\frac{1}{n+1}\binom{2n}{n}$, which is $20/4 = 5$ at $n = 3$.
+    summary: >
+      Right-and-up paths obey $f(i,j) = f(i-1,j)+f(i,j-1)$, giving
+      $\binom{m+n}{m}$ on a clear grid and a table you can hole-punch when it is
+      not clear.
+    parent: quant-programming.algorithms
+    also_under: []
+    requires:
+      - quant-programming.algorithms.dp
+    relates:
+      - id: quant-probability.counting.catalan
+        note: >
+          Restricting these same right-and-up paths to stay weakly below the
+          diagonal replaces the plain binomial count with the Catalan number
+          derived there by reflection.
+    tags: []
+
+  - id: quant-programming.algorithms.bfs-dfs
+    kind: technique
+    prominence: 2
+    title: "Breadth-first and depth-first search"
+    statement: >
+      Both explore a graph from a source and both run in $O(V+E)$ on an
+      adjacency list; the only difference is the container holding the frontier.
+      BFS uses a first-in-first-out queue and therefore visits vertices in order
+      of edge distance, which buys shortest paths in unweighted graphs and
+      layer-by-layer component discovery, at up to $O(V)$ queue memory. DFS uses
+      a stack, usually the call stack, and dives — the right shape for cycle
+      detection, topological order, and connectivity in memory proportional to
+      the depth. Both need a visited set, and the mark must be written when a
+      vertex is pushed rather than when it is popped, or the frontier fills with
+      duplicates. Weights break BFS: with positive weights, swap the queue for a
+      heap and you have Dijkstra at $O((V+E)\log V)$.
+    summary: >
+      One $O(V+E)$ sweep, two frontiers: a queue orders vertices by distance, a
+      stack dives deep, and a heap upgrades the same loop into Dijkstra.
+    parent: quant-programming.algorithms
+    also_under: []
+    requires:
+      - quant-programming.data-structures.hash-map
+      - quant-programming.data-structures.heap
+    relates: []
+    tags: []
+
+  - id: quant-programming.algorithms.bfs-shortest-path
+    kind: example
+    prominence: 1
+    title: "Shortest paths in an unweighted graph"
+    statement: >
+      BFS from $s$ returns $d(v)$, the least number of edges from $s$ to $v$,
+      for every reachable $v$. Set $d(s) = 0$ and push $s$; while the queue is
+      nonempty, pop $u$ and for each unvisited neighbour $w$ set
+      $d(w) = d(u)+1$, mark $w$ visited, record $\mathrm{parent}(w) = u$, and
+      push it. Correctness is the layer invariant: the queue only ever holds
+      vertices at distance $k$ followed by vertices at distance $k+1$, so a
+      vertex is first reached along a shortest path. Walk the parent pointers
+      back from the target to recover the path itself. Interview instances that
+      are graphs in disguise: word-ladder edits, knight moves on a chessboard,
+      water-jug states, and sliding-tile configurations — vertices are states,
+      edges are legal moves.
+    summary: >
+      BFS layers are the distance classes, so one $O(V+E)$ sweep plus a parent
+      array yields every shortest path in an unweighted graph.
+    parent: quant-programming.algorithms
+    also_under: []
+    requires:
+      - quant-programming.algorithms.bfs-dfs
+    relates:
+      - id: quant-puzzles.strategies.working-backwards
+        note: >
+          Puzzle configurations with legal moves form an unweighted graph, so
+          working backwards from the goal is literally a BFS launched from the
+          target state rather than the start.
+    tags: []
+
+  - id: quant-programming.algorithms.greedy-exchange
+    kind: technique
+    prominence: 1
+    title: "Greedy with an exchange argument"
+    statement: >
+      A greedy algorithm commits to the locally best choice and never revisits
+      it; the exchange argument is the proof obligation that makes this legal.
+      Template: take any optimal solution $O$ and the greedy solution $G$, find
+      the first position where they differ, and show $O$ can be edited to match
+      greedy there without becoming worse — iterate and $G$ is optimal. Worked
+      on interval scheduling, where the goal is the largest pairwise-disjoint
+      set of intervals: sort by earliest finish time and take every interval
+      starting after the last one taken, $O(n\log n)$ overall. The exchange: if
+      an optimal schedule's first interval finishes later than greedy's, swap
+      greedy's in, which conflicts with nothing later and leaves the count
+      unchanged. Sorting by start time or by shortest length both fail on small
+      counterexamples.
+    summary: >
+      Greedy needs a proof: exchange the optimum's first disagreement for the
+      greedy choice. Earliest finish time solves interval scheduling; earliest
+      start does not.
+    parent: quant-programming.algorithms
+    also_under: []
+    requires:
+      - quant-programming.algorithms.dp
+    relates: []
+    tags: []
+
+  - id: quant-programming.algorithms.pattern-catalog
+    kind: intuition
+    prominence: 0
+    title: "Reading the cue when they say optimize"
+    statement: >
+      "Now make it faster" is a search over a short list, and the cue is the
+      complexity you are being pushed toward. From $O(n^{2})$ to $O(n\log n)$:
+      sort the data, or run a binary search inside a loop. From $O(n^{2})$ to
+      $O(n)$: two pointers when the data is ordered, a sliding window when the
+      constraint survives shrinking, prefix sums when the queries are ranges, a
+      hash map when the question is "have I seen this before". From exponential
+      to polynomial: dynamic programming when subproblems repeat, greedy with an
+      exchange argument when one local rule provably suffices. From polynomial
+      to $O(\log R)$ over a range of width $R$: binary search the answer. Name
+      the pattern and
+      the reason out loud before writing a line — the mapping from cue to
+      pattern is what is being graded.
+    summary: >
+      The optimize prompt has a handful of standard answers, indexed by the
+      complexity you are trying to reach and the structure that licenses it.
+    parent: quant-programming.algorithms
+    also_under: []
+    requires:
+      - quant-programming.algorithms.sliding-window
+      - quant-programming.algorithms.prefix-sums
+      - quant-programming.algorithms.greedy-exchange
+      - quant-programming.algorithms.bfs-dfs
+    relates: []
+    tags: []

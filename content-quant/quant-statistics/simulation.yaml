@@ -1,0 +1,519 @@
+# quant-statistics.simulation — Monte Carlo & Simulation
+# Outline node (32 in content-quant/outline.md's authoring order).
+
+nodes:
+  - id: quant-statistics.simulation
+    kind: subbranch
+    title: "Monte Carlo & Simulation"
+    summary: >
+      Estimating by sampling — inverse transform, rejection, Box–Muller,
+      bootstrap, and squeezing variance out of an estimator.
+    parent: quant-statistics
+    also_under: []
+    tags: []
+
+  - id: quant-statistics.simulation.uniform-prng
+    kind: definition
+    prominence: 1
+    title: "The uniform stream as the primitive"
+    statement: >
+      Every simulation is built on one primitive: a stream $U_1, U_2, \dots$
+      that behaves as independent uniforms on $(0,1)$. A pseudorandom generator
+      supplies it deterministically — an internal state advances by
+      $s_{k+1} = T(s_k)$ and each state is mapped to an output $U_k = g(s_k)$,
+      with the whole stream fixed by the initial seed. So the sequence is exactly
+      reproducible and eventually periodic; "random" here means only "passes the
+      statistical tests you care about". The textbook linear congruential
+      generator $x_{k+1} = (a x_k + c) \bmod m$, $U_k = x_k/m$, is fast but weak
+      — short period and visible lattice structure in consecutive tuples — so
+      practice uses Mersenne Twister or the counter-based PCG/xoshiro families.
+      Every other sampler below is a transformation of this one stream.
+    summary: >
+      A reproducible, periodic deterministic sequence that mimics independent
+      $\mathrm{Uniform}(0,1)$ draws — the raw material every other sampling
+      method reshapes.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-probability.continuous.uniform
+    relates: []
+    tags: []
+
+  - id: quant-statistics.simulation.monte-carlo
+    kind: technique
+    prominence: 2
+    title: "Monte Carlo estimation"
+    statement: >
+      To evaluate $\theta = \mathbb{E}[h(X)]$ when the sum or integral is
+      intractable, draw $X_1,\dots,X_n$ independently from the law of $X$ and
+      report the sample average
+      $\hat{\theta}_n = \frac{1}{n}\sum_{i=1}^{n} h(X_i)$. It is unbiased,
+      $\mathbb{E}[\hat{\theta}_n] = \theta$, for every $n$, and the law of large
+      numbers makes it consistent. Probabilities are covered too, since
+      $\Pr(A) = \mathbb{E}[\mathbf{1}\{A\}]$: the estimate of a probability is
+      just the observed frequency. Reach for it when the state space is large,
+      the dimension is high, or the quantity is path-dependent and no formula
+      exists — averaging discounted payoffs over simulated price paths is the
+      option-pricing version, and belongs to the finance branch. An answer
+      without a reported standard error is only half an answer.
+    summary: >
+      Replace an intractable expectation by the average of $n$ independent
+      simulated draws — unbiased, consistent, and indifferent to how ugly the
+      integrand is.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-statistics.simulation.uniform-prng
+    relates:
+      - id: quant-probability.limits.wlln
+        note: >
+          The law of large numbers is the entire licence for the method: it is
+          what guarantees the simulated average converges to the target at all,
+          before any question of how fast.
+    tags: []
+
+  - id: quant-statistics.simulation.mc-error
+    kind: proposition
+    prominence: 1
+    title: "Monte Carlo error is σ/√n"
+    statement: >
+      Let $\sigma^{2} = \operatorname{Var}(h(X)) < \infty$. Then
+      $\operatorname{Var}(\hat{\theta}_n) = \sigma^{2}/n$, so the standard error
+      is $\sigma/\sqrt{n}$, and by the central limit theorem
+      $\hat{\theta}_n \pm 1.96\,\hat{\sigma}/\sqrt{n}$ is an asymptotic $95\%$
+      interval, with $\hat{\sigma}^{2}$ the sample variance of the $h(X_i)$ —
+      always compute it, it costs nothing. The reading that matters in interview:
+      accuracy improves only like $n^{-1/2}$, so one extra correct digit — a
+      $10\times$ tighter answer — costs $100\times$ the samples. Concretely, a
+      $95\%$ interval of half-width $0.01\sigma$ needs
+      $n \approx (196)^{2} \approx 3.8 \times 10^{4}$ draws; half-width
+      $0.001\sigma$ needs $3.8 \times 10^{6}$.
+    summary: >
+      The error bar shrinks like the square root of effort: ten times the
+      accuracy costs a hundred times the samples, which is why cutting $\sigma$
+      beats cranking $n$.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-statistics.simulation.monte-carlo
+      - quant-probability.limits.root-n
+    relates: []
+    tags: []
+
+  - id: quant-statistics.simulation.dimension-independence
+    kind: intuition
+    prominence: 1
+    title: "Why simulate at all: the dimension does not enter"
+    statement: >
+      The $n^{-1/2}$ rate looks bad until you compare it with a deterministic
+      grid. A product rule with $m$ nodes per axis in $d$ dimensions costs
+      $n = m^{d}$ evaluations, and a second-order rule has error of order
+      $m^{-2} = n^{-2/d}$. That beats $n^{-1/2}$ only while $2/d > 1/2$, that is
+      for $d < 4$; past four or five dimensions quadrature collapses under the
+      curse of dimensionality while Monte Carlo does not notice the dimension at
+      all. Its error depends on $\sigma$ and $n$ alone. This is why simulation is
+      the default for basket payoffs, multi-factor risk scenarios and anything
+      path-dependent, where $d$ is the number of time steps, and why the only
+      lever worth pulling is the constant $\sigma$.
+    summary: >
+      Grid methods die exponentially in dimension; Monte Carlo error is
+      $\sigma/\sqrt{n}$ whatever $d$ is, so it wins beyond about four dimensions.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-statistics.simulation.mc-error
+    relates: []
+    tags: []
+
+  - id: quant-statistics.simulation.estimate-pi
+    kind: example
+    prominence: 1
+    title: "Estimating π with a dartboard"
+    statement: >
+      Throw points uniformly on the unit square and count the fraction
+      $\hat{p}$ landing in the quarter disc $x^{2} + y^{2} \le 1$. That region
+      has area $\pi/4$, so $\hat{\pi} = 4\hat{p}$. Each throw is a Bernoulli
+      trial with $p = \pi/4 \approx 0.7854$ and variance
+      $p(1-p) \approx 0.1686$, hence
+      $\operatorname{Var}(\hat{\pi}) = 16p(1-p)/n$ and the standard error is
+      $4\sqrt{0.1686/n} \approx 1.64/\sqrt{n}$. Two decimals of $\pi$ — standard
+      error $0.005$ — therefore need $n \approx (1.64/0.005)^{2} \approx 1.1
+      \times 10^{5}$ throws, and three decimals need about $1.1 \times 10^{7}$.
+      A famously terrible way to compute $\pi$, and a perfect illustration of
+      both the method and its price. Buffon's needle is the same estimate in
+      eighteenth-century costume.
+    summary: >
+      $\hat{\pi} = 4 \times$ (fraction of darts inside the quarter circle), with
+      standard error $1.64/\sqrt{n}$ — about $10^{5}$ throws per two decimals.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-statistics.simulation.mc-error
+      - quant-probability.geometric.probability-as-area
+    relates: []
+    tags: []
+
+  - id: quant-statistics.simulation.inverse-transform
+    kind: technique
+    prominence: 2
+    title: "Inverse transform sampling"
+    statement: >
+      Let $F$ be any CDF and $q(u) = \inf\{x : F(x) \ge u\}$ its quantile
+      function. If $U$ is uniform on $(0,1)$ then $X = q(U)$ has CDF exactly
+      $F$, because $q(U) \le x \iff U \le F(x)$, an event of probability $F(x)$.
+      No continuity of $F$ is needed in this direction, so the recipe covers
+      discrete laws as well. Mechanics: write $F$, solve $F(x) = u$ for $x$, feed
+      uniforms. Worked, exponential with rate $\lambda$: $F(x) = 1 - e^{-\lambda
+      x}$, so $u = 1 - e^{-\lambda x}$ gives $x = -\ln(1-u)/\lambda$, and since
+      $1 - U$ is uniform too the usual form is $X = -\ln(U)/\lambda$ — one
+      logarithm per draw. Cauchy is $\tan(\pi(U - 1/2))$, Pareto and Weibull are
+      equally clean. The normal CDF has no closed-form inverse, which is exactly
+      why Box–Muller exists.
+    summary: >
+      Push a uniform through the quantile function and you get any law you like;
+      for rate-$\lambda$ exponentials that is $-\ln(U)/\lambda$.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-statistics.simulation.uniform-prng
+      - quant-probability.random-variables.pit
+    relates: []
+    tags: []
+
+  - id: quant-statistics.simulation.discrete-sampling
+    kind: technique
+    prominence: 1
+    title: "Sampling a discrete law from a cumulative table"
+    statement: >
+      To draw from probabilities $p_1,\dots,p_k$ on values $v_1,\dots,v_k$, form
+      the cumulative sums $c_j = p_1 + \dots + p_j$, draw $U$, and return $v_j$
+      for the smallest $j$ with $U \le c_j$ — inverse transform applied to a step
+      CDF. A linear scan costs $O(k)$ per draw, with expected comparisons
+      $\sum_j j p_j$, so sort the probabilities largest-first; a binary search on
+      the table costs $O(\log k)$ after $O(k)$ setup. Worked: the loaded die
+      $(0.1, 0.2, 0.3, 0.15, 0.15, 0.1)$ has cutoffs
+      $0.1, 0.3, 0.6, 0.75, 0.9, 1$, so $U = 0.52$ returns face $3$. Special
+      cases worth knowing cold: $\mathbf{1}\{U < p\}$ is a Bernoulli$(p)$ and
+      $\lceil mU \rceil$ is a fair $m$-sided die. Shuffling and streaming
+      selection are algorithmic questions and live in the programming branch.
+    summary: >
+      Cut $[0,1]$ into intervals of the right lengths and see where the uniform
+      lands — $O(\log k)$ per draw with a binary search on the cumulative table.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-statistics.simulation.inverse-transform
+    relates: []
+    tags: []
+
+  - id: quant-statistics.simulation.alias-method
+    kind: technique
+    prominence: 0
+    title: "Walker's alias method"
+    statement: >
+      A $k$-point law can be sampled in $O(1)$ time per draw after $O(k)$ setup.
+      Setup: rescale to $q_i = k p_i$, which average $1$, then repeatedly pair a
+      deficient cell ($q_i < 1$) with a surplus cell ($q_j > 1$), topping the
+      deficient cell up to height $1$ with mass borrowed from the surplus one and
+      recording $j$ as that cell's alias; each cell ends as a two-outcome column
+      of total height $1$. Draw: pick a cell uniformly with
+      $i = \lceil kU_1 \rceil$, then return $i$ itself if $U_2$ falls below that
+      cell's own retained height and its alias otherwise. Two uniforms, no
+      search. Worth the setup only when the same fixed law is sampled many times;
+      for a one-off, the cumulative-table search is simpler and just as fast in
+      total.
+    summary: >
+      Chop a $k$-outcome law into $k$ equal columns of at most two outcomes each,
+      after which every draw costs two uniforms and no search.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-statistics.simulation.discrete-sampling
+    relates: []
+    tags: []
+
+  - id: quant-statistics.simulation.rejection
+    kind: technique
+    prominence: 1
+    title: "Rejection sampling"
+    statement: >
+      Use this when the target density $f$ cannot be inverted, or is known only
+      up to its normalizing constant. Pick a proposal density $g$ you can already
+      sample and a constant $M$ with $f(x) \le M g(x)$ for all $x$. Repeat: draw
+      $Y \sim g$ and an independent uniform $U$; accept $X = Y$ if
+      $U \le f(Y)/(M g(Y))$, otherwise discard and start over. The accepted value
+      has density exactly $f$. Each attempt succeeds with probability $1/M$, so
+      the number of attempts is geometric with mean $M$ — the envelope's
+      tightness is the whole cost. Picture it as sampling uniformly under the
+      graph of $Mg$ and keeping the points that also fall under $f$. Worked: the
+      standard half-normal under an $\mathrm{Exp}(1)$ envelope needs
+      $M = \sqrt{2e/\pi} \approx 1.315$, an acceptance rate of $76\%$.
+    summary: >
+      Sample under a scaled envelope and throw away the points that land above
+      the target density; you pay $M$ attempts per accepted draw.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-statistics.simulation.inverse-transform
+    relates: []
+    tags: []
+
+  - id: quant-statistics.simulation.box-muller
+    kind: technique
+    prominence: 1
+    title: "Box–Muller transform"
+    statement: >
+      Two independent uniforms on $(0,1)$ become two independent standard
+      normals. Set $R = \sqrt{-2\ln U_1}$ and $\Theta = 2\pi U_2$; then
+      $Z_1 = \sqrt{-2\ln U_1}\,\cos(2\pi U_2)$ and
+      $Z_2 = \sqrt{-2\ln U_1}\,\sin(2\pi U_2)$ are independent $N(0,1)$
+      variables. Why it works: in polar coordinates the standard bivariate normal
+      has angle uniform on $[0, 2\pi)$ and squared radius $R^{2}$ exponential
+      with mean $2$, and $-2\ln U_1$ is precisely an $\mathrm{Exp}(1/2)$ draw by
+      inverse transform. Rescale with $\mu + \sigma Z$ for $N(\mu, \sigma^{2})$.
+      The Marsaglia polar variant draws a point uniformly in the unit disc and
+      recycles its radius, trading the two trigonometric calls for a rejection
+      loop with acceptance $\pi/4 \approx 0.785$.
+    summary: >
+      $\sqrt{-2\ln U_1}\cos(2\pi U_2)$ and $\sqrt{-2\ln U_1}\sin(2\pi U_2)$ are
+      two independent standard normals — polar coordinates on the bivariate
+      normal, run backwards.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-statistics.simulation.inverse-transform
+      - quant-probability.continuous.normal
+    relates: []
+    tags: []
+
+  - id: quant-statistics.simulation.correlated-normals
+    kind: technique
+    prominence: 1
+    title: "Simulating correlated normals"
+    statement: >
+      Given independent standard normals $Z_1, Z_2$, the pair
+      $(Z_1,\; \rho Z_1 + \sqrt{1-\rho^{2}}\,Z_2)$ is standard bivariate normal
+      with correlation $\rho$: the second coordinate has variance
+      $\rho^{2} + (1-\rho^{2}) = 1$ and covariance $\rho$ with the first. In $d$
+      dimensions, to draw $X \sim N(\mu, \Sigma)$, factor $\Sigma = L L^{T}$ with
+      $L$ lower triangular — the Cholesky factor, which exists because a
+      covariance matrix is positive semidefinite — and set $X = \mu + LZ$ for a
+      vector $Z$ of independent standard normals; then
+      $\operatorname{Cov}(X) = L L^{T} = \Sigma$. If an estimated $\Sigma$ comes
+      back slightly non-PSD, use the eigendecomposition
+      $\Sigma = Q \Lambda Q^{T}$ with negative eigenvalues clipped to zero and
+      take $L = Q\Lambda^{1/2}$.
+    summary: >
+      Mix independent normals through a Cholesky factor of the covariance matrix;
+      in two dimensions that is just
+      $\rho Z_1 + \sqrt{1-\rho^{2}}\,Z_2$.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-statistics.simulation.box-muller
+    relates:
+      - id: quant-probability.joint.bivariate-normal
+        note: >
+          That node characterizes the bivariate normal by its correlation; this
+          is the constructive converse, building a pair with prescribed $\rho$
+          out of two independent standard normals.
+    tags: []
+
+  - id: quant-statistics.simulation.bootstrap
+    kind: technique
+    prominence: 2
+    title: "The bootstrap"
+    statement: >
+      You have one iid sample $X_1,\dots,X_n$ from an unknown $F$ and a statistic
+      $\hat{\theta} = T(X_1,\dots,X_n)$, and you want its sampling distribution,
+      which depends on the unknown $F$. The bootstrap principle: substitute the
+      empirical distribution $\hat{F}_n$, which puts mass $1/n$ on each observed
+      value, for $F$, and evaluate the resulting distribution of $T$ by
+      simulation. Concretely, draw $B$ resamples of size $n$ with replacement
+      from the data, compute $\hat{\theta}^{*}_b$ on each, and use the spread of
+      the $B$ replicates: their sample standard deviation estimates the standard
+      error of $\hat{\theta}$, their $2.5\%$ and $97.5\%$ quantiles give a
+      percentile interval, and $\bar{\theta}^{*} - \hat{\theta}$ estimates bias.
+      $B$ of $1000$–$10000$ controls only the simulation noise; the statistical
+      error is set by $n$ and no amount of resampling reduces it.
+    summary: >
+      Treat the sample as the population and resample it with replacement: the
+      scatter of the replicated statistics stands in for its true sampling
+      distribution.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-statistics.simulation.monte-carlo
+    relates: []
+    tags: []
+
+  - id: quant-statistics.simulation.bootstrap-caveats
+    kind: proposition
+    prominence: 0
+    title: "Where the bootstrap fails"
+    statement: >
+      The bootstrap is consistent when the statistic is a smooth functional of
+      the distribution — means, variances, correlations, regression
+      coefficients, quantiles at points of positive density. It fails when the
+      statistic is governed by the edge of the support or by the extreme tail.
+      The sample maximum is the standard counterexample: a resample contains the
+      observed maximum with probability
+      $1 - (1 - 1/n)^{n} \to 1 - 1/e \approx 0.632$, so the bootstrap
+      distribution of the maximum carries an atom of that size and never
+      resembles the truth. It also fails on dependent data, since resampling iid
+      destroys serial correlation — use a block bootstrap on time series. And it
+      cannot repair a biased sample: it faithfully reproduces whatever
+      $\hat{F}_n$ contains, survivorship and look-ahead included.
+    summary: >
+      Smooth functionals yes, extremes and dependent data no — the resampled
+      maximum repeats the observed one $63.2\%$ of the time.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-statistics.simulation.bootstrap
+    relates: []
+    tags: []
+
+  - id: quant-statistics.simulation.variance-reduction
+    kind: intuition
+    prominence: 1
+    title: "Variance reduction: buy accuracy with structure, not samples"
+    statement: >
+      The error is $\sigma/\sqrt{n}$, so there are exactly two levers and they
+      price very differently. Since
+      $\operatorname{Var}(\hat{\theta}_n) = \sigma^{2}/n$, halving the variance
+      of a single draw is worth precisely doubling $n$, and it is usually far
+      cheaper. The correct figure of merit is variance $\times$ cost per sample:
+      a trick that halves the variance but triples the run time is a loss. Each
+      standard device recovers something the naive estimator throws away —
+      antithetic variates exploit symmetry of the uniform stream, control
+      variates exploit a correlated quantity whose mean is known exactly,
+      importance sampling exploits knowing where the payoff lives. Integrating
+      out part of the randomness analytically instead of simulating it is a
+      fourth and often the largest win.
+    summary: >
+      Halving the per-draw variance is worth doubling the sample size, so the
+      cheap wins come from exploiting structure the naive estimator ignores.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-statistics.simulation.mc-error
+    relates: []
+    tags: []
+
+  - id: quant-statistics.simulation.antithetic
+    kind: technique
+    prominence: 1
+    title: "Antithetic variates"
+    statement: >
+      Any simulation output is a function $Y = h(U)$ of the uniform stream, so
+      each draw has a free mirror image: evaluate at $U$ and at $1-U$, giving
+      $Y_1 = h(U)$ and $Y_2 = h(1-U)$, and average $A = (Y_1 + Y_2)/2$. Both have
+      the target mean, and
+      $\operatorname{Var}(A) = \frac{\sigma^{2}(1+\rho)}{2}$ where
+      $\rho = \operatorname{Corr}(Y_1, Y_2)$. Two independent draws would give
+      $\sigma^{2}/2$, so for a fixed budget of evaluations the variance is
+      multiplied by $1 + \rho$: antithetics help exactly when $\rho < 0$, and
+      that is guaranteed when $h$ is monotone in each coordinate. For a
+      non-monotone payoff such as a straddle, $\rho$ can be positive and the
+      trick actively hurts. Worked: for $Y = e^{U}$, $\rho \approx -0.97$, cutting
+      the variance by about $97\%$ at no extra cost beyond the second evaluation.
+    summary: >
+      Pair every $U$ with $1-U$: the variance is multiplied by $1 + \rho$, a win
+      precisely when the mirrored outputs are negatively correlated, which
+      monotone payoffs guarantee.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-statistics.simulation.variance-reduction
+      - quant-statistics.simulation.inverse-transform
+    relates:
+      - id: quant-probability.joint.variance-sum
+        note: >
+          The antithetic formula is nothing but the variance of a sum with its
+          cross-term kept: the method exists solely to make that covariance
+          negative.
+    tags: []
+
+  - id: quant-statistics.simulation.control-variates
+    kind: technique
+    prominence: 1
+    title: "Control variates"
+    statement: >
+      Suppose that alongside the target $Y$, each run also produces a quantity
+      $C$ whose mean $\mu_C$ you know exactly. Estimate $\theta = \mathbb{E}[Y]$
+      by averaging $Y_i - b(C_i - \mu_C)$: unbiased for every constant $b$, with
+      per-draw variance $\operatorname{Var}(Y) - 2b\operatorname{Cov}(Y,C) +
+      b^{2}\operatorname{Var}(C)$. This is a quadratic in $b$, minimized at
+      $b^{*} = \operatorname{Cov}(Y,C)/\operatorname{Var}(C)$ — the regression
+      slope of $Y$ on $C$ — where the variance becomes
+      $\operatorname{Var}(Y)(1 - \rho^{2})$ with
+      $\rho = \operatorname{Corr}(Y,C)$. The saving is exactly the $R^{2}$ of
+      that regression: $\rho = 0.9$ removes $81\%$ of the variance, $\rho = 0.5$
+      only $25\%$. In practice $b^{*}$ is estimated from a pilot run. Finding a
+      $C$ both strongly correlated with $Y$ and analytically priced is the whole
+      art.
+    summary: >
+      Subtract $b(C - \mu_C)$ for a correlated quantity of known mean; at the
+      regression-slope choice of $b$ the variance drops by the factor
+      $1 - \rho^{2}$.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-statistics.simulation.variance-reduction
+    relates: []
+    tags: []
+
+  - id: quant-statistics.simulation.importance-sampling
+    kind: technique
+    prominence: 1
+    title: "Importance sampling"
+    statement: >
+      Rewrite the target against a different sampling density:
+      $\mathbb{E}_f[h(X)] = \int h(x) \frac{f(x)}{g(x)} g(x)\,dx =
+      \mathbb{E}_g[h(X)w(X)]$ with weights $w = f/g$. Sample from $g$ and average
+      $h \cdot w$. The one hard requirement is $g(x) > 0$ wherever
+      $h(x)f(x) \ne 0$, or the missed region is silently dropped. The point is to
+      put samples where the integrand is large, which makes it the standard tool
+      for rare events: estimating $\Pr(Z > 5) \approx 2.9 \times 10^{-7}$ for a
+      standard normal to $10\%$ relative accuracy needs about
+      $3 \times 10^{8}$ naive draws, but only thousands when sampling from a
+      normal shifted to mean $5$ and reweighting. The danger is a heavy-tailed
+      weight: if $f/g$ is unbounded the estimator can have infinite variance
+      while looking stable, so give $g$ tails at least as fat as $f$'s.
+    summary: >
+      Sample from a distribution that visits the important region and undo the
+      distortion with likelihood-ratio weights — the standard cure for rare-event
+      estimation.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-statistics.simulation.variance-reduction
+    relates: []
+    tags: []
+
+  - id: quant-statistics.simulation.seeding
+    kind: intuition
+    prominence: 0
+    title: "Seeds, streams and reproducibility"
+    statement: >
+      A simulation result you cannot reproduce is not a result. Set the seed
+      explicitly and record it with the output; never leave the generator to a
+      clock-based default. Give each independent component its own stream, using
+      a counter-based generator or an explicit jump-ahead, so that adding a
+      parallel worker cannot silently overlap two streams and manufacture
+      correlation. Deliberate reuse is a tool rather than a sin: running two
+      competing strategies on identical seeds — common random numbers — cancels
+      the shared simulation noise, so the difference between them is resolved
+      with far fewer paths than either level would need. The trap runs the other
+      way: tuning a parameter until it looks good on one seed is overfitting to
+      the generator, so always confirm on fresh seeds.
+    summary: >
+      Fix and log the seed, keep parallel streams disjoint, reuse seeds on
+      purpose when comparing variants, and never tune against a single one.
+    parent: quant-statistics.simulation
+    also_under: []
+    requires:
+      - quant-statistics.simulation.monte-carlo
+    relates: []
+    tags: []

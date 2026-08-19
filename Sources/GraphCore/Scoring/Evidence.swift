@@ -209,9 +209,11 @@ public struct EvidenceLog: Sendable {
         self.url = url
     }
 
-    /// `~/Library/Application Support/MathTree/evidence.jsonl`.
+    /// `~/Library/Application Support/MathTree/evidence.jsonl`. Other trees pass
+    /// their own `fileName` — one directory, one log per tree.
     public static func defaultURL(
-        applicationSupport: URL? = nil, bundleName: String = "MathTree"
+        applicationSupport: URL? = nil, bundleName: String = "MathTree",
+        fileName: String = "evidence.jsonl"
     ) throws -> URL {
         let base =
             try applicationSupport
@@ -219,7 +221,7 @@ public struct EvidenceLog: Sendable {
                 for: .applicationSupportDirectory, in: .userDomainMask,
                 appropriateFor: nil, create: true)
         return base.appendingPathComponent(bundleName, isDirectory: true)
-            .appendingPathComponent("evidence.jsonl")
+            .appendingPathComponent(fileName)
     }
 
     static func encoder() -> JSONEncoder {

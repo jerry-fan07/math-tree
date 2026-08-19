@@ -1,0 +1,291 @@
+# quant-programming.data-structures — Data Structures
+# Outline node (56 in content-quant/outline.md's authoring order).
+
+nodes:
+  - id: quant-programming.data-structures
+    kind: subbranch
+    title: "Data Structures"
+    summary: >
+      Choosing the right container — arrays, hash maps, heaps, stacks
+      and trees, and the streaming classics they unlock.
+    parent: quant-programming
+    also_under: []
+    tags: []
+
+  - id: quant-programming.data-structures.array-linked-list
+    kind: definition
+    prominence: 1
+    title: "Array vs. linked list"
+    statement: >
+      An array stores elements contiguously: index access is $O(1)$, but
+      inserting or deleting in the middle needs $O(n)$ shifting. A singly
+      linked list stores nodes with a value and a next-pointer: splicing at a
+      known node is $O(1)$, but reaching that node takes $O(n)$ since there is
+      no random access, and each node is a separate allocation with poor cache
+      locality. Dynamic arrays (Python list, C++ vector, Java ArrayList)
+      double capacity on overflow, so appends cost $O(1)$ amortized even
+      though a single resize is $O(n)$. Default to arrays for scanning and
+      indexing; reach for a list only when you must insert or delete at a held
+      position and cannot tolerate the shift cost.
+    summary: >
+      Arrays win on access and locality; linked lists win on splice cost at a
+      held position — most interview problems want the array.
+    parent: quant-programming.data-structures
+    also_under: []
+    requires:
+      - quant-programming.complexity.amortized
+    relates: []
+    tags: []
+
+  - id: quant-programming.data-structures.doubly-linked-list
+    kind: definition
+    prominence: 0
+    title: "Doubly linked list"
+    statement: >
+      Each node holds a value plus pointers to both its predecessor and
+      successor. Given a reference to a node, removal or insertion beside it
+      is $O(1)$ in either direction — no need to walk from the head to find
+      the previous node, which a singly linked list would require for
+      removal. The price is two pointers of bookkeeping per node instead of
+      one. This is the structure that makes $O(1)$ eviction in an LRU cache
+      possible: a hash map supplies the node reference in $O(1)$, and the
+      doubly linked list removes and re-inserts it in $O(1)$ without a scan.
+    summary: >
+      Predecessor and successor pointers let you unlink or relink a node in
+      O(1) from a held reference — the piece that makes LRU eviction cheap.
+    parent: quant-programming.data-structures
+    also_under: []
+    requires:
+      - quant-programming.data-structures.array-linked-list
+    relates: []
+    tags: []
+
+  - id: quant-programming.data-structures.hash-map
+    kind: definition
+    prominence: 2
+    title: "Hash map / hash set"
+    statement: >
+      Keys are hashed to bucket indices in a backing array; with a good hash
+      function and load factor kept bounded by resizing, insert, lookup and
+      delete are all $O(1)$ expected (amortized over resizes). It is the
+      default answer whenever a problem needs "have I seen this before" or
+      "look up by key" — reach for it before anything fancier. It fails you
+      three ways: no ordering (iteration order is neither sorted nor
+      insertion order, absent a specialized variant), worst-case $O(n)$ per
+      operation under adversarial or badly clustered keys, and no support for
+      range or nearest-neighbour queries, which need a sorted structure.
+    summary: >
+      The default O(1)-expected key–value container — but it buys no
+      ordering and can degrade to O(n) under adversarial keys.
+    parent: quant-programming.data-structures
+    also_under: []
+    requires:
+      - quant-programming.data-structures.array-linked-list
+      - quant-programming.complexity.hashing-cost
+    relates: []
+    tags: []
+
+  - id: quant-programming.data-structures.heap
+    kind: definition
+    prominence: 2
+    title: "Heap / priority queue"
+    statement: >
+      A binary heap stored in an array maintains the heap property (each
+      parent $\le$ both children for a min-heap, $\ge$ for a max-heap), so the
+      extreme element sits at the root. Peeking the min or max is $O(1)$;
+      insert (append, then sift up) and extract-min/max (swap the root with
+      the last leaf, pop, then sift down) are both $O(\log n)$; building a
+      heap from $n$ elements is $O(n)$, not $O(n \log n)$, by sifting down
+      from the last internal node upward. A heap gives fast access to the
+      extreme element but not to arbitrary elements — finding or deleting an
+      arbitrary key is $O(n)$ unless an auxiliary index is kept.
+    summary: >
+      Array-backed tree keeping the min or max at the root: O(1) peek,
+      O(log n) insert/extract, O(n) to build from scratch.
+    parent: quant-programming.data-structures
+    also_under: []
+    requires:
+      - quant-programming.data-structures.array-linked-list
+    relates: []
+    tags: []
+
+  - id: quant-programming.data-structures.top-k
+    kind: technique
+    prominence: 1
+    title: "Top-k via a size-k heap"
+    statement: >
+      To find the $k$ largest of $n$ streamed elements without sorting
+      everything, keep a min-heap capped at size $k$: push each new element,
+      and if the heap now holds $k+1$ elements, pop the minimum. At the end
+      the heap holds exactly the $k$ largest, and its root is the smallest of
+      them — a cheap test for whether a new candidate is even worth pushing
+      once the heap is full. Total cost is $O(n \log k)$, far better than
+      sorting the full stream in $O(n \log n)$ when $k \ll n$, and only $O(k)$
+      memory is held at once, which is what makes it work on a stream that
+      never fits in memory.
+    summary: >
+      A min-heap capped at size k finds the k largest of a stream in
+      O(n log k) time and O(k) memory.
+    parent: quant-programming.data-structures
+    also_under: []
+    requires:
+      - quant-programming.data-structures.heap
+    relates: []
+    tags: []
+
+  - id: quant-programming.data-structures.running-median
+    kind: example
+    prominence: 1
+    title: "Running median with two heaps"
+    statement: >
+      Maintain a max-heap "lo" holding the smaller half of the numbers seen so
+      far and a min-heap "hi" holding the larger half, kept balanced so their
+      sizes differ by at most one. On each new value $x$: push $x$ onto lo if
+      $x \le$ lo's max (or lo is empty), else onto hi; then rebalance by
+      moving the root of the larger heap to the other if the size gap exceeds
+      one. The median is lo's max when lo is bigger, the average of both roots
+      when the sizes are equal, or hi's min when hi is bigger. Insert costs
+      $O(\log n)$ — one push plus at most one rebalancing move — and reading
+      the median is $O(1)$, just the root or roots.
+    summary: >
+      Split the stream into a max-heap of the lower half and a min-heap of
+      the upper half, rebalanced to size-parity: O(log n) insert, O(1)
+      median read.
+    parent: quant-programming.data-structures
+    also_under: []
+    requires:
+      - quant-programming.data-structures.heap
+    relates: []
+    tags: []
+
+  - id: quant-programming.data-structures.stack-queue
+    kind: definition
+    prominence: 1
+    title: "Stack and queue"
+    statement: >
+      A stack is LIFO: push and pop both act on the same end, both $O(1)$
+      whether array- or linked-list-backed — the model for recursion, undo
+      history, and bracket matching. A queue is FIFO: enqueue at the tail,
+      dequeue at the head, both $O(1)$ with a linked list or a circular array
+      buffer (a plain array would force an $O(n)$ shift on dequeue). Both
+      structures forbid access to interior elements by design — that
+      restriction is the point, since it is what makes "process in this
+      order" guarantees cheap to enforce. A deque generalizes both, supporting
+      $O(1)$ push and pop at either end.
+    summary: >
+      LIFO stack and FIFO queue: O(1) push/pop at their fixed ends, and the
+      restriction to those ends is what makes the ordering guarantee cheap.
+    parent: quant-programming.data-structures
+    also_under: []
+    requires:
+      - quant-programming.data-structures.array-linked-list
+    relates: []
+    tags: []
+
+  - id: quant-programming.data-structures.monotonic-stack
+    kind: technique
+    prominence: 0
+    title: "Monotonic stack pattern"
+    statement: >
+      Keep a stack whose elements are monotonic (increasing or decreasing) by
+      popping any element that violates the order before pushing the new one.
+      This solves "next greater/smaller element" problems in $O(n)$ total:
+      each element is pushed once and popped at most once, so the amortized
+      cost per element is $O(1)$ even though a single push can trigger many
+      pops. Typical use: scanning prices or heights left to right, popping
+      everything smaller than the current bar before pushing it, so each
+      popped element's "next greater to the right" is exactly the element
+      that popped it.
+    summary: >
+      Pop violators before pushing to keep a stack monotonic — an O(n)
+      amortized way to answer "next greater/smaller element" in one pass.
+    parent: quant-programming.data-structures
+    also_under: []
+    requires:
+      - quant-programming.data-structures.stack-queue
+    relates: []
+    tags: []
+
+  - id: quant-programming.data-structures.bst
+    kind: definition
+    prominence: 1
+    title: "Binary search tree and sorted structures"
+    statement: >
+      A binary search tree keeps every left-subtree key smaller and every
+      right-subtree key larger than its root, so search, insert and delete
+      are $O(\log n)$ when the tree stays balanced (as self-balancing
+      variants such as red-black trees or treaps guarantee) but degrade to
+      $O(n)$ on an unbalanced tree, e.g. built from already-sorted input.
+      Unlike a hash map, a balanced BST supports order queries in
+      $O(\log n)$: predecessor/successor, range queries, and finding the
+      $k$-th smallest, none of which a hash map can answer without a full
+      scan. Reach for a sorted structure exactly when the problem asks about
+      order, ranks, or ranges rather than plain membership.
+    summary: >
+      Balanced BSTs trade the hash map's O(1) lookup for O(log n) lookup
+      that also answers order, range, and rank queries.
+    parent: quant-programming.data-structures
+    also_under: []
+    requires:
+      - quant-programming.data-structures.array-linked-list
+    relates:
+      - id: quant-programming.data-structures.hash-map
+        note: >
+          Complementary answers to "which container": the hash map wins on
+          plain membership, the balanced BST wins whenever order or range
+          matters.
+    tags: []
+
+  - id: quant-programming.data-structures.lru
+    kind: example
+    prominence: 1
+    title: "LRU cache: hash map + doubly linked list"
+    statement: >
+      An LRU (least-recently-used) cache needs $O(1)$ get, $O(1)$ put, and
+      $O(1)$ eviction of the stalest entry. Neither structure alone suffices:
+      a hash map gives $O(1)$ key lookup but no notion of recency order, and a
+      doubly linked list gives $O(1)$ reordering and removal but only $O(n)$
+      lookup by key. Combine them: the hash map stores key $\to$ node pointer
+      into a doubly linked list ordered from most- to least-recently used. On
+      access, the map finds the node in $O(1)$ and the list unlinks and
+      re-inserts it at the front in $O(1)$; on overflow, the list's tail is
+      the eviction victim, removed in $O(1)$, and its key is deleted from the
+      map in $O(1)$.
+    summary: >
+      Hash map for O(1) key lookup, doubly linked list for O(1) recency
+      reordering — together they give O(1) get/put/evict, neither alone can.
+    parent: quant-programming.data-structures
+    also_under: []
+    requires:
+      - quant-programming.data-structures.hash-map
+      - quant-programming.data-structures.doubly-linked-list
+    relates: []
+    tags: []
+
+  - id: quant-programming.data-structures.streaming-choice
+    kind: intuition
+    prominence: 1
+    title: "Choosing a structure for streaming data"
+    statement: >
+      Streaming problems forbid storing the whole input, so the right
+      container is whichever one answers the running question in bounded
+      memory and sublinear-per-item time. Running max/min or the $k$ largest:
+      a size-bounded heap. Running median: two balanced heaps. "Have I seen
+      this key, is this a duplicate": a hash set, capped with eviction if
+      memory is tight. Running sum or average: a handful of scalars, no
+      container at all. The recurring question to ask before coding is not
+      "what structure do I know" but "what is the minimal state that lets me
+      answer the query after one more element arrives" — that state is the
+      container.
+    summary: >
+      Pick the container by asking what minimal state answers the query
+      after one more streamed element — heaps for order statistics, hash
+      sets for membership, scalars for running sums.
+    parent: quant-programming.data-structures
+    also_under: []
+    requires:
+      - quant-programming.data-structures.top-k
+      - quant-programming.data-structures.running-median
+      - quant-programming.data-structures.hash-map
+    relates: []
+    tags: []

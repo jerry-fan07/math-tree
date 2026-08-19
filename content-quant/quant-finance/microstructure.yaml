@@ -1,0 +1,484 @@
+# quant-finance.microstructure — Market Microstructure
+# Outline node (50 in content-quant/outline.md's authoring order).
+
+nodes:
+  - id: quant-finance.microstructure
+    kind: subbranch
+    title: "Market Microstructure"
+    summary: >
+      How prices actually form — the limit order book, spread economics,
+      adverse selection at the quote, and market impact.
+    parent: quant-finance
+    also_under: []
+    tags: []
+
+  - id: quant-finance.microstructure.lob
+    kind: definition
+    prominence: 2
+    title: "The limit order book"
+    statement: >
+      A limit order book is two priority queues for one instrument: resting buy
+      orders (bids) sorted by price descending, and resting sell orders (asks)
+      sorted by price ascending. Within a price level, price–time priority
+      fills the earliest-arrived order first, so each level is a FIFO queue of
+      shares. The best bid $P_b$ and best ask $P_a$ sit at the tops of the two
+      queues, the quoted spread is $P_a - P_b > 0$ — a crossed book would be
+      instant arbitrage — and the depth of a level is the shares resting there.
+      A concrete book: bids 10.00 for 900 shares and 9.99 for 2500 shares; asks
+      10.01 for 100 shares and 10.02 for 400 shares. That state, plus the rule
+      that an incoming order matches the opposite queue from the top down,
+      generates every trade.
+    summary: >
+      Two price-sorted FIFO queues facing each other; their tops are the
+      market, and everything behind them is depth.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.instruments.equity
+    relates: []
+    tags: []
+
+  - id: quant-finance.microstructure.order-types
+    kind: definition
+    prominence: 1
+    title: "Market versus limit orders"
+    statement: >
+      A limit order posts a price and rests in the book until filled or
+      cancelled: it makes liquidity, guarantees your price, and guarantees
+      nothing about getting a fill. A market order takes whatever the opposite
+      queue offers: it guarantees the fill and nothing about the price. A
+      marketable limit order — a buy limit at or above $P_a$ — is a market
+      order with a worst-case price attached, and is what professionals
+      actually send. The tradeoff is one line: the taker pays the spread plus
+      an exchange take fee, while the maker earns the spread (often plus a
+      rebate) but is filled only when someone wants the other side, which is
+      exactly when being filled is least attractive.
+    summary: >
+      Take liquidity and pay the spread for certainty of execution, or make
+      liquidity and earn the spread at the cost of choosing when you trade.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.microstructure.lob
+    relates:
+      - id: quant-finance.instruments.short-selling
+        note: >
+          A sell order is a short sale unless it closes a long position, and
+          the locate requirement and borrow cost described there constrain
+          which side of the book you can quote at all.
+    tags: []
+
+  - id: quant-finance.microstructure.walking-the-book
+    kind: example
+    prominence: 1
+    title: "Walking a marketable order through two levels"
+    statement: >
+      Take the book above — bid 10.00 for 900, asks 10.01 for 100 and 10.02 for
+      400 — and send a market buy for 300 shares. It matches the ask queue from
+      the top: 100 shares at 10.01, then 200 shares at 10.02, paying
+      $100(10.01) + 200(10.02) = 1001 + 2004 = 3005$, an average of
+      $3005/300 = 10.0167$ per share. Against the pre-trade mid of 10.005 that
+      is 1.17 cents per share of slippage, 3.50 in total, versus a quoted
+      half-spread of only 0.5 cents. The book is left with best ask 10.02 for
+      200 shares, so the spread widened from one tick to two and the next buyer
+      pays more still.
+    summary: >
+      A 300-share buy against 100 shares at the touch averages 10.0167, more
+      than double the quoted half-spread, and leaves the book wider.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.microstructure.order-types
+    relates: []
+    tags: []
+
+  - id: quant-finance.microstructure.mid-price
+    kind: definition
+    prominence: 1
+    title: "Mid price, effective spread, realized spread"
+    statement: >
+      The mid is $P_m = (P_b + P_a)/2$, the conventional mark for an open
+      position, and the quoted spread $s = P_a - P_b$ is what a round trip of
+      market orders costs. Two refinements are what desks actually measure. The
+      effective spread of a fill at price $P$ is $2|P - P_m|$ using the mid at
+      order arrival, and exceeds the quoted spread whenever the order walked the
+      book. The realized spread compares the fill to the mid some minutes later:
+      for shares a maker bought at $P$ it is $2(P_m^{\text{later}} - P)$, the
+      part the maker keeps. Effective minus realized is price impact — the part
+      handed to whoever traded against the maker.
+    summary: >
+      The mid is the reference price; effective spread is what you actually
+      paid, realized spread is what the maker actually kept, and the difference
+      is impact.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.microstructure.lob
+    relates: []
+    tags: []
+
+  - id: quant-finance.microstructure.microprice
+    kind: definition
+    prominence: 1
+    title: "Microprice (size-weighted mid)"
+    statement: >
+      Weight each quote by the size resting on the opposite side:
+      $P_{\text{micro}} = \dfrac{Q_b P_a + Q_a P_b}{Q_b + Q_a}$, where $Q_b$ and
+      $Q_a$ are the displayed sizes at the best bid and best ask. The heavy side
+      pulls the estimate toward the far quote, because a large resting bid is a
+      wall that must be eaten before the price can fall, while a thin ask is
+      cheap to lift. Worked: bid 10.00 for 900 shares, ask 10.01 for 100 shares
+      gives $(900(10.01) + 100(10.00))/1000 = 10.009$, nine tenths of the way to
+      the ask, against a mid of 10.005. Empirically the microprice forecasts the
+      next mid better than the mid does, which is why a maker centres its quotes
+      on it.
+    summary: >
+      Weight the ask by the bid size and the bid by the ask size: a 900-by-100
+      book at 10.00/10.01 is really worth 10.009, not 10.005.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.microstructure.mid-price
+    relates: []
+    tags: []
+
+  - id: quant-finance.microstructure.queue-imbalance
+    kind: proposition
+    prominence: 0
+    title: "Queue imbalance as the microprice tilt"
+    statement: >
+      Define the queue imbalance $I = (Q_b - Q_a)/(Q_b + Q_a) \in [-1, 1]$.
+      Algebra rewrites the microprice as a tilt of the mid:
+      $P_{\text{micro}} = P_m + \dfrac{s}{2} I$, with $s$ the quoted spread.
+      Checking the book above, $I = (900 - 100)/1000 = 0.8$ and
+      $10.005 + 0.005(0.8) = 10.009$. Reading: $I$ near $+1$ says the next tick
+      is more likely up, $I$ near $-1$ down, and the tilt is capped by the
+      spread, so the microprice never leaves $[P_b, P_a]$. Imbalance is the
+      cheapest predictive feature in microstructure and it decays in seconds,
+      so trading on it is a speed contest rather than a research edge.
+    summary: >
+      The microprice is just the mid pushed toward the thin side by the
+      half-spread times the imbalance, and the push never escapes the quotes.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.microstructure.microprice
+    relates: []
+    tags: []
+
+  - id: quant-finance.microstructure.spread-components
+    kind: proposition
+    prominence: 1
+    title: "Why the spread is nonzero"
+    statement: >
+      The quoted spread decomposes into three costs a maker must recover.
+      Adverse selection: some counterparties know more, so a fill is bad news
+      about value. Inventory risk: a fill leaves the maker holding a position
+      with variance until it can be unwound. Order processing: fees, technology
+      and tied-up capital. Only the first survives competition among many
+      well-capitalized makers — which is why Glosten–Milgrom can price a spread
+      with no inventory and no costs at all. For liquid US equities adverse
+      selection is roughly half the effective spread, and it rises with
+      volatility and around scheduled news. A pure processing-cost spread would
+      be competed toward zero; an adverse-selection spread cannot be.
+    summary: >
+      Spreads pay for informed counterparties, for the risk of the inventory a
+      fill creates, and for the plumbing — and only the first is irreducible.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.microstructure.mid-price
+      - quant-games.market-making-game.adverse-selection
+    relates: []
+    tags: []
+
+  - id: quant-finance.microstructure.glosten-milgrom
+    kind: theorem
+    prominence: 2
+    title: "Glosten–Milgrom: spreads from asymmetric information"
+    statement: >
+      Hypotheses: an asset of unknown value $V$ with a public prior; each
+      arriving trader is informed with probability $\mu$, in which case it knows
+      $V$ and buys if $V$ exceeds the ask or sells if $V$ is below the bid, and
+      is otherwise uninformed and buys or sells with probability $1/2$; trades
+      are for one unit; the market maker is risk-neutral and competition drives
+      expected profit per trade to zero. Then the quotes are conditional
+      expectations,
+      $P_a = \mathbb{E}[V \mid \text{next trade is a buy}]$ and
+      $P_b = \mathbb{E}[V \mid \text{next trade is a sell}]$. A buy raises the
+      posterior and a sell lowers it, so $P_b < \mathbb{E}[V] < P_a$: the spread
+      is strictly positive with no inventory, no fees and no risk aversion.
+    summary: >
+      Quote the ask at what the asset is worth given that someone is about to
+      buy it — asymmetric information alone forces a two-sided spread.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.microstructure.spread-components
+      - quant-statistics.bayesian.posterior
+    relates:
+      - id: quant-games.market-making-game.update-on-flow
+        note: >
+          The interview instruction to move your market after being lifted is
+          this theorem: quotes are posteriors, so the trade that just happened
+          is already priced into the next pair you show.
+    tags: []
+
+  - id: quant-finance.microstructure.gm-worked
+    kind: example
+    prominence: 1
+    title: "Glosten–Milgrom with two values, worked"
+    statement: >
+      Let $V$ be $110$ or $90$ with probability $1/2$ each, so
+      $\mathbb{E}[V] = 100$, and let $\mu = 0.2$ of traders be informed. Then
+      $\Pr(\text{buy} \mid V = 110) = 0.2 + 0.8(0.5) = 0.6$ and
+      $\Pr(\text{buy} \mid V = 90) = 0.8(0.5) = 0.4$, so $\Pr(\text{buy}) = 0.5$
+      and Bayes gives $\Pr(V = 110 \mid \text{buy}) = 0.5(0.6)/0.5 = 0.6$. The
+      ask is therefore $0.6(110) + 0.4(90) = 102$ and, by symmetry, the bid is
+      $98$ — a spread of $4$, exactly $\mu$ times the range $110 - 90$. After
+      an observed buy the maker re-centres on $102$ and requotes around it, so
+      a run of buys walks the price to $110$ and the spread is the toll the
+      uninformed pay for that discovery.
+    summary: >
+      With a 20-point range and 20 percent informed flow the fair quote is
+      98 at 102: spread equals informed fraction times range.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.microstructure.glosten-milgrom
+    relates: []
+    tags: []
+
+  - id: quant-finance.microstructure.inventory-risk
+    kind: proposition
+    prominence: 1
+    title: "Inventory risk and the reservation price"
+    statement: >
+      A maker filled on one side accumulates inventory $q$ (shares long,
+      negative if short), and until it is unwound the position carries variance
+      $q^{2}\sigma^{2}\tau$ over the remaining horizon $\tau$. A mean–variance
+      maker with risk aversion $\gamma$ therefore values its book not at the mid
+      but at the reservation price $r = P_m - q\gamma\sigma^{2}\tau$: being long
+      shifts the price at which it is indifferent downward, being short shifts
+      it up. Worked: $q = 5000$ shares long, per-share daily $\sigma = 0.20$ so
+      $\sigma^{2} = 0.04$, $\tau$ one tenth of a day, $\gamma = 5 \cdot 10^{-4}$
+      — the shift is $5000(5 \cdot 10^{-4})(0.04)(0.1) = 0.01$, one full tick.
+    summary: >
+      Inventory is risk you did not choose, so the price a maker is indifferent
+      at slides away from the mid in proportion to position, variance and time.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.microstructure.mid-price
+      - quant-finance.microstructure.order-types
+    relates: []
+    tags: []
+
+  - id: quant-finance.microstructure.quote-skewing
+    kind: technique
+    prominence: 1
+    title: "Inventory skew around the reservation price"
+    statement: >
+      Reach for this the moment your fills stop balancing. Quote symmetrically
+      about the reservation price rather than the mid — post $r - \delta$ and
+      $r + \delta$ for a half-spread $\delta$ — so a long position lowers both
+      the bid and the ask by $q\gamma\sigma^{2}\tau$. You then become less
+      likely to buy more and more likely to be lifted, and the inventory bleeds
+      off through incoming flow instead of through a costly market order.
+      Worked from the previous node: long 5000 with a one-tick shift moves your
+      quotes from 10.00/10.01 to 9.99/10.00, making you the best offer and no
+      longer the best bid. Skewing costs at most the shift; crossing the spread
+      to flatten costs the whole spread plus impact.
+    summary: >
+      Lean both quotes away from your position so the market unwinds you for
+      free, instead of paying the spread to flatten.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.microstructure.inventory-risk
+      - quant-games.market-making-game.quote-skewing
+    relates: []
+    tags: []
+
+  - id: quant-finance.microstructure.market-impact
+    kind: proposition
+    prominence: 2
+    title: "Market impact and the square-root law"
+    statement: >
+      Trading moves the price against you, and the empirical regularity across
+      markets, brokers and decades is concave rather than linear: executing $Q$
+      shares of a name with daily volume $V$ and daily volatility $\sigma$ costs
+      about $\Delta p \propto \sigma \sqrt{Q/V}$, with a fitted prefactor $Y$
+      typically between $0.5$ and $1$. Worked: $Q/V = 1\%$ of a day's volume in
+      a name with $\sigma = 2\%$ daily and $Y = 0.5$ gives
+      $\Delta p / p \approx 0.5(0.02)(0.1) = 0.001$, ten basis points. The
+      square root is the operative fact — quadrupling the order only doubles the
+      cost per share, so total cost grows like $Q^{3/2}$, which is what caps a
+      strategy's capacity. No accepted first-principles derivation exists.
+    summary: >
+      Cost per share grows like the square root of the fraction of daily volume
+      you take: one percent of a two-percent-vol name costs about ten bps.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.microstructure.walking-the-book
+      - quant-finance.microstructure.glosten-milgrom
+    relates: []
+    tags: []
+
+  - id: quant-finance.microstructure.impact-decay
+    kind: proposition
+    prominence: 0
+    title: "Temporary versus permanent impact"
+    statement: >
+      Split impact by what survives after you stop. The permanent component is
+      the revision other participants make to their valuation — the
+      Glosten–Milgrom posterior shift — and it stays in the price; it is roughly
+      linear in signed quantity. The temporary component is the cost of
+      consuming resting liquidity faster than it replenishes; it decays as the
+      book refills, over seconds to hours, and depends on your trading rate
+      rather than your total size. The measurement consequence: the permanent
+      part is a genuine cost no schedule removes, while the temporary part
+      shrinks if you trade more slowly. An uninformed trader who nonetheless
+      moves the price permanently is paying to be mistaken for an informed one.
+    summary: >
+      Part of your footprint is other people re-marking the asset and never
+      comes back; part is liquidity you drained, and that refills.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.microstructure.market-impact
+    relates: []
+    tags: []
+
+  - id: quant-finance.microstructure.execution-schedules
+    kind: technique
+    prominence: 1
+    title: "VWAP, TWAP and slicing"
+    statement: >
+      Slice a parent order into children so no single child walks the book.
+      TWAP sends equal quantity per unit of clock time: 200000 shares across the
+      390 minutes of a US session is about 513 shares a minute. VWAP weights the
+      slices by the historical intraday volume profile, which is U-shaped, so it
+      trades more at the open and close and benchmarks itself against the day's
+      volume-weighted average price. Percentage-of-volume targets a fixed
+      participation rate, say 5 or 10 percent of prints, and so adapts to the
+      day actually happening rather than to a forecast of it. All three convert
+      one large impact cost into many small ones, and all three leak information
+      if the pattern is predictable.
+    summary: >
+      Chop the order across time or across volume — 513 shares a minute for
+      TWAP, the U-shaped profile for VWAP, a fixed share of prints for POV.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.microstructure.market-impact
+    relates: []
+    tags: []
+
+  - id: quant-finance.microstructure.execution-tradeoff
+    kind: proposition
+    prominence: 0
+    title: "The trader's dilemma: impact against timing risk"
+    statement: >
+      Stretching an order out lowers impact and raises risk. Trade a fixed $Q$
+      at a constant rate over horizon $T$: the participation rate is $Q/(VT)$,
+      so under the square-root law the impact cost per share falls like
+      $1/\sqrt{T}$, while the quantity not yet executed is exposed to price
+      moves whose standard deviation grows like $\sigma\sqrt{T}$. Minimizing
+      expected impact plus $\lambda$ times timing risk therefore has an interior
+      optimum in $T$: a risk-neutral trader stretches out, a risk-averse one
+      hurries, and a trader whose alpha decays quickly hurries most. This is why
+      two desks with the same forecast and the same size can rationally choose
+      different schedules.
+    summary: >
+      Impact falls like $1/\sqrt{T}$ while timing risk grows like $\sqrt{T}$,
+      so the optimal horizon is interior and depends on your risk aversion.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.microstructure.execution-schedules
+    relates: []
+    tags: []
+
+  - id: quant-finance.microstructure.tick-size
+    kind: definition
+    prominence: 1
+    title: "Tick size and when it binds"
+    statement: >
+      The tick is the minimum price increment the exchange accepts — one cent
+      for US equities priced above one dollar. It binds whenever the
+      economically fair spread is narrower than a tick: a maker cannot compete
+      by quoting 10.004, so the spread is pinned at one tick and every
+      competitor stacks at the same price. Two consequences follow. Competition
+      shifts from price to time, making queue position the scarce resource, and
+      depth at the touch swells because quoting is profitable at the pinned
+      spread. Tick-constrained names — low priced, high volume, spread equal to
+      one tick almost always — behave nothing like a wide-spread name, where a
+      maker can undercut by a penny and jump the whole queue.
+    summary: >
+      When the fair spread is thinner than the minimum increment, the spread
+      sticks at one tick and the competition moves into the queue.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.microstructure.lob
+    relates: []
+    tags: []
+
+  - id: quant-finance.microstructure.queue-value
+    kind: proposition
+    prominence: 1
+    title: "The value of queue position"
+    statement: >
+      In a tick-constrained name a passive order is worth the half-spread it
+      captures times its fill probability, minus its expected adverse
+      selection: $\Pr(\text{fill}) \cdot \delta - \mathbb{E}[\text{AS}]$. Queue
+      position is what buys the first factor. Join a bid queue with $N$ shares
+      ahead of you and you
+      trade only after those $N$ leave: cancellations ahead of you help, the
+      level being wiped out hurts. With 20000 shares ahead and executions
+      running 2000 shares a minute at that price, the level usually moves before
+      you fill, so the back of a deep queue is close to worthless. The
+      asymmetry is the point — you fill fastest exactly when sellers keep
+      arriving, so the fills you get are the adversely selected ones.
+    summary: >
+      Being early in the queue is most of a passive strategy's edge, because
+      the fills that come easily are the ones you least want.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.microstructure.tick-size
+      - quant-finance.microstructure.order-types
+    relates:
+      - id: quant-processes.poisson.pp
+        note: >
+          Executions, cancellations and new orders at a single price level are
+          modelled as competing Poisson streams, which is how fill
+          probabilities from a given queue position get computed at all.
+    tags: []
+
+  - id: quant-finance.microstructure.latency-race
+    kind: intuition
+    prominence: 0
+    title: "The latency arms race"
+    statement: >
+      When the edge is a queue slot or a quote that news has just made stale,
+      the winner is whoever acts first, and first is measured in microseconds.
+      Two races run constantly: the passive race to join a newly created price
+      level ahead of everyone else, and the aggressive race to hit a quote
+      before the maker can pull it. Both are winner-take-all, so the payoff to
+      speed is a step function rather than a gradient, and the spend on
+      microwave links and custom hardware is a rent-dissipating arms race — the
+      private value of one more microsecond is a whole trade while its social
+      value is near zero. Speed bumps and frequent batch auctions exist to turn
+      the race back into price competition.
+    summary: >
+      Winner-take-all races for queue slots and stale quotes make speed worth
+      paying almost anything for privately, and almost nothing socially.
+    parent: quant-finance.microstructure
+    also_under: []
+    requires:
+      - quant-finance.microstructure.queue-value
+    relates: []
+    tags: []

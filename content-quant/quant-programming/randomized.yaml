@@ -1,0 +1,368 @@
+# quant-programming.randomized — Randomized Algorithms
+# Outline node (58 in content-quant/outline.md's authoring order).
+
+nodes:
+  - id: quant-programming.randomized
+    kind: subbranch
+    title: "Randomized Algorithms"
+    summary: >
+      Probability inside the code — shuffling, reservoir sampling,
+      generating distributions, rand7-from-rand5, and expected-case
+      analysis.
+    parent: quant-programming
+    also_under: []
+    tags: []
+
+  - id: quant-programming.randomized.las-vegas-monte-carlo
+    kind: definition
+    prominence: 1
+    title: "Las Vegas vs Monte Carlo algorithms"
+    statement: >
+      A randomized algorithm feeds its own coin flips into its control flow, and
+      there are two contracts. A Las Vegas algorithm is always correct and its
+      running time is random: randomized quicksort, rejection sampling, any
+      redraw-until-accepted loop. A Monte Carlo algorithm runs for a fixed
+      budget and is correct only with probability at least $1 - \delta$:
+      Miller–Rabin primality, estimating an integral by sampling. Cutting a Las
+      Vegas run off at a deadline turns it into a Monte Carlo one; the reverse
+      needs a cheap checker to verify the output and retry. Say which one you
+      are building before the interviewer asks "what is the worst case?" — for
+      Las Vegas the worst case over inputs is a worst case of the expected time,
+      because the randomness lives in your coins and not in the input.
+    summary: >
+      Two contracts for randomness in code: Las Vegas spends unbounded time to
+      stay always correct, Monte Carlo spends correctness to hold a fixed
+      budget.
+    parent: quant-programming.randomized
+    also_under: []
+    requires: []
+    relates: []
+    tags: []
+
+  - id: quant-programming.randomized.uniform-random-integer
+    kind: technique
+    prominence: 1
+    title: "Uniform integers without modulo bias"
+    statement: >
+      Every routine below needs a uniform draw from $\{0,1,\dots,n-1\}$, while
+      the library hands you a uniform $r$ on $\{0,\dots,M-1\}$ with
+      $M = 2^{32}$. Returning $r \bmod n$ is biased whenever $n$ does not divide
+      $M$: the first $M \bmod n$ residues collect $\lceil M/n \rceil$ preimages
+      and the rest collect $\lfloor M/n \rfloor$. For $M = 2^{32}$ and
+      $n = 10^{9}$ that is $5$ preimages against $4$, so the low residues come
+      out $25\%$ too often. Fix by rejection: put $L = M - (M \bmod n)$, redraw
+      while $r \ge L$, then return $r \bmod n$. Acceptance is $L/M$ and the
+      expected number of draws is $M/L$, which is $1.074$ here and at most
+      $1/(1 - n/M)$ in general.
+    summary: >
+      Get a uniform integer below $n$ by rejecting the generator's ragged tail —
+      never by a raw modulo, which quietly favours the small residues.
+    parent: quant-programming.randomized
+    also_under: []
+    requires:
+      - quant-statistics.simulation.rejection
+    relates: []
+    tags: []
+
+  - id: quant-programming.randomized.fisher-yates
+    kind: technique
+    prominence: 2
+    title: "Fisher–Yates shuffle"
+    statement: >
+      Shuffle $a[0..n-1]$ in place: for $i = n-1$ down to $1$, draw $j$ uniform
+      on $\{0,\dots,i\}$ and swap $a[i]$ with $a[j]$. Uniformity: the choices are
+      independent with $i+1$ options at step $i$, giving
+      $n \cdot (n-1) \cdots 2 = n!$ equally likely choice sequences, and the map
+      from sequences to permutations is injective — running the loop backwards
+      from the output recovers every $j$ — hence a bijection onto the $n!$
+      permutations. Each permutation therefore has probability exactly $1/n!$.
+      Same fact by induction: the last slot receives a uniformly random element,
+      and what remains is a uniform shuffle of the other $n-1$. Cost: $O(n)$
+      time, $O(1)$ extra space, exactly $n-1$ random draws.
+    summary: >
+      Walk the array from the back, swapping each slot with a uniformly chosen
+      slot at or before it — $O(n)$ time and provably uniform over all $n!$
+      orders.
+    parent: quant-programming.randomized
+    also_under: []
+    requires:
+      - quant-programming.randomized.uniform-random-integer
+    relates:
+      - id: quant-probability.counting.permutations
+        note: >
+          The correctness proof is a bijection argument: the $n!$ equally likely
+          sequences of swap choices match, one to one, the $n!$ orderings counted
+          there.
+    tags: []
+
+  - id: quant-programming.randomized.naive-shuffle-bias
+    kind: example
+    prominence: 1
+    title: "Why the naive shuffle is not uniform"
+    statement: >
+      The tempting wrong shuffle draws $j$ from the whole array: for $i = 0$ to
+      $n-1$, swap $a[i]$ with $a[j]$ where $j$ is uniform on
+      $\{0,\dots,n-1\}$. It has $n^{n}$ equally likely execution paths, and for
+      $n \ge 3$ no distribution assembled from $n^{n}$ equal atoms can put
+      $1/n!$ on each permutation, because $n!$ does not divide $n^{n}$: any
+      prime $p$ with $n/2 < p < n$ divides $n!$ and cannot divide $n^{n}$.
+      Worked at $n = 3$ starting from $123$: of the $27$ paths, $123$, $312$ and
+      $321$ arise $4$ times each and $132$, $213$, $231$ arise $5$ times each.
+      The identity comes out with probability $4/27 \approx 0.148$ against the
+      fair $1/6 \approx 0.167$, a bias of about $11\%$ that never washes out.
+    summary: >
+      Swapping each position with a position drawn from the whole array is
+      provably not uniform — at $n = 3$ three orders get $4/27$ and three get
+      $5/27$.
+    parent: quant-programming.randomized
+    also_under: []
+    requires:
+      - quant-programming.randomized.fisher-yates
+    relates: []
+    tags: []
+
+  - id: quant-programming.randomized.sample-k-of-n
+    kind: technique
+    prominence: 0
+    title: "Sampling k distinct items from a known n"
+    statement: >
+      When $n$ is known, drawing $k$ distinct items needs no full shuffle.
+      Partial Fisher–Yates runs only the last $k$ swap steps and returns those
+      slots: $k$ random draws, though it still needs the $n$-element array.
+      When $k \ll n$, sample with replacement into a hash set and redraw
+      collisions; the $m$-th distinct item costs $n/(n-m+1)$ draws in
+      expectation, so $k$ items cost $n(H_n - H_{n-k})$ draws in total. For
+      $k = 100$ out of $n = 10^{6}$ that is about $100.005$ draws, essentially
+      free. The rejection loop degrades badly as $k$ approaches $n$ — at
+      $k = n$ it becomes the coupon collector — which is where the partial
+      shuffle wins.
+    summary: >
+      Run only the last $k$ steps of Fisher–Yates, or draw with replacement into
+      a hash set: the latter costs barely more than $k$ draws while $k \ll n$.
+    parent: quant-programming.randomized
+    also_under: []
+    requires:
+      - quant-programming.randomized.fisher-yates
+    relates: []
+    tags: []
+
+  - id: quant-programming.randomized.reservoir
+    kind: technique
+    prominence: 1
+    title: "Reservoir sampling"
+    statement: >
+      Take a uniform sample of $k$ items from a stream of unknown length $n$ in
+      one pass and $O(k)$ memory. For $k = 1$: hold the first item, and replace
+      the held item by item $i$ with probability $1/i$. Claim: after $i$ items
+      each of them is held with probability $1/i$. Base $i = 1$ is immediate; if
+      it holds at $i$, an incumbent survives with probability
+      $(1/i)(1 - 1/(i+1)) = 1/(i+1)$ and the arrival is held with probability
+      $1/(i+1)$, so it holds at $i+1$. For general $k$, keep the first $k$, then
+      accept item $i > k$ with probability $k/i$ and evict one incumbent
+      uniformly; the same induction gives every item probability $k/i$. Expected
+      replacements: $k(H_n - H_k) \approx k \ln(n/k)$.
+    summary: >
+      Admit the $i$-th arrival with probability $k/i$ and evict a random
+      incumbent — a one-pass uniform sample from a stream whose length you never
+      learn.
+    parent: quant-programming.randomized
+    also_under: []
+    requires:
+      - quant-programming.randomized.uniform-random-integer
+    relates: []
+    tags: []
+
+  - id: quant-programming.randomized.weighted-sampling
+    kind: technique
+    prominence: 1
+    title: "Weighted random selection in code"
+    statement: >
+      The coded form of "pick a random element with weight $w_i$": prefix-sum
+      the weights into $W_j = w_1 + \dots + w_j$, draw a uniform integer $r$ on
+      $\{0,\dots,W_m - 1\}$ and binary-search for the first $j$ with $r < W_j$
+      — inverse-transform sampling run on an integer CDF. That is $O(m)$ setup
+      and $O(\log m)$ per pick, entirely in integer arithmetic, so no rounded
+      cutoff ever puts a draw in the wrong bucket.
+      Weights $1, 3, 6$ give $W = 1, 4, 10$, and $r = 3$ returns item $2$. If
+      the weights change between draws, hold the prefix sums in a Fenwick tree
+      and both update and search stay $O(\log m)$. For a stream of unknown
+      length, attach the key $U_i^{1/w_i}$ to item $i$ and keep the $k$ largest
+      keys in a heap — weighted reservoir sampling, one pass and $O(k)$ memory.
+    summary: >
+      Prefix-sum the weights and binary-search an integer draw; a Fenwick tree
+      absorbs changing weights, and the key $U^{1/w}$ handles a stream.
+    parent: quant-programming.randomized
+    also_under: []
+    requires:
+      - quant-programming.randomized.reservoir
+    relates: []
+    tags: []
+
+  - id: quant-programming.randomized.rand7-from-rand5
+    kind: example
+    prominence: 1
+    title: "rand7 from rand5"
+    statement: >
+      Given rand5, uniform on $\{1,\dots,5\}$, build rand7. Two calls index a
+      $5 \times 5$ grid, so $v = 5(a-1) + b$ is uniform on $\{1,\dots,25\}$.
+      Accept $v \le 21$ and return $((v-1) \bmod 7) + 1$, which hits each of the
+      seven values exactly three times; on $v \in \{22,23,24,25\}$ reject and
+      redraw the whole pair. Acceptance is $21/25$, so the number of grid draws
+      is geometric with mean $25/21 \approx 1.19$, about $50/21 \approx 2.38$
+      calls to rand5 per output. No rejection-free scheme exists: $7$ never
+      divides $5^{k}$, so no fixed number of rand5 calls splits into seven equal
+      parts. Reversed, rand5 from rand7 accepts $1$ through $35$ of $49$, mean
+      $49/35 = 1.4$ pairs.
+    summary: >
+      Two rand5 calls give a uniform cell of a $5 \times 5$ grid; keep $1$ to
+      $21$, reduce mod $7$, reject the last four — $25/21$ grid draws per
+      output.
+    parent: quant-programming.randomized
+    also_under: []
+    requires:
+      - quant-programming.randomized.uniform-random-integer
+    relates: []
+    tags: []
+
+  - id: quant-programming.randomized.von-neumann
+    kind: example
+    prominence: 1
+    title: "Fair bits from a biased coin (von Neumann)"
+    statement: >
+      A coin lands heads with unknown $p \in (0,1)$, $q = 1-p$; produce a
+      perfectly fair bit. Flip in pairs: report heads on $\text{HT}$, tails on
+      $\text{TH}$, discard $\text{HH}$ and $\text{TT}$ and flip another pair.
+      Since $\Pr(\text{HT}) = \Pr(\text{TH}) = pq$, conditioning on a usable pair
+      makes each output exactly $1/2$ whatever $p$ is, and $p$ never has to be
+      known or estimated. A pair is usable with probability $2pq$, so the number
+      of pairs is geometric with mean $1/(2pq)$ and the expected number of flips
+      is $1/(pq)$. Even a fair coin costs $4$ flips per output bit; $p = 0.6$
+      costs $1/0.24 \approx 4.17$. The cost blows up as $p \to 0$ or $p \to 1$,
+      which is where the entropy really is.
+    summary: >
+      Flip the biased coin in pairs and read HT as heads, TH as tails, throwing
+      away ties: exactly fair for every $p$, at $1/(2pq)$ pairs of flips.
+    parent: quant-programming.randomized
+    also_under: []
+    requires:
+      - quant-programming.randomized.las-vegas-monte-carlo
+      - quant-probability.discrete.geometric
+    relates: []
+    tags: []
+
+  - id: quant-programming.randomized.biased-from-fair
+    kind: technique
+    prominence: 0
+    title: "A biased bit from fair flips"
+    statement: >
+      The reverse direction: emit a bit that is $1$ with probability $p$ using
+      only fair flips. Write $p$ in binary as $0.b_1b_2b_3\dots$, draw fair bits
+      $c_1, c_2, \dots$, and stop at the first index where $c_i \ne b_i$,
+      returning $1$ if $c_i = 0$ and $0$ if $c_i = 1$. This is the test
+      $U < p$ for $U = 0.c_1c_2\dots$ uniform on $[0,1)$, decided lazily; each
+      index stops the loop with probability $1/2$, so the expected number of
+      flips is $2$ for every $p$. For $p = 1/3 = 0.010101\dots$ in binary, two
+      flips on average. For rational $p = a/b$ there is a finite exact route
+      too: draw a uniform integer on $\{0,\dots,b-1\}$ by rejection and report
+      whether it is below $a$.
+    summary: >
+      Compare a lazy stream of fair bits against the binary expansion of $p$ —
+      exact for irrational $p$ as well, and $2$ flips on average whatever $p$ is.
+    parent: quant-programming.randomized
+    also_under: []
+    requires:
+      - quant-programming.randomized.uniform-random-integer
+    relates: []
+    tags: []
+
+  - id: quant-programming.randomized.pi-simulation
+    kind: example
+    prominence: 1
+    title: "Coding the π simulation, and testing randomized code"
+    statement: >
+      The dartboard estimate is four lines: draw $u, v$ uniform on $(0,1)$,
+      increment a counter when $u^{2} + v^{2} \le 1$ — never take a square root,
+      the comparison is exact without it — and return $4$ times hits over $n$.
+      Constant memory, no stored points, one pass. The interesting half is the
+      test, because a randomized function cannot be asserted against a fixed
+      value. Two honest options: seed the generator and pin the exact output as
+      a regression test, or test the distribution, using the standard error
+      $1.64/\sqrt{n}$ so that $|\hat{\pi} - \pi| \le 4 \cdot 1.64/\sqrt{n}$
+      fails with probability below $10^{-4}$ — a tolerance of $0.0066$ at
+      $n = 10^{6}$. Unit-test the deterministic pieces, the hit predicate and
+      the counter, separately and exactly.
+    summary: >
+      Two uniforms, no square root, one counter — and the real interview
+      question is how you unit-test it: pin a seed, or assert within four
+      standard errors.
+    parent: quant-programming.randomized
+    also_under: []
+    requires:
+      - quant-programming.randomized.las-vegas-monte-carlo
+      - quant-statistics.simulation.estimate-pi
+    relates: []
+    tags: []
+
+  - id: quant-programming.randomized.quicksort-expected
+    kind: example
+    prominence: 2
+    title: "Randomized quicksort: expected comparisons"
+    statement: >
+      Quicksort with a uniformly random pivot sorts $n$ distinct keys. Write
+      $z_1 < \dots < z_n$ for the sorted order and
+      $X_{ij} = \mathbf{1}\{z_i \text{ and } z_j \text{ are compared}\}$ for
+      $i < j$. Two keys are compared at most once, and they are compared exactly
+      when the first pivot drawn from the block $\{z_i,\dots,z_j\}$ is $z_i$ or
+      $z_j$ — any interior pivot separates them forever — so
+      $\Pr(X_{ij} = 1) = 2/(j-i+1)$. Linearity gives
+      $\mathbb{E}[C] = \sum_{i<j} 2/(j-i+1) = 2(n+1)H_n - 4n \approx 2n\ln n$.
+      Checks: $n = 2$ gives $1$, $n = 3$ gives $8/3 \approx 2.67$, and $n = 100$
+      gives $2 \cdot 101 \cdot 5.187 - 400 \approx 648$.
+    summary: >
+      The indicator that keys $i$ and $j$ ever meet has probability
+      $2/(j-i+1)$, and the sum collapses by gap length to $2(n+1)H_n - 4n$, about
+      $1.39\,n\log_2 n$ comparisons.
+    parent: quant-programming.randomized
+    also_under: []
+    requires:
+      - quant-programming.randomized.las-vegas-monte-carlo
+      - quant-programming.randomized.uniform-random-integer
+      - quant-probability.expectation.indicator-trick
+      - quant-tools.series-calculus.harmonic-numbers
+    relates:
+      - id: quant-programming.algorithms.sorting-lower-bound
+        note: >
+          Randomizing the pivot does not beat the comparison lower bound; it only
+          deletes the bad input, settling at about $1.39$ times the
+          information-theoretic minimum in expectation.
+    tags: []
+
+  - id: quant-programming.randomized.randomness-against-adversaries
+    kind: intuition
+    prominence: 1
+    title: "Randomize to delete the worst case"
+    statement: >
+      The reason to randomize is rarely the average case — it is to stop the
+      worst case from being a property of the input. Deterministic quicksort
+      with a first-element pivot is $\Theta(n^{2})$ on already-sorted data,
+      which is the input a production system sees most often; with a random
+      pivot no input is bad, only unlucky coins, and nothing an adversary
+      submits shifts that distribution. A hash table with a published hash
+      function can be flooded with deliberately colliding keys, which is why
+      real implementations draw a seed at random per process. The same move
+      shows up as random tie-breaking in queues and matching, where it prevents
+      systematic starvation, and as random restarts in search.
+    summary: >
+      Randomizing converts "some inputs are catastrophic" into "some coin flips
+      are unlucky" — a guarantee that survives an adversary who picks the input.
+    parent: quant-programming.randomized
+    also_under: []
+    requires:
+      - quant-programming.randomized.quicksort-expected
+    relates:
+      - id: quant-programming.complexity.hashing-cost
+        note: >
+          Expected $O(1)$ lookup is a claim about a hash function chosen at
+          random, not about any fixed one, which is what makes seeding a
+          correctness question rather than a nicety.
+    tags: []

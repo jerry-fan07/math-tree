@@ -1,0 +1,519 @@
+# quant-finance.greeks — Greeks & Hedging
+# Outline node (47 in content-quant/outline.md's authoring order).
+
+nodes:
+  - id: quant-finance.greeks
+    kind: subbranch
+    title: "Greeks & Hedging"
+    summary: >
+      Sensitivities as risk language — delta through vega, hedging
+      mechanics, the gamma–theta bargain, and the ATM approximations
+      traders quote.
+    parent: quant-finance
+    also_under: []
+    tags: []
+
+  - id: quant-finance.greeks.greeks-overview
+    kind: definition
+    prominence: 1
+    title: "The Greeks as partial derivatives"
+    statement: >
+      The Black–Scholes value $V(S, t; \sigma, r)$ of a European option is a
+      smooth function of its inputs, and each Greek is one partial derivative:
+      delta $\partial V/\partial S$, gamma $\partial^{2} V/\partial S^{2}$,
+      theta $\partial V/\partial t$, vega $\partial V/\partial \sigma$, rho
+      $\partial V/\partial r$. Two quoting conventions to say out loud: theta
+      differentiates with respect to calendar time, so it is normally negative
+      and reported per day (annual figure over $365$), and vega is reported per
+      volatility point, that is $\partial V/\partial\sigma$ divided by $100$.
+      Greeks are model outputs, computed from Black–Scholes at the implied
+      volatility the market quotes, so they are only as good as that model.
+      They add across a book: portfolio delta is the sum of the leg deltas.
+    summary: >
+      Each Greek is one partial derivative of the option value, evaluated in
+      the pricing model at the market's implied volatility, and they add up
+      across a position.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.options.black-scholes
+    relates: []
+    tags: []
+
+  - id: quant-finance.greeks.delta
+    kind: definition
+    prominence: 2
+    title: "Delta"
+    statement: >
+      Delta is $\Delta = \partial V/\partial S$, the change in option value per
+      one-point move in spot, and equivalently the number of shares that
+      replicate the option locally. For a European call on a non-dividend stock
+      $\Delta_C = N(d_1) \in (0,1)$; for the put
+      $\Delta_P = N(d_1) - 1 \in (-1,0)$. Shape across moneyness: an S-curve
+      rising from $0$ deep out of the money through roughly $0.5$ at the money
+      to $1$ deep in the money. In time it sharpens — as $T \to 0$ the call
+      delta collapses to a step at the strike, while long-dated or high-vol
+      calls flatten toward $1$. Hedge-ratio reading: one long call is
+      neutralized by shorting $\Delta$ shares. Worked, with $S = K = 100$,
+      $\sigma = 20\%$, $T = 0.25$, $r = 0$: $d_1 = 0.05$ and $\Delta_C = 0.52$.
+    summary: >
+      The slope of option value in spot, between $0$ and $1$ for a call — and
+      the share count you trade to hedge it.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.greeks.greeks-overview
+    relates: []
+    tags: []
+
+  - id: quant-finance.greeks.delta-n-d1
+    kind: proposition
+    prominence: 1
+    title: "Delta is N(d₁), not the chance of finishing in the money"
+    statement: >
+      For a European call, $\Delta = N(d_1)$ with
+      $d_1 = [\ln(S/K) + (r + \sigma^{2}/2)T]/(\sigma\sqrt{T})$; the extra terms
+      produced by differentiating the formula cancel, leaving the leading
+      coefficient. The risk-neutral probability of finishing in the money is
+      instead $N(d_2)$ with $d_2 = d_1 - \sigma\sqrt{T}$, which is strictly
+      smaller. So the desk shorthand "a $25$-delta call is $25\%$ to expire in
+      the money" overstates, by a gap that widens with $\sigma\sqrt{T}$: at
+      $S = K = 100$, $\sigma = 20\%$, $T = 0.25$, $r = 0$ the delta is
+      $N(0.05) = 0.52$ while the exercise probability is $N(-0.05) = 0.48$. The
+      real-world probability differs again, since it runs off the true drift
+      rather than $r$.
+    summary: >
+      Call delta equals $N(d_1)$ exactly, and only approximates the exercise
+      probability $N(d_2)$ — the two differ by $\sigma\sqrt{T}$ in the
+      argument.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.greeks.delta
+    relates:
+      - id: quant-finance.options.risk-neutral
+        note: >
+          $N(d_2)$ is precisely the risk-neutral exercise probability from that
+          node, which is why the pricing measure, not the real-world one, is
+          what delta is nearly measuring.
+    tags: []
+
+  - id: quant-finance.greeks.put-call-delta
+    kind: corollary
+    prominence: 1
+    title: "Parity ties the call and put Greeks together"
+    statement: >
+      Differentiate $C - P = S - Ke^{-rT}$ (European, same strike and expiry,
+      no dividends) in each input. In spot: $\Delta_C - \Delta_P = 1$, so a
+      $0.52$-delta call pairs with a $-0.48$-delta put and long call plus short
+      put is exactly one share. Second derivative: $\Gamma_C = \Gamma_P$, since
+      the right side is linear in $S$ — gamma is a property of the strike and
+      expiry, not of call-versus-put. In volatility:
+      $\operatorname{Vega}_C = \operatorname{Vega}_P$, as $\sigma$ is absent on
+      the right. In rate: $\rho_C - \rho_P = KTe^{-rT}$. In time:
+      $\Theta_C - \Theta_P = -rKe^{-rT}$, equal when $r = 0$. Any quoted Greek
+      set violating these is arbitrageable, which makes them the fastest
+      consistency check available.
+    summary: >
+      Call and put deltas differ by exactly $1$, their gammas and vegas are
+      identical, and their thetas and rhos differ only by the carry on the
+      discounted strike.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.greeks.delta-n-d1
+      - quant-finance.arbitrage.put-call-parity
+    relates: []
+    tags: []
+
+  - id: quant-finance.greeks.gamma
+    kind: definition
+    prominence: 1
+    title: "Gamma"
+    statement: >
+      Gamma is $\Gamma = \partial^{2}V/\partial S^{2} = \partial\Delta/\partial
+      S$, the change in delta per one-point move in spot, and so the convexity
+      of value in spot. A long option has $\Gamma > 0$: against a delta hedge it
+      gains on a move in either direction, because the value curve sits above
+      its tangent line. A short option has $\Gamma < 0$ and loses on any move.
+      Formula: $\Gamma = \varphi(d_1)/(S\sigma\sqrt{T})$, with $\varphi$ the
+      standard normal density. Hedger's reading: gamma is how fast your hedge
+      goes stale — at $\Gamma = 0.04$, a two-point move leaves you $0.08$ shares
+      per option away from flat. Worked, $S = K = 100$, $\sigma = 20\%$,
+      $T = 0.25$, $r = 0$: $\varphi(0.05) = 0.3984$ and $\Gamma = 0.0398$.
+    summary: >
+      Curvature of the option value in spot — the rate at which delta itself
+      moves, positive for anything you are long.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.greeks.delta
+    relates: []
+    tags: []
+
+  - id: quant-finance.greeks.gamma-profile
+    kind: proposition
+    prominence: 1
+    title: "Where gamma lives: at the strike, near expiry"
+    statement: >
+      $\Gamma = \varphi(d_1)/(S\sigma\sqrt{T})$ is the same number for the call
+      and the put at a given strike and expiry, and as a function of spot it
+      peaks with spot near the strike, decaying to nearly zero deep in or out of
+      the money where delta is pinned at $1$ or $0$ and stops moving. In
+      maturity, at-the-money gamma is about $0.4/(S\sigma\sqrt{T})$, which blows
+      up like $1/\sqrt{T}$ into expiry, whereas long-dated gamma is small and
+      nearly flat across strikes. Two consequences: the risk of a short book
+      concentrates into the last days at the strikes carrying open interest (pin
+      risk), and gamma is not comparable across underlyings until scaled — the
+      quantity that enters P&L is dollar gamma $\tfrac{1}{2}\Gamma S^{2}$.
+    summary: >
+      Gamma is identical for call and put, peaks at the strike, and explodes
+      like $1/\sqrt{T}$ as expiry approaches — which is where short books get
+      hurt.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.greeks.gamma
+      - quant-finance.greeks.delta-n-d1
+    relates: []
+    tags: []
+
+  - id: quant-finance.greeks.theta
+    kind: definition
+    prominence: 1
+    title: "Theta"
+    statement: >
+      Theta is $\Theta = \partial V/\partial t$, the change in value from the
+      passage of time with spot, vol and rates held fixed, usually quoted per
+      calendar day as the annual figure over $365$. For a European call with no
+      dividends
+      $\Theta = -S\varphi(d_1)\sigma/(2\sqrt{T}) - rKe^{-rT}N(d_2)$, negative in
+      both terms: long options decay. The magnitude is largest at the money and
+      accelerates like $1/\sqrt{T}$, so since an at-the-money option is worth
+      about $0.4\sigma S\sqrt{T}$, half of its premium is lost in the final
+      quarter of its life. One exception worth naming: when $r > 0$, a deep
+      in-the-money European put has positive theta, because waiting only delays
+      receipt of the strike. Worked at $S = K = 100$, $\sigma = 20\%$,
+      $T = 0.25$, $r = 0$: $\Theta = -7.97$ per year, about $-0.022$ per day.
+    summary: >
+      Time decay: the value a long option surrenders each day, biggest at the
+      money and accelerating into expiry.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.greeks.greeks-overview
+    relates: []
+    tags: []
+
+  - id: quant-finance.greeks.theta-carry
+    kind: intuition
+    prominence: 1
+    title: "Who pays theta, and what it buys"
+    statement: >
+      Theta is rent and gamma is what the rent buys. The long-option side pays
+      theta every day and owns convexity: any move, up or down, makes money
+      against a delta hedge. The short side collects theta and is short
+      convexity: quiet days pay, and one large move takes back weeks of
+      premium. That asymmetry is why "selling premium" looks like a steady
+      income stream and is really a short-tail position, and why being long
+      gamma feels like bleeding right up until it does not. The rent is not
+      arbitrary — Black–Scholes fixes it so that, at the implied volatility, the
+      expected gamma gain exactly offsets the decay, which is the identity the
+      next nodes make precise.
+    summary: >
+      Long options pay theta to own convexity; short options earn it and are
+      short the tail — and the fair rate is set so the two exactly cancel at
+      implied vol.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.greeks.theta
+      - quant-finance.greeks.gamma
+    relates: []
+    tags: []
+
+  - id: quant-finance.greeks.vega
+    kind: definition
+    prominence: 1
+    title: "Vega"
+    statement: >
+      Vega — not actually a Greek letter — is
+      $\operatorname{Vega} = \partial V/\partial\sigma$, the change in value per
+      unit of volatility, conventionally quoted per volatility point, that is
+      per $0.01$ of $\sigma$. For European calls and puts alike
+      $\operatorname{Vega} = S\varphi(d_1)\sqrt{T} > 0$: both are long
+      volatility. Shape: largest with spot near the strike, small deep in or out
+      of the money, and growing like $\sqrt{T}$, so a one-year option carries
+      twice the vega of a three-month option on the same name. The
+      at-the-money rule of thumb is $\operatorname{Vega} \approx 0.4S\sqrt{T}$.
+      Worked at $S = K = 100$, $\sigma = 20\%$, $T = 0.25$, $r = 0$:
+      $100(0.3984)(0.5) = 19.9$ per unit of $\sigma$, so about $0.20$ per
+      volatility point.
+    summary: >
+      Sensitivity to implied volatility, positive for long options, peaking at
+      the money and growing like $\sqrt{T}$ — the long-dated options carry the
+      vol risk.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.greeks.greeks-overview
+    relates: []
+    tags: []
+
+  - id: quant-finance.greeks.rho
+    kind: definition
+    prominence: 0
+    title: "Rho"
+    statement: >
+      Rho is $\rho = \partial V/\partial r$. For a European call
+      $\rho_C = KTe^{-rT}N(d_2) > 0$ and for the put
+      $\rho_P = -KTe^{-rT}N(-d_2) < 0$: a higher rate discounts the strike the
+      call pays away and the strike the put receives. Rho scales with $T$, so it
+      is nearly irrelevant for the short-dated options interviews discuss and
+      material only for multi-year contracts. Worked at $S = K = 100$,
+      $T = 0.25$, $\sigma = 20\%$, $r = 0$:
+      $\rho_C = 100(0.25)(0.48) = 12$ per unit of rate, so about $0.12$ for a
+      one-percentage-point move — against a delta that makes $0.52$ on a
+      one-point move in spot. That ratio is why rho is the Greek nobody hedges
+      first.
+    summary: >
+      Interest-rate sensitivity, positive for calls and negative for puts,
+      proportional to maturity and negligible for short-dated options.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.greeks.greeks-overview
+    relates: []
+    tags: []
+
+  - id: quant-finance.greeks.pnl-expansion
+    kind: proposition
+    prominence: 1
+    title: "P&L attribution by Taylor expansion"
+    statement: >
+      Over a short interval the change in option value is
+      $\delta V \approx \Delta\,\delta S + \tfrac{1}{2}\Gamma(\delta S)^{2}
+      + \Theta\,\delta t + \operatorname{Vega}\,\delta\sigma$, plus a rate term
+      $\rho\,\delta r$ that is negligible short-dated: second order in spot,
+      first order in everything else. Read as an attribution, the four terms are
+      direction, convexity, decay and a repricing of volatility. The convexity
+      term is signed by the position alone, since $(\delta S)^{2} \ge 0$ — long
+      gamma always collects it. Dropped are the cross terms, vanna
+      $\partial^{2}V/\partial S\,\partial\sigma$ and volga
+      $\partial^{2}V/\partial\sigma^{2}$, which show up as unexplained residual
+      when spot and vol move together. Every hedging argument below is this one
+      identity with selected terms set to zero.
+    summary: >
+      Option P&L decomposes into delta, gamma, theta and vega terms — the
+      identity every risk report and every hedging argument is built on.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.greeks.gamma
+      - quant-finance.greeks.theta
+      - quant-finance.greeks.vega
+    relates: []
+    tags: []
+
+  - id: quant-finance.greeks.delta-hedging
+    kind: technique
+    prominence: 2
+    title: "Delta hedging"
+    statement: >
+      To strip out directional risk, hold $-\Delta$ shares per long option and
+      rebalance as delta moves; the combined position then has zero first-order
+      exposure to spot. Mechanics: compute $\Delta$ at the current spot and
+      implied vol, trade to flat, and re-hedge after each move, because gamma
+      has already changed $\Delta$. The same number appears in the one-step
+      binomial as $\Delta = (C_u - C_d)/(S_u - S_d)$, the exact share count that
+      replicates the payoff — continuous hedging is that computation repeated.
+      Two frictions decide how it is really done: hedging at $n$ discrete times
+      leaves a residual error whose size falls only like $1/\sqrt{n}$, and every
+      rebalance pays the spread, so the optimal policy is a no-trade band around
+      flat rather than continuous perfection.
+    summary: >
+      Hold $-\Delta$ shares per option and rebalance — the replication argument
+      of the binomial model run in real time, limited by discreteness and
+      transaction costs.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.greeks.delta
+    relates: []
+    tags: []
+
+  - id: quant-finance.greeks.rebalance-example
+    kind: example
+    prominence: 1
+    title: "One rebalance, worked"
+    statement: >
+      Buy one contract of $100$ at-the-money calls with $S = K = 100$,
+      $\sigma = 20\%$, $T = 0.25$, $r = 0$: premium $3.99$ each,
+      $\Delta = 0.52$, $\Gamma = 0.0398$, so sell $52$ shares to sit flat. Spot
+      moves to $102$. The options gain about
+      $100[0.52(2) + \tfrac{1}{2}(0.0398)(4)] = 104 + 8 = 112$, the short shares
+      lose $52(2) = 104$, and the net $+8$ is exactly the dollar gamma term
+      $100 \cdot \tfrac{1}{2}\Gamma(\delta S)^{2}$. New delta is
+      $0.52 + 0.0398(2) = 0.60$, so sell $8$ more shares at $102$. If spot
+      returns to $100$ you buy those $8$ back for $16$: the earlier
+      mark-to-market $+8$ reverses, and the full round trip nets
+      $100\,\Gamma(\delta S)^{2} \approx 16$. Against it, decay runs at
+      $100(7.97)/365 \approx 2.18$ per calendar day.
+    summary: >
+      A two-point move on a hedged $100$-lot of at-the-money calls throws off
+      about $8$ of gamma P&L, $16$ on the round trip, against decay of $2.18$ a
+      day.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.greeks.delta-hedging
+      - quant-finance.greeks.gamma-profile
+    relates: []
+    tags: []
+
+  - id: quant-finance.greeks.gamma-theta
+    kind: proposition
+    prominence: 2
+    title: "The gamma–theta balance"
+    statement: >
+      For a delta-hedged European option with $r = 0$ the Black–Scholes equation
+      reduces to $\Theta + \tfrac{1}{2}\sigma^{2}S^{2}\Gamma = 0$, so
+      $\Theta \approx -\tfrac{1}{2}\sigma^{2}S^{2}\Gamma$; with rates it reads
+      $\Theta + \tfrac{1}{2}\sigma^{2}S^{2}\Gamma + rS\Delta = rV$. Derivation:
+      apply Itô's lemma to $V(S,t)$ under $dS = \mu S\,dt + \sigma S\,dB$ to get
+      $dV = (\Theta + \mu S\Delta + \tfrac{1}{2}\sigma^{2}S^{2}\Gamma)dt
+      + \sigma S\Delta\,dB$; holding $-\Delta$ shares cancels both the $dB$ term
+      and the $\mu$ term, leaving a riskless drift that must equal the cash
+      return or there is arbitrage. Check the numbers:
+      $\tfrac{1}{2}(0.04)(10000)(0.0398) = 7.97$, exactly the $-\Theta$ computed
+      earlier. Gamma and theta are one quantity with two signs.
+    summary: >
+      Theta is not an independent risk: for a hedged option it is minus one half
+      of $\sigma^{2}S^{2}\Gamma$, so every unit of convexity is paid for in
+      decay.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.greeks.pnl-expansion
+    relates: []
+    tags: []
+
+  - id: quant-finance.greeks.vol-pnl
+    kind: proposition
+    prominence: 1
+    title: "Hedging P&L is realized versus implied variance"
+    statement: >
+      Substituting $\Theta = -\tfrac{1}{2}\sigma_{\text{imp}}^{2}S^{2}\Gamma$
+      into the P&L expansion, one period of a delta-hedged long option earns
+      $\tfrac{1}{2}\Gamma S^{2}[(\delta S/S)^{2}
+      - \sigma_{\text{imp}}^{2}\,\delta t]$: you collect the squared return that
+      actually occurred and pay for the variance the price implied. Summed to
+      expiry the total is
+      $\tfrac{1}{2}\int \Gamma_t S_t^{2}(\sigma_{\text{real}}^{2}
+      - \sigma_{\text{imp}}^{2})\,dt$. The trade follows directly: buy and hedge
+      when you think realized will beat implied, sell and hedge when you think
+      the reverse. Two cautions — the bet is on variance, not direction, and the
+      payout is weighted by dollar gamma, so it is decided almost entirely by
+      what happens while spot is near the strike.
+    summary: >
+      A delta-hedged option is a bet on realized variance against implied,
+      settled continuously and weighted by dollar gamma.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.greeks.gamma-theta
+      - quant-finance.greeks.delta-hedging
+      - quant-finance.options.implied-vol
+    relates:
+      - id: quant-statistics.time-series.vol-clustering
+        note: >
+          Realized volatility arrives in clusters rather than evenly, so this
+          P&L is lumpy in exactly the way the stylized facts of return series
+          predict — long stretches of decay, then a burst.
+    tags: []
+
+  - id: quant-finance.greeks.gamma-scalping
+    kind: intuition
+    prominence: 1
+    title: "Gamma scalping"
+    statement: >
+      A long-gamma hedger is mechanically forced to sell shares after every
+      rally and buy them back after every dip, because delta rose and then fell.
+      That is a buy-low-sell-high machine whose take per round trip of size
+      $\delta S$ is about $\Gamma(\delta S)^{2}$ and whose subscription fee is
+      theta. Short gamma runs the same machine backwards: to stay flat you sell
+      into weakness and buy into strength, which is why a short book's losses
+      accelerate precisely when the market is moving. The tuning knob is
+      rebalance frequency — hedging more often captures smaller oscillations but
+      pays more spread. What pays is accumulated squared movement, not net
+      direction: a market that ends exactly where it started can still have
+      covered a month of decay.
+    summary: >
+      Long gamma turns a delta hedge into an automatic buy-low-sell-high
+      program funded by theta; short gamma runs it in reverse.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.greeks.vol-pnl
+      - quant-finance.greeks.rebalance-example
+    relates: []
+    tags: []
+
+  - id: quant-finance.greeks.atm-approx
+    kind: technique
+    prominence: 1
+    title: "The 0.4σS√T rule for an at-the-money option"
+    statement: >
+      An at-the-money-forward European call or put is worth about
+      $0.4\,\sigma S\sqrt{T}$, where $0.4$ is $1/\sqrt{2\pi} = 0.3989$.
+      Derivation: with $S = K$ and $r = 0$ we get $d_1 = \sigma\sqrt{T}/2$ and
+      $C = S[2N(d_1) - 1] \approx S \cdot 2\varphi(0)d_1
+      = S\sigma\sqrt{T}/\sqrt{2\pi}$. Worked: $S = 100$, $\sigma = 20\%$,
+      $T = 0.25$ gives $\sigma\sqrt{T} = 0.10$ and
+      $C \approx 0.4(0.20)(100)(0.5) = 4.00$, against a true Black–Scholes value
+      of $3.99$; the error stays under about $1\%$ for
+      $\sigma\sqrt{T} \le 0.3$, which covers nearly every listed option. Run it
+      backwards to read volatility off a price: a three-month at-the-money call
+      at $6$ on a $100$ stock implies $\sigma \approx 6/(0.4 \cdot 100 \cdot
+      0.5) = 30\%$.
+    summary: >
+      An at-the-money option costs about $0.4\sigma S\sqrt{T}$ — four points on
+      a $100$ stock at $20\%$ vol for three months, accurate to a cent.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.greeks.vega
+    relates:
+      - id: quant-mental.approximation.sqrt-estimate
+        note: >
+          Quoting this live means evaluating $\sqrt{T}$ for awkward tenors in
+          your head — one month is $\sqrt{1/12} \approx 0.289$ — which is
+          exactly the linearization drill from that node.
+    tags: []
+
+  - id: quant-finance.greeks.straddle-approx
+    kind: corollary
+    prominence: 1
+    title: "The at-the-money straddle is 0.8σS√T"
+    statement: >
+      A straddle is a call plus a put at the same strike and expiry, so at the
+      money forward it is worth twice the call: about $0.8\,\sigma S\sqrt{T}$.
+      The constant is $\sqrt{2/\pi} = 0.798$, which is $\mathbb{E}|Z|$ for a
+      standard normal — appropriate, since the straddle pays $|S_T - K|$ and the
+      terminal move is roughly $S\sigma\sqrt{T}\,Z$. Worked at $S = K = 100$,
+      $\sigma = 20\%$, $T = 0.25$: the straddle costs about $8$, with expiry
+      breakevens at $92$ and $108$. Two interview uses: the straddle price is a
+      direct volatility quote, $\sigma \approx \text{straddle}/(0.8 S\sqrt{T})$;
+      and the implied one-standard-deviation move over the option's life is
+      $\sigma S\sqrt{T} = 10$, so the straddle costs about $0.8$ of the move it
+      needs to break even.
+    summary: >
+      Doubling the call rule: an at-the-money straddle costs $0.8\sigma
+      S\sqrt{T}$, which is $\mathbb{E}|Z|$ times the one-sigma move.
+    parent: quant-finance.greeks
+    also_under: []
+    requires:
+      - quant-finance.greeks.atm-approx
+      - quant-finance.options.straddle
+    relates: []
+    tags: []

@@ -1,0 +1,567 @@
+# quant-statistics.regression — Regression
+# Outline node (29 in content-quant/outline.md's authoring order).
+
+nodes:
+  - id: quant-statistics.regression
+    kind: subbranch
+    title: "Regression"
+    summary: >
+      OLS from three angles — calculus, projection and covariance — plus
+      Gauss–Markov, R², regression to the mean, and regularization.
+    parent: quant-statistics
+    also_under: []
+    tags: []
+
+  - id: quant-statistics.regression.linear-model
+    kind: definition
+    prominence: 1
+    title: "The linear regression model"
+    statement: >
+      Given pairs $(x_i, y_i)$ for $i = 1,\dots,n$, the model asserts
+      $y_i = \beta_0 + \beta_1 x_{i1} + \dots + \beta_k x_{ik} + \varepsilon_i$
+      with unobservable mean-zero errors $\varepsilon_i$. The population target
+      is the regression function $\mathbb{E}[y \mid x]$, and the model says this
+      conditional mean is affine in $x$ — an exact statement under a bivariate
+      normal law, otherwise the best affine approximation to a curved truth.
+      "Linear" refers to the parameters, not the data: columns $x^{2}$,
+      $\log x$ or an interaction $x_1 x_2$ still give a linear regression, while
+      $y = \beta_0 e^{\beta_1 x}$ does not. Stack the observations as rows of an
+      $n \times (k+1)$ design matrix $X$ whose first column is all ones and the
+      whole system reads $y = X\beta + \varepsilon$. Interview phrasing: "regress
+      $y$ on $x$".
+    summary: >
+      A conditional mean assumed affine in the regressors, written
+      $y = X\beta + \varepsilon$ — linear in the coefficients, which leaves you
+      free to transform the inputs.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-probability.conditioning.best-predictor
+    relates: []
+    tags: []
+
+  - id: quant-statistics.regression.least-squares
+    kind: definition
+    prominence: 1
+    title: "The least-squares objective"
+    statement: >
+      Ordinary least squares chooses the coefficient vector minimizing the
+      residual sum of squares $S(b) = \sum_{i=1}^{n}(y_i - b_0 - b_1 x_{i1} -
+      \dots - b_k x_{ik})^{2} = \lVert y - Xb \rVert^{2}$. Squares are chosen for
+      three reasons: $S$ is a convex quadratic in $b$, so a stationary point is
+      the global minimum and it is unique whenever the columns of $X$ are
+      linearly independent; the criterion matches the squared-error loss under
+      which the conditional mean is the optimal predictor; and it produces a
+      closed form. Only vertical distances are penalized, so regressing $y$ on
+      $x$ and $x$ on $y$ are different problems with different answers. Minimizing
+      $\sum_i \lvert y_i - b'x_i \rvert$ instead fits the conditional median, is
+      far more robust to outliers, and has no closed form.
+    summary: >
+      Minimize the summed squared vertical residuals — a convex quadratic, hence
+      a unique closed-form fit, at the price of outlier sensitivity.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.linear-model
+    relates: []
+    tags: []
+
+  - id: quant-statistics.regression.ols
+    kind: technique
+    prominence: 2
+    title: "OLS and the normal equations"
+    statement: >
+      Differentiate $S(b) = \lVert y - Xb\rVert^{2}$ with respect to $b$: the
+      gradient is $-2X'(y - Xb)$, and setting it to zero gives the normal
+      equations $X'X\hat{\beta} = X'y$, so $\hat{\beta} = (X'X)^{-1}X'y$ whenever
+      $X$ has full column rank. With a single regressor the two normal equations
+      are $\sum_i (y_i - \hat{\beta}_0 - \hat{\beta}_1 x_i) = 0$ and
+      $\sum_i x_i(y_i - \hat{\beta}_0 - \hat{\beta}_1 x_i) = 0$. The first forces
+      the residuals to average to zero, so the fitted line passes through
+      $(\bar{x}, \bar{y})$; substituting $\hat{\beta}_0 = \bar{y} -
+      \hat{\beta}_1\bar{x}$ into the second solves for the slope. Working recipe
+      by hand: centre both variables, form the two cross-products, divide.
+    summary: >
+      Set the gradient of the squared-error objective to zero to get
+      $X'X\hat{\beta} = X'y$ — the one derivation to be able to reproduce on a
+      whiteboard.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.least-squares
+    relates: []
+    tags: []
+
+  - id: quant-statistics.regression.fitted-residuals
+    kind: definition
+    prominence: 1
+    title: "Fitted values and residuals"
+    statement: >
+      The fitted values are $\hat{y} = X\hat{\beta}$ and the residuals are
+      $e = y - \hat{y}$. Keep residual and error apart: $e_i$ is observed and
+      produced by the fit, $\varepsilon_i$ is unobservable and produced by the
+      world; conflating them is the standard slip. The normal equations say
+      exactly $X'e = 0$, so with an intercept in the model $\sum_i e_i = 0$,
+      $\sum_i x_{ij}e_i = 0$ for every regressor $j$, and hence
+      $\sum_i \hat{y}_i e_i = 0$. That orthogonality is arithmetic, not an
+      assumption, which is why you can never test whether the errors are
+      uncorrelated with the regressors by correlating the residuals with them.
+      The error variance is estimated by $\hat{\sigma}^{2} = \sum_i e_i^{2} /
+      (n - k - 1)$.
+    summary: >
+      What the fit predicts and what it misses — with residuals orthogonal to
+      every regressor by construction, never as evidence.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.ols
+    relates: []
+    tags: []
+
+  - id: quant-statistics.regression.beta-cov-var
+    kind: proposition
+    prominence: 2
+    title: "Simple-regression slope is Cov over Var"
+    statement: >
+      Fit $y$ on a single $x$ with an intercept. Solving the normal equations
+      gives $\hat{\beta}_1 =
+      \dfrac{\sum_i (x_i - \bar{x})(y_i - \bar{y})}{\sum_i (x_i - \bar{x})^{2}}
+      = \dfrac{s_{xy}}{s_x^{2}}$ and
+      $\hat{\beta}_0 = \bar{y} - \hat{\beta}_1 \bar{x}$; the population statement
+      is $\beta_1 = \operatorname{Cov}(x,y)/\operatorname{Var}(x)$. Written
+      through the correlation, $\hat{\beta}_1 = r\,s_y/s_x$ — the slope is the
+      correlation rescaled by the ratio of spreads, carrying the sign of the
+      covariance and units of $y$ per unit of $x$. Regressing $x$ on $y$ gives
+      slope $s_{xy}/s_y^{2}$, and the two slopes multiply to $r^{2} \le 1$, so
+      the lines coincide only under a perfect fit. A CAPM beta is this identity
+      applied to an asset's excess return regressed on the market's.
+    summary: >
+      The slope is covariance divided by the variance of the regressor, equally
+      $r\,s_y/s_x$ — the identity behind every "beta" quoted on a desk.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.ols
+      - quant-probability.joint.covariance
+    relates: []
+    tags: []
+
+  - id: quant-statistics.regression.projection-view
+    kind: intuition
+    prominence: 1
+    title: "Fitted values are an orthogonal projection"
+    statement: >
+      Read $y$ as a single vector in $\mathbb{R}^{n}$ and the $k+1$ columns of
+      $X$ as spanning a subspace of it. Least squares asks for the closest point
+      of that subspace, which is the orthogonal projection: $\hat{y} = Hy$ with
+      hat matrix $H = X(X'X)^{-1}X'$, symmetric, idempotent ($H^{2} = H$), and of
+      trace $k+1$. The residual $e = (I - H)y$ is the perpendicular component,
+      and $X'e = 0$ is the normal-equation condition read geometrically. Nothing
+      probabilistic enters, which is the point: the picture explains why the fit
+      is unique exactly when the columns are independent, why the residual sum of
+      squares can never rise when a regressor is added — you project onto a
+      larger subspace — and why the whole $R^{2}$ accounting will turn out to be
+      Pythagoras.
+    summary: >
+      OLS is the drop of a perpendicular from $y$ onto the column space of $X$;
+      every algebraic identity in the subbranch is that picture in coordinates.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.fitted-residuals
+      - quant-tools.linear-algebra.projection
+    relates: []
+    tags: []
+
+  - id: quant-statistics.regression.anova-decomposition
+    kind: proposition
+    prominence: 1
+    title: "Total = explained + residual sum of squares"
+    statement: >
+      If the model contains an intercept then
+      $\sum_i (y_i - \bar{y})^{2} = \sum_i (\hat{y}_i - \bar{y})^{2} +
+      \sum_i e_i^{2}$, written $\operatorname{SST} = \operatorname{SSE} +
+      \operatorname{SSR}$. Proof: write $y_i - \bar{y} = (\hat{y}_i - \bar{y}) +
+      e_i$ and square-sum; the cross term $2\sum_i (\hat{y}_i - \bar{y})e_i$
+      vanishes because $\sum_i \hat{y}_i e_i = 0$ and $\sum_i e_i = 0$, both from
+      the normal equations. Geometrically it is Pythagoras on the right triangle
+      whose legs are the explained and residual vectors. The intercept is
+      essential: without it $\sum_i e_i$ need not vanish, the cross term
+      survives, and an $R^{2}$ computed from this formula can come out negative.
+    summary: >
+      The variation in $y$ splits cleanly into the part the fit explains and the
+      part it leaves — Pythagoras, and only when an intercept is present.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.projection-view
+    relates: []
+    tags: []
+
+  - id: quant-statistics.regression.r-squared
+    kind: definition
+    prominence: 1
+    title: "R² and what it does not mean"
+    statement: >
+      $R^{2} = 1 - \operatorname{SSR}/\operatorname{SST} =
+      \operatorname{SSE}/\operatorname{SST}$, a number in $[0,1]$ giving the
+      fraction of the in-sample variance of $y$ that the fit accounts for. In
+      simple regression it is exactly the squared sample correlation,
+      $R^{2} = r^{2}$; in general it is the squared correlation between $y$ and
+      $\hat{y}$. What it does not deliver: causality, correct specification (a
+      curved relation can still show a high $R^{2}$), or out-of-sample accuracy.
+      It never decreases when a regressor is added, even a column of pure noise,
+      so adjusted $R^{2} = 1 - (1 - R^{2})\dfrac{n-1}{n-k-1}$ charges for the
+      count. Scale is context: on daily equity returns an honest $R^{2}$ of
+      $0.01$ can be a very profitable signal.
+    summary: >
+      The share of variance explained in-sample — mechanically non-decreasing in
+      the number of regressors, and silent about causality or forecasting.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.anova-decomposition
+      - quant-statistics.descriptive.sample-correlation
+    relates: []
+    tags: []
+
+  - id: quant-statistics.regression.multiple-regression
+    kind: technique
+    prominence: 1
+    title: "Multiple regression and partialling out"
+    statement: >
+      With several regressors, $\hat{\beta}_j$ is the effect of $x_j$ holding the
+      other regressors fixed, which is not the simple slope of $y$ on $x_j$. The
+      Frisch–Waugh–Lovell result makes this exact: regress $x_j$ on all the other
+      regressors, keep the residual $\tilde{x}_j$ — the part of $x_j$ that the
+      rest cannot explain — and then $\hat{\beta}_j$ equals the simple-regression
+      slope of $y$ on $\tilde{x}_j$, namely $\sum_i \tilde{x}_{ij}y_i /
+      \sum_i \tilde{x}_{ij}^{2}$. Three consequences interviews probe: a
+      coefficient can flip sign when another regressor is added; two regressors
+      that are each insignificant can be jointly significant; and if $x_j$ is
+      orthogonal to the others then $\tilde{x}_j = x_j$ and the multiple and
+      simple slopes agree.
+    summary: >
+      Each coefficient is the simple slope on the part of its regressor left over
+      after the others are projected out — "controlling for", made literal.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.projection-view
+    relates: []
+    tags: []
+
+  - id: quant-statistics.regression.multicollinearity
+    kind: proposition
+    prominence: 1
+    title: "Multicollinearity"
+    statement: >
+      Perfect collinearity — one regressor an exact linear combination of the
+      others — makes $X'X$ singular and $\hat{\beta}$ non-unique; the standard
+      trap is including an intercept together with indicators for every category.
+      Near collinearity is the practical case: $\hat{\beta}$ exists and stays
+      unbiased, but its variance inflates. For regressor $j$ the variance
+      inflation factor is $\operatorname{VIF}_j = 1/(1 - R_j^{2})$, where
+      $R_j^{2}$ comes from regressing $x_j$ on the others, so $R_j^{2} = 0.9$
+      multiplies the variance by $10$ and the standard error by
+      $\sqrt{10} \approx 3.2$. Symptoms: huge standard errors and unstable,
+      sign-flipping coefficients sitting next to a high overall $R^{2}$.
+      Predictions from the fitted model are unaffected — only the individual
+      coefficients become unreadable.
+    summary: >
+      Correlated regressors leave the fit intact but blow up the variance of
+      individual coefficients, by the factor $1/(1 - R_j^{2})$.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.multiple-regression
+      - quant-statistics.regression.r-squared
+    relates: []
+    tags: []
+
+  - id: quant-statistics.regression.gauss-markov
+    kind: theorem
+    prominence: 2
+    title: "Gauss–Markov theorem"
+    statement: >
+      Assume four things. (1) Linearity in parameters: $y = X\beta +
+      \varepsilon$, with $X$ of full column rank. (2) Strict exogeneity:
+      $\mathbb{E}[\varepsilon \mid X] = 0$, so errors are mean-zero and
+      uncorrelated with every regressor. (3) Homoskedasticity:
+      $\operatorname{Var}(\varepsilon_i \mid X) = \sigma^{2}$, the same for all
+      $i$. (4) No autocorrelation:
+      $\operatorname{Cov}(\varepsilon_i, \varepsilon_j \mid X) = 0$ for
+      $i \ne j$. Then the OLS estimator is unbiased and has the smallest variance
+      among all estimators that are linear in $y$ and unbiased — it is BLUE.
+      Normality of the errors is nowhere assumed; it is needed only for exact $t$
+      and $F$ inference in small samples. Both qualifiers bind: biased estimators
+      such as ridge can beat OLS in mean squared error.
+    summary: >
+      Under linearity, exogeneity, homoskedasticity and no autocorrelation, OLS
+      is the best linear unbiased estimator — no normality required.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.ols
+    relates: []
+    tags: []
+
+  - id: quant-statistics.regression.slope-inference
+    kind: technique
+    prominence: 0
+    title: "Standard error and t-statistic of a slope"
+    statement: >
+      Under the Gauss–Markov assumptions the simple-regression slope has
+      $\operatorname{Var}(\hat{\beta}_1 \mid x) =
+      \dfrac{\sigma^{2}}{\sum_i (x_i - \bar{x})^{2}}$, estimated by
+      substituting $\hat{\sigma}^{2} = \sum_i e_i^{2}/(n-2)$. Read off the three
+      levers: precision improves like $1/\sqrt{n}$, improves with the spread of
+      the regressor — never fit a slope over a narrow range of $x$ — and degrades
+      with residual noise. The reported statistic is
+      $t = \hat{\beta}_1/\operatorname{se}(\hat{\beta}_1)$, compared against a
+      $t$ distribution on $n-2$ degrees of freedom, with $\lvert t \rvert > 2$ as
+      the rough screen. If assumption (3) or (4) fails, this standard error is
+      the wrong number even though $\hat{\beta}_1$ is fine.
+    summary: >
+      A slope is only as trustworthy as its standard error
+      $\sigma/\sqrt{\sum_i (x_i - \bar{x})^{2}}$ allows; the $t$-statistic is
+      the slope measured in units of that error.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.gauss-markov
+    relates:
+      - id: quant-statistics.testing.ttest
+        note: >
+          The regression $t$-statistic is that test applied to the null
+          $\beta_1 = 0$, with $n-2$ degrees of freedom because two parameters
+          were estimated from the same data.
+    tags: []
+
+  - id: quant-statistics.regression.residual-diagnostics
+    kind: technique
+    prominence: 1
+    title: "Reading the residual plot"
+    statement: >
+      Plot residuals against fitted values, against each regressor, and against
+      time before believing any coefficient. Four signatures to recognize:
+      curvature, a systematic U or arch, means a missing nonlinear term, so add
+      $x^{2}$ or take logs; a funnel widening with the fitted value means
+      non-constant error variance; slow drift or long runs of same-signed
+      residuals in time order means serially correlated errors, which is the norm
+      in financial data; isolated large residuals mean outliers. A normal
+      quantile plot checks the tail shape that small-sample inference relies on.
+      What the plot cannot check is exogeneity, since residuals are orthogonal to
+      the regressors as an algebraic identity.
+    summary: >
+      Curvature, funnels, runs and outliers are the four things a residual plot
+      shows — and exogeneity is the one thing it can never show.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.fitted-residuals
+    relates: []
+    tags: []
+
+  - id: quant-statistics.regression.heteroskedasticity
+    kind: proposition
+    prominence: 1
+    title: "Heteroskedasticity and autocorrelated errors"
+    statement: >
+      Drop homoskedasticity or no-autocorrelation and OLS remains unbiased and
+      consistent, but it is no longer BLUE and — the part that bites — the
+      textbook standard errors are wrong, usually too small, so $t$-statistics
+      are overstated and marginal signals look real. Repairs that keep
+      $\hat{\beta}$ and fix only its variance estimate: White's
+      heteroskedasticity-consistent standard errors, or Newey–West when errors
+      are also serially correlated. Weighted least squares, dividing each
+      observation by
+      its error standard deviation, restores efficiency when the variance pattern
+      is known. In finance both violations are the default — volatility clusters,
+      and overlapping return windows induce autocorrelation — so robust standard
+      errors should be the habit rather than the remedy.
+    summary: >
+      Non-spherical errors leave the coefficients honest and the standard errors
+      lying; use White or Newey–West rather than the textbook formula.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.gauss-markov
+      - quant-statistics.regression.residual-diagnostics
+    relates: []
+    tags: []
+
+  - id: quant-statistics.regression.outliers-leverage
+    kind: proposition
+    prominence: 0
+    title: "Outliers and leverage"
+    statement: >
+      The leverage of observation $i$ is the diagonal hat value $h_{ii} \in
+      [0,1]$, averaging $(k+1)/n$ across the sample; it measures how far $x_i$
+      sits from the centre of the regressor cloud, and involves $y$ not at all.
+      Influence is leverage combined with a poor fit: an observation with
+      $h_{ii}$ near $1$ pulls the fitted surface onto itself, and one such point
+      can manufacture or erase an apparent relation. Because
+      $\operatorname{Var}(e_i) = \sigma^{2}(1 - h_{ii})$, high-leverage points
+      generate small residuals and hide in a residual plot, so leverage must be
+      checked separately. Standard responses: report the fit with and without the
+      point, winsorize, or switch to a robust loss. In market data one gap day or
+      one bad print is the usual culprit.
+    summary: >
+      A single far-out regressor value can drive the whole slope, and its small
+      residual is exactly why the residual plot will not warn you.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.residual-diagnostics
+    relates:
+      - id: quant-statistics.descriptive.robustness
+        note: >
+          Leverage is the regression version of the same fragility: least squares
+          inherits the mean's sensitivity to extreme values, and the fixes there
+          — trimming, winsorizing, robust losses — are the fixes here.
+    tags: []
+
+  - id: quant-statistics.regression.omitted-variable
+    kind: proposition
+    prominence: 1
+    title: "Omitted-variable bias"
+    statement: >
+      Suppose the truth is $y = \beta_0 + \beta_1 x + \beta_2 z + \varepsilon$
+      with $\mathbb{E}[\varepsilon \mid x,z] = 0$, but you regress $y$ on $x$
+      alone. Then the short regression's slope satisfies
+      $\mathbb{E}[\hat{\beta}_1] = \beta_1 + \beta_2\,
+      \dfrac{\operatorname{Cov}(x,z)}{\operatorname{Var}(x)}$: the true effect
+      plus the omitted coefficient times the slope from regressing the omitted
+      variable on the included one. Direction rule — the bias takes the sign of
+      $\beta_2 \times \operatorname{Cov}(x,z)$, so it is upward when $z$ raises
+      $y$ and moves with $x$, or when $z$ lowers $y$ and moves against $x$, and
+      downward in the two mixed cases. The bias vanishes only if $\beta_2 = 0$ or
+      $\operatorname{Cov}(x,z) = 0$, which is why a regression coefficient is not
+      a causal effect.
+    summary: >
+      Leaving out a relevant regressor shifts the slope by $\beta_{\text{omitted}}
+      \times \operatorname{Cov}(x, \text{omitted})/\operatorname{Var}(x)$, whose
+      sign is the product of the two signs.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.beta-cov-var
+      - quant-statistics.regression.multiple-regression
+      - quant-statistics.regression.gauss-markov
+    relates: []
+    tags: []
+
+  - id: quant-statistics.regression.omitted-variable-worked
+    kind: example
+    prominence: 1
+    title: "Omitted-variable bias worked"
+    statement: >
+      A researcher regresses daily strategy PnL on trade size and reports a slope
+      of $4$, concluding that trading bigger doubles the edge. Suppose the true
+      model is $\text{PnL} = 2\,\text{size} + 5\,\text{vol} + \varepsilon$ and
+      that in this sample $\operatorname{Cov}(\text{size},\text{vol}) = 0.6$ with
+      $\operatorname{Var}(\text{size}) = 1.5$. The formula predicts exactly what
+      was seen: $2 + 5(0.6/1.5) = 2 + 2 = 4$. Both signs are positive — high
+      volatility both widens spreads and coincides with larger sizing — so the
+      bias is upward and the true size effect is half the reported one. Adding
+      volatility as a second regressor removes the bias. The textbook twin is
+      wages on schooling with ability omitted, biased upward for the same reason.
+    summary: >
+      A reported slope of $4$ that is really $2$: the omitted volatility term
+      contributes $5 \times 0.4 = 2$ of pure bias.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.omitted-variable
+    relates: []
+    tags: []
+
+  - id: quant-statistics.regression.regression-to-mean
+    kind: proposition
+    prominence: 2
+    title: "Regression to the mean"
+    statement: >
+      Standardize both variables: $z_x = (x - \mu_x)/\sigma_x$ and
+      $z_y = (y - \mu_y)/\sigma_y$. The population regression line becomes
+      $\hat{z}_y = \rho\,z_x$, because the slope
+      $\operatorname{Cov}(x,y)/\operatorname{Var}(x)$ times $\sigma_x/\sigma_y$
+      is exactly $\rho$. Whenever $\lvert \rho \rvert < 1$ the prediction is
+      strictly nearer the mean, in standard deviations, than the observation was.
+      Exam framing: a student scoring $2$ standard deviations above average on
+      the midterm is predicted at $2\rho$ on the final, so with $\rho = 0.6$ only
+      $1.2$ above. The effect is symmetric — predicting the midterm from a high
+      final shrinks just as much — and needs no cause beyond imperfect
+      correlation: each score is skill plus independent noise, and the extremes
+      over-represent lucky noise.
+    summary: >
+      With correlation $\rho$, an observation $k$ standard deviations out
+      forecasts only $k\rho$ next time; $\lvert\rho\rvert < 1$ is the whole
+      mechanism.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.beta-cov-var
+      - quant-probability.joint.correlation
+    relates:
+      - id: quant-probability.joint.bivariate-normal
+        note: >
+          There the conditional mean $\mu_y + \rho(\sigma_y/\sigma_x)(x-\mu_x)$
+          is the population regression line exactly, so the shrinkage by $\rho$
+          is a theorem about the joint law rather than an artefact of fitting.
+    tags: []
+
+  - id: quant-statistics.regression.regression-fallacy
+    kind: example
+    prominence: 1
+    title: "The regression fallacy"
+    statement: >
+      Flight instructors noticed that cadets praised after an unusually good
+      landing tended to do worse next time, and cadets scolded after a bad one
+      tended to improve; they concluded that criticism works and praise
+      backfires. Both movements are pure regression to the mean — condition on an
+      extreme performance and the next one is predicted at $\rho$ times as
+      extreme, whatever the feedback was. The same trap runs through the
+      "sophomore slump" after a great rookie year, the top-ranked fund that
+      reverts the following year, and the factory that installs a safety
+      programme right after an accident spike and records fewer accidents.
+      Diagnosis: any story explaining why an extreme group moved toward average
+      needs a control group, because the null already predicts the move.
+    summary: >
+      Selecting on an extreme outcome guarantees a move toward average next time,
+      so treatments applied to extremes look effective for free.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.regression-to-mean
+    relates: []
+    tags: []
+
+  - id: quant-statistics.regression.ridge-lasso
+    kind: technique
+    prominence: 1
+    title: "Ridge and lasso"
+    statement: >
+      Ridge minimizes $\lVert y - Xb \rVert^{2} + \lambda \sum_j b_j^{2}$, with
+      closed form $\hat{\beta} = (X'X + \lambda I)^{-1}X'y$, which is invertible
+      for every $\lambda > 0$ even when $X'X$ is singular. Lasso minimizes
+      $\lVert y - Xb \rVert^{2} + \lambda \sum_j \lvert b_j \rvert$; it has no
+      closed form, and the kinks of the absolute value drive coefficients exactly
+      to zero, so it selects variables while ridge only shrinks them. Both are
+      biased toward zero by construction, and both trade that bias for variance,
+      which pays whenever the variance saved exceeds the squared bias added —
+      the collinear or high-dimensional case. Standardize the regressors first,
+      since the penalty is not scale-invariant, leave the intercept unpenalized,
+      and pick $\lambda$ by out-of-sample validation: in-sample fit always
+      prefers $\lambda = 0$.
+    summary: >
+      Pay a penalty on coefficient size to buy variance reduction — ridge shrinks
+      smoothly, lasso zeroes out, and $\lambda$ is only ever chosen
+      out-of-sample.
+    parent: quant-statistics.regression
+    also_under: []
+    requires:
+      - quant-statistics.regression.multicollinearity
+      - quant-statistics.estimation.bias-mse
+    relates: []
+    tags: []

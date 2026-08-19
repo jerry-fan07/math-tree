@@ -69,12 +69,18 @@ final class ScoreStore {
     /// Called after every recompute — how the renderer learns to repaint.
     var onChange: (() -> Void)?
 
+    /// Resolves a node's branch hue for the chrome (`ScoreFormat`). Installed by
+    /// `SceneStore` once its scene exists, so score dots are painted in this
+    /// tree's hues; previews and headless folds leave it nil and fall back.
+    var hueResolver: ((NodeID) -> Float?)?
+
     var isClockPinned: Bool { pinnedNow != nil }
     var now: Date { pinnedNow ?? Date() }
 
     init(
         document: GraphDocument,
         problems: ProblemBank = ProblemBank(problems: []),
+        tree: TreeSpec = .math,
         config: ScoringConfig = ScoringConfig(),
         environment: [String: String] = ProcessInfo.processInfo.environment,
         arguments: [String] = CommandLine.arguments
@@ -94,21 +100,25 @@ final class ScoreStore {
 
         var diagnostics: [String] = []
         let url: URL
-        if let override = environment["MATHTREE_EVIDENCE_LOG"], !override.isEmpty {
+        if let override = environment[tree.evidenceEnvironmentKey], !override.isEmpty {
             url = URL(fileURLWithPath: (override as NSString).expandingTildeInPath)
-        } else if let standard = try? EvidenceLog.defaultURL() {
+        } else if let standard = try? EvidenceLog.defaultURL(fileName: tree.evidenceFileName) {
             url = standard
         } else {
             // Nowhere to persist is not fatal: the map still renders, reviews just
             // will not survive the session, and the panel says so.
             url = URL(fileURLWithPath: NSTemporaryDirectory())
-                .appendingPathComponent("mathtree-evidence.jsonl")
+                .appendingPathComponent("mathtree-" + tree.evidenceFileName)
             diagnostics.append("could not locate Application Support; using \(url.path)")
         }
         log = EvidenceLog(url: url)
 
         allowsIntakeInReadOnlyRun = environment["MATHTREE_INTAKE_DRAIN"] == "1"
-        if let override = environment["MATHTREE_INTAKE"], !override.isEmpty {
+        if !tree.hasIntake {
+            // Not a defect: no observer feeds this tree, so there is no queue to
+            // watch and nothing to diagnose.
+            intake = nil
+        } else if let override = environment["MATHTREE_INTAKE"], !override.isEmpty {
             intake = IntakeDirectory(
                 root: URL(fileURLWithPath: (override as NSString).expandingTildeInPath))
         } else if let standard = try? IntakeDirectory.defaultURL() {

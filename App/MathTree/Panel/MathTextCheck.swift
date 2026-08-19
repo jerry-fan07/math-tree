@@ -204,21 +204,35 @@ extension MathText {
             report(for: samples(for: document))
         }
 
-        /// Both corpora in one pass, with the `statement` read-out that has to be
+        /// Whether `MATHTREE_MATH_CHECK=1` asked for the corpus self-check — split
+        /// out so the caller can do check-only work (loading a second tree's
+        /// artifacts) without paying for it on every debug launch.
+        static var isRequested: Bool {
+            ProcessInfo.processInfo.environment["MATHTREE_MATH_CHECK"] == "1"
+        }
+
+        /// Every corpus in one pass, with the `statement` read-out that has to be
         /// *read* rather than merely passed (see `report(for:)`'s note).
+        /// `additionalDocuments` carries the other trees' graphs (the quant tree);
+        /// their fields are checked exactly like the primary corpus's.
         ///
         /// Environment-driven per D3.7: AppKit parses stray `--flag value` pairs
         /// into `NSUserDefaults` and the window silently never appears.
         @MainActor
-        static func runIfRequested(document: GraphDocument, problems: ProblemDocument) {
-            guard ProcessInfo.processInfo.environment["MATHTREE_MATH_CHECK"] == "1" else { return }
-            let samples = samples(for: document) + samples(for: problems.bank)
-            print(report(for: samples))
+        static func runIfRequested(
+            document: GraphDocument, problems: ProblemDocument,
+            additionalDocuments: [GraphDocument] = []
+        ) {
+            guard isRequested else { return }
+            let all =
+                samples(for: document) + samples(for: problems.bank)
+                + additionalDocuments.flatMap { Self.samples(for: $0) }
+            print(report(for: all))
             if let reason = problems.unavailable {
                 print("note: problem bank not checked — \(reason)")
             }
             fflush(stdout)
-            exit(findings(in: samples).isEmpty ? 0 : 1)
+            exit(findings(in: all).isEmpty ? 0 : 1)
         }
     }
 

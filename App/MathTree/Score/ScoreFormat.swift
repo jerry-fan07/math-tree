@@ -74,15 +74,17 @@ enum ScoreFormat {
             return theme.unlearnedFill
         }
         return theme.contentFill(
-            rampT: ScoreRamp.rampT(forRetrievability: retrievability), hue: hue(of: id))
+            rampT: ScoreRamp.rampT(forRetrievability: retrievability), hue: hue(of: id, in: scores))
     }
 
     /// The branch hue a node inherits. The scene owns the assignment (sorted branch
-    /// id → seed hue, so the map keeps its colours across rebuilds); previews and
-    /// the failure path have no scene and fall back to the first seed.
+    /// id → seed hue, so the map keeps its colours across rebuilds) and installs a
+    /// resolver on its tree's `ScoreStore` — resolved per store, not through the
+    /// shared singleton, so the quant window's dots wear that tree's hues.
+    /// Previews and the failure path have no scene and fall back to the first seed.
     @MainActor
-    static func hue(of id: NodeID) -> Float {
-        SceneStore.shared.scene?.hue(of: id) ?? Palette.hue(forBranchIndex: 0)
+    static func hue(of id: NodeID, in scores: ScoreStore) -> Float {
+        scores.hueResolver?(id) ?? Palette.hue(forBranchIndex: 0)
     }
 
     /// Relative to the snapshot's clock, not to `Date()` — under `MATHTREE_NOW`

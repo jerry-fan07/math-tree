@@ -3,8 +3,12 @@ import Foundation
 import Metal
 import simd
 
-/// Loads the compiled artifacts and stands the renderer up exactly once, whether
-/// the caller is the window, `--probe`, or a headless snapshot.
+/// Loads one tree's compiled artifacts and stands its renderer up exactly once,
+/// whether the caller is the window, `--probe`, or a headless snapshot.
+///
+/// One instance per tree, created lazily on first access — the quant window's
+/// artifacts are not decoded until that window is opened, so the second tree
+/// costs the primary window's first paint nothing.
 ///
 /// Failures are carried, not thrown: `GraphDocument.load()` produces readable
 /// diagnostics (missing artifacts, version mismatch, layout gaps) and a developer
@@ -12,7 +16,10 @@ import simd
 /// an empty one.
 @MainActor
 final class SceneStore {
-    static let shared = SceneStore()
+    static let shared = SceneStore(tree: .math)
+    static let quant = SceneStore(tree: .quant)
+
+    let tree: TreeSpec
 
     private(set) var scene: GraphScene?
     private(set) var renderer: GraphRenderer?
@@ -35,11 +42,13 @@ final class SceneStore {
     private var intakeObserver: (any NSObjectProtocol)?
     private static let decayInterval: TimeInterval = 60
 
-    private init() {
+    private init(tree: TreeSpec) {
+        self.tree = tree
+        let directories = GraphDocument.searchDirectories(subdirectory: tree.subdirectory)
         var timings = RenderTimings()
         do {
             let loadStart = CFAbsoluteTimeGetCurrent()
-            let document = try GraphDocument.load()
+            let document = try GraphDocument.load(from: directories)
             timings.documentLoadMs = (CFAbsoluteTimeGetCurrent() - loadStart) * 1000
 
             let buildStart = CFAbsoluteTimeGetCurrent()
@@ -64,12 +73,13 @@ final class SceneStore {
             // Decoded after the renderer is standing: the bank is not on the
             // first-paint path (D3.2 makes decode the dominant launch term), and
             // the map must be interactive before assessment is reachable.
-            let problems = ProblemDocument.load()
+            let problems = ProblemDocument.load(from: directories)
             self.problems = problems
 
-            let scores = ScoreStore(document: document, problems: problems.bank)
+            let scores = ScoreStore(document: document, problems: problems.bank, tree: tree)
+            scores.hueResolver = { scene.hue(of: $0) }
             self.scores = scores
-            placement = PlacementStore(scores: scores, bank: problems.bank)
+            placement = PlacementStore(scores: scores, bank: problems.bank, tree: tree)
             scores.onChange = { [weak renderer] in
                 guard let renderer else { return }
                 renderer.applyScores(scores.visuals(for: document))

@@ -1,0 +1,422 @@
+# quant-games.kelly — Kelly & Bankroll
+# Outline node (39 in content-quant/outline.md's authoring order).
+# NEEDS: quant-tools.optimization.strict-convexity — g'' < 0 is what upgrades the growth function's stationary point to a unique global maximum; §3's spine exposes only plain convexity, so growth-function requires that instead.
+
+nodes:
+  - id: quant-games.kelly
+    kind: subbranch
+    title: "Kelly & Bankroll"
+    summary: >
+      Bet sizing as log-wealth optimization — the Kelly fraction, what
+      over-betting destroys, and fractional Kelly in practice.
+    parent: quant-games
+    also_under: []
+    tags: []
+
+  - id: quant-games.kelly.fixed-fraction
+    kind: definition
+    prominence: 1
+    title: "Fixed-fraction betting"
+    statement: >
+      The setup for everything here: a bankroll $W_0$, a favourable bet
+      available over and over with independent identically distributed profits
+      $X_1, X_2, \dots$ per unit staked, and a rule that stakes the same
+      fraction $f$ of the current bankroll every round. Wealth is then the
+      product $W_n = W_0 \prod_{i=1}^{n} (1 + f X_i)$. For a bet at odds of $b$
+      to $1$ won with probability $p$, $X = b$ with probability $p$ and
+      $X = -1$ with probability $q = 1 - p$. Two structural facts follow:
+      wealth compounds multiplicatively rather than accumulating additively,
+      and for $0 \le f < 1$ every factor is positive. The entire question is
+      the choice of the single number $f$.
+    summary: >
+      Stake the same fraction of your current bankroll each round, so wealth is
+      a product of random multipliers rather than a sum of payoffs.
+    parent: quant-games.kelly
+    also_under: []
+    requires: []
+    relates: []
+    tags: []
+
+  - id: quant-games.kelly.log-growth
+    kind: proposition
+    prominence: 2
+    title: "Long-run growth is expected log wealth"
+    statement: >
+      Take logarithms of the fixed-fraction bankroll:
+      $\frac{1}{n}\ln(W_n/W_0) = \frac{1}{n}\sum_{i=1}^{n} \ln(1 + f X_i)$, an
+      average of iid terms. Provided $\mathbb{E}|\ln(1+fX)| < \infty$, the
+      strong law makes it converge almost surely to
+      $g(f) = \mathbb{E}[\ln(1 + f X)]$. Hence $W_n \approx W_0 e^{n g(f)}$: the
+      bankroll grows or decays exponentially at the deterministic rate $g(f)$,
+      and a strategy with the larger $g$ overtakes any rival eventually with
+      probability $1$. Maximizing long-run growth therefore means maximizing
+      the expected logarithm — equivalently the geometric mean of the round
+      multipliers $1 + fX$, not their arithmetic mean.
+    summary: >
+      Compounded wealth grows at the almost-sure rate
+      $\mathbb{E}[\ln(1+fX)]$, so the objective for a repeated bet is expected
+      log wealth.
+    parent: quant-games.kelly
+    also_under: []
+    requires:
+      - quant-games.kelly.fixed-fraction
+      - quant-probability.limits.slln
+    relates: []
+    tags: []
+
+  - id: quant-games.kelly.ev-vs-growth
+    kind: intuition
+    prominence: 1
+    title: "Maximizing expected wealth says bet everything"
+    statement: >
+      Expected wealth is $\mathbb{E}[W_n] = W_0 (1 + f\mu)^{n}$ with
+      $\mu = \mathbb{E}[X]$, strictly increasing in $f$, so naive expectation
+      maximization prescribes $f = 1$: the whole bankroll, every round. For the
+      $60\%$ even-money coin that gives $\mathbb{E}[W_n] = W_0 (1.2)^{n}$ while
+      the chance of surviving $n$ rounds is $0.6^{n} \to 0$. The enormous mean
+      is carried entirely by the single all-wins path; the typical bankroll is
+      zero. Expectation is the wrong functional under compounding because a
+      product is hostage to its worst factor, and one factor of zero is
+      permanent. The logarithm fixes both defects: it is additive across
+      rounds, and it prices ruin at $-\infty$.
+    summary: >
+      Expected wealth is maximized by staking everything, which is ruin with
+      probability one — the mean of a product is not what you get.
+    parent: quant-games.kelly
+    also_under: []
+    requires:
+      - quant-games.kelly.log-growth
+    relates: []
+    tags: []
+
+  - id: quant-games.kelly.growth-function
+    kind: definition
+    prominence: 1
+    title: "The growth function of a binary bet"
+    statement: >
+      Staking fraction $f$ at odds of $b$ to $1$, won with probability $p$, multiplies
+      the bankroll by $1 + bf$ on a win and $1 - f$ on a loss, so the growth
+      rate is $g(f) = p\ln(1 + bf) + q\ln(1 - f)$ on the domain
+      $0 \le f < 1$, with $g(f) \to -\infty$ as $f \to 1$. Its derivatives are
+      $g'(f) = \frac{pb}{1+bf} - \frac{q}{1-f}$ and
+      $g''(f) = -\frac{pb^{2}}{(1+bf)^{2}} - \frac{q}{(1-f)^{2}} < 0$, so $g$ is
+      strictly concave: at most one stationary point, and it is the global
+      maximum. Two boundary readings: $g(0) = 0$, declining the bet neither
+      grows nor shrinks anything, and $g'(0) = pb - q$, the expected profit per
+      unit staked.
+    summary: >
+      $g(f) = p\ln(1+bf) + q\ln(1-f)$ is strictly concave with $g(0)=0$ and
+      slope $pb-q$ at the origin — a positive edge is exactly what makes some
+      stake worth taking.
+    parent: quant-games.kelly
+    also_under: []
+    requires:
+      - quant-games.kelly.log-growth
+      - quant-tools.optimization.convexity
+    relates: []
+    tags: []
+
+  - id: quant-games.kelly.kelly-fraction
+    kind: theorem
+    prominence: 2
+    title: "Kelly criterion"
+    statement: >
+      For repeated independent bets at odds of $b$ to $1$ won with probability $p$
+      (with $q = 1-p$), infinitely divisible stakes and full reinvestment, the
+      fraction maximizing the long-run growth rate is
+      $f^{*} = \frac{bp - q}{b}$ when $bp > q$, and $f^{*} = 0$ otherwise.
+      Derivation: set $g'(f) = \frac{pb}{1+bf} - \frac{q}{1-f} = 0$ and
+      cross-multiply, $pb(1-f) = q(1 + bf)$, so $pb - pbf = q + qbf$, giving
+      $pb - q = bf(p + q) = bf$ and hence $f^{*} = (bp-q)/b = p - q/b$. Strict
+      concavity of $g$ promotes this stationary point to the unique global
+      maximum. If $bp \le q$ the maximum over $[0,1)$ sits at the endpoint
+      $f = 0$: no edge, no bet. Even money, $b = 1$, gives $f^{*} = p - q =
+      2p - 1$.
+    summary: >
+      Bet $f^{*} = (bp-q)/b$ of your bankroll — the fraction where the marginal
+      log gain from a win balances the marginal log loss, and $2p-1$ at even
+      money.
+    parent: quant-games.kelly
+    also_under: []
+    requires:
+      - quant-games.kelly.growth-function
+      - quant-tools.optimization.foc
+    relates: []
+    tags: []
+
+  - id: quant-games.kelly.edge-over-odds
+    kind: corollary
+    prominence: 1
+    title: "Edge over odds"
+    statement: >
+      Read $f^{*} = (bp - q)/b$ as edge divided by odds: the numerator
+      $bp - q$ is the expected profit per unit staked, the denominator $b$ is
+      the payoff offered. Bet more as the edge grows, less as the odds
+      lengthen. At even money the two coincide and $f^{*} = 2p - 1$ is the edge
+      itself — $p = 0.55$ stakes $10\%$, $p = 0.51$ stakes $2\%$. A shot paying
+      $2$ to $1$ that wins $40\%$ of the time has edge $2(0.4) - 0.6 = 0.2$ and
+      $f^{*} = 0.1$. Long shots stay small even with a big edge: $b = 9$,
+      $p = 0.15$ gives edge $0.5$ but $f^{*} = 0.5/9 \approx 5.6\%$. Only $p$
+      and $b$ enter, never the size of the bankroll, which is what makes the
+      rule scale-free.
+    summary: >
+      Kelly is edge over odds — the fraction is the expected profit per unit
+      staked divided by the price the bookmaker pays, and never depends on how
+      rich you are.
+    parent: quant-games.kelly
+    also_under: []
+    requires:
+      - quant-games.kelly.kelly-fraction
+    relates: []
+    tags: []
+
+  - id: quant-games.kelly.coin-example
+    kind: example
+    prominence: 1
+    title: "The 60% coin"
+    statement: >
+      The standard interview bet: a coin comes up heads with probability $0.6$,
+      pays even money, and you may repeat it as often as you like — how much of
+      your bankroll do you stake? Kelly gives $f^{*} = 2(0.6) - 1 = 0.2$, so
+      $20\%$ of the bankroll on every toss. The growth rate is
+      $g(0.2) = 0.6\ln 1.2 + 0.4\ln 0.8 = 0.1094 - 0.0893 = 0.0201$ per toss,
+      so the bankroll multiplies by $e^{0.0201} \approx 1.0203$ — about
+      $2.03\%$ per toss, doubling in $\ln 2 / 0.0201 \approx 34$ tosses. Mind
+      the gap: the bet's expected profit is $0.2 \times 0.2 = 4\%$ of bankroll
+      per toss, of which only half survives compounding. Staking $40\%$ instead
+      grows at $-0.24\%$ per toss.
+    summary: >
+      Bet $20\%$ per toss for about $2.03\%$ compound growth and a doubling
+      every 34 tosses; the $4\%$ expected profit is halved by variance drag.
+    parent: quant-games.kelly
+    also_under: []
+    requires:
+      - quant-games.kelly.edge-over-odds
+    relates: []
+    tags: []
+
+  - id: quant-games.kelly.quadratic-approximation
+    kind: proposition
+    prominence: 1
+    title: "Small-stake expansion: edge over variance"
+    statement: >
+      Expand the logarithm, $\ln(1 + fX) = fX - f^{2}X^{2}/2 + O(f^{3})$, and
+      take expectations:
+      $g(f) \approx f\mu - \frac{f^{2}}{2}\mathbb{E}[X^{2}]$, where
+      $\mu = \mathbb{E}[X]$ and
+      $\mathbb{E}[X^{2}] = \sigma^{2} + \mu^{2} \approx \sigma^{2}$ whenever the
+      edge is small. Maximizing that parabola gives $f^{*} \approx \mu/\sigma^{2}$
+      — edge over variance — with maximal growth
+      $g^{*} \approx \mu^{2}/(2\sigma^{2}) = S^{2}/2$, half the squared Sharpe
+      ratio of a single bet. Sanity check at even money:
+      $\mathbb{E}[X^{2}] = 1$ and $\mu = 2p-1$, so the approximation returns
+      $f^{*} = 2p-1$ exactly and $g^{*} \approx (2p-1)^{2}/2 = 0.02$ at
+      $p = 0.6$, against the true $0.0201$.
+    summary: >
+      To second order the growth rate is $f\mu - f^{2}\sigma^{2}/2$, so
+      $f^{*} \approx \mu/\sigma^{2}$ and the best attainable growth is half the
+      squared Sharpe ratio.
+    parent: quant-games.kelly
+    also_under: []
+    requires:
+      - quant-games.kelly.growth-function
+      - quant-tools.series-calculus.taylor
+    relates: []
+    tags: []
+
+  - id: quant-games.kelly.continuous-kelly
+    kind: proposition
+    prominence: 1
+    title: "Kelly for a continuously rebalanced position"
+    statement: >
+      Hold a constant fraction $f$ of wealth in an asset with drift $\mu$ and
+      volatility $\sigma$, the rest at the riskless rate $r$, rebalancing
+      continuously. The log-wealth drift is then exactly
+      $g(f) = r + f(\mu - r) - \frac{f^{2}\sigma^{2}}{2}$ — no approximation is
+      involved, the subtracted term being the Itô correction on a position
+      whose volatility is $f\sigma$. Maximizing gives
+      $f^{*} = (\mu - r)/\sigma^{2}$ and growth
+      $r + (\mu-r)^{2}/(2\sigma^{2}) = r + S^{2}/2$. Numbers: an excess return
+      of $8\%$ at $\sigma = 16\%$ gives $f^{*} = 0.08/0.0256 \approx 3.1$, that
+      is three times levered, for excess growth $0.5^{2}/2 = 12.5\%$ a year.
+      Kelly leverage is $S/\sigma$, so low-volatility edges demand size.
+    summary: >
+      Continuously rebalanced Kelly holds $(\mu-r)/\sigma^{2}$ of wealth in the
+      asset and compounds at $r + S^{2}/2$ — the growth curve is an exact
+      parabola here.
+    parent: quant-games.kelly
+    also_under: []
+    requires:
+      - quant-games.kelly.quadratic-approximation
+    relates:
+      - id: quant-processes.ito.vol-drag
+        note: >
+          The $-f^{2}\sigma^{2}/2$ subtracted here is literally the $-\sigma^{2}/2$
+          of geometric Brownian motion, applied to the levered position's
+          volatility $f\sigma$; Kelly is the choice of $f$ where the linear edge
+          term stops outrunning that drag.
+    tags: []
+
+  - id: quant-games.kelly.overbetting
+    kind: proposition
+    prominence: 1
+    title: "The growth curve and the double-Kelly cliff"
+    statement: >
+      In the continuous case $g(f) = f\mu - f^{2}\sigma^{2}/2$ is an exact
+      downward parabola: zeros at $f = 0$ and $f = 2f^{*}$, peak $g^{*}$ at
+      $f^{*}$, and $g(cf^{*}) = (2c - c^{2})\,g^{*}$ along the way. So $c = 1/2$
+      retains three quarters of maximal growth, $c = 2$ yields exactly zero
+      growth despite every individual bet having positive expectation, and
+      $c > 2$ yields negative growth — the bankroll tends to $0$ almost surely.
+      The discrete binary bet matches this to leading order and is slightly
+      worse beyond: for the $60\%$ coin the exact curve crosses zero at
+      $f \approx 0.39$, just short of $2f^{*} = 0.4$. The curve is steeply
+      asymmetric, so over-betting is punished far harder than under-betting.
+    summary: >
+      Growth is a parabola vanishing at $0$ and $2f^{*}$: half Kelly keeps
+      $3/4$ of the growth, double Kelly keeps none of it, and past that a
+      winning bet loses money.
+    parent: quant-games.kelly
+    also_under: []
+    requires:
+      - quant-games.kelly.kelly-fraction
+      - quant-games.kelly.quadratic-approximation
+    relates: []
+    tags: []
+
+  - id: quant-games.kelly.fractional
+    kind: technique
+    prominence: 1
+    title: "Fractional (half) Kelly"
+    statement: >
+      Standard practice is to stake $cf^{*}$ with $c$ between $0.25$ and $0.5$
+      rather than the full fraction. Three reasons, all quantitative. (1)
+      Asymmetry: growth is $(2c - c^{2})g^{*}$, so halving the stake costs
+      $25\%$ of growth while doubling it costs $100\%$ — and betting full Kelly
+      on an edge you have overestimated twofold is exactly betting $2f^{*}$. (2)
+      Risk: log-wealth volatility per round is proportional to $f$, so half
+      Kelly halves the volatility and quarters the variance, buying three
+      quarters of the growth for half the swing. (3) Estimation: $p$ and $\mu$
+      are estimates, and while the optimum is flat in $f$, its location is not,
+      so noise in the edge moves $f^{*}$ a long way. Shade down, never up.
+    summary: >
+      Bet a quarter to a half of $f^{*}$: half Kelly gives $3/4$ of the growth
+      at half the volatility, and the penalty for over-betting an
+      overestimated edge is far worse than the penalty for timidity.
+    parent: quant-games.kelly
+    also_under: []
+    requires:
+      - quant-games.kelly.overbetting
+      - quant-tools.optimization.flat-optimum
+    relates: []
+    tags: []
+
+  - id: quant-games.kelly.drawdown
+    kind: proposition
+    prominence: 1
+    title: "Drawdowns under fractional Kelly"
+    statement: >
+      Under the diffusion approximation, staking $cf^{*}$ makes log wealth a
+      Brownian motion with drift $m = (2c - c^{2})g^{*}$ and variance rate
+      $s^{2} = 2c^{2}g^{*}$, so the hitting probability
+      $e^{-2mL/s^{2}}$ for a level $L = \ln(1/\alpha)$ below the start gives
+      $\Pr(\text{bankroll ever falls to } \alpha W_0) = \alpha^{2/c - 1}$. At
+      full Kelly ($c = 1$) this is simply $\alpha$: the chance of ever halving
+      your bankroll is $1/2$, of ever losing $90\%$ is $1/10$. Half Kelly
+      ($c = 1/2$) gives $\alpha^{3}$, so halving has probability $1/8$ and a
+      $90\%$ loss $1/1000$. Being scale-free, the bound reapplies from every
+      new high-water mark, which is why full Kelly is unlivable in practice.
+    summary: >
+      A full-Kelly bettor halves the bankroll at some point with probability
+      $1/2$; at half Kelly the same drawdown has probability $1/8$.
+    parent: quant-games.kelly
+    also_under: []
+    requires:
+      - quant-games.kelly.fractional
+      - quant-games.kelly.continuous-kelly
+    relates: []
+    tags: []
+
+  - id: quant-games.kelly.no-bankruptcy
+    kind: proposition
+    prominence: 0
+    title: "Fixed-fraction betting never goes bankrupt"
+    statement: >
+      For $0 \le f < 1$ and a bet that cannot lose more than the stake, every
+      multiplier $1 + fX$ is strictly positive, so $W_n > 0$ for all $n$:
+      proportional betting has no absorbing state at zero, which is exactly why
+      the Kelly objective can be maximized without a survival constraint. What
+      replaces bankruptcy is exponential decay — if $g(f) < 0$ then
+      $W_n \to 0$ almost surely without ever reaching it. Two practical caveats
+      restore real ruin: a minimum bet size turns the fraction into a fixed
+      stake once the bankroll is small, and any position that can lose more
+      than its notional (leverage, short options) has an $f$ past which
+      $1 + fX < 0$ is possible.
+    summary: >
+      Betting a fixed fraction of what is left can shrink the bankroll to
+      nothing asymptotically but can never hit zero — unlike fixed-stake
+      betting, which has a genuine absorbing barrier.
+    parent: quant-games.kelly
+    also_under: []
+    requires:
+      - quant-games.kelly.overbetting
+    relates:
+      - id: quant-processes.ruin.infinite-opponent
+        note: >
+          Fixed stakes against an infinitely rich opponent mean certain ruin
+          without an edge; rescaling the stake to the surviving bankroll is what
+          removes the absorbing barrier and converts ruin into an exponential
+          rate $g(f)$ that a positive edge can make positive.
+    tags: []
+
+  - id: quant-games.kelly.simultaneous-bets
+    kind: technique
+    prominence: 0
+    title: "Simultaneous and correlated bets"
+    statement: >
+      When several bets settle at once the stakes must be chosen jointly,
+      because they share one bankroll and their risks land in the same
+      multiplier. For $n$ independent simultaneous bets the joint optimum sets
+      each stake slightly below its standalone $f^{*}$, with the total capped so
+      that no joint outcome is fatal. In the continuous Gaussian case the answer
+      is clean: maximize $f'\mu - \frac{1}{2}f'\Sigma f$ over the weight vector
+      $f$, giving $f^{*} = \Sigma^{-1}\mu$ — the scalar $\mu/\sigma^{2}$ with the
+      covariance matrix taking the place of the variance. Positively correlated
+      bets are one larger bet in disguise and must be shrunk together. The
+      portfolio reading of $\Sigma^{-1}\mu$, and its kinship with mean–variance
+      optimization, belongs to portfolio theory.
+    summary: >
+      Bets that settle together share a bankroll, so each is sized below its
+      standalone Kelly and the Gaussian solution is the vector
+      $\Sigma^{-1}\mu$.
+    parent: quant-games.kelly
+    also_under: []
+    requires:
+      - quant-games.kelly.continuous-kelly
+    relates: []
+    tags: []
+
+  - id: quant-games.kelly.assumptions
+    kind: intuition
+    prominence: 0
+    title: "What Kelly assumes"
+    statement: >
+      Kelly is optimal for exactly one objective: the asymptotic growth rate of
+      a bankroll reinvested in full, forever. It presumes correctly known
+      probabilities, infinitely divisible stakes, independent repeatable bets,
+      no deposits or withdrawals, and no horizon or benchmark. Change any of
+      those and the answer moves — Samuelson's objection is that maximizing
+      $\mathbb{E}[\ln W]$ is merely one utility function among many, and a
+      trader marked on a quarterly Sharpe ratio, or a fund facing redemptions
+      after a drawdown, rationally bets less. Interview framing: give
+      $f^{*}$ from the formula, then say out loud which assumption you distrust
+      and what fraction of $f^{*}$ you would actually stake.
+    summary: >
+      Kelly answers "how do I compound this bankroll fastest forever?" — any
+      other objective, horizon or funding constraint changes the right stake.
+    parent: quant-games.kelly
+    also_under: []
+    requires:
+      - quant-games.kelly.log-growth
+    relates: []
+    tags: []
