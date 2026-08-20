@@ -1,0 +1,933 @@
+unit: quant-statistics.estimation
+opening: >
+  Estimation turns the machinery of probability into a toolkit for guessing
+  an unknown parameter from data, and everything here is a way of scoring
+  that guess. It opens with the vocabulary — estimator versus estimate,
+  bias, variance, and the mean squared error that trades them off — then
+  works through the two workhorse techniques, maximum likelihood and the
+  method of moments, with worked cases for the Bernoulli, normal, and
+  uniform families. The back half turns quantitative: Fisher information,
+  the Cramér–Rao floor it sets on every unbiased estimator's variance, and
+  the asymptotic normality that makes the MLE the default choice in
+  practice. It closes with the German tank problem, the canonical interview
+  example of the whole chapter's ideas working start to finish on one
+  number.
+lessons:
+  - node: quant-statistics.estimation.estimator
+    hook: >
+      Interviewers use "estimator" and "estimate" as if they're
+      interchangeable, but conflating them is the tell that you don't know
+      why an estimate needs an error bar at all — the estimator is the
+      machine, the estimate is one reading off it.
+    explanation: >
+      A statistic is any rule that turns the observed data alone into a
+      number — it may use $X_1,\dots,X_n$ in any way you like, but it may
+      never peek at the unknown $\theta$ it is trying to pin down. An
+      estimator is a statistic built for exactly that purpose, best
+      understood as a machine: feed it a sample, it returns a guess.
+      Before you run the experiment, that guess is a random variable,
+      since it inherits its randomness from the data it is a function of;
+      only after you plug in the numbers you actually observed does it
+      collapse into the estimate, a single fixed value.
+
+      The distinction matters because every quality judgment in this
+      chapter — bias, variance, MSE, consistency — is a statement about
+      the estimator's behavior across hypothetical repetitions of the
+      whole experiment, never about the one estimate sitting in front of
+      you. That behavior is called the sampling distribution: imagine
+      drawing a fresh sample of size $n$ over and over, computing
+      $\hat\theta$ each time, and histogramming the results. The spread of
+      that histogram — its standard deviation — is the standard error, and
+      an estimate reported with no standard error attached is a number
+      nobody has measured the noise on.
+    worked: >
+      Suppose you want the average commute time in a city and sample four
+      commuters, observing $22, 25, 19, 30$ minutes. The estimator is
+      $T(X_1,\dots,X_4) = \bar X$, a rule that would apply to any four
+      commuters you might have drawn; the estimate is the number it
+      returns here, $\bar x = 24$ minutes. Survey a different four
+      commuters and $T$ returns a different estimate — say $21.5$ —
+      because $\bar X$ is genuinely random before the data arrives. The
+      spread you'd see running that survey many times, not the single
+      value $24$, is what the rest of this chapter learns to summarize.
+    interview: >
+      "What's the difference between an estimator and an estimate?" is
+      asked almost verbatim, and the sharp answer states both a random
+      variable and a realized value in the same breath. A common follow-up
+      — "why not just report the number?" — is answered by pointing at the
+      sampling distribution: quality claims require imagining the
+      experiment repeated.
+    pitfalls: >
+      Quoting an estimate with no sense of its spread, as though $24$
+      minutes were exact rather than one draw from a noisy process.
+      Building a "statistic" that secretly uses the true $\theta$ — for
+      instance standardizing by the true standard deviation when only an
+      estimate of it is known — disqualifies it as a statistic at all.
+    recap: >
+      An estimator is a data-only random variable; an estimate is the
+      single number it returns on your sample, and everything that
+      follows scores the former, never the latter.
+
+  - node: quant-statistics.estimation.bias-mse
+    hook: >
+      Interviewers ask "is this estimator unbiased?" expecting a check
+      across every possible $\theta$, not just at one comfortable value —
+      answering at a single $\theta$ is the fastest way to get the
+      definition visibly wrong.
+    explanation: >
+      Bias is the systematic offset $\operatorname{bias}(\hat\theta) =
+      \mathbb{E}[\hat\theta] - \theta$; calling $\hat\theta$ unbiased
+      requires that offset to vanish for every $\theta \in \Theta$, not
+      merely at the true value the problem happens to hand you. Variance
+      records something different: how far $\hat\theta$ swings from
+      sample to sample, entirely independent of whether it's centered on
+      the right place.
+
+      Neither number alone tells you whether an estimator is good, which
+      is why $\operatorname{MSE}(\hat\theta) = \operatorname{Var}(\hat
+      \theta) + \operatorname{bias}(\hat\theta)^{2}$ is the one you
+      actually optimize. Both bias and variance are functions of the
+      unknown $\theta$, so MSE is too — an estimator can win at one
+      $\theta$ and lose at another, and a comparison that holds
+      uniformly over all of $\Theta$ is a real, rare result.
+    worked: >
+      A scale that always reports $\hat\theta = 50$ grams regardless of
+      what's on it is a legitimate — if useless — estimator. If the true
+      weight is $\theta = 52$, its bias is $50-52=-2$ and its variance is
+      $0$, since it never changes, so $\operatorname{MSE} =
+      (-2)^{2}+0 = 4$. A genuine data-based scale unbiased at
+      $\mathbb{E}[\hat\theta]=52$ but with variance $9$ has
+      $\operatorname{MSE}=0+9=9$ — worse, despite being unbiased, because
+      its extra noise outweighs the fixed offset it avoided.
+    interview: >
+      "Is this estimator unbiased?" demands checking
+      $\mathbb{E}[\hat\theta]=\theta$ for every $\theta$, not plugging in
+      the true value you happen to know from the problem setup. "Which
+      estimator is better?" is answered with MSE, not bias alone — naming
+      that MSE trades bias against variance is the one-line answer
+      interviewers are fishing for.
+    pitfalls: >
+      Declaring an estimator unbiased after checking a single convenient
+      $\theta$ — the definition demands it hold for every
+      $\theta \in \Theta$. Treating "unbiased" as a synonym for "good": a
+      constant, data-blind estimator can beat an unbiased one on MSE
+      whenever its fixed bias is smaller than the unbiased estimator's
+      variance.
+    recap: >
+      Bias is the systematic offset $\mathbb{E}[\hat\theta]-\theta$,
+      variance is sample-to-sample noise, and
+      $\operatorname{MSE}=\operatorname{Var}+\operatorname{bias}^{2}$ is
+      the single score that weighs both.
+
+  - node: quant-statistics.estimation.mse-decomp
+    hook: >
+      The identity behind every "which estimator wins" comparison is one
+      Pythagorean-style expansion — knowing the cross term vanishes for
+      free is what lets you add variance and squared bias instead of
+      tracking a messy joint expectation.
+    explanation: >
+      Split the error into two orthogonal-feeling pieces: how far
+      $\hat\theta$ sits from its own mean, plus how far that mean sits
+      from the truth. Write $b = \mathbb{E}[\hat\theta]-\theta$ and
+      $\hat\theta-\theta = (\hat\theta-\mathbb{E}[\hat\theta]) + b$; the
+      first piece is pure noise, the second is a fixed number.
+
+      Squaring and taking expectations, the load-bearing step is the
+      cross term $2b\,\mathbb{E}[\hat\theta-\mathbb{E}[\hat\theta]]$: a
+      random variable's deviation from its own mean always averages to
+      $0$, for any estimator with a finite second moment, no independence
+      and no normality required. That kills the middle term outright and
+      leaves $\operatorname{MSE}=\operatorname{Var}+b^{2}$.
+
+      Two readings follow. Among unbiased estimators, MSE collapses to
+      variance, so the comparison is simply "which one is quieter." For a
+      biased estimator, a large fixed offset can still beat a small
+      random one if its variance is tiny enough — the mechanism every
+      minimum-MSE argument runs on.
+    worked: >
+      Let $\hat\theta$ take values $8, 10, 12$ with probability $1/3$
+      each, estimating $\theta=9$. Directly,
+      $\operatorname{MSE} = \frac{1}{3}[(8-9)^{2}+(10-9)^{2}+(12-9)^{2}]
+      = \frac{11}{3}$. Via the decomposition: $\mathbb{E}[\hat\theta]=10$,
+      so $\operatorname{bias}=1$ and $\operatorname{Var}(\hat\theta) =
+      \frac{1}{3}[(8-10)^{2}+(10-10)^{2}+(12-10)^{2}]=\frac{8}{3}$, giving
+      $\frac{8}{3}+1^{2}=\frac{11}{3}$ — the two routes agree, as the
+      identity guarantees they must.
+    interview: >
+      Asked to "derive" the bias–variance decomposition, the entire
+      answer is the vanishing cross term — write $\hat\theta-\theta$ as
+      deviation-from-mean plus bias, square it, and note
+      $\mathbb{E}[\hat\theta-\mathbb{E}[\hat\theta]]=0$ kills the middle
+      term. State plainly that no independence or normality is assumed.
+    pitfalls: >
+      Assuming the identity needs independent observations or a normal
+      model — it needs nothing beyond a finite second moment. Forgetting
+      to square the bias: the decomposition is $\operatorname{bias}^{2}$,
+      not $\operatorname{bias}$, so a small negative bias still adds a
+      small positive term.
+    recap: >
+      $\operatorname{MSE}=\operatorname{Var}+\operatorname{bias}^{2}$
+      falls out of one expansion because a variable's deviation from its
+      own mean always averages to $0$, no other assumptions required.
+
+  - node: quant-statistics.estimation.unbiased-not-optimal
+    hook: >
+      The instinct to always prefer "unbiased" loses to a shrinkage
+      estimator on every MSE-based comparison — chasing unbiasedness for
+      its own sake leaves accuracy on the table.
+    explanation: >
+      The decomposition $\operatorname{MSE}=\operatorname{Var}+
+      \operatorname{bias}^{2}$ never says bias should be $0$; it says the
+      two add. Nothing stops you from deliberately introducing bias if
+      the variance it buys down is worth more, and once you're willing to
+      look, such trades are common rather than exotic.
+
+      The mental model is a budget: MSE is a fixed pool split between a
+      controllable bias and the variance reduction that bias purchases.
+      Shrinking an estimator toward a fixed point trades a known amount
+      of bias for a variance cut, and whenever the cut outweighs the
+      bias paid, total MSE falls — the same trade that lets a divisor
+      other than $n-1$ minimize the MSE of a variance estimator.
+
+      Sometimes the unbiasedness constraint is worse than merely
+      suboptimal: forcing $\mathbb{E}[\hat\theta]=\theta$ can be
+      satisfiable only by an estimator that makes no sense, which is a
+      sign that MSE, not bias, is the criterion that actually matters.
+    worked: >
+      Estimate a location parameter $\theta$ from a single observation
+      $X$ with $\operatorname{Var}(X)=1$, using the shrinkage family
+      $\hat\theta_c = cX$. Its bias is $(c-1)\theta$ and its variance is
+      $c^{2}$, so $\operatorname{MSE}(c)=c^{2}+(c-1)^{2}\theta^{2}$. At
+      the true value $\theta=2$, that is $c^{2}+4(c-1)^{2}$, minimized
+      where $2c+8(c-1)=0$, i.e. $c=0.8$:
+      $\operatorname{MSE}(0.8)=0.64+4(0.2)^{2}=0.8$, versus
+      $\operatorname{MSE}(1)=1$ for the unbiased choice $c=1$. Shrinking
+      the estimator by $20\%$ cuts the MSE by a fifth.
+    interview: >
+      "Would you ever use a biased estimator?" is a yes-or-no trap; the
+      right answer names MSE as the actual criterion and sketches the
+      shrinkage picture — a little bias bought with a lot of variance
+      reduction wins. A sharper follow-up asks for a case where every
+      unbiased estimator is absurd, which is exactly the
+      $\pm1$-valued unbiased estimator of a positive quantity.
+    pitfalls: >
+      Assuming a biased estimator is always inferior — it wins whenever
+      the variance saved exceeds the squared bias paid. Assuming the
+      optimal shrinkage factor is universal: here $c=0.8$ was tuned to
+      $\theta=2$, and the best $c$ moves with the unknown $\theta$, which
+      is why practical shrinkage estimators use data-driven tuning, not a
+      fixed constant.
+    recap: >
+      Minimum MSE is the actual goal, and it routinely prefers a shrunk,
+      biased estimator over the unbiased one whenever the bias paid is
+      smaller than the variance saved.
+
+  - node: quant-statistics.estimation.sample-mean-unbiased
+    hook: >
+      "What's the standard error of the mean?" is asked so often it
+      should be reflex — the square-root law inside it is the reason
+      quadrupling your data only doubles your precision, a fact every
+      backtest-sizing conversation leans on.
+    explanation: >
+      Linearity of expectation is unconditional: $\mathbb{E}[\bar X] =
+      \frac{1}{n}\sum_i \mathbb{E}[X_i] = \mu$ holds whether the $X_i$
+      are independent, correlated, or merely share a common mean.
+      Unbiasedness of the sample mean is close to free — it survives
+      dependence that would break almost everything else in this
+      chapter.
+
+      Variance is a different story. Expanding
+      $\operatorname{Var}(\bar X) = \frac{1}{n^{2}}\operatorname{Var}
+      (\sum_i X_i)$ produces $n$ variance terms and $n(n-1)$ covariance
+      terms; only when the $X_i$ are uncorrelated do the covariances
+      vanish, leaving $\operatorname{Var}(\bar X)=\sigma^{2}/n$ and
+      standard error $\sigma/\sqrt n$ — reported in practice as
+      $s/\sqrt n$ since $\sigma$ is itself unknown.
+
+      The square root is the entire usable content: precision buys at a
+      quadratic price. Halving the standard error costs four times the
+      data, and any positive correlation between observations —
+      overlapping windows, autocorrelated returns — leaves genuine
+      covariance terms uncancelled, pushing the true variance above
+      $\sigma^{2}/n$ and making a backtest look sharper than it is.
+    worked: >
+      A desk's daily P&L has standard deviation $200$ (thousand dollars).
+      With $n=25$ days of data,
+      $\operatorname{SE}(\bar X) = 200/\sqrt{25} = 40$. To shrink that
+      standard error to $10$ — four times tighter — the square-root law
+      says the sample size must scale by $4^{2}=16$, i.e. $n=400$ days,
+      not $100$. Quadrupling precision costs sixteen times the data,
+      which is why small-edge strategies need years, not weeks, of
+      daily returns to confirm.
+    interview: >
+      "What's the standard error of $\bar X$?" wants $\sigma/\sqrt n$
+      cold, plus the caveat that $\mathbb{E}[\bar X]=\mu$ needs only
+      identical means while $\operatorname{Var}(\bar X)=\sigma^{2}/n$
+      needs uncorrelated draws. A frequent follow-up: "why does a
+      backtest on overlapping windows look too good?" — positive
+      autocorrelation pushes the true variance above $\sigma^{2}/n$.
+    pitfalls: >
+      Quoting $\sigma^{2}/n$ for correlated data — overlapping return
+      windows and autocorrelated series violate the uncorrelated-draws
+      requirement and understate the real standard error. Confusing
+      "more data halves the error" with "at a linear cost" — the cost is
+      quadratic in the precision gained.
+    recap: >
+      $\bar X$ is unbiased under identical means alone, but its standard
+      error $\sigma/\sqrt n$ needs uncorrelated draws, and precision only
+      improves with the square root of the sample size.
+
+  - node: quant-statistics.estimation.nminus1
+    hook: >
+      "Why divide by $n-1$ and not $n$?" is a guaranteed interview
+      question, and "degrees of freedom" is not an answer — the real
+      answer is one line of algebra showing deviations from $\bar X$ run
+      systematically short.
+    explanation: >
+      Deviations measured from $\bar X$ are smaller, on average, than
+      deviations from the true unknown $\mu$, because $\bar X$ is chosen
+      to minimize the sum of squared deviations on exactly this sample —
+      no other center can score better on the data in hand. Dividing by
+      $n-1$ corrects that shortfall exactly rather than approximately.
+
+      The algebra: $\sum_i(X_i-\bar X)^{2} = \sum_i X_i^{2} - n\bar
+      X^{2}$, and taking expectations with $\mathbb{E}[X_i^{2}] =
+      \sigma^{2}+\mu^{2}$ and $\mathbb{E}[\bar X^{2}]=\sigma^{2}/n+
+      \mu^{2}$ gives $n(\sigma^{2}+\mu^{2}) - n(\sigma^{2}/n+\mu^{2}) =
+      (n-1)\sigma^{2}$, no normality assumed anywhere.
+
+      One caution survives the fix: unbiasedness does not travel through
+      a nonlinear map. $s^{2}$ is unbiased for $\sigma^{2}$, but Jensen's
+      inequality on the concave square root gives
+      $\mathbb{E}[s] < \sigma$ strictly — $s$ itself is biased low.
+    worked: >
+      Take the sample $2, 4, 6, 8$, so $\bar x=5$ and the squared
+      deviations are $9,1,1,9$, summing to $20$. Dividing by $n-1=3$
+      gives $s^{2}=20/3\approx6.67$; dividing by $n=4$ gives $5$ instead
+      — a full $25\%$ smaller. Any single sample can land above or below
+      the true $\sigma^{2}$, but averaged over all possible samples of
+      size $4$, only the $n-1$ divisor recovers $\sigma^{2}$ exactly.
+    interview: >
+      "Why $n-1$?" wants the one-liner: $\bar X$ is fit from the same
+      data being measured, so it sits closer to the sample than the true
+      $\mu$ does, and $n-1$ is the exact correction, provable with no
+      normality assumption. A sharper follow-up — "is $s$ unbiased for
+      $\sigma$?" — the answer is no.
+    pitfalls: >
+      Answering "degrees of freedom" without being able to derive the
+      correction — interviewers ask precisely because that phrase is
+      usually recited, not understood. Assuming $s=\sqrt{s^{2}}$ is
+      unbiased for $\sigma$ because $s^{2}$ is unbiased for $\sigma^{2}$
+      — it is not.
+    recap: >
+      Deviations from the fitted $\bar X$ undershoot deviations from the
+      true $\mu$ by exactly a factor recoverable with the $n-1$ divisor,
+      and that fix does not carry over to $s$ itself.
+
+  - node: quant-statistics.estimation.consistency
+    hook: >
+      "Is this estimator consistent?" is answered by naming convergence
+      in probability and citing $\operatorname{MSE}\to0$ via Chebyshev as
+      the practical route — not by hand-waving "it gets better with more
+      data."
+    explanation: >
+      $\hat\theta_n$ is consistent for $\theta$ if it converges to
+      $\theta$ in probability: for every $\varepsilon>0$,
+      $\Pr(|\hat\theta_n-\theta|>\varepsilon)\to0$ as $n\to\infty$. The
+      shortcut used constantly is Chebyshev's bound
+      $\Pr(|\hat\theta_n-\theta|>\varepsilon) \le
+      \operatorname{MSE}(\hat\theta_n)/\varepsilon^{2}$: if bias and
+      variance both vanish, that probability is squeezed to $0$ for free,
+      with no direct probability computation needed.
+
+      This is a statement purely about the limit, and it says nothing
+      about whether your actual $n$ is large enough — a floor on where
+      the estimator is eventually heading, not a recommendation for now.
+      It is also logically separate from unbiasedness: this unit already
+      has an estimator that is unbiased at every $n$ yet never
+      consistent, and another that is biased at every finite $n$ yet
+      consistent, so neither property can be inferred from the other.
+    worked: >
+      For $\hat p_n=\bar X$ estimating a Bernoulli $p=0.5$,
+      $\operatorname{Var}(\hat p_n)=0.25/n$ and the estimator is
+      unbiased, so $\operatorname{MSE}(\hat p_n)=0.25/n$. At $n=100$,
+      Chebyshev gives $\Pr(|\hat p_{100}-0.5|>0.1) \le 0.0025/0.01=0.25$
+      — a loose bound. At $n=10000$ the same computation gives
+      $\le 0.000025/0.01=0.0025$, a hundred-fold tightening for a
+      hundred-fold increase in $n$: both the bound and the true
+      probability it controls are heading to $0$, which is consistency
+      stated numerically.
+    interview: >
+      "Is $\hat\theta_n$ consistent?" wants convergence in probability
+      defined, then the practical shortcut: show
+      $\operatorname{MSE}(\hat\theta_n)\to0$ and invoke Chebyshev, rather
+      than verifying the probability statement directly. Interviewers
+      sometimes ask for an unbiased-but-inconsistent example on the spot
+      — a single observation reused forever is the standard one.
+    pitfalls: >
+      Treating "unbiased" and "consistent" as the same property — neither
+      implies the other. Treating consistency as a guarantee of accuracy
+      at your actual $n$: it is a statement about a limit, silent on
+      whether $n=50$ is enough.
+    recap: >
+      Consistency means $\hat\theta_n\to\theta$ in probability, most
+      easily shown by driving $\operatorname{MSE}(\hat\theta_n)$ to $0$
+      via Chebyshev, and it neither implies nor is implied by
+      unbiasedness.
+
+  - node: quant-statistics.estimation.likelihood
+    hook: >
+      The single most misread phrase in this unit — "the likelihood of
+      $\theta$ given the data" — is not $\Pr(\theta\mid\text{data})$, and
+      treating it as a probability distribution over $\theta$ is the
+      error interviewers are trained to catch.
+    explanation: >
+      Given observed data, the likelihood $L(\theta)=\prod_i
+      f(x_i;\theta)$ is the probability (or density) of that data, held
+      fixed, viewed as a function of the candidate parameter $\theta$.
+      It is not required to integrate to $1$ over $\theta$ and is not a
+      distribution over $\theta$ at all — it is a ranking device.
+
+      Because only ratios $L(\theta_1)/L(\theta_2)$ carry meaning, any
+      factor free of $\theta$ can be dropped from $L$ without changing
+      which candidate wins — that single fact is what makes likelihoods
+      tractable to work with by hand.
+
+      In practice you work with $\ell(\theta)=\sum_i\log f(x_i;\theta)$
+      instead of $L$ itself: since $\log$ is strictly increasing, $\ell$
+      is maximized at the same $\theta$ as $L$, the product becomes a
+      sum that differentiates term by term, and the arithmetic stays
+      clear of the underflow that a product of many small probabilities
+      would otherwise cause.
+    worked: >
+      With $2$ successes in $3$ Bernoulli trials, compare two candidate
+      values: $L(0.5)=0.5^{2}(0.5)^{1}=0.125$ and
+      $L(0.8)=0.8^{2}(0.2)^{1}=0.128$. The ratio
+      $L(0.8)/L(0.5)\approx1.02$ says $p=0.8$ makes this data set
+      marginally more probable than $p=0.5$ does — not that $p=0.8$ has
+      higher probability of being true, a statement the likelihood was
+      never built to make.
+    interview: >
+      "What is likelihood, and how does it differ from probability?" is
+      asked almost every cycle — the crisp answer is "probability of the
+      data as a function of $\theta$, with the data fixed," plus the
+      caveat that it need not integrate to $1$ over $\theta$. Expect a
+      quick follow-up asking why interviewers always work with the
+      log-likelihood instead.
+    pitfalls: >
+      Reading $L(\theta)$ as $\Pr(\theta\mid\text{data})$ — that object
+      needs a prior and Bayes' rule, and $L$ alone is not it. Forgetting
+      that dropping a $\theta$-free factor is legitimate only because it
+      does not affect which $\theta$ maximizes the ratio — dropping a
+      factor that does depend on $\theta$ changes the answer.
+    recap: >
+      The likelihood ranks candidate $\theta$ values by how probable
+      they make the observed data, carries meaning only in ratios, and
+      is maximized at the same point as its log.
+
+  - node: quant-statistics.estimation.mle
+    hook: >
+      Every "find the MLE of ___" question is the same four-step recipe
+      run on a different density — memorize the steps, not an answer,
+      because the boundary check in step four is exactly where most
+      candidates lose points.
+    explanation: >
+      The recipe is fixed: write $\ell(\theta)=\sum_i\log f(x_i;\theta)$,
+      solve the score equation $\ell'(\theta)=0$, confirm it is a
+      maximum by $\ell''(\theta)<0$ or concavity, then separately check
+      the boundary of $\Theta$ — the score equation, by construction,
+      only ever finds interior critical points, so it is structurally
+      blind to a maximum sitting at an edge.
+
+      Reach for maximum likelihood whenever a parametric family is named
+      and a point estimate is wanted; it earns its status as the default
+      by being consistent, asymptotically efficient, and invariant under
+      reparametrization, meaning the MLE of $g(\theta)$ is simply
+      $g(\hat\theta)$ for any function $g$.
+
+      That invariance has a cost baked in: combined with Jensen's
+      inequality, it guarantees the MLE of a nonlinear $g(\theta)$ is
+      generally biased in finite samples, even when $\hat\theta$ itself
+      is not. Maximum likelihood optimizes how well the data is
+      explained, not unbiasedness, and the two routinely diverge.
+    worked: >
+      Five independent $\operatorname{Poisson}(\lambda)$ counts are
+      observed: $3,5,4,6,2$. The log-likelihood is
+      $\ell(\lambda)=\sum_i(-\lambda+x_i\log\lambda-\log x_i!)$, so
+      $\ell'(\lambda)=-n+\frac{1}{\lambda}\sum_i x_i=0$ gives
+      $\hat\lambda=\bar x=20/5=4$. Since
+      $\ell''(\lambda)=-\frac{1}{\lambda^{2}}\sum_i x_i<0$ everywhere,
+      this is the global maximum, and $\lambda\ge0$ has no interior
+      boundary to separately check here — step four is a formality this
+      time, but not always.
+    interview: >
+      "Derive the MLE for [named distribution]" wants the log-likelihood
+      written first, the score equation solved second, and the
+      second-derivative or concavity check stated explicitly — skipping
+      to the answer loses credit even if the number is right. Ask
+      yourself out loud whether the parameter space has a boundary
+      before declaring victory.
+    pitfalls: >
+      Skipping step four: whenever the score equation has no interior
+      solution, or the parameter space is bounded, the true maximum can
+      sit on the boundary and never show up by differentiating. Assuming
+      the MLE is automatically unbiased — it generally is not, only
+      asymptotically well behaved.
+    recap: >
+      Maximum likelihood is differentiate, solve, confirm a maximum, then
+      check the boundary separately — the fourth step is where
+      interior-only calculus fails silently.
+
+  - node: quant-statistics.estimation.mle-bernoulli
+    hook: >
+      The Bernoulli MLE is the one case where the calculus confirms
+      something you already "knew" — the trap is entirely in the
+      boundary, not the algebra.
+    explanation: >
+      Applying the maximum-likelihood recipe to $n$ Bernoulli trials with
+      $k$ successes gives $L(p)=p^{k}(1-p)^{n-k}$ and
+      $\ell'(p)=k/p-(n-k)/(1-p)=0$, solved by the sample proportion
+      $\hat p=k/n$; $\ell$ is strictly concave on $(0,1)$, so this is the
+      global maximum with no competing critical point to rule out.
+
+      The estimator is unbiased with $\operatorname{Var}(\hat p) =
+      p(1-p)/n$, a quantity that itself depends on the unknown $p$ and
+      peaks at $p=1/2$ — the standard error never exceeds
+      $1/(2\sqrt n)$, which is the conservative number used for sizing a
+      survey before any data exists.
+
+      The one real trap is the boundary: $k=0$ or $k=n$ pushes the score
+      equation's denominator to $0$ or $1$, and the MLE reports the
+      absolute claim $\hat p=0$ or $1$ from a sample that merely never
+      showed the other outcome. The standard remedy is the
+      Laplace-smoothed $(k+1)/(n+2)$.
+    worked: >
+      With $3$ successes in $12$ trials, $\hat p=3/12=0.25$, and
+      $\operatorname{Var}(\hat p)=0.25\times0.75/12\approx0.0156$, giving
+      a standard error near $0.125$. Contrast the degenerate case of $0$
+      successes in $12$ trials: the MLE reports $\hat p=0$, claiming the
+      event is impossible from twelve trials that merely didn't show it —
+      the Laplace-smoothed $\hat p=(0+1)/(12+2)\approx0.071$ is the
+      usual fix.
+    interview: >
+      "What's the MLE of a coin's bias from $k$ heads in $n$ flips?"
+      wants $k/n$ immediately, plus the standard error
+      $\sqrt{p(1-p)/n}$ conditional on the unknown $p$ — quoting the
+      worst case $1/(2\sqrt n)$ at $p=1/2$ shows you know it's a bound,
+      not the value. Expect a follow-up on what goes wrong at $k=0$.
+    pitfalls: >
+      Reporting $\hat p=0$ or $1$ from small samples without flagging
+      that it's a boundary artifact, not evidence of certainty. Quoting
+      $\operatorname{Var}(\hat p)$ as a fixed number instead of a
+      function of the unknown $p$.
+    recap: >
+      The Bernoulli MLE is the observed rate $k/n$, unbiased with
+      variance $p(1-p)/n$, and it collapses to an overconfident $0$ or
+      $1$ whenever the sample never shows the other outcome.
+
+  - node: quant-statistics.estimation.mle-normal
+    hook: >
+      The normal MLE is the cleanest place to watch "maximum likelihood"
+      and "unbiased" pull apart — the fitted variance is systematically
+      too small, on purpose, because concentration and unbiasedness are
+      different targets.
+    explanation: >
+      Maximizing $\ell(\mu,\sigma^{2})$ in $\mu$ first, for any fixed
+      $\sigma^{2}$, gives $\hat\mu=\bar x$ — the mean maximizes fit to
+      the data regardless of how spread out you believe that data to be.
+      Substituting back and maximizing in $\sigma^{2}$ gives
+      $\hat\sigma^{2}=\frac{1}{n}\sum_i(x_i-\bar x)^{2}$, with divisor
+      $n$, not $n-1$.
+
+      That divisor is exactly the earlier bias story again:
+      $\hat\sigma^{2}=\frac{n-1}{n}s^{2}$, biased low by $\sigma^{2}/n$.
+      It stays consistent, and on normal data its MSE is in fact smaller
+      than that of $s^{2}$ — the same shrinkage trade seen before,
+      showing up here as a direct consequence of maximizing likelihood
+      rather than being engineered on purpose.
+
+      The clean takeaway: maximum likelihood optimizes how well the
+      parameters explain the data seen, not whether the resulting
+      estimator is centered — the two coincide for $\mu$ here and
+      diverge for $\sigma^{2}$ in the very same computation.
+    worked: >
+      For the sample $5,7,9,6,8$, $\bar x=7$ and the squared deviations
+      are $4,0,4,1,1$, summing to $10$. The MLE is
+      $\hat\sigma^{2}=10/5=2$, while the unbiased $s^{2}=10/4=2.5$ — the
+      MLE is $20\%$ smaller, exactly the factor $(n-1)/n=4/5$ the
+      identity predicts: $\hat\sigma^{2}=\frac{4}{5}(2.5)=2$.
+    interview: >
+      "Find the MLE of $\mu$ and $\sigma^{2}$ for normal data" wants
+      $\bar x$ stated immediately — it doesn't depend on $\sigma^{2}$ —
+      followed by $\frac{1}{n}\sum(x_i-\bar x)^{2}$ with the divisor $n$
+      named explicitly, since interviewers listen for whether you'll
+      silently swap in $s^{2}$ instead.
+    pitfalls: >
+      Reporting $s^{2}$ (divisor $n-1$) when asked for the MLE — they are
+      different numbers by a factor of $(n-1)/n$, and only $s^{2}$ is
+      unbiased. Assuming a biased estimator must be worse: on normal
+      data the MLE's MSE is actually the smaller of the two.
+    recap: >
+      The normal MLE is $\hat\mu=\bar x$ and $\hat\sigma^{2}$ with
+      divisor $n$, biased low by exactly the factor $(n-1)/n$ relative to
+      $s^{2}$.
+
+  - node: quant-statistics.estimation.mle-uniform
+    hook: >
+      The uniform MLE breaks the "set the derivative to zero" reflex
+      entirely — the maximum sits at a jump a derivative can't see, and
+      missing that is the single most common wrong answer to this
+      classic question.
+    explanation: >
+      Here $L(\theta)=\theta^{-n}$ for $\theta\ge\max_i x_i$ and $0$
+      otherwise — strictly decreasing in $\theta$ on its entire support,
+      with no interior point where $L'(\theta)=0$. The likelihood is
+      maximized by making $\theta$ as small as still legal, which is
+      exactly the sample maximum: found by inspection, not by calculus.
+
+      That gives $\hat\theta=X_{(n)}$, necessarily biased low since the
+      maximum can never exceed $\theta$. From
+      $\Pr(X_{(n)}\le t)=(t/\theta)^{n}$, integrating gives
+      $\mathbb{E}[X_{(n)}]=\frac{n}{n+1}\theta$ — a bias of
+      $-\theta/(n+1)$ — and rescaling to $\frac{n+1}{n}X_{(n)}$ removes
+      it exactly.
+
+      This estimator's error shrinks like $1/n$, strictly faster than
+      the $1/\sqrt n$ rate everywhere else in this chapter, precisely
+      because the support moves with $\theta$ and the usual regularity
+      conditions fail — a signal to check for whenever a problem's
+      support depends on the parameter being estimated.
+    worked: >
+      Draw $n=5$ observations from $\operatorname{Uniform}(0,\theta)$
+      with sample maximum $8.2$. The MLE is $\hat\theta=8.2$, necessarily
+      an underestimate. The bias-corrected version is
+      $\frac{n+1}{n}\hat\theta=\frac{6}{5}(8.2)=9.84$ — the correction
+      adds back roughly a sixth of the observed maximum, reflecting that
+      with only $5$ draws the true $\theta$ is likely to sit noticeably
+      above the largest one seen.
+    interview: >
+      "MLE for $\operatorname{Uniform}(0,\theta)$" is a standard trap
+      for reflexive differentiation — the right opening line is that the
+      likelihood is monotone decreasing in $\theta$ above the sample
+      maximum, so the maximum is found by inspection. A strong answer
+      volunteers both the bias and the $\frac{n+1}{n}$ correction
+      unprompted.
+    pitfalls: >
+      Attempting $\ell'(\theta)=0$ on a likelihood with no interior
+      critical point — this family requires checking monotonicity, not
+      differentiating blindly. Reporting $\hat\theta=X_{(n)}$ as
+      unbiased — it is provably biased low, by exactly $\theta/(n+1)$.
+    recap: >
+      When the support depends on $\theta$, the MLE is found by
+      inspection at the boundary — here the sample maximum, biased low
+      by $\theta/(n+1)$ and fixable by the factor $(n+1)/n$.
+
+  - node: quant-statistics.estimation.fisher-information
+    hook: >
+      "Fisher information" sounds abstract until you see it's just
+      curvature — a sharply peaked log-likelihood pins down $\theta$
+      tightly, a flat one doesn't, and that curvature is the number the
+      Cramér–Rao bound is built from.
+    explanation: >
+      The score $U(\theta)=\frac{\partial}{\partial\theta}\log
+      f(X;\theta)$ is itself a random variable, and under regularity
+      conditions — the support of $f$ free of $\theta$, differentiation
+      under the integral legitimate — it averages to $0$. Fisher
+      information is its variance, computed in practice through the
+      second-derivative form $I(\theta) = -\mathbb{E}\left[
+      \frac{\partial^{2}}{\partial\theta^{2}}\log f(X;\theta)\right]$.
+
+      The mental model is curvature: the second derivative of the
+      log-likelihood measures how sharply it peaks around the true
+      $\theta$. Large curvature means one observation says a lot about
+      $\theta$; a flat log-likelihood leaves $\theta$ poorly pinned
+      down. Information adds across independent draws, so a sample of
+      size $n$ carries $nI(\theta)$ — more data literally accumulates
+      more curvature.
+
+      In the Cramér–Rao bound, more information translates directly into
+      a tighter floor on how precisely $\theta$ can ever be pinned down
+      by any unbiased estimator.
+    worked: >
+      For $N(\mu,\sigma^{2})$ with $\sigma=4$ known,
+      $\log f(x;\mu) = -\frac{1}{2}\log(2\pi\sigma^{2}) -
+      \frac{(x-\mu)^{2}}{2\sigma^{2}}$, so
+      $\frac{\partial^{2}}{\partial\mu^{2}}\log f = -1/\sigma^{2}$
+      exactly — no expectation even needed, since it doesn't depend on
+      $x$ — giving $I(\mu)=1/\sigma^{2}=1/16=0.0625$. With $n=25$
+      observations, the total information is $nI(\mu)=25/16=1.5625$, and
+      its reciprocal $16/25=0.64$ is exactly $\sigma^{2}/n$, the variance
+      of $\bar X$.
+    interview: >
+      "What is Fisher information, in words?" wants "curvature of the
+      log-likelihood" or "how much one observation tells you about
+      $\theta$," not the formula alone. Expect it computed via the
+      second-derivative form on a named density, and expect the
+      reciprocal to reappear as a variance bound in the next breath.
+    pitfalls: >
+      Forgetting the minus sign in
+      $I(\theta)=-\mathbb{E}[\partial^{2}\ell/\partial\theta^{2}]$ — the
+      second derivative of a log-likelihood at its peak is negative, and
+      information is defined positive. Using the single-observation
+      $I(\theta)$ where the sample information $nI(\theta)$ is needed, or
+      vice versa.
+    recap: >
+      Fisher information is the negative expected curvature of the
+      log-likelihood, adding to $nI(\theta)$ over $n$ independent draws,
+      and it measures how sharply the data pins down $\theta$.
+
+  - node: quant-statistics.estimation.cramer-rao
+    hook: >
+      "What lower-bounds any unbiased estimator's variance?" is the
+      Cramér–Rao question, and the follow-up interviewers always ask is
+      which estimator actually touches that floor.
+    explanation: >
+      Under the regularity conditions that make Fisher information
+      well defined, every unbiased $\hat\theta$ built from $n$ iid
+      observations satisfies
+      $\operatorname{Var}(\hat\theta)\ge\frac{1}{nI(\theta)}$; more
+      generally an estimator with $\mathbb{E}[\hat\theta]=g(\theta)$
+      satisfies $\operatorname{Var}(\hat\theta)\ge
+      g'(\theta)^{2}/(nI(\theta))$. An unbiased estimator that attains
+      the plain bound exactly is called efficient.
+
+      Think of it as an uncertainty limit for estimation: no unbiased
+      estimator, however cleverly built from the same $n$ observations,
+      can ever have smaller variance than $1/(nI(\theta))$. The bound
+      comes from an inequality relating the estimator and the score, so
+      it is a hard floor, not a rule of thumb.
+
+      The practical use is closing an argument: once you exhibit an
+      unbiased estimator whose variance equals the bound, "is there a
+      better unbiased estimator" is answered permanently, not just
+      "probably not." Biased estimators are exempt entirely, as is any
+      model whose regularity conditions fail.
+    worked: >
+      For $N(\mu,\sigma^{2})$ with $\sigma=4$ known and $n=25$,
+      $I(\mu)=1/\sigma^{2}=1/16$, so the total information is
+      $nI(\mu)=25/16$ and the Cramér–Rao floor is
+      $1/(nI(\mu))=16/25=0.64$. The sample mean has
+      $\operatorname{Var}(\bar X)=\sigma^{2}/n=16/25=0.64$ exactly —
+      $\bar X$ is efficient here, so no unbiased estimator of $\mu$
+      built from these $25$ observations can ever have smaller variance.
+    interview: >
+      "Is there a better unbiased estimator than $\bar X$ for a normal
+      mean?" is answered by naming the Cramér–Rao bound and showing
+      $\bar X$ attains it — once attained, the question is closed.
+      Expect the general form with $g(\theta)$ for a biased target as
+      the follow-up.
+    pitfalls: >
+      Applying the bound to a biased estimator without the
+      $g'(\theta)^{2}$ correction — the plain form is only for unbiased
+      $\hat\theta$. Forgetting that the moving-support uniform MLE is
+      exempt: its regularity conditions fail, so its faster $1/n$ error
+      rate contradicts nothing.
+    recap: >
+      No unbiased estimator can have variance below $1/(nI(\theta))$,
+      and an estimator that attains this Cramér–Rao floor — like $\bar
+      X$ for a normal mean — is provably unbeatable.
+
+  - node: quant-statistics.estimation.mle-asymptotics
+    hook: >
+      The 95% confidence interval you casually attach to an MLE —
+      $\hat\theta\pm1.96/\sqrt{nI(\hat\theta)}$ — is not folklore, it's
+      this theorem, and interviewers expect you to know why it needs the
+      support of $f$ to hold still as $\theta$ moves.
+    explanation: >
+      Under the Cramér–Rao regularity conditions plus identifiability
+      and smoothness, the MLE from $n$ iid observations is consistent
+      and satisfies $\sqrt n(\hat\theta_n-\theta)\to N(0,1/I(\theta))$ in
+      distribution — the same information number from the Cramér–Rao
+      bound now describing the MLE's own limiting spread.
+
+      Three consequences follow immediately: the MLE is asymptotically
+      unbiased, its variance approaches the Cramér–Rao floor so nothing
+      beats it in large samples, and
+      $\hat\theta_n\pm1.96/\sqrt{nI(\hat\theta_n)}$ becomes a legitimate
+      approximate $95\%$ interval built from a single point estimate.
+
+      The hypotheses do real work, not decoration: whenever a model's
+      support moves with $\theta$, this theorem simply does not apply,
+      and the true limiting behavior can be a different rate entirely
+      rather than a slower version of the same normal limit.
+    worked: >
+      From $n=400$ Bernoulli trials with $180$ successes, $\hat p=0.45$,
+      and plugging in
+      $I(\hat p)=1/(\hat p(1-\hat p))=1/0.2475\approx4.04$. The
+      approximate $95\%$ interval is
+      $\hat p\pm1.96/\sqrt{nI(\hat p)} = 0.45\pm1.96/\sqrt{1616}
+      \approx0.45\pm0.049$, i.e. roughly $(0.401,0.499)$ — exactly
+      $\hat p\pm1.96\sqrt{\hat p(1-\hat p)/n}$ in the more familiar form.
+    interview: >
+      "Give me a confidence interval for the MLE" wants
+      $\hat\theta\pm1.96/\sqrt{nI(\hat\theta)}$ produced from memory,
+      plus the one caveat that makes it correct: it's only valid
+      asymptotically, under regularity conditions that keep the support
+      fixed. A pointed follow-up asks for a case where it fails.
+    pitfalls: >
+      Applying the normal-based confidence interval to the uniform's
+      sample-max MLE — its true limit is exponential at rate $n$, not
+      normal at rate $\sqrt n$, so the formula is simply wrong there.
+      Treating "asymptotically efficient" as true at small $n$ — the MLE
+      can be badly biased or high-variance before the asymptotics kick
+      in.
+    recap: >
+      In large samples the MLE is approximately
+      $N(\theta,1/(nI(\theta)))$, which licenses the standard confidence
+      interval — provided the model's support doesn't move with
+      $\theta$.
+
+  - node: quant-statistics.estimation.mom
+    hook: >
+      Method of moments is the estimator you reach for when the
+      likelihood refuses to cooperate — match a sample average to a
+      formula and solve, at the cost of an estimator that's usually
+      noisier than the MLE.
+    explanation: >
+      To estimate $k$ parameters, write the first $k$ population moments
+      $\mathbb{E}[X^{j}]$ as functions of $\theta$, set them equal to the
+      corresponding sample moments $\frac{1}{n}\sum_i X_i^{j}$, and
+      solve for $\theta$. No likelihood is ever written down, and no
+      derivative is ever taken — the whole method is algebra on two
+      lists of numbers set equal.
+
+      Reach for it when the likelihood has no closed-form maximizer, or
+      as a fast starting value for a numerical search for the MLE. The
+      trade-off is real: moment estimators are consistent under mild
+      conditions but generally throw away information a sufficient
+      statistic would have kept, which is why they are usually less
+      efficient than the MLE built from the same data.
+
+      A sharper cost is that the method can hand back an estimate the
+      data itself rules out — nothing in "match a moment and solve"
+      enforces that the answer stays inside the range the sample
+      actually occupies.
+    worked: >
+      Serial numbers are drawn as iid samples from $\{1,\dots,N\}$:
+      observations $2,5,9,3,6$ give $\bar x=5$. Since
+      $\mathbb{E}[X]=(N+1)/2$ for the discrete uniform, setting
+      $(N+1)/2=5$ gives $\hat N=2(5)-1=9$ — despite the sample containing
+      a $9$ itself, so the estimate barely clears the data it must be
+      consistent with. Swap the $9$ for a $10$: $\bar x=5.2$ gives
+      $\hat N=9.4$, below the observed $10$ — an outright contradiction.
+    interview: >
+      "How would you estimate this parameter if you can't maximize the
+      likelihood?" is answered with method of moments — equate the first
+      sample moments to their population formulas and solve. Naming its
+      two costs unprompted — lower efficiency than the MLE, and the risk
+      of an infeasible answer — separates a strong answer from a rote
+      one.
+    pitfalls: >
+      Forgetting to check the moment estimator against the data's own
+      range — an $\hat N$ smaller than the observed maximum, or a
+      variance estimate that comes out negative, both happen and both
+      signal the method failing on this particular sample. Treating
+      method of moments as a substitute for the MLE rather than a
+      fallback or a starting guess for one.
+    recap: >
+      Method of moments equates sample moments to population moments and
+      solves — always computable, usually less efficient than the MLE,
+      and occasionally capable of returning a value the data itself
+      rules out.
+
+  - node: quant-statistics.estimation.sufficiency
+    hook: >
+      "Is this statistic sufficient?" sounds abstract, but the
+      factorization criterion turns it into pattern-matching the
+      likelihood's algebra — no conditional-distribution computation
+      required in an interview setting.
+    explanation: >
+      A statistic $T$ is sufficient for $\theta$ if, once $T$ is known,
+      the rest of the data adds nothing further about $\theta$ — the
+      conditional distribution of the sample given $T$ is free of
+      $\theta$ entirely. That definition is awkward to check directly,
+      which is exactly why Fisher–Neyman factorization exists.
+
+      The criterion: $T$ is sufficient exactly when the likelihood
+      factors as $L(\theta)=g(T(x),\theta)\,h(x)$. In practice this
+      means writing the likelihood and checking whether every piece that
+      involves $\theta$ can be collected into a term touching the data
+      only through $T$ — a scan of the algebra, not a new computation.
+
+      The reason to care beyond the definition is Rao–Blackwell:
+      replacing an unbiased $\hat\theta$ with
+      $\mathbb{E}[\hat\theta\mid T]$ preserves unbiasedness and never
+      increases variance, so any estimator worth using can be built from
+      a sufficient statistic alone, with nothing lost by discarding the
+      rest of the sample.
+    worked: >
+      With $n=4$ Bernoulli trials and $3$ successes, $L(p)=p^{3}
+      (1-p)^{1}$. This already has the form $g(T,p)\,h(x)$ with
+      $T=\sum_i x_i=3$, $g(T,p)=p^{T}(1-p)^{n-T}$, and $h(x)=1$ — the
+      likelihood depends on the four individual outcomes only through
+      their sum. Any other sequence of four flips with the same three
+      successes gives the identical likelihood, confirming $T$ is
+      sufficient by inspection, with no conditional distribution ever
+      computed.
+    interview: >
+      "Show $T$ is sufficient for $\theta$" is answered with
+      Fisher–Neyman factorization, not the conditional-distribution
+      definition — write the likelihood, isolate every $\theta$-dependent
+      piece into a function of $T$ alone, and declare it done.
+      Interviewers may ask what a sufficient statistic buys you:
+      Rao–Blackwell is the one-line answer.
+    pitfalls: >
+      Trying to verify sufficiency straight from the definition by
+      computing a conditional distribution — always reach for
+      factorization instead. Assuming a sufficient statistic is unique:
+      $T$ and any one-to-one function of $T$ are both sufficient.
+    recap: >
+      A statistic is sufficient exactly when the likelihood factors as a
+      $\theta$-dependent piece touching the data only through it, times
+      a piece free of $\theta$ — spotted by inspection, not computation.
+
+  - node: quant-statistics.estimation.german-tank
+    hook: >
+      The German tank problem compresses the whole chapter into one
+      interview question — an MLE that's obviously biased, an exact
+      correction derived from an order statistic's distribution, and a
+      real historical payoff.
+    explanation: >
+      Tanks carry serials $1,\dots,N$ with $N$ unknown, and you observe
+      $k$ of them without replacement, the largest serial seen being
+      $m$. By the same monotone-likelihood logic behind the continuous
+      uniform's MLE, the maximum-likelihood estimate is $\hat N=m$
+      itself — it never guesses higher than what's already been seen,
+      which is exactly why it is biased low.
+
+      The correction comes from the exact distribution of $m$:
+      $\Pr(m=j)=\binom{j-1}{k-1}/\binom{N}{k}$ gives
+      $\mathbb{E}[m]=\frac{k(N+1)}{k+1}$, which solves for the unbiased
+      $\hat N=\frac{k+1}{k}m-1=m+\frac{m}{k}-1$ — read as the largest
+      serial seen, plus the average gap implied between consecutive
+      serials, minus one for the double-count at the top.
+
+      Its standard deviation runs near $N/k$ for $k\ll N$, so accuracy
+      improves like $1/k$ rather than the usual $1/\sqrt n$ — the same
+      faster-than-usual rate seen in the continuous uniform, for the
+      same reason. This estimator, used on captured equipment in World
+      War II, beat contemporaneous intelligence estimates that ran
+      several times too high.
+    worked: >
+      Captured tanks carry serials $5,23,31,44$, so $k=4$ and $m=44$.
+      The unbiased estimate is
+      $\hat N=44+\frac{44}{4}-1=44+11-1=54$ tanks — the largest serial
+      seen, plus the average $11$-unit gap implied by four serials
+      spread across the range, minus one. The plain MLE would have
+      reported just $44$, understating the fleet by roughly a fifth.
+    interview: >
+      "You capture $k$ tanks with serials up to $m$ — estimate the
+      total" wants $m+m/k-1$ produced directly, plus the one-line
+      justification that $m$ alone is a biased-low MLE. A strong close
+      mentions that this is real economic history, not a puzzle invented
+      for interviews.
+    pitfalls: >
+      Reporting the plain maximum $m$ as the estimate — that's the MLE,
+      not the unbiased estimator, and the difference is the entire point
+      of the question. Applying $m+m/k-1$ when $k$ is comparable to $N$
+      rather than small relative to it, where the approximation is
+      weakest.
+    recap: >
+      The tank MLE is just the largest serial seen, systematically low;
+      adding back the average gap between serials and subtracting one
+      removes that bias exactly.

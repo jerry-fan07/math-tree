@@ -1,0 +1,795 @@
+unit: quant-statistics.bayesian
+opening: >
+  Bayesian inference treats an unknown parameter as a random variable and
+  updates a prior into a posterior every time data arrives — one mechanical
+  move underneath every technique in this unit. The arc runs from the raw
+  definitions (parameter as random, likelihood, the prior-times-likelihood
+  update, and its odds form) through the machinery that makes updating
+  tractable in closed form (conjugate families, the beta-binomial and
+  normal-normal pairs, and the pseudo-count arithmetic they reduce to) to the
+  judgment calls a working Bayesian has to make (the rule of succession,
+  shrinkage, choosing and stress-testing a prior, and reading a credible
+  interval correctly). It sits right after conditional probability and Bayes'
+  theorem in the probability tree, and the frequentist machinery this unit's
+  methods get measured against comes later.
+lessons:
+  - node: quant-statistics.bayesian.parameter-as-random
+    hook: >
+      The instant an interviewer asks "what's your prior on X," they've
+      already committed you to treating an unknown constant as though it had
+      a distribution — refusing that framing costs you the rest of the
+      conversation.
+    explanation: >
+      Bayes' theorem, which you already have for two events, reverses
+      conditioning: it turns $\Pr(A \mid B)$ into a rearrangement of
+      $\Pr(B \mid A)$. The Bayesian stance applies the same idea to a
+      parameter $\theta$ instead of an event $B$ — you choose to write
+      $\pi(\theta)$, a density over the parameter space, playing the role
+      $\Pr(B)$ played before. Nothing about the algebra changes; what changes
+      is your willingness to put a distribution on something that used to be
+      treated as a fixed constant.
+
+      The consequence is that probability stops meaning "long-run frequency
+      of a repeatable procedure" and starts meaning "degree of belief given
+      what's currently known." A frequentist can say a procedure covers the
+      true, fixed parameter 95% of the time across repeated experiments, but
+      never that $\theta$ itself, once fixed, has a 95% chance of lying in a
+      particular interval — that sentence requires $\theta$ to be random,
+      which only the Bayesian stance grants.
+
+      Practically, "what's your prior" is a request for two numbers: a
+      centre you'd actually bet on, and a spread describing how sure you are.
+      Both must define a genuine density over the whole parameter space — a
+      shape on $[0,1]$ for a probability, a shape on the real line for an
+      unbounded quantity — not a single point guess.
+    worked: >
+      You're pricing a new checkout flow's conversion rate $p$ before any
+      data exists. As a frequentist you can only say $p$ is some fixed
+      unknown number the flow either does or doesn't have. As a Bayesian you
+      commit to a density — say one that puts 90% of its mass between 0.03
+      and 0.07, centred near 0.05 — so $\Pr(0.03 \le p \le 0.07) = 0.9$
+      becomes a legitimate statement about the parameter itself, not about a
+      sampling procedure you haven't run yet.
+    interview: >
+      "What's your prior on X" or "how confident are you before seeing any
+      data" checks whether you answer with a distribution — a centre and a
+      spread — rather than a single point guess or a refusal to commit; a
+      strong answer also states what evidence would move you off it.
+    pitfalls: >
+      Answering "what's your prior" with a single number instead of a
+      centre-and-spread pair leaves the density unspecified. Treating
+      $\Pr(\theta \in [a,b])$ as a claim about repeated trials, rather than
+      about belief, undoes the entire framework in the next breath.
+    recap: >
+      The Bayesian move is putting a genuine density on the unknown parameter
+      itself, which turns "degree of belief" into a legitimate probability
+      statement no frequentist procedure can make about a fixed parameter.
+
+  - node: quant-statistics.bayesian.likelihood
+    hook: >
+      The likelihood is the one object every formula in this unit multiplies
+      against a prior, and mistaking it for a distribution over $\theta$ —
+      expecting it to integrate to 1 — breaks every calculation built on top
+      of it.
+    explanation: >
+      Start from the sampling model $p(x \mid \theta)$, the ordinary
+      conditional density of the data given the parameter — the same formula
+      you'd use to simulate data forward if $\theta$ were known. The
+      likelihood function is that identical formula, $L(\theta) = p(x \mid
+      \theta)$, but read with the observed data $x$ held fixed and $\theta$
+      left free to vary.
+
+      Because it's a function of $\theta$ for one fixed dataset, nothing
+      requires it to sum or integrate to 1 over $\theta$ — it's a shape, not
+      a probability distribution, and asking "what's the probability that
+      $\theta$ equals this value under the likelihood" is a category error
+      the notation invites but the definition forbids.
+
+      That freedom is what makes likelihoods easy to work with: any factor
+      that doesn't involve $\theta$ can be dropped, since posterior
+      comparisons only ever care about the shape as $\theta$ varies, not the
+      overall scale. Conditionally independent observations multiply their
+      likelihoods, so log-likelihoods add — the chain rule applied one data
+      point at a time.
+    worked: >
+      Flip a coin of unknown bias $p$ five times and see 3 heads, 2 tails.
+      The full sampling probability is $\binom{5}{3}p^{3}(1-p)^{2}$, but
+      $\binom{5}{3}=10$ doesn't involve $p$, so the likelihood kernel is
+      $L(p) = p^{3}(1-p)^{2}$. Compare two candidate biases: $L(0.5) = 0.125
+      \times 0.25 = 0.03125$ and $L(0.7) = 0.343 \times 0.09 = 0.03087$ —
+      nearly tied, and neither number means anything standalone; only their
+      ratio, about 1.012, carries information about which bias the data
+      favors.
+    interview: >
+      "Write down the likelihood for this data" checks two things: that you
+      condition on $\theta$ with the data fixed, not the reverse, and that
+      you immediately strip the $\theta$-free normalizing constant rather
+      than carrying it through unnecessary algebra.
+    pitfalls: >
+      Treating $L(\theta)$ as though it must integrate to 1 over $\theta$,
+      then trying to normalize it before combining with a prior, doubles up a
+      step Bayes' theorem already handles. Carrying a $\theta$-free constant
+      like $\binom{n}{k}$ through the whole derivation instead of dropping it
+      early wastes algebra without changing any conclusion.
+    recap: >
+      The likelihood is the sampling model read as a function of the
+      parameter with the data fixed — a shape you compare by ratio, not a
+      distribution, and any $\theta$-free factor is dead weight to drop
+      immediately.
+
+  - node: quant-statistics.bayesian.posterior
+    hook: >
+      This is the one line that does the actual work of every Bayesian
+      calculation in this unit — everything after it is recognizing which
+      named family the product of prior and likelihood collapses into.
+    explanation: >
+      Bayes' theorem restates a familiar fact: multiply prior by likelihood,
+      divide by whatever constant makes the result integrate to 1. The
+      marginal likelihood $p(x) = \int p(x \mid \theta)\pi(\theta)\,d\theta$
+      is exactly that constant — it doesn't depend on $\theta$, so it can
+      never distinguish one $\theta$ from another, and dropping it turns an
+      equality into the proportionality $\pi(\theta \mid x) \propto
+      \pi(\theta)L(\theta)$.
+
+      The five-step recipe compresses to arithmetic: state the prior, write
+      the likelihood kernel, multiply and collect powers of $\theta$,
+      recognize the result as a named density (reading its normalizer off a
+      table instead of integrating), then report the posterior mean and
+      spread — the actual answer to nearly every Bayesian interview question.
+      Steps three and four are where the real work happens.
+
+      When no named family fits, or the parameter space is a small finite
+      list of hypotheses rather than a continuum, step four collapses to
+      literally summing the unnormalized weights and dividing — the discrete
+      case of the same recipe, no integral required either way.
+    worked: >
+      A batch of parts comes from one of two machines, equally likely a
+      priori: machine A produces defects at rate 0.1, machine B at rate 0.4.
+      Inspect one part and find it defective. Prior times likelihood:
+      machine A scores $0.5 \times 0.1 = 0.05$, machine B scores $0.5 \times
+      0.4 = 0.2$. These sum to 0.25 — no named family needed, just add the
+      two numbers — so the posterior is $0.05/0.25 = 0.2$ on machine A and
+      $0.2/0.25 = 0.8$ on machine B.
+    interview: >
+      "Update this prior on the following data" wants the five-step recipe
+      stated out loud — prior times likelihood, normalize — and the
+      interviewer listens for whether you recognize a named posterior family
+      instead of setting up an integral you don't need to solve.
+    pitfalls: >
+      Actually computing $\int p(x\mid\theta)\pi(\theta)\,d\theta$ by hand
+      when the posterior shape is already recognizable wastes time the
+      interview doesn't give you. Reporting the unnormalized product
+      $\pi(\theta)L(\theta)$ as the posterior, forgetting the final
+      normalization, gives numbers that don't sum or integrate to 1.
+    recap: >
+      Posterior is proportional to prior times likelihood, with the marginal
+      likelihood as a $\theta$-free normalizing constant computed last, by
+      recognizing a named shape or, in the discrete case, by summing.
+
+  - node: quant-statistics.bayesian.posterior-odds
+    hook: >
+      Running a live update in your head — after a trade, a tell, a
+      confirming signal — means never touching the normalizing constant at
+      all, and the odds form is why that's possible.
+    explanation: >
+      You already have Bayes' theorem in odds form for two plain events;
+      nothing changes when the "events" being compared are hypotheses about a
+      parameter. Write posterior-probability Bayes for $H_1$ and separately
+      for $H_0$, divide one by the other, and the shared marginal likelihood
+      in both denominators cancels exactly, leaving posterior odds equal to
+      prior odds times a likelihood ratio.
+
+      That cancellation is the whole appeal: no integral, no normalizing
+      constant, ever needs computing. Multiple independent pieces of evidence
+      chain by multiplying their likelihood ratios in, and because
+      multiplying positive numbers is addition after a log, taking logs turns
+      a run of evidence into a running additive score — the only form of
+      Bayesian updating that's practical to do without paper.
+
+      Converting back to a probability at the end is one line, $p = O/(1+O)$
+      for odds $O$ written as a single ratio; skip it only if the question
+      explicitly wants odds.
+    worked: >
+      Prior odds are 2 to 3 that a trading signal is genuinely predictive
+      rather than noise. If predictive, it calls the next day's direction
+      correctly with probability 0.7; if noise, with probability 0.5. It's
+      right four days running. The likelihood ratio per correct call is
+      $0.7/0.5 = 1.4$, so four calls compound to $1.4^{4} \approx 3.842$.
+      Posterior odds are $2 \times 3.842 : 3 \approx 7.68:3$, about 2.56 to
+      1, giving $\Pr(\text{predictive}) \approx 2.56/3.56 \approx 0.719$.
+    interview: >
+      "Prior odds are X to Y, each piece of evidence has likelihood ratio
+      $r$ — what's the posterior after $n$ pieces" is answered instantly as
+      $r^{n}$ times the prior odds, converted to a probability only if
+      asked; the interviewer checks you never reach for the marginal
+      likelihood.
+    pitfalls: >
+      Multiplying probabilities directly instead of odds reintroduces the
+      normalizing constant the odds form exists to avoid. Applying $r^{n}$
+      when the pieces of evidence aren't conditionally independent overstates
+      the update — each factor assumes the others add genuinely new
+      information.
+    recap: >
+      Posterior odds equal prior odds times the likelihood ratio, with
+      repeated independent evidence compounding that ratio multiplicatively —
+      the version of Bayes that needs no normalizing constant.
+
+  - node: quant-statistics.bayesian.sequential-updating
+    hook: >
+      Realizing you don't need to store the raw history, only the current
+      posterior, is the moment Bayesian updating stops being a batch
+      calculation and starts being a live one.
+    explanation: >
+      Bayes' theorem doesn't care how many observations you multiply into the
+      likelihood at once. If $x_1$ and $x_2$ are conditionally independent
+      given $\theta$, the batch posterior is proportional to $\pi(\theta)
+      p(x_1 \mid \theta) p(x_2 \mid \theta)$ — and updating once on $x_1$,
+      then feeding that result back in as the prior for $x_2$, multiplies in
+      exactly the same two factors, just in two passes.
+
+      Two things follow. The order the evidence arrives in doesn't matter,
+      since the product is the same either way — only the final combination
+      of factors decides the posterior. And the current posterior is a
+      complete summary of everything observed so far: nothing about the raw
+      data needs to be kept, because feeding the posterior forward as the
+      next prior reproduces exactly what a full recomputation would give.
+
+      This is the formal justification for revising a running belief one
+      observation at a time rather than waiting to recompute from scratch —
+      a quote gets revised after every fill, a model's confidence after every
+      new signal, without ever reopening the earlier data.
+    worked: >
+      Two candidate machines, prior 50/50: A defects at rate 0.1, B at
+      0.4. Inspect two parts, both defective. Batch: likelihoods $0.1^{2} =
+      0.01$ and $0.4^{2} = 0.16$, giving posterior weights 0.005 and 0.08,
+      which normalize to $\Pr(B) = 0.08/0.085 = 16/17 \approx 0.941$.
+      Sequential: after the first defect, $\Pr(B) = 0.2/0.25 = 0.8$; feeding
+      that in as the new prior for the second defect gives weights $0.2
+      \times 0.1 = 0.02$ and $0.8 \times 0.4 = 0.32$, normalizing to
+      $0.32/0.34 = 16/17$ — identical.
+    interview: >
+      "Do you need to see all the data at once, or can you update as it
+      arrives" tests whether you can state that batch and sequential
+      updating agree exactly under conditional independence, and that the
+      running posterior alone is a sufficient summary.
+    pitfalls: >
+      Re-deriving the posterior from scratch every time a new observation
+      arrives, instead of feeding the current posterior in as the next
+      prior, is correct but wastes the entire point of the result. The
+      equivalence requires conditional independence given $\theta$ — a
+      repeated read from the same broken sensor breaks the clean
+      multiplication.
+    recap: >
+      Updating on a batch of conditionally independent data at once, or one
+      observation at a time with each posterior feeding forward as the next
+      prior, gives exactly the same answer either way.
+
+  - node: quant-statistics.bayesian.conjugate
+    hook: >
+      Conjugacy is the difference between an interview answer you can
+      compute in your head and one that needs an integral you were never
+      going to finish in the time given.
+    explanation: >
+      A family of priors is conjugate to a likelihood when multiplying a
+      member of the family by the likelihood always lands back inside the
+      same family — only the parameters move, never the shape. Since
+      posterior is proportional to prior times likelihood, this is a
+      statement about kernels: if the prior kernel and the likelihood kernel
+      are both powers of the same building blocks, their product is too, and
+      you read off the new parameters by matching exponents instead of
+      integrating anything.
+
+      The standard pairs cover most of what interviews ask: Beta prior with
+      a Bernoulli or binomial likelihood, Gamma prior with a Poisson
+      likelihood, normal prior with a normal likelihood of known variance. In
+      each case the update is literal bookkeeping — add successes and
+      failures to the Beta's two parameters, add counts and exposure to the
+      Gamma's.
+
+      The prior's parameters then read as pseudo-observations: a
+      $\mathrm{Beta}(a,b)$ prior behaves exactly like having already seen
+      $a+b$ imaginary tosses, $a$ of which came up heads, before any real
+      data arrived. That reading is what makes a chosen prior defensible —
+      you can state, out loud, how many observations your belief is worth.
+    worked: >
+      Take a $\mathrm{Beta}(3,5)$ prior on a success probability $p$, kernel
+      $p^{2}(1-p)^{4}$, and observe 4 successes and 1 failure in 5 trials,
+      likelihood kernel $p^{4}(1-p)^{1}$. Multiplying kernels adds
+      exponents: $p^{2+4}(1-p)^{4+1} = p^{6}(1-p)^{5}$, exactly a
+      $\mathrm{Beta}(7,6)$ kernel — no integral, just $3+4=7$ and $5+1=6$.
+      The prior's $3+5=8$ pseudo-tosses is what it means for the Beta
+      parameters to already carry a sample size before any data arrives.
+    interview: >
+      "Why do people use Beta priors for probabilities" or "what does
+      conjugate mean" wants the kernel-matching argument in one sentence —
+      the posterior stays in the same family because both prior and
+      likelihood are powers of $p$ and $1-p$ — followed by the pseudo-count
+      reading.
+    pitfalls: >
+      Assuming every prior is conjugate to every likelihood is false — most
+      pairs aren't, and outside the standard list you're back to numerical
+      integration or simulation. Conjugacy guarantees the family is
+      preserved, not that the update is trivial to state without checking
+      which parameter absorbs which piece of the data.
+    recap: >
+      A conjugate prior and likelihood multiply into a posterior in the same
+      family, so updating is just moving parameters — usually by adding
+      counts — never re-deriving a shape from scratch.
+
+  - node: quant-statistics.bayesian.beta-prior
+    hook: >
+      Every Beta-prior problem reduces to picking two numbers, and the
+      numbers that matter are never $a$ and $b$ directly — they're the mean
+      you'd bet on and the sample size your belief is worth.
+    explanation: >
+      You already know the Beta density and its moments; what earns Beta a
+      place as the default prior on $[0,1]$ is a reparametrization of those
+      same two numbers into ones a person can actually choose. Instead of
+      picking $a$ and $b$ directly, fix the mean $a/(a+b)$ you'd defend as
+      your best guess, and separately fix the pseudo-count $a+b$, how many
+      imaginary observations that guess is worth — then solve back for $a$
+      and $b$.
+
+      This is also why the special cases matter: $\mathrm{Beta}(1,1)$ is the
+      flat, maximally uncommitted case (mean 0.5, pseudo-count only 2),
+      raising $a+b$ while holding the mean fixed tightens the density around
+      that mean without moving its centre, and $\mathrm{Beta}(1/2,1/2)$ is
+      the U-shaped Jeffreys prior that pushes mass toward the two extremes
+      rather than the middle.
+
+      The mode formula $(a-1)/(a+b-2)$, valid only for $a,b>1$, is worth
+      flagging as a trap: below that threshold the density isn't even
+      unimodal in the interior, so quoting a mode there is meaningless.
+    worked: >
+      You want a prior on a conversion rate centred at 0.3 and worth 10
+      pseudo-observations. Solve $a+b=10$ and $a/(a+b)=0.3$: $a=3$, $b=7$,
+      so the prior is $\mathrm{Beta}(3,7)$. Its mean is $3/10=0.3$ by
+      construction; its mode is $(3-1)/(3+7-2)=2/8=0.25$, pulled below the
+      mean since the density is right-skewed with $b>a$; its variance is
+      $\frac{3 \times 7}{10^{2}\times 11}=21/1100\approx 0.0191$, a standard
+      deviation near 0.138.
+    interview: >
+      "How would you set a Beta prior for this probability" wants you to
+      name a defensible mean and pseudo-count, solve for $a$ and $b$ on the
+      spot, and state at least one moment — the interviewer checks you
+      parametrize by belief, not by memorized $a,b$ values.
+    pitfalls: >
+      Picking $a$ and $b$ directly by intuition, without checking what mean
+      and pseudo-count they imply, usually produces an accidentally over- or
+      under-confident prior. Quoting the mode formula when $a\le 1$ or $b\le
+      1$ reports a number for a density that doesn't have an interior
+      maximum there.
+    recap: >
+      Parametrize a Beta prior by the mean you'd bet on and the pseudo-count
+      your belief is worth, then solve for $a$ and $b$ — not the other way
+      around.
+
+  - node: quant-statistics.bayesian.beta-binomial
+    hook: >
+      This is the single calculation every conjugate-prior interview
+      question is secretly asking you to reproduce — memorize the mechanics
+      here and every Beta-related question in this unit becomes an instance
+      of it.
+    explanation: >
+      Multiply the Beta prior's kernel by the binomial likelihood's kernel
+      and collect powers of $p$: $p^{a-1}(1-p)^{b-1} \cdot p^{k}(1-p)^{n-k} =
+      p^{a+k-1}(1-p)^{b+n-k-1}$, precisely the kernel of a
+      $\mathrm{Beta}(a+k,\,b+n-k)$ density. Reading off the new parameters is
+      arithmetic, not integration: heads get added to $a$, tails get added
+      to $b$.
+
+      The posterior mean $(a+k)/(a+b+n)$ is worth stating immediately once
+      the new parameters are known, since it's usually the actual number an
+      interview question wants. It's always a compromise between the prior's
+      belief and what the data alone would say — a fact the next step in
+      this unit turns into an explicit formula.
+    worked: >
+      Continue with the $\mathrm{Beta}(3,7)$ prior from before (mean 0.3,
+      worth 10 pseudo-tosses) and observe 7 successes in 20 new trials. Add
+      successes to $a$ and failures to $b$: posterior is
+      $\mathrm{Beta}(3+7,\,7+13) = \mathrm{Beta}(10,20)$. The posterior mean
+      is $10/30 = 1/3 \approx 0.333$, and the posterior variance is
+      $\frac{10 \times 20}{30^{2}\times 31} = 200/27900 \approx 0.00717$, a
+      standard deviation near 0.0847. The raw sample proportion was $7/20 =
+      0.35$; belief lands just short of it, pulled toward the prior's 0.3.
+    interview: >
+      "You have a Beta prior and observe $k$ successes in $n$ trials — what's
+      the posterior" is answered in one line, $\mathrm{Beta}(a+k, b+n-k)$,
+      immediately followed by the mean; a good follow-up asks for the
+      variance too, testing whether you have the Beta moment formulas on
+      hand.
+    pitfalls: >
+      Adding $k$ to both $a$ and $b$, instead of adding the failures $n-k$
+      to $b$, is the most common bookkeeping slip. Reporting the raw sample
+      proportion $k/n$ as the answer, forgetting the prior contributed
+      anything, throws away the entire point of the update.
+    recap: >
+      A Beta prior updated by $k$ successes in $n$ trials is exactly
+      $\mathrm{Beta}(a+k, b+n-k)$ — add heads to $a$, tails to $b$ — with
+      posterior mean $(a+k)/(a+b+n)$.
+
+  - node: quant-statistics.bayesian.posterior-mean-weights
+    hook: >
+      Whenever an interviewer asks how much a small sample should move your
+      belief, this decomposition is the answer they want — a literal
+      weighted average, with the weights spelled out in pseudo-counts.
+    explanation: >
+      Split the beta-binomial posterior mean algebraically:
+      $(a+k)/(a+b+n)$ rewrites as $[(a+b)/(a+b+n)]\cdot[a/(a+b)] +
+      [n/(a+b+n)]\cdot[k/n]$, exactly a weighted average of the prior mean
+      $a/(a+b)$ and the sample proportion $k/n$, with weights $(a+b)/(a+b+n)$
+      and $n/(a+b+n)$ that sum to 1 by construction.
+
+      The weights are the whole story: the prior's influence is proportional
+      to its own pseudo-count $a+b$, and the data's influence is
+      proportional to the real sample size $n$, competing on equal footing
+      in the same denominator. As $n$ grows without bound the data weight
+      tends to 1 and the posterior mean converges to the sample proportion
+      regardless of where the prior started; for small $n$ the prior
+      dominates.
+
+      This decomposition turns "should I trust this early result" into an
+      arithmetic question — compute the two weights, and how much the data
+      has actually moved your belief is right there as a ratio.
+    worked: >
+      Continue the $\mathrm{Beta}(3,7)$ prior (pseudo-count 10) updated by 7
+      successes in 20 trials. Weights are $10/30=1/3$ for the prior and
+      $20/30=2/3$ for the data. Check: $(1/3)(0.3) + (2/3)(0.35) = 0.1 +
+      0.2333\ldots = 1/3 \approx 0.333$, matching the posterior mean computed
+      directly from $\mathrm{Beta}(10,20)$ — the data, carrying twice the
+      prior's weight, pulls the answer most of the way from 0.3 toward 0.35,
+      but not all the way.
+    interview: >
+      "How much should this sample move your prior belief" is answered by
+      naming the two weights, pseudo-count over total and sample size over
+      total, and computing the actual convex combination — not just saying
+      "somewhere in between."
+    pitfalls: >
+      Weighting the prior and data equally regardless of their pseudo-counts
+      ignores exactly the information the formula is built to use.
+      Forgetting that the weights must sum to 1 risks a decomposition that
+      doesn't reconstruct the actual posterior mean.
+    recap: >
+      The posterior mean is a weighted average of the prior mean and the
+      sample proportion, weighted by pseudo-count against real sample size —
+      the honest measure of how much a given amount of data should move you.
+
+  - node: quant-statistics.bayesian.succession
+    hook: >
+      This is the two-second sanity check for any estimate-a-probability-
+      from-a-tiny-sample question — it's why a perfect or a zero track
+      record never becomes a probability of exactly 1 or 0.
+    explanation: >
+      Take the flattest Beta prior, $\mathrm{Beta}(1,1)$, uniform on $[0,1]$,
+      and update by $k$ successes in $n$ trials the ordinary way: the
+      posterior is $\mathrm{Beta}(k+1,\,n-k+1)$, one imaginary success and
+      one imaginary failure added to the tally before anything else happens.
+
+      The chance the next trial succeeds isn't a separate calculation —
+      since $p$ is itself the chance of success, averaging over the
+      posterior's belief about $p$ gives exactly the posterior mean,
+      $(k+1)/(n+2)$. That single formula answers "predict the next
+      observation" and "what do you currently believe $p$ is" at once.
+
+      What the rule buys you is a refusal to output the degenerate
+      frequentist extremes: with zero successes so far, the frequentist
+      estimate $k/n$ is a flat 0, but one failure was never proof that
+      success is impossible — the rule reports something small but strictly
+      positive, and symmetrically caps a perfect record strictly below 1.
+    worked: >
+      A new trading strategy wins its first 2 backtested trades out of 2 (a
+      raw hit rate of 100%). Laplace's rule gives $\Pr(\text{next trade
+      wins}) = (2+1)/(2+2) = 3/4 = 0.75$ — high, since two wins is real
+      evidence, but nowhere near the naive 100% two data points can't
+      actually support.
+    interview: >
+      "The strategy has won every trade so far — do you believe it always
+      wins" tests whether you reach for $(k+1)/(n+2)$ instead of quoting the
+      raw 100%; the strong answer states the number and explains why a flat
+      prior refuses certainty from finite data.
+    pitfalls: >
+      Reporting the raw proportion $k/n$ instead of $(k+1)/(n+2)$ silently
+      assumes an infinitely confident prior, not the flat one the rule
+      requires. The rule only applies starting from $\mathrm{Beta}(1,1)$ —
+      a different prior's pseudo-count changes the formula to the general
+      posterior mean $(a+k)/(a+b+n)$.
+    recap: >
+      With a flat prior, the next trial succeeds with probability
+      $(k+1)/(n+2)$ — a small, finite sample can never push belief all the
+      way to certainty in either direction.
+
+  - node: quant-statistics.bayesian.shrinkage
+    hook: >
+      The best-looking number in a small sample is disproportionately
+      likely to belong to the luckiest case rather than the best one, and
+      shrinkage is the one-line fix every thin-track-record question is
+      testing for.
+    explanation: >
+      Every conjugate update has the same geometry underneath: the posterior
+      estimate sits strictly between the prior's guess and the raw sample
+      statistic, positioned by the fraction (prior weight)/(prior weight +
+      data weight) — thin data means a small data weight, so the pull toward
+      the prior dominates.
+
+      The practical reading is a discount rule: whenever you see an extreme
+      statistic built from few observations, ask what a reasonable prior
+      centred at the population average would do to it, and expect the
+      honest estimate to land noticeably closer to that average. The more
+      extreme the raw statistic and the thinner the sample behind it, the
+      larger the correction has to be, since an extreme outcome from a small
+      sample is more likely to be partly noise than an equally extreme
+      outcome from a large one.
+
+      This is why, across a population of candidates or strategies, the
+      single best-looking short-run number tends to overstate the true
+      quality of whoever produced it — the ranking is partly sorting on luck,
+      and shrinkage is the correction that partly undoes that sort.
+    worked: >
+      A new sales rep closes 8 of the first 10 calls, a raw 80% close rate.
+      Against a population prior of $\mathrm{Beta}(15,15)$ (centred at 50%,
+      worth 30 pseudo-calls), the posterior is $\mathrm{Beta}(23,17)$, mean
+      $23/40 = 0.575$ — the impressive 80% raw rate is discounted to 57.5%
+      once weighed against 30 pseudo-calls of population history, because 10
+      real calls aren't enough to overturn what everyone else's record
+      already says.
+    interview: >
+      "A new hire's numbers look great after a week — do you believe them"
+      tests whether you invoke shrinkage explicitly, naming the prior's
+      pseudo-count against the sample size, rather than dismissing the
+      number entirely or accepting it at face value.
+    pitfalls: >
+      Treating the raw sample statistic as the honest estimate, with no
+      discount toward the population prior, overweights whatever the thin
+      sample happened to show. Applying heavy shrinkage to a genuinely large
+      sample is the opposite error — once the data weight dominates, the
+      correction should shrink to near nothing.
+    recap: >
+      A thin sample's estimate is pulled toward the prior in proportion to
+      how thin it is, so an extreme short-run number should always be
+      discounted before it's believed.
+
+  - node: quant-statistics.bayesian.normal-normal
+    hook: >
+      Precision, not variance, is the currency a normal-normal update
+      actually trades in — every new reading adds directly to a running
+      precision total before anyone touches the mean.
+    explanation: >
+      With a normal prior $N(\mu_0,\sigma_0^{2})$ on $\theta$ and $n$
+      independent normal observations of known variance $\sigma^{2}$, the
+      posterior is again normal — the defining conjugate fact — and the
+      cleanest way to see why is to work in precision, $1/\text{variance}$,
+      rather than variance itself: precisions simply add,
+      $1/\sigma_0^{2} + n/\sigma^{2}$, one term from the prior and one from
+      all $n$ data points combined.
+
+      The posterior mean falls straight out once precision is the unit: it's
+      the precision-weighted average of the prior mean and the sample mean,
+      $(\mu_0/\sigma_0^{2} + n\bar{x}/\sigma^{2}) / (1/\sigma_0^{2} +
+      n/\sigma^{2})$ — each source contributes its mean times its own
+      precision, divided by the total precision to keep it an honest
+      average.
+
+      The data's contribution scales with $n$, not with a single
+      observation's precision alone — ten independent readings carry ten
+      times one reading's precision, which is exactly why more data narrows
+      the posterior even when each individual measurement is noisy.
+    worked: >
+      A trader's prior fair-value estimate for a security is 100 points with
+      standard deviation 15. Nine independent quotes, each with known noise
+      standard deviation 10, average 115. Precisions: prior $1/15^{2} =
+      1/225 \approx 0.00444$, data $9/10^{2} = 0.09$, summing to about
+      0.09444. Posterior variance is $1/0.09444 \approx 10.59$. Posterior
+      mean is $(100/225 + 9\times115/100)/0.09444 \approx (0.444 +
+      10.35)/0.09444 \approx 114.28$ — close to the quotes' average, since
+      nine quotes carry far more combined precision than the prior.
+    interview: >
+      "You have a prior estimate and $n$ noisy independent readings — what's
+      your updated estimate" wants precisions added first, then the
+      precision-weighted mean; naming it "precision-weighted average" out
+      loud signals fluency here.
+    pitfalls: >
+      Averaging variances instead of precisions, or weighting the prior and
+      sample mean equally regardless of $n$, both silently misweight the
+      two sources. Forgetting that the data's precision scales with $n$
+      understates how much $n$ readings actually inform the answer.
+    recap: >
+      Normal prior plus normal data gives a normal posterior whose
+      precisions add and whose mean is the precision-weighted average of
+      prior mean and sample mean.
+
+  - node: quant-statistics.bayesian.precision-weighting
+    hook: >
+      Any time a desk has two independent reads on the same fair value — its
+      own model and the market's quote — this is the one-line rule for
+      combining them, and equal-weighting the two leaves money on the table.
+    explanation: >
+      This is the normal-normal posterior mean stripped of its Bayesian
+      framing: given two independent unbiased estimates $\hat{\theta}_1,
+      \hat{\theta}_2$ of the same quantity with variances $v_1,v_2$, the
+      minimum-variance combination is $(\hat{\theta}_1/v_1 +
+      \hat{\theta}_2/v_2)/(1/v_1 + 1/v_2)$ — the same formula as combining a
+      prior mean and a sample mean, just with neither estimate singled out
+      as "the prior."
+
+      The combined variance, $1/(1/v_1 + 1/v_2)$, is smaller than either
+      input variance on its own — merging two independent noisy signals is
+      never worse than trusting the better one alone, which is the entire
+      payoff of combining them rather than picking a favourite.
+
+      The weight each estimate receives is proportional to its own
+      precision, so the more confident source dominates the blend, and equal
+      weighting is only correct in the special case where both sources share
+      the same variance.
+    worked: >
+      Two independent fair-value estimates: 50 with standard deviation 4
+      ($v_1=16$) and 56 with standard deviation 3 ($v_2=9$). Weights are
+      proportional to $1/16$ and $1/9$, normalizing to $9/25=0.36$ and
+      $16/25=0.64$. The blend is $0.36\times50 + 0.64\times56 = 18+35.84 =
+      53.84$, with combined variance $1/(1/16+1/9) = 144/25 = 5.76$, a
+      standard deviation of 2.4 — tighter than either input's 3 or 4, and
+      pulled closer to 56 since that estimate is the more precise one.
+    interview: >
+      "You have your own model's fair value and the market's — how do you
+      combine them" wants the precision-weighted formula immediately, plus
+      the observation that the blend is more confident than either input
+      alone.
+    pitfalls: >
+      Averaging the two estimates equally, ignoring which one is more
+      precise, throws away real information whenever the variances differ.
+      Assuming the two estimates are independent when they share a common
+      error source overstates how much the combined variance should shrink.
+    recap: >
+      Combine two independent unbiased estimates by weighting each by its
+      own precision — the blend beats both inputs, and the more confident
+      source pulls harder.
+
+  - node: quant-statistics.bayesian.posterior-predictive
+    hook: >
+      Quoting the posterior mean's own uncertainty as the uncertainty on the
+      next observation is the single most common mistake once someone's
+      learned to compute a posterior — the predictive distribution is always
+      wider.
+    explanation: >
+      A posterior tells you about the parameter; forecasting a new data
+      point $\tilde{x}$ instead requires averaging the sampling model over
+      every value $\theta$ could still be, weighted by how likely the
+      posterior says each is: $p(\tilde{x}\mid x) = \int p(\tilde{x} \mid
+      \theta)\,\pi(\theta \mid x)\,d\theta$. That integral tracks two
+      separate sources of uncertainty, not one.
+
+      This is why the predictive distribution is always at least as wide as
+      plugging the posterior mean straight into the sampling model: on top
+      of ordinary sampling noise, it also carries whatever uncertainty
+      remains about $\theta$ itself. Ignoring that second source and quoting
+      a plug-in interval understates how uncertain the forecast really is.
+
+      In this unit's conjugate families the integral is never performed by
+      hand. For beta-binomial, the chance the next trial succeeds collapses
+      to exactly the posterior mean; for normal-normal, the predictive
+      variance is the posterior variance plus the sampling variance, the two
+      uncertainties simply summing.
+    worked: >
+      Continuing the $\mathrm{Beta}(10,20)$ posterior from before (prior
+      $\mathrm{Beta}(3,7)$ updated by 7 successes in 20 trials): the chance
+      the next single trial succeeds is exactly the posterior mean, $10/30 =
+      1/3$ — the integral defining the posterior predictive collapses to a
+      number you already had.
+    interview: >
+      "What's your prediction interval for the next observation" checks
+      whether you widen a plug-in interval by the extra parameter
+      uncertainty rather than reporting the posterior's own spread, which
+      only measures uncertainty about $\theta$, not about the next data
+      point.
+    pitfalls: >
+      Reporting the posterior's spread on $\theta$ as though it were the
+      spread on the next observation skips the sampling noise entirely. In
+      the normal case, adding standard deviations instead of variances when
+      combining posterior and sampling uncertainty gives the wrong number.
+    recap: >
+      The posterior predictive integrates the sampling model against the
+      posterior, always coming out wider than a plug-in guess because it
+      carries both parameter uncertainty and sampling noise.
+
+  - node: quant-statistics.bayesian.prior-choice
+    hook: >
+      "Just use a uniform prior, it's uninformative" doesn't survive its own
+      reparametrization, and knowing exactly why separates a defensible
+      prior from a lazy one.
+    explanation: >
+      Flatness is a property of the coordinates you happened to write the
+      prior in, not of the belief itself. If $p$ is uniform on $[0,1]$, the
+      log-odds transform $\log(p/(1-p))$ maps that interval onto the whole
+      real line — and a constant density can't exist on an unbounded set at
+      all, so whatever shape the log-odds end up having, it manifestly isn't
+      flat. The same belief looks maximally noncommittal in one
+      parametrization and sharply opinionated in another, so "no
+      information" was never a property the prior alone could claim.
+
+      The working discipline sidesteps the whole question of what
+      "uninformative" even means: pick a prior mean you'd actually bet on,
+      pick a pseudo-count that honestly reflects how much evidence that
+      belief is worth, and check whether a different, equally plausible
+      prior would have led to a different decision. If it would, the data on
+      hand is too thin to act on regardless of which prior gets used.
+
+      One rule survives every parametrization: never put zero density on a
+      value that's genuinely possible. A likelihood, however extreme, only
+      ever multiplies the prior — it can shrink a small prior weight toward
+      zero, but it can never revive a value that started at exactly zero.
+    worked: >
+      You observe 3 successes in 4 trials and must decide whether to act on
+      "the true rate exceeds 0.6." Under a flat $\mathrm{Beta}(1,1)$ prior,
+      the posterior is $\mathrm{Beta}(4,2)$, mean $4/6 \approx 0.667$ — act.
+      Under a more skeptical $\mathrm{Beta}(5,5)$ prior (worth 10
+      pseudo-trials, centred at 0.5), the posterior is $\mathrm{Beta}(8,6)$,
+      mean $8/14 \approx 0.571$ — don't act. The decision flips between two
+      defensible priors, exactly the signal that 4 trials is too little data
+      to have earned the decision either way.
+    interview: >
+      "Why not just use a flat prior and let the data speak" is answered by
+      pointing out flatness isn't parametrization-invariant, then
+      demonstrating the stress test — recompute under one alternative
+      reasonable prior and see whether the conclusion survives.
+    pitfalls: >
+      Calling a uniform prior "objective" or "assumption-free" ignores that
+      the same belief looks informative under a reparametrization like
+      log-odds. Assigning literally zero prior probability to a value that's
+      merely thought unlikely is an irreversible mistake — no evidence can
+      lift it back off zero.
+    recap: >
+      A prior is a choice to be defended and stress-tested, not a default —
+      flatness depends on parametrization, and zero prior mass is a
+      permanent commitment no data can undo.
+
+  - node: quant-statistics.bayesian.credible-interval
+    hook: >
+      Every candidate who says "a 95% confidence interval means there's a
+      95% chance the parameter is in here" is describing a credible interval
+      instead — stating precisely why those differ is the actual test.
+    explanation: >
+      With a full posterior in hand, a 95% credible interval is any set
+      carrying 95% of the posterior's mass — most often the equal-tailed
+      interval running from the posterior's 2.5% to 97.5% quantiles, or, for
+      a single shortest set, the highest-density region. Its interpretation
+      is the intuitive one: given this prior and this data, $\theta$ lies in
+      the interval with probability 0.95, a direct statement about $\theta$
+      because $\theta$ is, in this framework, genuinely random.
+
+      A confidence interval answers a structurally different question even
+      when the numbers happen to match. There, $\theta$ is fixed and the
+      interval is what's random — the claim is that the procedure generating
+      the interval covers the true $\theta$ 95% of the time across
+      hypothetical repetitions, not that this particular interval has a 95%
+      chance of containing $\theta$. Once computed, from a frequentist's
+      standpoint it either does or doesn't contain $\theta$; there's no
+      probability left to assign to it.
+
+      The two coincide numerically in the common case of a normal model with
+      a weak prior and large $n$, which is precisely why the misreading is
+      so persistent — the number matches, but the sentence describing what
+      it means does not transfer across frameworks.
+    worked: >
+      Suppose updating has already produced a posterior on a parameter
+      that's well approximated by a normal shape with mean 0.4 and standard
+      deviation 0.05. A 95% equal-tailed credible interval is $0.4 \pm 1.96
+      \times 0.05 = 0.4 \pm 0.098$, about $(0.302, 0.498)$ — and because
+      $\theta$ itself is the random object here, it's correct to say
+      $\theta$ has roughly a 95% chance of lying in that exact range, given
+      the prior and data used to build it.
+    interview: >
+      "What does a 95% credible interval mean, and how does it differ from a
+      confidence interval" wants the exact contrast — random parameter
+      versus random interval — stated crisply, not "they're basically the
+      same."
+    pitfalls: >
+      Reading a frequentist confidence interval as though it made the
+      credible interval's probability statement about the parameter is the
+      single most common misreading in applied statistics. Computing a
+      credible interval as mean plus or minus 1.96 standard deviations when
+      the posterior is visibly skewed ignores that the honest interval need
+      not be symmetric at all.
+    recap: >
+      A credible interval really does contain the parameter with the stated
+      probability, given the prior and data; a confidence interval makes a
+      claim about the covering procedure instead, and the two only coincide
+      by numerical accident.
