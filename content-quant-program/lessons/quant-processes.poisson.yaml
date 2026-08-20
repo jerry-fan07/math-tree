@@ -1,0 +1,748 @@
+unit: quant-processes.poisson
+opening: >
+  Poisson processes are the default model for events that happen one at a time
+  with no memory — trade prints, phone calls, defaults, radioactive decays.
+  The unit opens with two equivalent definitions, the whole-window count
+  axioms and the local infinitesimal-rate picture, then lands on the single
+  fact that makes everything else algebra instead of calculus: the gaps
+  between arrivals are iid exponential. From there it covers the two
+  operations interviews lean on — superposition (merging streams) and
+  thinning (splitting one stream by a coin flip) — and the fact that
+  conditioning on the count strips the rate out entirely, leaving arrival
+  times that are just uniform points. It closes with the inspection paradox,
+  length-biased sampling, and the compound and non-homogeneous extensions
+  used to model random sums and time-varying rates.
+lessons:
+  - node: quant-processes.poisson.pp
+    hook: >
+      Every "events happen independently at a constant rate" setup — trade
+      prints, phone calls, decays — is silently invoking this exact set of
+      axioms, and an interviewer expects the three properties named, not just
+      the Poisson pmf recited back.
+    explanation: >
+      A single Poisson distribution only describes one window. A process
+      ties every window together at once, and consistency across windows is
+      exactly what the three axioms buy: independent increments say what
+      happens in one time block carries no information about another
+      disjoint block; stationary increments say the law of a window depends
+      on its length, never on where it starts; and the count over a
+      length-$t$ window being $\operatorname{Poisson}(\lambda t)$ is the same
+      distribution already known, now attached to every window simultaneously.
+
+      The mean and variance $\lambda t$ follow immediately from that last
+      axiom — no new computation needed, just the Poisson fact restated at
+      each $t$. The real content is the first two axioms: they force the
+      counts over any two disjoint windows to be independent Poisson
+      variables, so a long interval can be chopped into blocks and each
+      block's count analyzed on its own.
+
+      Carry the mental model of arrivals as a fine, independent mist falling
+      through time at density $\lambda$ per unit time — nothing about
+      elapsed time or window boundaries changes the local rate.
+    worked: >
+      At $\lambda = 6$ per hour, a $20$-minute window has mean $6 \cdot
+      1/3 = 2$, so $\Pr(N = 2) = e^{-2} \cdot 2^{2}/2! = 2e^{-2} \approx
+      0.2707$. Independence across disjoint windows means the next $20$
+      minutes is an unrelated fresh $\operatorname{Poisson}(2)$, so
+      $\Pr(\text{2 in the first window and 1 in the second}) = (2e^{-2})
+      (2e^{-2}) = 4e^{-4} \approx 0.0733$.
+    interview: >
+      "Define a Poisson process" wants the three axioms named in order, not
+      the pmf alone; volunteering that disjoint-window counts are
+      independent before being asked is what separates a strong answer.
+    pitfalls: >
+      Treating stationarity as automatic once increments are independent is
+      wrong — a process whose rate drifts over time can still have
+      independent increments, and that is the non-homogeneous case, not this
+      one. Writing $N(t) \sim \operatorname{Poisson}(\lambda)$ and dropping
+      the window length $t$ is the other common slip.
+    recap: >
+      A Poisson process ties every window's count together through
+      independent, stationary increments, each $\operatorname{Poisson}
+      (\lambda t)$ — three axioms, not one formula.
+
+  - node: quant-processes.poisson.infinitesimal-definition
+    hook: >
+      When a problem hands you a hazard or failure rate instead of a
+      distribution, this is the definition that turns "chance $\lambda\,dt$
+      per instant" directly into Poisson counts without re-deriving anything.
+    explanation: >
+      The whole-window axioms describe the process from the outside; this
+      characterization builds it from the inside, instant by instant. In a
+      tiny window of length $h$, an arrival happens with probability about
+      $\lambda h$ and two arrivals essentially never happen together — that
+      second condition, orderliness, is what rules out simultaneous arrivals
+      and keeps the counting process integer-valued in a well-behaved way.
+
+      The load-bearing move is chopping $[0,t]$ into $n$ equal slots of
+      length $t/n$: each slot independently holds one arrival with
+      probability about $\lambda t/n$ and (by orderliness) essentially never
+      more than one, so $N(t)$ behaves like a sum of $n$ independent
+      near-Bernoulli trials — a binomial that becomes exactly
+      $\operatorname{Poisson}(\lambda t)$ as $n \to \infty$. That is the same
+      count law the whole-window definition demands, so the two definitions
+      agree.
+
+      Reach for this form whenever a problem states a rate that changes
+      instant to instant rather than handing you a clean distributional
+      claim — it is the natural language for building the process up from
+      local behavior.
+    worked: >
+      A process has $\Pr(N(h) = 1) = 20h + o(h)$ for $h$ in seconds, with
+      orderliness holding — so it is Poisson at rate $\lambda = 20$ per
+      second. Over a $100$-millisecond window the mean count is
+      $20 \cdot 0.1 = 2$, so the chance of no arrivals in that window is
+      $e^{-2} \approx 0.1353$.
+    interview: >
+      "What's the chance of an arrival in a small interval $dt$" is testing
+      whether $\lambda\,dt$ comes out immediately, along with naming
+      orderliness as the reason two arrivals can't coincide.
+    pitfalls: >
+      Forgetting the $o(h)$ qualifier and treating $\lambda h$ as an exact
+      probability breaks down for larger $h$ — it is only a first-order
+      approximation. Skipping the orderliness condition lets batch arrivals
+      sneak in, which the ordinary Poisson process forbids by construction.
+    recap: >
+      A local rule — chance $\lambda\,dt$ of one arrival per instant, never
+      two at once — is equivalent to the whole-window Poisson axioms, and is
+      the form to use when a rate, not a distribution, is given.
+
+  - node: quant-processes.poisson.interarrival
+    hook: >
+      Recognizing "time between events" language as an exponential gap,
+      instantly and without re-deriving it, is the single most reused reflex
+      in this unit.
+    explanation: >
+      The first gap is forced by the process definition itself: no arrival
+      by time $t$ means $N(t) = 0$, so $\Pr(X_1 > t) = \Pr(N(t) = 0) =
+      e^{-\lambda t}$ — exactly the exponential survival function, with no
+      extra assumption needed.
+
+      The load-bearing step is that this same argument reruns after every
+      arrival. Independent, stationary increments mean the process observed
+      after any arrival looks, in distribution, exactly like a fresh
+      Poisson process started at that instant — so the wait for the next
+      arrival, counted from there, again satisfies $\Pr(X_2 > t) =
+      e^{-\lambda t}$, independent of $X_1$. Chaining this arrival by
+      arrival is why every gap is iid $\operatorname{Exp}(\lambda)$.
+
+      The converse — building a Poisson process by laying down iid
+      exponential gaps — is the standard way to simulate one: draw
+      exponentials, cumulative-sum them into arrival times, and the counting
+      process they generate automatically satisfies all three axioms.
+    worked: >
+      Calls arrive at a help line at $\lambda = 10$ per minute, so the mean
+      gap is $1/10$ minute $= 6$ seconds. The probability a gap exceeds $3$
+      seconds ($0.05$ minute) is $e^{-10 \cdot 0.05} = e^{-0.5} \approx
+      0.6065$.
+    interview: >
+      "What's the distribution of time between arrivals" wants
+      $\operatorname{Exp}(\lambda)$ stated immediately, with the
+      one-line justification that $\Pr(X_1 > t) = \Pr(N(t) = 0)$; a strong
+      answer also volunteers that the converse construction is how these
+      processes get simulated.
+    pitfalls: >
+      Treating only the first gap as exponential and reasoning separately
+      about later gaps wastes time — independence and stationarity hand you
+      every gap at once, with no new argument needed. Confusing "gaps are
+      independent" with "arrival times are independent" is the other slip;
+      the times $T_n$ are sums of the gaps and are strongly dependent.
+    recap: >
+      Every gap between Poisson arrivals is independent
+      $\operatorname{Exp}(\lambda)$, because the process restarts identically
+      after each arrival, and the converse builds a Poisson process from iid
+      exponential gaps.
+
+  - node: quant-processes.poisson.arrival-times
+    hook: >
+      "How long until the $n$-th arrival" and "how many arrivals by time
+      $t$" sound like different questions, but the count–time duality makes
+      them the exact same event stated two ways.
+    explanation: >
+      Since $T_n$ sums $n$ iid $\operatorname{Exp}(\lambda)$ gaps, its mean
+      and variance follow from additivity alone — $\mathbb{E}[T_n] = n/
+      \lambda$ and $\operatorname{Var}(T_n) = n/\lambda^{2}$ — with no
+      distributional argument required, since means and variances of
+      independent sums always add regardless of shape.
+
+      The load-bearing idea is the duality itself: "the $n$-th arrival has
+      occurred by $t$" and "at least $n$ arrivals have occurred by $t$" are
+      literally the same event, $\{T_n \le t\} = \{N(t) \ge n\}$, because
+      both describe exactly the same set of outcomes. That lets you read the
+      Erlang cdf straight off the already-known Poisson pmf by summing tail
+      probabilities, instead of integrating the Erlang density directly.
+
+      This duality is a two-way tool: whenever a problem is awkward in one
+      description — a messy sum of exponentials, or a Poisson tail sum —
+      switch to the other side and the computation often collapses.
+    worked: >
+      Buses arrive at $\lambda = 3$ per hour. The $5$th bus is expected at
+      $\mathbb{E}[T_5] = 5/3$ hour $= 100$ minutes. Using the duality,
+      $\Pr(T_2 \le 1\text{ hour}) = \Pr(N(1) \ge 2) = 1 - e^{-3} - 3e^{-3} =
+      1 - 4e^{-3} \approx 0.8009$.
+    interview: >
+      "Expected time to the $n$-th event" is answered with $n/\lambda$
+      instantly; when asked for a probability like $\Pr(T_n \le t)$, naming
+      the duality and switching to the Poisson tail sum is the fast, correct
+      path.
+    pitfalls: >
+      Integrating the Erlang density directly to answer a duality question
+      is needless work once $\{T_n \le t\} = \{N(t) \ge n\}$ is recognized.
+      Mixing up which inequality direction matches which event — $T_n \le t$
+      is "at least $n$," not "exactly $n$" — is the other common slip.
+    recap: >
+      $T_n$ is $\operatorname{Gamma}(n, \lambda)$ with mean $n/\lambda$, and
+      $\{T_n \le t\} = \{N(t) \ge n\}$ converts between waiting-time and
+      counting-process questions for free.
+
+  - node: quant-processes.poisson.fresh-start
+    hook: >
+      "It's been ten minutes since the last one — surely it's due" is the
+      gambler's fallacy restated for a Poisson process, and this property is
+      exactly why the reasoning is wrong.
+    explanation: >
+      The interarrival result already shows the process restarts
+      identically right after an arrival; fresh start says the restart
+      happens at any fixed time you pick, arrival or not, and moreover at
+      any stopping time — a moment defined only by what has happened so far,
+      like "the third arrival" or "the first time the count hits $k$."
+      Conditional on everything known up to that moment, the future is
+      again a full, independent copy of the same Poisson process.
+
+      The restriction to stopping times is the load-bearing subtlety: "the
+      instant just before the next arrival" is defined by looking into the
+      future, so it is not a stopping time, and the restart property does
+      not apply there — which is exactly the setup behind the inspection
+      paradox.
+
+      Read operationally, this says an exponential clock never accumulates
+      a head start: however long since the last arrival, the wait for the
+      next one is a completely fresh $\operatorname{Exp}(\lambda)$ draw.
+    worked: >
+      A sensor logs pings at $\lambda = 0.2$ per minute. You check the log
+      and see it has been $10$ minutes of silence. The expected further wait
+      is still $1/\lambda = 5$ minutes, not less. $\Pr(\text{wait} > 3
+      \text{ min}) = e^{-0.2 \cdot 3} = e^{-0.6} \approx 0.5488$, exactly
+      what a fresh $\operatorname{Exp}(0.2)$ gives.
+    interview: >
+      "A component has run for $x$ hours without failing — how much longer
+      on average" wants $1/\lambda$ immediately, with the reasoning stated
+      as "the process restarts at any fixed time," not just the number.
+    pitfalls: >
+      Applying the restart property to a time chosen using hindsight — such
+      as "just before the next arrival" — is invalid; that instant is not a
+      stopping time. Assuming the property needs the process to restart at
+      an arrival specifically, rather than at any fixed or stopping time, is
+      an unnecessarily narrow reading.
+    recap: >
+      Conditional on the past up to any fixed time or stopping time, a
+      Poisson process starts over as an independent, identical copy of
+      itself — an arrival is never overdue.
+
+  - node: quant-processes.poisson.superposition
+    hook: >
+      "What's the chance the next event from any of these several streams
+      happens within $x$ minutes" collapses to a single rate the instant you
+      recognize superposition.
+    explanation: >
+      Merging independent Poisson streams stays Poisson because the counts
+      combine cleanly: for two independent streams, $\Pr(N_1(t) + N_2(t) =
+      k) = \sum_{j=0}^{k} \Pr(N_1(t)=j)\Pr(N_2(t)=k-j)$. Substituting the
+      Poisson pmfs, factoring out $e^{-(\lambda_1+\lambda_2)t}/k!$, and
+      applying the binomial theorem to $\sum_j \binom{k}{j}(\lambda_1 t)^j
+      (\lambda_2 t)^{k-j}$ collapses the sum to $((\lambda_1+\lambda_2)t)^k$
+      — exactly the $\operatorname{Poisson}(\lambda_1+\lambda_2)$ pmf.
+      Independent increments and stationarity survive the merge because each
+      component already has them and the components don't interact.
+
+      More than two streams merge the same way pairwise, so $k$ independent
+      streams superpose to rate $\lambda_1 + \cdots + \lambda_k$.
+
+      Independence is a real hypothesis, not bookkeeping: double-listing a
+      single stream's arrivals also produces mean rate $2\lambda$, but the
+      "arrivals" now come in coincident pairs and the merged process is not
+      Poisson at all.
+    worked: >
+      Three independent order-flow feeds arrive at $4$, $6$, and $10$ per
+      minute, total rate $20$ per minute. The wait for the next order from
+      any feed is $\operatorname{Exp}(20)$, mean $3$ seconds, and the chance
+      none arrives in the next $2$ seconds ($1/30$ minute) is $e^{-20/30} =
+      e^{-2/3} \approx 0.5134$.
+    interview: >
+      "Merge $k$ independent Poisson streams" wants the summed rate stated
+      immediately, and a sharp candidate flags that independence — not just
+      matching means — is what makes the merge Poisson at all.
+    pitfalls: >
+      Assuming any two arrival streams with the same total rate merge the
+      same way ignores that dependence between them can wreck the Poisson
+      property entirely. Forgetting that "rates add" requires the summed
+      rate, not an average, understates how fast the merged stream actually
+      fires.
+    recap: >
+      Independent Poisson streams merge into a Poisson stream at the summed
+      rate, so the wait for "the next of any type" uses $\lambda_1 + \cdots
+      + \lambda_k$ directly.
+
+  - node: quant-processes.poisson.thinning
+    hook: >
+      Splitting one stream into independent sub-streams by an independent
+      coin flip per arrival is the move behind "buy vs. sell prints" and
+      "escalated vs. resolved tickets" questions alike.
+    explanation: >
+      Condition on $N(t) = n$: since each of the $n$ arrivals is labeled
+      type $i$ independently with probability $p_i$, the type-$i$ count
+      given $N(t)=n$ is $\operatorname{Binomial}(n, p_i)$. Unconditioning
+      over $N(t) \sim \operatorname{Poisson}(\lambda t)$ and simplifying —
+      the $e^{-\lambda t(1-p_i)}$ factor from the binomial's complement
+      recombines with the sum over the remaining arrivals into
+      $e^{\lambda t(1-p_i)}$ — leaves exactly $\Pr(N_i(t)=k) =
+      e^{-\lambda p_i t}(\lambda p_i t)^k / k!$: a clean
+      $\operatorname{Poisson}(\lambda p_i)$ process.
+
+      The surprising part is independence across types. For two types, the
+      joint pmf $\Pr(N_1(t)=j, N_2(t)=k) = \Pr(N(t)=j+k)\binom{j+k}{j}p^j
+      (1-p)^k$ factors, term for term, into the product of the two marginal
+      Poisson pmfs — so learning the type-$1$ count tells you nothing about
+      the type-$2$ count, even though the two together determine the total.
+
+      This independence is fragile: it depends on the total being Poisson,
+      and on the labels being independent of everything else, including the
+      arrival times.
+    worked: >
+      Calls arrive at $50$ per hour, and $30\%$ independently escalate to
+      tier $2$, giving a tier-$2$ rate of $15$ per hour. Over a $12$-minute
+      window ($0.2$ hour), the mean tier-$2$ count is $3$, so $\Pr(N=2) =
+      e^{-3} \cdot 9/2 \approx 0.2240$.
+    interview: >
+      "Split a Poisson stream by an independent coin flip" wants both
+      pieces named — each part is Poisson at the scaled rate, and the parts
+      are mutually independent — since the independence claim is what
+      interviewers probe hardest.
+    pitfalls: >
+      Letting the label depend on arrival time or on other arrivals breaks
+      the whole result; the labels must be iid and independent of the
+      process. Treating the type-$i$ rate as $\lambda$ instead of $\lambda
+      p_i$ when computing a window probability silently overcounts.
+    recap: >
+      Coin-flip labelling splits a Poisson process into mutually independent
+      Poisson processes at rates $\lambda p_i$, an independence that is
+      special to a Poisson total.
+
+  - node: quant-processes.poisson.thinning-example
+    hook: >
+      This is the template for any "arrivals of one type, split by an
+      independent attribute" interview question — recognize the split,
+      apply the scaled rate, and every downstream count or wait falls out.
+    explanation: >
+      The pattern to internalize: once an attribute of each arrival
+      (buy/sell, escalated/resolved, in-the-money/out) is independent of
+      arrival timing and of other arrivals, thinning applies immediately —
+      no need to track the original stream at all once you're asking about
+      one side.
+
+      That means questions about counts, waits, and probabilities within a
+      single side reduce to ordinary single-rate Poisson computations at the
+      scaled rate, exactly as if that side had always been its own
+      independent process. Cross-side questions — "how many of each" — stay
+      independent too, so a large count on one side carries zero information
+      about the other.
+
+      The one thing to check before applying any of this is the independence
+      assumption itself: if the attribute correlates with time of day or
+      with nearby arrivals, as it typically does in real order flow, the
+      thinned pieces are no longer Poisson and the shortcut breaks.
+    worked: >
+      A market maker's fills arrive at $450$ per hour, each independently at
+      the bid with probability $0.6$. Bid fills form a
+      $\operatorname{Poisson}(270)$-per-hour process, rate $4.5$ per minute.
+      The chance of exactly $5$ bid fills in a given minute is $e^{-4.5}
+      \cdot 4.5^{5}/5! \approx 0.1709$, and the expected wait for the next
+      bid fill is $1/4.5$ minute $\approx 13.3$ seconds.
+    interview: >
+      "A stream splits by an independent attribute — find the rate of one
+      side and the chance of $k$ in a window" is answered by scaling the
+      rate first and then treating that side as an ordinary Poisson process,
+      with no reference back to the original stream.
+    pitfalls: >
+      Forgetting to rescale the window when converting an hourly rate to a
+      per-minute one is the most common arithmetic slip here. Assuming real
+      order flow satisfies the independence hypothesis is a modeling error
+      worth flagging explicitly in an interview answer.
+    recap: >
+      Once a per-arrival attribute is independent of timing, thinning turns
+      "one side of a split stream" into an ordinary Poisson process at the
+      scaled rate, with no need to track the other side.
+
+  - node: quant-processes.poisson.rate-race
+    hook: >
+      "Two independent clocks are running — which fires first, and how many
+      of one type happen before the other's first hit" is answered without a
+      single integral once you see it as superposition plus thinning.
+    explanation: >
+      Superposition says the merged stream of both clocks is
+      $\operatorname{Poisson}(\lambda_1+\lambda_2)$, so the time to the very
+      next event of either type is $\operatorname{Exp}(\lambda_1+\lambda_2)$
+      with no further work. Thinning then says each event of that merged
+      stream is independently type $1$ with probability $\lambda_1/
+      (\lambda_1+\lambda_2)$ — the winner's identity is a fair coin flip on
+      each event, independent of when the event happens.
+
+      Repeating that same coin flip event after event is what turns "number
+      of type-$1$ events before the first type-$2$ event" into a geometric
+      count on $\{0,1,2,\dots\}$: each trial is "type $1$" (failure, keep
+      going) with probability $\lambda_1/(\lambda_1+\lambda_2)$ or "type $2$"
+      (success, stop) with probability $\lambda_2/(\lambda_1+\lambda_2)$,
+      giving mean $\lambda_1/\lambda_2$.
+
+      The reasoning chains two earlier results rather than introducing new
+      machinery — that's the intended shortcut here.
+    worked: >
+      With $\lambda_1 = 5$ and $\lambda_2 = 7$ per hour, the next event is
+      type $1$ with probability $5/12 \approx 0.4167$, and the mean number
+      of type-$1$ events before the first type-$2$ event is $5/7 \approx
+      0.7143$. The chance at least $2$ type-$1$ events precede the first
+      type-$2$ event is $(1-7/12)^2 = (5/12)^2 = 25/144 \approx 0.1736$.
+    interview: >
+      "Two independent Poisson clocks race — who wins and how long" wants
+      $\lambda_i/(\lambda_1+\lambda_2)$ and $\operatorname{Exp}(\lambda_1+
+      \lambda_2)$ stated together; naming superposition and thinning
+      explicitly signals you see the structure, not just the formula.
+    pitfalls: >
+      Believing the winner's identity becomes less certain the longer the
+      race runs is wrong — independence of the winning type from the
+      winning time holds at every instant. Swapping which rate goes in the
+      numerator of the geometric mean, $\lambda_1/\lambda_2$ versus $\lambda_2
+      /\lambda_1$, flips which type is "counted."
+    recap: >
+      A race between independent Poisson clocks is superposition (the next
+      event is $\operatorname{Exp}(\lambda_1+\lambda_2)$) plus thinning (the
+      winner is type $i$ with probability $\lambda_i/\sum\lambda_j$) chained
+      together.
+
+  - node: quant-processes.poisson.conditional-uniformity
+    hook: >
+      "Given that $n$ events happened in this window, where are they" is
+      answered by forgetting the rate entirely and treating the arrivals as
+      $n$ points dropped uniformly at random.
+    explanation: >
+      Chop $[0,t]$ into $m$ tiny equal slots. Each slot independently holds
+      an arrival with probability roughly $\lambda t/m$ — the same
+      probability for every slot, by stationarity — so conditional on
+      exactly $n$ of the $m$ slots being occupied, every one of the
+      $\binom{m}{n}$ ways to choose which $n$ slots is equally likely; that
+      is uniform placement. Letting $m \to \infty$ turns the discrete slots
+      into $n$ iid $\operatorname{Uniform}(0,t)$ points, and the rate
+      $\lambda$ has canceled out of the argument entirely — it governed how
+      many slots got picked, not which ones.
+
+      The mean $\mathbb{E}[T_k \mid N(t)=n] = kt/(n+1)$ follows from a
+      symmetry argument: $n$ uniform points split $[0,t]$ into $n+1$ gaps
+      that are exchangeable and sum to $t$, so by symmetry each gap has
+      mean $t/(n+1)$, and $T_k$ is exactly the sum of the first $k$ gaps.
+
+      The binomial consequence is immediate once arrivals are uniform
+      points: each of the $n$ points independently lands in a subinterval
+      of length $s$ with probability $s/t$, so the count there given $N(t)=n$
+      is $\operatorname{Binomial}(n, s/t)$.
+    worked: >
+      Emails arrive at $\lambda = 5$ per hour, and exactly $4$ arrive in a
+      given hour. $\mathbb{E}[T_2 \mid N=4] = 2 \cdot 60/5 = 24$ minutes.
+      Using the binomial consequence, $\Pr(N(20\text{ min})=1 \mid N(60
+      \text{ min})=4) = \binom{4}{1}(1/3)(2/3)^3 = 32/81 \approx 0.3951$.
+    interview: >
+      "Given $n$ arrivals in $[0,t]$, describe their positions" wants
+      "$n$ iid uniforms on $[0,t]$" stated immediately, with the observation
+      that $\lambda$ has dropped out — a detail interviewers specifically
+      check for.
+    pitfalls: >
+      Re-deriving with $\lambda$ still present, rather than recognizing it
+      cancels, wastes time and usually introduces an error. Treating $T_1,
+      \dots,T_n$ as independent, rather than as dependent order statistics
+      with $T_1 < \cdots < T_n$, corrupts any joint computation.
+    recap: >
+      Given $N(t)=n$, the arrival times have exactly the law of $n$ iid
+      uniform points on $[0,t]$ — the rate drops out, leaving pure geometry.
+
+  - node: quant-processes.poisson.uniformity-waiting
+    hook: >
+      Turning "given the count, arrivals are uniform" into an actual
+      person-minutes or inventory number is a two-line calculation once you
+      see it as a sum over order-statistic means.
+    explanation: >
+      Conditional on $N(t)=n$, each $\mathbb{E}[T_k \mid N(t)=n] = kt/(n+1)$
+      is already known, so summing over $k=1,\dots,n$ gives the total
+      conditional wait $\sum_k \mathbb{E}[T_k] = t/(n+1) \cdot n(n+1)/2 =
+      nt/2$ — an arithmetic series, no new integration.
+
+      A second, unconditional quantity is worth carrying separately: the
+      aggregate time-in-system of everyone who arrives during $[0,t]$,
+      measured up to $t$, is $\sum_i (t-T_i)$. Rather than condition on
+      $N(t)$ and sum, treat each instant $ds$ as contributing $\lambda\,ds$
+      expected arrivals in expectation, each worth $(t-s)$ of remaining
+      time, and integrate directly: $\int_0^t \lambda(t-s)\,ds = \lambda
+      t^2/2$ — the same trick used to add up contributions from a stream
+      without ever conditioning on how many arrived.
+
+      Both numbers use the same conditional-uniformity fact, just aggregated
+      two different ways — one before unconditioning, one built to skip
+      conditioning altogether.
+    worked: >
+      Packages arrive at $\lambda = 6$ per hour, and exactly $5$ arrive in a
+      given hour. Given that, $\mathbb{E}[T_k \mid N=5] = 10k$ minutes for
+      $k=1,\dots,5$, so the conditional total wait is $10(1+2+3+4+5) = 150$
+      minutes. Unconditionally, the expected aggregate time-in-system over
+      that hour is $\lambda t^2/2 = 6(1)^2/2 = 3$ hours $= 180$ minutes.
+    interview: >
+      "Total waiting time of everyone who shows up in $[0,t]$" is answered
+      with $\lambda t^2/2$ directly, via the instant-by-instant integration
+      argument rather than conditioning on $N(t)$ first.
+    pitfalls: >
+      Conflating the conditional total $nt/2$ (a fixed $n$) with the
+      unconditional $\lambda t^2/2$ (which already averages over a random
+      $N(t)$) answers the wrong question. Assuming $T_1,\dots,T_n$ can be
+      summed as if independent, rather than as dependent order statistics
+      that happen to have a simple mean, only works for first-moment
+      questions, not variances.
+    recap: >
+      Given $n$ arrivals in $[0,t]$ their total waiting sums the
+      order-statistic means to $nt/2$, while the unconditional aggregate
+      time-in-system integrates directly to $\lambda t^2/2$.
+
+  - node: quant-processes.poisson.inspection-paradox
+    hook: >
+      Arriving at a random time and expecting to wait half the average gap
+      is the single most common intuition failure this unit corrects —
+      you wait the full average gap, every time.
+    explanation: >
+      Fix a clock time and apply the fresh-start property directly: the
+      forward wait to the next arrival is $\operatorname{Exp}(\lambda)$,
+      mean $1/\lambda$, regardless of how long it has been since the
+      previous arrival — showing up "late" in a gap buys nothing. Running
+      the same process backward from that fixed time is exactly as
+      memoryless, so the elapsed time since the previous arrival is also
+      $\operatorname{Exp}(\lambda)$, mean $1/\lambda$.
+
+      The gap you land inside is the sum of those two pieces, forward plus
+      backward, and since both are independent $\operatorname{Exp}(\lambda)$
+      draws, that sum is $\operatorname{Gamma}(2,\lambda)$ with mean
+      $2/\lambda$ — double the average gap $1/\lambda$ between consecutive
+      arrivals in general.
+
+      There's no contradiction: a fixed clock time is more likely to fall
+      inside a long gap than a short one, so the gap you happen to land in
+      is a biased sample of all the gaps, not a typical one.
+    worked: >
+      Buses run at $\lambda = 10$ per hour, mean gap $6$ minutes. Arriving
+      at any fixed time, the wait for the next bus is $\operatorname{Exp}
+      (10)$, so $\Pr(\text{wait} > 10 \text{ min}) = e^{-10/6} \approx
+      0.1889$. The gap straddling your arrival has mean $2/10$ hour $=12$
+      minutes; it exceeds $15$ minutes ($0.25$ hour) exactly when fewer than
+      $2$ buses arrive in that $0.25$-hour window, so $\Pr(\text{that gap} >
+      0.25) = \Pr(N(0.25) \le 1) = e^{-2.5}(1+2.5) \approx 0.2873$, read
+      straight off the Poisson pmf.
+    interview: >
+      "You show up at a random time — how long do you wait for the bus, on
+      average" wants $1/\lambda$ stated with the fresh-start justification,
+      and a strong answer volunteers the doubled straddling-gap fact
+      unprompted.
+    pitfalls: >
+      Assuming the wait shrinks because you might have "just missed" a bus
+      confuses the forward wait with the backward one — both are full
+      $\operatorname{Exp}(\lambda)$ draws, independent of each other.
+      Reporting the straddling gap's mean as $1/\lambda$ instead of
+      $2/\lambda$ conflates it with an ordinary gap.
+    recap: >
+      At any fixed time your wait for the next arrival averages the full
+      $1/\lambda$, and the gap you land inside averages $2/\lambda$ — double
+      an ordinary gap.
+
+  - node: quant-processes.poisson.length-bias
+    hook: >
+      Any statistic gathered by "sample a random point in time" rather than
+      "list the items" — a queue length, a class size, a gap — is quietly
+      biased toward the larger items, and this is the general form of the
+      inspection paradox behind that bias.
+    explanation: >
+      The inspection paradox showed the exponential case: a fixed time is
+      more likely to land in a long gap than a short one. The general
+      version applies to any iid gaps with mean $\mathbb{E}[X]$ and any
+      shape: an interval of length $x$ is over-represented in exact
+      proportion to $x$ itself, since longer intervals occupy more of the
+      timeline for a random point to fall into, giving the size-biased
+      density $xf(x)/\mathbb{E}[X]$.
+
+      The mean of that biased law is $\mathbb{E}[X^2]/\mathbb{E}[X]$, and
+      writing $\mathbb{E}[X^2] = \operatorname{Var}(X) + \mathbb{E}[X]^2$
+      splits it into $\mathbb{E}[X] + \operatorname{Var}(X)/\mathbb{E}[X]$ —
+      the ordinary mean plus a penalty driven entirely by variability. Zero
+      variance (a deterministic timetable) means zero penalty; the more the
+      gaps vary, the larger the bias.
+
+      The same bias inflates the class size a randomly sampled student
+      reports, since students in bigger classes are more likely to be the
+      one you asked, and the queue length a randomly arriving customer sees
+      versus a snapshot at a random arrival.
+    worked: >
+      Suppose gaps are iid, equal to $5$ minutes with probability $1/2$ and
+      $25$ minutes with probability $1/2$, so $\mathbb{E}[X] = 15$ and
+      $\mathbb{E}[X^2] = 0.5(25) + 0.5(625) = 325$, giving
+      $\operatorname{Var}(X) = 325 - 225 = 100$. The size-biased mean is
+      $15 + 100/15 \approx 21.67$ minutes — the interval a random time lands
+      in averages nearly $7$ minutes longer than a randomly listed gap.
+    interview: >
+      "Why does the average class size reported by students exceed the
+      school's true average class size" wants $\mathbb{E}[X] +
+      \operatorname{Var}(X)/\mathbb{E}[X]$ named as the general mechanism,
+      not just "because of buses."
+    pitfalls: >
+      Applying the exponential's specific "double the mean" shortcut to a
+      non-exponential gap distribution is wrong in general; the correct
+      penalty is $\operatorname{Var}(X)/\mathbb{E}[X]$, which only equals
+      $\mathbb{E}[X]$ (giving the factor of two) for the exponential.
+      Forgetting that a deterministic timetable has zero size-bias penalty
+      is an easy sanity check to skip.
+    recap: >
+      Sampling by hitting an interval with a random point, rather than
+      listing intervals, inflates the mean seen by $\operatorname{Var}(X)/
+      \mathbb{E}[X]$ — pure variability is the whole penalty.
+
+  - node: quant-processes.poisson.compound
+    hook: >
+      "Total dollar volume traded" or "total claims paid" over a random
+      number of Poisson arrivals is a random sum in disguise, and the
+      variance formula has a term that a fixed-count model would miss
+      entirely.
+    explanation: >
+      $S(t) = \sum_{i=1}^{N(t)} Y_i$ is exactly the random-sum setup with
+      $N(t) \sim \operatorname{Poisson}(\lambda t)$ as the random count.
+      Plugging $\mathbb{E}[N(t)] = \operatorname{Var}(N(t)) = \lambda t$
+      into the general random-sum formulas gives $\mathbb{E}[S(t)] =
+      \lambda t \mu$ directly, and $\operatorname{Var}(S(t)) = \lambda
+      t\sigma^2 + \lambda t\mu^2 = \lambda t(\sigma^2+\mu^2)$ — the two
+      variance terms collapse into one because the Poisson count's variance
+      equals its mean.
+
+      That collapse is the point worth carrying: $\sigma^2 + \mu^2 =
+      \mathbb{E}[Y^2]$, so the variance is driven by the second moment of
+      the mark, not just its variance, purely because the count itself is
+      random rather than fixed. A model with a deterministic count $n$
+      would give $\operatorname{Var} = n\sigma^2$ only, missing the
+      $\mu^2$ contribution entirely.
+
+      This is the standard model for aggregate volume, claim totals, or any
+      quantity built by summing a random number of similar-sized pieces.
+    worked: >
+      Insurance claims arrive at $50$ per day, with claim size mean $3000$
+      and standard deviation $1000$. Daily total claims have mean $50
+      \cdot 3000 = 150{,}000$ and variance $50(1000^2+3000^2) =
+      50(10{,}000{,}000) = 500{,}000{,}000$, so the standard deviation is
+      $\sqrt{500{,}000{,}000} \approx 22{,}361$.
+    interview: >
+      "Mean and variance of total volume over a random number of Poisson
+      arrivals" wants $\lambda t \mu$ and $\lambda t\,\mathbb{E}[Y^2]$
+      stated directly, with the reasoning that the count's variance equals
+      its mean for the Poisson case specifically.
+    pitfalls: >
+      Using $\lambda t \sigma^2$ alone and dropping the $\lambda t \mu^2$
+      term treats the count as fixed when it is random — a systematic
+      underestimate of the true variance. The formula's collapse to
+      $\lambda t \mathbb{E}[Y^2]$ is specific to a Poisson count; a
+      differently-distributed random count needs the full two-term
+      random-sum formula.
+    recap: >
+      Summing iid marks over Poisson arrivals gives mean $\lambda t \mu$ and
+      variance $\lambda t\,\mathbb{E}[Y^2]$, the two-term random-sum formula
+      collapsed because a Poisson count's variance equals its mean.
+
+  - node: quant-processes.poisson.nonhomogeneous
+    hook: >
+      Real arrival rates move with the clock — busier at market open, quiet
+      overnight — and this is the minimal change that keeps Poisson counts
+      usable once the rate stops being constant.
+    explanation: >
+      Only stationarity is dropped; independent increments and the local
+      "chance $\lambda(t)\,dt$ per instant" picture survive unchanged. The
+      count over $(a,b]$ is still Poisson, just with mean equal to the
+      accumulated rate $m(b)-m(a) = \int_a^b \lambda(u)\,du$ rather than
+      $\lambda(b-a)$ — you integrate the varying rate exactly the way you'd
+      sum a constant one over a fixed window.
+
+      Because the rate now depends on when you are, gaps are no longer iid
+      — a gap starting during a busy period is typically shorter than one
+      starting during a quiet one — so the clean interarrival-times result
+      genuinely breaks, and only independence of future from past survives
+      from the fresh-start property, not a shared distribution.
+
+      The load-bearing trick for working with these processes is a time
+      change: running the clock on $m$ instead of on ordinary time turns
+      the non-homogeneous process into a standard rate-$1$ Poisson process,
+      which is exactly how you'd simulate one — draw rate-$1$ arrivals and
+      map each epoch back through $m^{-1}$.
+    worked: >
+      Let $\lambda(t) = 2t$ for $t \in [0,3]$ hours, so $m(t) = t^2$. The
+      expected number of arrivals in $[1,2]$ is $m(2)-m(1) = 4-1 = 3$, so
+      $\Pr(\text{no arrivals in } [1,2]) = e^{-3} \approx 0.0498$. The
+      expected count in $[0,1]$ is $m(1) = 1$, so $\Pr(N=2 \text{ in }[0,1])
+      = e^{-1}/2 \approx 0.1839$.
+    interview: >
+      "Arrival rate is $\lambda(t)$, not constant — how many events do you
+      expect between $a$ and $b$" wants $\int_a^b \lambda(u)\,du$ stated
+      directly, distinguishing it from the constant-rate shortcut
+      $\lambda(b-a)$.
+    pitfalls: >
+      Multiplying a snapshot rate $\lambda(t)$ by the window width instead
+      of integrating badly misestimates the count whenever the rate moves
+      appreciably across the window. Assuming interarrival gaps stay iid
+      exponential here is a leftover habit from the constant-rate case that
+      no longer holds.
+    recap: >
+      A non-homogeneous Poisson process keeps independent increments and
+      Poisson counts with mean $\int \lambda$, and a time change on $m$
+      converts it back to a standard rate-$1$ process.
+
+  - node: quant-processes.poisson.clumping
+    hook: >
+      A scatter plot of Poisson arrivals looks bunched and uneven to nearly
+      everyone who sees one, and mistaking that normal clustering for a
+      "real" burst is the trap this node exists to close.
+    explanation: >
+      The exponential gap density $\lambda e^{-\lambda x}$ is largest at
+      $x=0$ and decreasing from there, so short gaps are the single most
+      likely outcome, not a rare anomaly — a visible cluster of close-together
+      points is exactly what memoryless arrivals look like, not evidence
+      something unusual happened.
+
+      Counts wobble for a related reason: $\operatorname{Var}(N(t)) =
+      \lambda t$ makes the typical deviation from the mean equal to
+      $\sqrt{\lambda t}$, which grows slower than the mean itself — so an
+      expected $100$
+      arrivals routinely turns up as $90$ or $115$, a swing that looks large
+      relative to nothing but feels significant on its own.
+
+      The test that runs the other direction is the one to actually use:
+      compute the index of dispersion $\operatorname{Var}(N)/\mathbb{E}[N]$
+      from data. A ratio near $1$ is consistent with Poisson; well above $1$
+      signals genuine clustering beyond what randomness alone produces, and
+      well below $1$ signals something closer to a timetable.
+    worked: >
+      At $\lambda = 8$ per hour, a gap under a fifth of the mean ($1/40$
+      hour $= 1.5$ minutes) occurs with probability $1 - e^{-0.2} \approx
+      0.1813$ — nearly one in five gaps looks "suspiciously" short. Over
+      $t=4$ hours, $\mathbb{E}[N] = 32$ with typical deviation $\sqrt{32}
+      \approx 5.66$, so counts of $26$ to $38$ are unremarkable.
+    interview: >
+      "Does this event data look Poisson, or is it clustering" wants the
+      index of dispersion $\operatorname{Var}(N)/\mathbb{E}[N]$ named as the
+      actual test, not a visual judgment about whether points "look" evenly
+      spread.
+    pitfalls: >
+      Judging clustering by eye from a scatter of points is unreliable —
+      genuine Poisson arrivals produce visible clumps routinely. Treating
+      any single observed count that differs from the mean by more than a
+      little as evidence of a changed rate ignores that $\sqrt{\lambda t}$
+      swings are expected, not exceptional.
+    recap: >
+      Exponential gaps make visible clustering the Poisson norm, and the
+      index of dispersion $\operatorname{Var}(N)/\mathbb{E}[N] \approx 1$,
+      not a visual check, is the actual test for whether a stream is
+      Poisson.

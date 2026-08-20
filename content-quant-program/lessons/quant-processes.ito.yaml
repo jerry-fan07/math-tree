@@ -1,0 +1,811 @@
+unit: quant-processes.ito
+opening: >
+  Stochastic calculus supplies the one tool ordinary calculus can't: a chain
+  rule for a function of a process whose path is nowhere differentiable. This
+  unit builds that tool from the ground up — why the ordinary integral fails on
+  Brownian motion, the Itô integral defined by fixing the left endpoint, the
+  $(dB)^{2}=dt$ multiplication table, and Itô's lemma as the stochastic chain
+  rule with its extra curvature term. From there the lemma is applied twice:
+  solving geometric Brownian motion by taking logs, with the $-\sigma^{2}/2$
+  volatility-drag term explained rather than just quoted, and solving the
+  Ornstein–Uhlenbeck process as the continuous-time model of mean reversion. By
+  the end you should be able to read any quoted SDE cold, apply Itô's lemma
+  without hesitation, and tell at a glance whether a process is a martingale.
+lessons:
+  - node: quant-processes.ito.calculus-breaks
+    hook: >
+      An interviewer who says "just apply the chain rule" to a Brownian-driven
+      price is testing whether you know the chain rule doesn't apply — missing
+      why is the fastest way to lose credibility before the real question even
+      starts.
+    explanation: >
+      An ordinary differentiable path has increments of size roughly
+      proportional to the time step: shrink the step and the increment shrinks
+      at the same rate, so a slope $\Delta x/\Delta t$ settles down to a limit.
+      A Brownian increment over a step of length $\Delta t$ has standard
+      deviation $\sqrt{\Delta t}$, not $\Delta t$ — it shrinks far slower than
+      the time step, so $\Delta B/\Delta t$ blows up rather than converging.
+      That single scaling mismatch is the entire reason no derivative exists.
+
+      The same mismatch shows up as infinite total variation: cut $[0,t]$ into
+      $n$ equal pieces and each increment is of size $\sqrt{t/n}$, so the
+      absolute increments sum to about $n\sqrt{t/n}=\sqrt{tn}$, which grows
+      without bound as $n\to\infty$. A smooth path's total variation converges
+      to a finite arc length as the partition refines; a Brownian path's
+      diverges at every scale, so zooming in never smooths it out.
+
+      Infinite variation is what breaks the ordinary Riemann–Stieltjes
+      integral, not mere non-differentiability. For a smooth integrand, moving
+      the evaluation point from the left endpoint of each subinterval to the
+      right changes the approximating sum by an amount controlled by the total
+      variation, which vanishes as the mesh shrinks — so any evaluation point
+      gives the same limit. With infinite variation that error term no longer
+      vanishes, so left-endpoint, right-endpoint, and midpoint sums can
+      converge to three genuinely different numbers. Fixing one convention is
+      therefore not cosmetic; it is the entire design decision.
+    worked: >
+      Partition $[0,1]$ into $n=10^{4}$ equal pieces. Each increment has
+      typical size $\sqrt{1/n}=0.01$, so the sum of absolute increments is
+      about $n\times 0.01=100$ — already ten times $t=1$, and it keeps growing
+      as $n$ increases. The sum of squared increments, by contrast, is about
+      $n\times 0.01^{2}=1$, matching $t=1$ regardless of how fine the
+      partition gets: the quadratic scale is the one Brownian motion actually
+      respects.
+    interview: >
+      A common warm-up is "why can't you write $dB_t/dt$" — the expected
+      answer names both nowhere-differentiability and infinite variation, not
+      a vague "it's random." A sharper follow-up asks why the ordinary
+      integral breaks specifically, which is checking whether you know it's
+      the evaluation-point dependence, not continuity itself.
+    pitfalls: >
+      Saying only "Brownian motion is continuous but not differentiable"
+      misses the actual mechanism — continuity alone never breaks
+      Riemann–Stieltjes integration, unbounded variation does. Treating
+      $(dB)^{2}$ as negligible because $dB$ "looks infinitesimal" ignores that
+      it is the same order as $dt$, which is exactly the fact the next
+      construction is built on.
+    recap: >
+      Brownian paths are too rough for ordinary calculus — infinite variation
+      forces a new integral, built by fixing the evaluation point at the left
+      endpoint of each subinterval.
+
+  - node: quant-processes.ito.ito-integral
+    hook: >
+      Every stochastic integral is pinned down by one convention — evaluate
+      the position before the move, never after — and losing sight of that
+      convention is why the martingale property and the Itô correction term
+      stop making sense later.
+    explanation: >
+      The Itô integral is the $L^{2}$ limit of sums $\sum_i
+      H_{t_i}(B_{t_{i+1}}-B_{t_i})$, where each $H_{t_i}$ is fixed using only
+      information available up to time $t_i$. Financially, $H_{t_i}$ is the
+      position you hold going into the next move — chosen before you see it,
+      never adjusted with hindsight. That is what "adapted" means in practice.
+
+      Adaptedness is the load-bearing property. Because $H_{t_i}$ depends only
+      on the past, it is independent of the future increment
+      $B_{t_{i+1}}-B_{t_i}$ it multiplies (Brownian motion's increments are
+      independent of the past). Each term in the sum is therefore a product of
+      independent, mean-zero factors, so its expectation is $0$, and summing
+      mean-zero terms keeps the whole integral mean zero — and, more strongly,
+      a martingale in $t$.
+
+      Since Brownian paths have infinite variation (recall the reason ordinary
+      calculus fails), the choice of evaluation point genuinely changes the
+      limit — it is not a technicality that washes out as the mesh shrinks.
+      Sampling at the midpoint instead gives the Stratonovich integral, which
+      obeys the ordinary chain rule precisely because it peeks slightly into
+      the future, which is exactly what breaks the martingale property.
+    worked: >
+      Take a $3$-step simple random walk with steps $+1,+1,-1$, so
+      $S_0=0,S_1=1,S_2=2,S_3=1$. The left-endpoint sum is $S_0(S_1-S_0) +
+      S_1(S_2-S_1) + S_2(S_3-S_2) = 0(1)+1(1)+2(-1) = -1$. This matches
+      $(S_3^{2}-3)/2 = (1-3)/2 = -1$ exactly — the discrete shadow of the Itô
+      integral, where the multiplier is always the position you held going
+      into the step, not the one you land on.
+    interview: >
+      Asking what makes the Itô integral special is really asking you to
+      state adaptedness and its consequence, $\mathbb{E}\left[\int_0^t
+      H_s\,dB_s\right]=0$, in one breath. A common follow-up, "is $\int_0^t
+      B_s\,dB_s$ a martingale," is answered yes purely from this definition,
+      before ever computing the integral's value.
+    pitfalls: >
+      Treating the evaluation-point choice as a technicality is wrong here —
+      midpoint and right-endpoint sums converge to different limits, unlike
+      ordinary calculus where they agree. Forgetting the adaptedness
+      requirement is what actually delivers the mean-zero property; an
+      integrand that can see the future breaks it.
+    recap: >
+      The Itô integral is the left-endpoint limit of position-times-next-move
+      sums; adaptedness makes each term mean zero, so the whole integral is a
+      martingale.
+
+  - node: quant-processes.ito.ito-isometry
+    hook: >
+      Whenever a question asks for the variance of a stochastic integral, the
+      isometry is the entire solution — it turns a hard stochastic object into
+      an ordinary integral in one line.
+    explanation: >
+      Squaring the defining sum $\sum_i H_{t_i}(B_{t_{i+1}}-B_{t_i})$ produces
+      cross terms and diagonal terms. A cross term with $i\ne j$ carries a
+      factor $H_{t_i}H_{t_j}$ times two increments; adaptedness makes the
+      later of the two increments independent of everything else in the
+      product, and that increment has mean zero, so every cross term vanishes
+      in expectation.
+
+      The diagonal terms are what survives: each contributes
+      $H_{t_i}^{2}(\Delta B)^{2}$, and since $\mathbb{E}[(\Delta B)^{2}]=\Delta
+      t$ (Brownian motion's variance-$t$ property), taking expectations gives
+      $H_{t_i}^{2}\,\Delta t$. Summing over $i$ and passing to the limit turns
+      the whole sum into $\int_0^t H_s^{2}\,ds$ — an ordinary, deterministic
+      integral.
+
+      The mental model is Pythagorean: the squared "length" of a stochastic
+      integral is the sum of the squared lengths of its pieces, because each
+      increment carries independent randomness that never interferes with
+      another piece's. One extra payoff worth keeping: when $H$ is
+      deterministic, the integral isn't just this variance — it's exactly
+      normal with that variance, since a sum of independent normals is normal.
+    worked: >
+      Take $H_s=2$, a constant position, over $[0,5]$. The isometry gives
+      $\mathbb{E}\left[\left(\int_0^5 2\,dB_s\right)^{2}\right]=\int_0^5
+      4\,ds=20$. Direct check: $\int_0^5 2\,dB_s=2B_5$, and
+      $\operatorname{Var}(2B_5)=4\operatorname{Var}(B_5)=4\times 5=20$ —
+      matching exactly.
+    interview: >
+      "What's the variance of $\int_0^T \sigma\,dB_s$" is answered instantly
+      by writing $\int_0^T \sigma^{2}\,ds$ — the interviewer wants that
+      reflex, not a re-derivation from sums. A sharper version asks for the
+      full distribution when $H$ is deterministic, checking whether you know
+      it's exactly normal, not just its variance.
+    pitfalls: >
+      The isometry needs $H$ adapted — an $H$ that depends on future
+      information breaks the cross-term cancellation and the identity fails.
+      Confusing $\mathbb{E}\left[\left(\int H\,dB\right)^{2}\right]$ with
+      $\left(\mathbb{E}\int H\,dB\right)^{2}$, which is just $0$, answers a
+      different question entirely.
+    recap: >
+      $\mathbb{E}\left[\left(\int_0^t H_s\,dB_s\right)^{2}\right] =
+      \mathbb{E}\left[\int_0^t H_s^{2}\,ds\right]$ — cross terms vanish by
+      adaptedness, diagonal terms turn $(dB)^{2}$ into $dt$.
+
+  - node: quant-processes.ito.db-squared
+    hook: >
+      This four-line table is the single piece of machinery that makes every
+      SDE manipulation in this unit mechanical rather than mysterious — Itô's
+      lemma is nothing more than Taylor expansion plus one substitution from
+      this table.
+    explanation: >
+      Quadratic variation already established that the sum of squared
+      Brownian increments converges to $t$, with the randomness in that sum
+      shrinking to nothing as the partition refines. At the level of a single
+      infinitesimal step, that is exactly the claim $(dB)^{2}=dt$: not a
+      pathwise identity, but a statement that $(dB)^{2}$ is deterministic to
+      leading order, so it can be substituted like an ordinary differential.
+
+      The other candidate second-order terms are genuinely negligible by a
+      size argument. A single $dt$ has size $\Delta t$ and a single $dB$ has
+      size $\sqrt{\Delta t}$, so a cross term $dt\,dB$ has size
+      $(\Delta t)^{3/2}$; summing $n=T/\Delta t$ of them gives a total of
+      order $\sqrt{\Delta t}\to 0$. The term $(dt)^{2}$ is smaller still,
+      summing to order $\Delta t\to 0$. Only $(dB)^{2}$ survives at order
+      $\Delta t$ after summation.
+
+      The practical recipe follows directly: in any second-order expansion,
+      keep every term through second order in $dB$ and first order in $dt$,
+      and discard everything else — the discarded terms are exactly the ones
+      just shown to vanish.
+    worked: >
+      Take a single step of size $\Delta t=0.01$. A typical increment is
+      $\Delta B\approx\sqrt{0.01}=0.1$, so $(\Delta B)^{2}\approx 0.01$,
+      matching $\Delta t$ exactly. The cross term $\Delta t\,\Delta B\approx
+      0.01\times 0.1=0.001$ and $(\Delta t)^{2}=0.0001$ are both an order of
+      magnitude or more smaller — and summed over many steps the
+      $(\Delta B)^{2}$ terms hold steady at $T$ while the cross terms still
+      shrink to $0$.
+    interview: >
+      When asked to "expand $d(f(B_t))$ to second order," the interviewer is
+      checking that you reach for this table automatically. Naming the three
+      rules — $dt\,dt=0$, $dt\,dB=0$, $dB\,dB=dt$ — cold, in that order, is
+      the expected ten-second answer.
+    pitfalls: >
+      Treating $(dB)^{2}$ as negligible because $dB$ "looks infinitesimal" is
+      the single most common error here — it is the same order as $dt$, not
+      smaller. Forgetting the correlated version $dB^{(1)}dB^{(2)}=\rho\,dt$
+      when two Brownian motions appear in the same expansion silently drops a
+      term that survives whenever $\rho\ne 0$.
+    recap: >
+      $(dB)^{2}=dt$ while $dt\,dB$ and $(dt)^{2}$ vanish — keep terms to
+      second order in $dB$, first order in $dt$, and drop the rest.
+
+  - node: quant-processes.ito.sde
+    hook: >
+      The first thing an interviewer checks when an SDE hits the board is
+      whether you can instantly point at which piece is the drift and which is
+      the diffusion — get that backwards and every later step inherits the
+      error.
+    explanation: >
+      The shorthand $dX_t=a\,dt+b\,dB_t$ is not a derivative — no derivative
+      of $X_t$ exists, which is exactly why ordinary calculus fails on
+      Brownian paths. It is notation for the integral equation
+      $X_t=X_0+\int_0^t a\,ds+\int_0^t b\,dB_s$, where the second piece is
+      precisely the Itô integral. Whenever the shorthand feels ambiguous,
+      unwind it into that integral form.
+
+      Call $a$ the drift, the predictable per-unit-time push that integrates
+      like an ordinary Riemann integral, and $b$ the diffusion coefficient,
+      the scale of the noise multiplying the Itô integral. A process built
+      this way is an Itô process, and both coefficients can depend on $t$ and
+      on the current value $X_t$ itself, which is what makes SDEs richer than
+      "Brownian motion plus a constant drift."
+
+      Existence and uniqueness aren't automatic for arbitrary coefficients —
+      if $a$ and $b$ are Lipschitz in $x$ and grow at most linearly, a unique
+      strong solution exists for all $t$; that fine print is worth naming if
+      asked, without needing the proof. The practical skill is pattern
+      matching: given a quoted SDE, isolate the $dt$-multiplier and the
+      $dB$-multiplier before doing anything else.
+    worked: >
+      Take $dX_t=(2X_t-1)\,dt+\sqrt{X_t}\,dB_t$ and evaluate at $X_t=9$: the
+      drift is $a(9)=2(9)-1=17$ and the diffusion coefficient is
+      $b(9)=\sqrt{9}=3$. At that instant the process pushes forward at rate
+      $17$ per unit time and carries noise of scale $3$ per unit $\sqrt{dt}$.
+    interview: >
+      "Write down the SDE for $X$, then tell me the drift and the diffusion
+      coefficient" is asked nearly verbatim — answer by isolating the
+      $dt$-multiplier and $dB$-multiplier, not by describing the process in
+      words. A common follow-up asks whether the drift is constant or
+      state-dependent, testing whether you distinguish $a(t,X_t)$ from a plain
+      constant.
+    pitfalls: >
+      Reading $dX_t=a\,dt+b\,dB_t$ as a literal derivative ignores that none
+      exists — be ready to unwind it into the integral form if pressed.
+      Swapping which term is drift and which is diffusion breaks every later
+      formula that references "$a$" and "$b$" by name.
+    recap: >
+      An SDE is shorthand for $X_t=X_0+\int_0^t a\,ds+\int_0^t b\,dB_s$ —
+      reading off $a$ (drift) and $b$ (diffusion) from the quoted equation is
+      the first move on every problem.
+
+  - node: quant-processes.ito.ito-lemma
+    hook: >
+      Itô's lemma is the one piece of machinery every other result in this
+      unit is built from — GBM, the OU process, and the martingale test all
+      reduce to applying this one substitution correctly.
+    explanation: >
+      Let $Y_t=f(t,X_t)$ for an Itô process $X_t$. The ordinary chain rule
+      would give $df=f_t\,dt+f_x\,dX$, treating $dX$ as small enough that its
+      square is negligible. But $X_t$ inherits Brownian motion's infinite
+      variation, so a first-order expansion isn't enough — Taylor's theorem
+      says to keep the second-order term too:
+      $df=f_t\,dt+f_x\,dX+\frac{1}{2}f_{xx}(dX)^{2}$.
+
+      Substitute $dX=a_t\,dt+b_t\,dB_t$ into $(dX)^{2}$: expanding gives
+      $a_t^{2}(dt)^{2}+2a_tb_t\,dt\,dB_t+b_t^{2}(dB_t)^{2}$. The multiplication
+      table kills the first two terms and turns the third into $b_t^{2}\,dt$
+      — that single substitution is the entire derivation. Collecting terms
+      gives $dY_t=\left(f_t+a_tf_x+\frac{1}{2}b_t^{2}f_{xx}\right)dt+b_tf_x\,dB_t$.
+
+      The mental model for the new term: $f_xf_x\,dX$ is the ordinary
+      chain-rule response to the move, while $\frac{1}{2}f_{xx}b_t^{2}\,dt$ is
+      genuinely new — curvature ($f_{xx}$) acting on noise variance
+      ($b_t^{2}$) manufactures a systematic drift out of pure randomness,
+      because a convex function gains more from an up-move than it loses from
+      an equal-sized down-move.
+    worked: >
+      Apply the lemma to $f(x)=x^{3}$ with $X_t=B_t$ (so $a=0$, $b=1$,
+      $f'=3x^{2}$, $f''=6x$). Then $dY_t=\left(\frac{1}{2}(6B_t)(1)\right)dt +
+      (3B_t^{2})(1)\,dB_t = 3B_t\,dt+3B_t^{2}\,dB_t$. At the instant
+      $B_t=2$, that's a drift of $3(2)=6$ and a diffusion coefficient of
+      $3(2)^{2}=12$.
+    interview: >
+      Interviewers write a function and a process on the board and ask for
+      $dY_t$ cold — say "compute $f_t, f_x, f_{xx}$, then plug in" out loud
+      as you go. Expect a follow-up asking you to justify the
+      $\frac{1}{2}f_{xx}b^{2}$ term from Taylor plus the multiplication table
+      on demand.
+    pitfalls: >
+      Dropping the second-order term as "just a Taylor remainder" is the
+      costliest mistake in this unit — it's an $O(dt)$ contribution that
+      survives the limit, not vanishing error. Forgetting that $f$ must be
+      $C^{2}$ in $x$, not just $C^{1}$, voids the formula outright, since
+      $f_{xx}$ has to exist.
+    recap: >
+      Itô's lemma is Taylor to second order plus the multiplication table:
+      $dY_t=\left(f_t+af_x+\frac{1}{2}b^{2}f_{xx}\right)dt+bf_x\,dB_t$.
+
+  - node: quant-processes.ito.ito-lemma-worked
+    hook: >
+      Nearly every candidate who tries $\int_0^t B_s\,dB_s=\frac{1}{2}B_t^{2}$
+      from memory of ordinary calculus gets it wrong — the missing $-t/2$ is
+      the most reliable tell an interviewer has for whether Itô's lemma is
+      actually understood.
+    explanation: >
+      Applying the recipe to $f(x)=x^{2}$ with $X_t=B_t$ gives $f'=2x$,
+      $f''=2$, so $d(B_t^{2})=2B_t\,dB_t+dt$. Integrating and using $B_0=0$
+      gives $\int_0^t B_s\,dB_s=(B_t^{2}-t)/2$ — not $B_t^{2}/2$, the ordinary
+      calculus answer.
+
+      The correction is forced, not optional: the Itô integral must have mean
+      zero, and $\mathbb{E}[B_t^{2}]=t$ from Brownian motion's variance. So
+      $\frac{1}{2}B_t^{2}$ alone has mean $t/2\ne 0$ and cannot be a correct
+      value for a stochastic integral, while $(B_t^{2}-t)/2$ has mean exactly
+      $0$, as it must.
+
+      The second classic, $f(x)=e^{\sigma x}$, gives $d(e^{\sigma B_t}) =
+      \sigma e^{\sigma B_t}\,dB_t+\frac{\sigma^{2}}{2}e^{\sigma B_t}\,dt$, so
+      $e^{\sigma B_t}$ drifts upward at rate $\sigma^{2}/2$ even though $B_t$
+      itself has no drift at all. The mechanism is the same curvature
+      argument: $e^{\sigma x}$ is convex, so curvature times noise variance
+      manufactures a positive drift purely from randomness.
+    worked: >
+      Take $f(x)=\cos x$ applied to $X_t=B_t$: $f'=-\sin x$, $f''=-\cos x$,
+      so $d(\cos B_t) = -\sin(B_t)\,dB_t - \frac{1}{2}\cos(B_t)\,dt$. At the
+      instant $B_t=0$ this reduces to $d(\cos B_t) = -\frac{1}{2}\,dt$ exactly
+      — there is no $dB_t$ term at all at that instant, since $\sin(0)=0$, so
+      the process is momentarily deterministic and drifting downward at rate
+      $1/2$.
+    interview: >
+      "What's $\int_0^t B_s\,dB_s$" is a direct check — answer
+      $(B_t^{2}-t)/2$, not $B_t^{2}/2$, and be ready to justify the $-t/2$
+      from the mean-zero property. A related favorite: "does $e^{B_t}$ have
+      positive drift even though $B_t$ doesn't" — yes, rate $1/2$, purely from
+      convexity.
+    pitfalls: >
+      Writing $\frac{1}{2}B_t^{2}$ and stopping reproduces the ordinary
+      calculus answer, which has the wrong mean and is provably not a
+      martingale. Getting the sign of the exponential drift backwards — it's
+      $+\sigma^{2}/2$, not $-\sigma^{2}/2$, because $e^{\sigma x}$ is convex —
+      is the mirror-image error.
+    recap: >
+      $\int_0^t B_s\,dB_s=(B_t^{2}-t)/2$ and $d(e^{\sigma B_t})$ carries a
+      $+\sigma^{2}/2$ drift purely from convexity — both are Itô's lemma
+      applied to a specific $f$.
+
+  - node: quant-processes.ito.product-rule
+    hook: >
+      "Are these two driftless processes' product still driftless" is a
+      favorite trap — the answer hinges entirely on correlation, and the extra
+      term is easy to forget.
+    explanation: >
+      Expanding $d(X_tY_t)$ to second order picks up a cross term beyond the
+      ordinary product rule: $d(X_tY_t)=X_t\,dY_t+Y_t\,dX_t+dX_t\,dY_t$.
+      Substituting $dX_t=a_t\,dt+b_t\,dB_t$ and $dY_t=c_t\,dt+e_t\,dB_t$ and
+      applying the multiplication table, every term in $dX_t\,dY_t$ vanishes
+      except $b_te_t\,dB_t\,dB_t$, which becomes $b_te_t\,dt$ for driftless
+      shared noise, or $\rho\,b_te_t\,dt$ when the two Brownian motions have
+      correlation $\rho$.
+
+      A useful self-check: setting $X=Y$ must reproduce Itô's lemma for
+      $f(x)=x^{2}$, since then $b=e$ and $\rho=1$ trivially, giving
+      $d(X^{2})=2X\,dX+b_t^{2}\,dt$ — exactly the earlier result.
+
+      The covariation term $d\langle X,Y\rangle_t=b_te_t\,dt$ is literally how
+      much the two processes' noise moves together — zero for independent
+      drivers, nonzero whenever they're correlated. Because $X_t\,dY_t$ and
+      $Y_t\,dX_t$ are themselves Itô integrals with mean zero, taking
+      expectations of the product rule kills those two terms, leaving
+      $d\,\mathbb{E}[X_tY_t]=b_te_t\rho\,dt$ — a clean tool for tracking
+      $\mathbb{E}[X_tY_t]$ without ever integrating a path directly.
+    worked: >
+      Let $X_t=B_t^{(1)}$ and $Y_t=B_t^{(2)}$ be Brownian motions with
+      correlation $\rho=0.6$, both starting at $0$. The product rule gives
+      $d(X_tY_t)=X_t\,dY_t+Y_t\,dX_t+0.6\,dt$; the first two terms have
+      expectation $0$, leaving $d\,\mathbb{E}[X_tY_t]=0.6\,dt$. Integrating
+      from $0$ with $X_0Y_0=0$ gives $\mathbb{E}[X_5Y_5]=0.6\times 5=3$.
+    interview: >
+      "If $X$ and $Y$ are both driftless, is $XY$ driftless too" is answered
+      with "only if uncorrelated," naming the extra $be\,dt$ term as the
+      covariation. A common follow-up asks for $\operatorname{Cov}(X_t,Y_t)$
+      of two correlated Brownian motions, which is exactly this computation.
+    pitfalls: >
+      Applying the ordinary product rule $d(XY)=X\,dY+Y\,dX$ with no extra
+      term is wrong whenever the two processes share randomness. Forgetting
+      that setting $X=Y$ should reproduce Itô's lemma for $f(x)=x^{2}$ is a
+      fast self-check that catches a dropped factor of $2$ or a missing
+      $\rho$.
+    recap: >
+      $d(XY)=X\,dY+Y\,dX+be\rho\,dt$ — the ordinary product rule plus a
+      covariation term that vanishes only when the two drivers are
+      uncorrelated.
+
+  - node: quant-processes.ito.log-transform
+    hook: >
+      Whenever an SDE's coefficients scale with the state itself, taking logs
+      is the one transform that makes the equation solvable by inspection —
+      recognizing that pattern in ten seconds beats any amount of algebra
+      skill.
+    explanation: >
+      The trigger pattern is $dX_t=\mu X_t\,dt+\sigma X_t\,dB_t$: both
+      coefficients carry a factor of $X_t$. Applying Itô's lemma with
+      $f(x)=\ln x$ exploits that exactly, since $f'=1/x$ and $f''=-1/x^{2}$
+      also carry a reciprocal factor of $X_t$ that cancels it.
+
+      Working the substitution: $dY_t = \left(a f' +
+      \frac{1}{2}b^{2}f''\right)dt + bf'\,dB_t = \left(\mu X_t\cdot
+      \frac{1}{X_t} + \frac{1}{2}\sigma^{2}X_t^{2}\cdot\left(-\frac{1}{X_t^{2}}
+      \right)\right)dt + \sigma X_t\cdot\frac{1}{X_t}\,dB_t = \left(\mu -
+      \frac{\sigma^{2}}{2}\right)dt+\sigma\,dB_t$. Every factor of $X_t$
+      cancels — that cancellation is the entire payoff of the transform.
+
+      The result is Brownian motion with constant drift, which integrates
+      directly with no further Itô work needed. The $-\sigma^{2}/2$ is exactly
+      the $\frac{1}{2}f''b^{2}$ curvature term, negative because $\ln$ is
+      concave — concavity always costs drift, the mirror image of the convex
+      exponential gaining drift. The general principle: find the transform
+      that flattens the coefficients to constants, then integrate the flat
+      equation directly.
+    worked: >
+      Take $dX_t=0.08X_t\,dt+0.25X_t\,dB_t$. Applying the transform:
+      $d\ln X_t = (0.08-0.25^{2}/2)\,dt+0.25\,dB_t = 0.04875\,dt+0.25\,dB_t$,
+      so $\ln X_t=\ln X_0+0.04875\,t+0.25B_t$ — a plain Brownian motion with
+      drift $0.04875$, integrable by inspection.
+    interview: >
+      "The coefficients are both proportional to $X_t$ — how do you solve
+      this" is the setup line; answer "take logs" immediately, then name the
+      $-\sigma^{2}/2$ correction without prompting. A common trap asks for the
+      drift of $\ln X_t$ specifically, checking the sign of that correction.
+    pitfalls: >
+      Forgetting the $-\sigma^{2}/2$ term reproduces the ordinary-calculus
+      formula for $d(\ln X)=dX/X$, which is wrong here. Applying this
+      transform to an SDE whose coefficients aren't actually proportional to
+      $X_t$ cancels nothing and leaves a mess instead of a solution.
+    recap: >
+      Logging a proportional-coefficient SDE cancels every factor of $X$,
+      leaving constant-drift Brownian motion at the cost of a $-\sigma^{2}/2$
+      term from Itô's concavity correction.
+
+  - node: quant-processes.ito.gbm
+    hook: >
+      GBM is the most-quoted model in a quant interview — reciting
+      $S_t=S_0e^{(\mu-\sigma^{2}/2)t+\sigma B_t}$ from memory is table stakes,
+      but re-deriving that exponent from the SDE in thirty seconds is the real
+      test.
+    explanation: >
+      This is the log-transform technique applied to the price SDE itself.
+      Since $dS_t=\mu S_t\,dt+\sigma S_t\,dB_t$ has coefficients proportional
+      to $S_t$, taking logs gives $d\ln S_t=\left(\mu -
+      \frac{\sigma^{2}}{2}\right)dt+\sigma\,dB_t$ directly, with no new
+      derivation required beyond the established substitution.
+
+      Because the right side is now constant drift plus a Brownian increment,
+      it integrates by inspection: $\ln S_t-\ln S_0 = \left(\mu -
+      \frac{\sigma^{2}}{2}\right)t+\sigma B_t$, and exponentiating gives the
+      closed form directly.
+
+      Since $\ln(S_t/S_0)$ is normal with mean $(\mu-\sigma^{2}/2)t$ and
+      variance $\sigma^{2}t$ (Brownian motion's variance-$t$ property carried
+      through the linear transform), $S_t/S_0$ is exactly lognormal by
+      definition — every lognormal moment formula applies to it immediately.
+
+      Three properties fall out and explain why this is the default equity
+      model: the exponential form guarantees $S_t>0$ always; returns over
+      disjoint periods are independent, inherited directly from Brownian
+      motion's independent increments; and $\sigma$ is a genuinely
+      proportional volatility, since a fixed dollar move means something
+      different at $S=50$ than at $S=500$, which multiplicative noise
+      captures and additive noise cannot.
+    worked: >
+      Take $S_0=100$, $\mu=0.08$, $\sigma=0.2$, and suppose a year passes with
+      a realized value $B_1=0.3$. Then $S_1=100\exp\left((0.08-0.02)(1) +
+      0.2(0.3)\right) = 100\exp(0.12) \approx 100\times 1.1275=112.75$ — the
+      exponent splits cleanly into a $0.06$ drift piece and a $0.06$ noise
+      piece before exponentiating.
+    interview: >
+      "Solve $dS=\mu S\,dt+\sigma S\,dB$" is asked directly, and the
+      interviewer wants "take logs" named immediately with the
+      $-\sigma^{2}/2$ correction appearing unprompted. A frequent follow-up:
+      why the arithmetic model $dS=\mu\,dt+\sigma\,dB$ can't be used for stock
+      prices — because it allows negative prices.
+    pitfalls: >
+      Writing $S_t=S_0e^{\mu t+\sigma B_t}$ without the $-\sigma^{2}/2$
+      correction is the single most common GBM error, and it overstates the
+      log-growth rate. Treating $\mu$ as the growth rate of $S_t$ itself
+      rather than of $\ln S_t$ confuses arithmetic and geometric rates.
+    recap: >
+      GBM solves by taking logs to $S_t=S_0\exp\left((\mu-\sigma^{2}/2)t
+      +\sigma B_t\right)$, log-normal, always positive, with independent
+      returns over disjoint periods.
+
+  - node: quant-processes.ito.gbm-moments
+    hook: >
+      "Is the expected price above or below the median" sounds like a trick
+      question until you know GBM is lognormal — then it's one line, and
+      getting it backwards on the spot is an easy tell.
+    explanation: >
+      For a lognormal $Y=e^{X}$ with $X\sim N(\mu_X,\sigma_X^{2})$, the mean is
+      $e^{\mu_X+\sigma_X^{2}/2}$. Here $\ln(S_t/S_0)$ is normal with mean
+      $(\mu-\sigma^{2}/2)t$ and variance $\sigma^{2}t$, so
+      $\mathbb{E}[S_t]/S_0 = \exp\left((\mu-\sigma^{2}/2)t + \sigma^{2}t/2
+      \right)=e^{\mu t}$ — the $-\sigma^{2}/2$ in the exponent and the
+      $+\sigma^{2}/2$ lognormal correction cancel exactly.
+
+      The median of a lognormal is $e^{\mu_X}$, the underlying normal's mean
+      exponentiated with no correction, since exponentiation is monotone. So
+      $\operatorname{median}(S_t) = S_0e^{(\mu-\sigma^{2}/2)t}$, strictly
+      below the mean by the factor $e^{\sigma^{2}t/2}>1$ whenever $\sigma>0$:
+      a handful of extreme high outcomes drag the mean up without moving where
+      most paths actually land.
+
+      Standardizing $\ln(S_t/S_0)$ gives $\Pr(S_t>S_0) =
+      \Phi\left(\frac{(\mu-\sigma^{2}/2)\sqrt{t}}{\sigma}\right)$ directly. The
+      threshold that matters is $\mu$ versus $\sigma^{2}/2$, not $\mu$ versus
+      $0$ — whenever $\mu<\sigma^{2}/2$, more than half the probability mass
+      sits below the starting price even though the expected price is above
+      it.
+    worked: >
+      Take $\mu=0.1$, $\sigma=0.3$, $t=2$. The mean growth factor is
+      $e^{\mu t}=e^{0.2}\approx 1.221$, while the median growth factor is
+      $e^{(\mu-\sigma^{2}/2)t}=e^{0.11}\approx 1.116$ — a real gap even over
+      two years. The probability the price ends above its start is
+      $\Phi\left(\frac{0.055\sqrt{2}}{0.3}\right)=\Phi(0.259)\approx 0.602$,
+      comfortably above half since $\mu=0.1$ still exceeds $\sigma^{2}/2=0.045$.
+    interview: >
+      "Is the median of GBM above or below the mean" checks the lognormal-skew
+      intuition — say below, and name the exact factor $e^{\sigma^{2}t/2}$
+      separating them. A sharper version gives $\mu<\sigma^{2}/2$ and asks
+      whether the price is more likely up or down — more likely down, despite
+      positive expected drift.
+    pitfalls: >
+      Quoting $\mathbb{E}[S_t]=S_0e^{(\mu-\sigma^{2}/2)t}$ confuses the mean
+      with the median — the mean has no $-\sigma^{2}/2$ at all, it cancels
+      exactly. Assuming $\Pr(S_t>S_0)>1/2$ whenever $\mu>0$ ignores that the
+      correct threshold is $\mu>\sigma^{2}/2$.
+    recap: >
+      GBM's mean is $S_0e^{\mu t}$ and its median is
+      $S_0e^{(\mu-\sigma^{2}/2)t}$, strictly lower — a thin right tail pulls
+      the average above where most paths actually land.
+
+  - node: quant-processes.ito.vol-drag
+    hook: >
+      Position sizing and leverage decisions live or die on this gap between
+      arithmetic and geometric returns — a strategy can have positive expected
+      return and still go broke almost surely.
+    explanation: >
+      A percentage loss requires a larger percentage gain to fully recover,
+      because the base has shrunk — symmetric percentage swings are not
+      symmetric in dollar terms, and repeated compounding of such swings
+      erodes wealth even when the arithmetic average of the swings is exactly
+      zero.
+
+      The continuous-time version of that asymmetry is exactly the
+      $-\sigma^{2}/2$ term already derived when taking logs of GBM: the
+      arithmetic drift $\mu$ describes the average one-step return, but the
+      log-growth rate that actually compounds over many periods is
+      $\mu-\sigma^{2}/2$, strictly lower whenever $\sigma>0$.
+
+      Two consequences follow. If $\sigma^{2}/2$ exceeds $\mu$, the log-growth
+      rate is negative even though the arithmetic drift $\mu$ is positive — the
+      process trends to zero path by path while its expectation still grows,
+      dragged up by a thin tail of rare huge outcomes, the same mean-above-
+      median asymmetry pushed to an extreme. And sizing a bet to maximize
+      expected return rather than expected log return is a mistake, since the
+      two criteria are optimized by different amounts of risk.
+    worked: >
+      Compound $+20\%$ then $-20\%$: wealth goes $1\to1.2\to0.96$, a net
+      $4\%$ loss despite an arithmetic average return of exactly $0$. The
+      average log return is $\frac{1}{2}(\ln 1.2+\ln 0.8) = \frac{1}{2}\ln
+      0.96\approx -0.0204$ per period — a smaller penalty than the $\pm 50\%$
+      case, since the drag grows with the square of the swing size.
+    interview: >
+      "A strategy returns $+50\%$ half the time and $-50\%$ half the time —
+      is it a good bet" wants the geometric mean computed ($\sqrt{0.75}
+      \approx 0.866$, a loss), not just the arithmetic average of $0$. A
+      follow-up asks for the exact condition under which such a bet goes
+      broke — $\sigma^{2}/2$ exceeding the arithmetic drift $\mu$.
+    pitfalls: >
+      Judging a volatile strategy by its arithmetic mean alone misses that
+      what compounds is the geometric mean, always lower once volatility is
+      nonzero. Assuming "positive expected return" guarantees eventual growth
+      ignores that expectation and almost-sure behavior diverge once
+      $\sigma^{2}/2>\mu$.
+    recap: >
+      A volatile position compounds at $\mu-\sigma^{2}/2$, not $\mu$ —
+      volatility is a direct, quadratic tax on long-run wealth that can flip a
+      positive-expectation bet into one that loses almost surely.
+
+  - node: quant-processes.ito.arithmetic-vs-geometric
+    hook: >
+      Defaulting to GBM for anything that can legitimately go negative — a
+      rate spread, a P&L, an inventory position — is a modeling error
+      interviewers plant deliberately.
+    explanation: >
+      Reading off coefficients the same way as any SDE, $dS_t=\mu\,dt+\sigma
+      \,dB_t$ has constant $a=\mu$ and $b=\sigma$: no state-dependence at all.
+      There is no nonlinear transform being applied to get $S_t$ itself, so no
+      Itô correction ever appears — the equation integrates directly to
+      $S_t=S_0+\mu t+\sigma B_t$, exactly normal by Brownian motion's own
+      distributional property.
+
+      Exact normality has a real consequence: $S_t\sim N(S_0+\mu t,
+      \sigma^{2}t)$ can take negative values with probability
+      $\Phi\left(\frac{-(S_0+\mu t)}{\sigma\sqrt{t}}\right)$, however small
+      that probability might be for reasonable parameters.
+
+      The modeling choice is between additive and proportional noise. A
+      spread or rate difference has volatility that means the same thing in
+      absolute terms regardless of level — a $1$bp move is a $1$bp move
+      whether the spread sits at $5$bp or $50$bp — which is what arithmetic
+      dynamics captures and GBM's proportional noise does not. Oil futures
+      printing negative in April 2020 is the sharpest reminder that "prices
+      can't go negative" is an assumption about the underlying quantity, not
+      a law of nature.
+    worked: >
+      Take a spread following $dS_t=0\,dt+1.5\,dB_t$ starting at $S_0=2$.
+      After $t=1$, $S_1\sim N(2, 1.5^{2})$, so $\Pr(S_1<0) =
+      \Phi\left(\frac{-2}{1.5}\right)=\Phi(-1.333)\approx 0.091$ — a real
+      $9.1\%$ chance the spread crosses zero within a year, exactly the
+      behavior a spread trader needs the model to allow.
+    interview: >
+      "Would you model this rate spread with GBM or arithmetic Brownian
+      motion" is answered by checking whether the quantity can legitimately
+      cross zero — spreads get arithmetic, prices get geometric. A sharp
+      follow-up cites the 2020 negative oil futures print as the real-world
+      case for taking the arithmetic model seriously.
+    pitfalls: >
+      Defaulting to GBM for any "price-like" quantity without checking
+      whether negative values are physically meaningful is exactly the error
+      being probed for. Comparing an arithmetic $\sigma$ directly to a GBM
+      $\sigma$ mixes units — dollars per $\sqrt{\text{time}}$ against percent
+      per $\sqrt{\text{time}}$.
+    recap: >
+      Arithmetic Brownian motion $S_t=S_0+\mu t+\sigma B_t$ needs no Itô
+      correction and stays exactly normal — right whenever the quantity can
+      genuinely cross zero, wrong for anything that must stay positive.
+
+  - node: quant-processes.ito.driftless-martingale
+    hook: >
+      "Is this discounted price process a martingale" comes up constantly in
+      derivatives interviews, and the entire answer is a glance at the $dt$
+      coefficient — no expectation needs to be computed by hand.
+    explanation: >
+      The Itô integral term $\int_0^t b_s\,dB_s$ is itself always a mean-zero
+      martingale, a direct consequence of adaptedness. An Itô process
+      $X_t=X_0+\int_0^t a_s\,ds+\int_0^t b_s\,dB_s$ is the sum of an
+      accumulating deterministic-looking piece and that martingale piece — if
+      $a_t\equiv 0$, the entire process reduces to the martingale piece plus a
+      constant, so it is a martingale outright with $\mathbb{E}[X_t]=X_0$ for
+      every $t$.
+
+      The converse holds too: a nonzero drift $a_t$ contributes a genuinely
+      accumulating deterministic trend to $\int a_s\,ds$, which no martingale
+      — whose expectation must stay flat at every fixed time — can carry. So
+      an Itô process is a martingale exactly when its drift vanishes almost
+      everywhere.
+
+      The test is therefore entirely visual: write the process in $dt$/$dB$
+      form using the same coefficient-reading skill from identifying any SDE,
+      and check whether the $dt$ coefficient is identically zero. One caveat
+      worth naming: without the integrability condition
+      $\mathbb{E}\int_0^T b_s^{2}\,ds<\infty$, a driftless process is only a
+      local martingale, and its expectation can genuinely drift over long
+      horizons.
+    worked: >
+      Let $X_t=B_t^{(1)}$ and $Y_t=B_t^{(2)}$ be independent Brownian
+      motions, and ask whether $X_tY_t$ is a martingale. The Itô product rule
+      gives $d(X_tY_t)=X_t\,dY_t+Y_t\,dX_t+0\,dt$ since independence makes the
+      correlation $0$ — the $dt$ coefficient is identically zero, so $X_tY_t$
+      is a martingale, and $\mathbb{E}[X_tY_t]=X_0Y_0=0$ for every $t$.
+    interview: >
+      "Is $e^{B_t}$ a martingale" is a favorite trap — write $d(e^{B_t})$ via
+      Itô, see the $\frac{1}{2}e^{B_t}\,dt$ term, and answer no; only
+      $e^{\sigma B_t-\sigma^{2}t/2}$ has that term cancelled. The interviewer
+      is checking that you read the coefficient rather than guessing from "no
+      drift in $B_t$ itself."
+    pitfalls: >
+      Confusing "the underlying Brownian motion has no drift" with "the
+      transformed process has no drift" — Itô's curvature term routinely
+      reintroduces a nonzero $dt$ coefficient after a nonlinear transform.
+      Skipping the integrability check on $b_t$ silently upgrades a merely
+      local martingale to a full one.
+    recap: >
+      An Itô process is a martingale exactly when its $dt$ coefficient is
+      identically zero — read it straight off the SDE, no expectation
+      computation required.
+
+  - node: quant-processes.ito.ou
+    hook: >
+      "Model a mean-reverting spread" is one of the most common SDE-design
+      prompts in a quant interview, and the OU process, plus the one algebra
+      trick that solves it, is the expected answer.
+    explanation: >
+      The drift $\theta(m-X_t)$ always points toward the level $m$ with force
+      proportional to the current displacement — a linear restoring force,
+      like a spring — while the diffusion $\sigma$ stays constant, so noise
+      keeps knocking the process off target while the drift keeps pulling it
+      back.
+
+      The load-bearing step is the integrating factor $Y_t=e^{\theta t}
+      (X_t-m)$, a time-dependent transform of $X_t$. Applying Itô's lemma with
+      $f(t,x)=e^{\theta t}(x-m)$ gives $f_t=\theta e^{\theta t}(x-m)$,
+      $f_x=e^{\theta t}$, $f_{xx}=0$, so $dY_t = \left[\theta e^{\theta
+      t}(X_t-m) + \theta(m-X_t)e^{\theta t}\right]dt + \sigma e^{\theta
+      t}\,dB_t$. The two bracketed terms are exact negatives and cancel
+      completely — the exponential weight was chosen precisely to kill the
+      drift, leaving $dY_t=\sigma e^{\theta t}\,dB_t$.
+
+      With no drift left, $Y_t$ integrates directly:
+      $Y_t=Y_0+\sigma\int_0^te^{\theta s}\,dB_s$. Unwinding
+      $Y_t=e^{\theta t}(X_t-m)$ gives $X_t=m+(X_0-m)e^{-\theta t}+\sigma
+      \int_0^te^{-\theta(t-s)}\,dB_s$. The mean decays exponentially to $m$ at
+      rate $\theta$, and a noise integral accumulates on top with weights that
+      fade the further back in time they occurred; $X_t$ is Gaussian because
+      it's a linear transform of Brownian increments.
+    worked: >
+      Take $\theta=2$, $m=5$, $X_0=8$. The mean at $t=1$ is
+      $\mathbb{E}[X_1]=5+(8-5)e^{-2}=5+3(0.1353)\approx 5.406$ — more than
+      three-quarters of the initial $3$-unit gap to the mean has already
+      decayed away within one time unit, since $\theta=2$ makes reversion
+      fast.
+    interview: >
+      "Write an SDE for a mean-reverting spread and solve it" is answered by
+      naming the OU form, then the integrating-factor substitution $Y_t
+      =e^{\theta t}(X_t-m)$ specifically — reciting the closed form without
+      producing that trick reads as memorized. A common follow-up asks what
+      happens as $\theta\to\infty$ (reversion becomes instantaneous) or
+      $\theta\to 0$ (OU degenerates to plain Brownian motion).
+    pitfalls: >
+      Guessing the integrating factor as $e^{-\theta t}$ instead of
+      $e^{\theta t}$ flips the sign needed to cancel the drift term — check
+      that the two $dt$ terms actually cancel before trusting the result.
+      Forgetting that $X_t$ stays Gaussian for all $t$, not just
+      asymptotically, misses that the solution is exact.
+    recap: >
+      The OU process solves by the integrating factor $Y_t=e^{\theta
+      t}(X_t-m)$, which cancels the drift exactly, giving $X_t=m+(X_0-m)
+      e^{-\theta t}+\sigma\int_0^te^{-\theta(t-s)}\,dB_s$.
+
+  - node: quant-processes.ito.ou-stationary
+    hook: >
+      "What's the half-life of this mean-reverting spread" is a direct
+      pricing-desk question, and it's a one-line computation once you have
+      $\theta$.
+    explanation: >
+      The noise integral in the OU solution, $\sigma\int_0^te^{-\theta(t-s)}
+      \,dB_s$, has a deterministic integrand, so the Itô isometry applies
+      exactly rather than as a bound: its variance is $\sigma^{2}\int_0^t
+      e^{-2\theta(t-s)}\,ds = \frac{\sigma^{2}}{2\theta}\left(1-e^{-2\theta
+      t}\right)$.
+
+      As $t\to\infty$ the exponential term vanishes and the variance
+      saturates at $\sigma^{2}/(2\theta)$ — noise pumps randomness in
+      continuously at rate $\sigma^{2}$ while mean reversion drains it out
+      continuously at rate proportional to $\theta$, and the two balance at
+      exactly that ratio. Started at that stationary law, $N(m,
+      \sigma^{2}/(2\theta))$, the process is stationary for all time, with
+      covariance $\operatorname{Cov}(X_s,X_t)=\frac{\sigma^{2}}{2\theta}
+      e^{-\theta|t-s|}$ decaying between any two times.
+
+      The half-life solves $e^{-\theta\cdot t_{1/2}}=1/2$ for the time it
+      takes reversion to close half the initial gap, giving
+      $t_{1/2}=\ln 2/\theta$ — a directly interpretable number practitioners
+      quote instead of $\theta$ itself. Sampling on a grid of spacing
+      $\Delta$ turns OU into exactly an AR(1) with coefficient
+      $\varphi=e^{-\theta\Delta}$, which is the practical estimation route:
+      fit an AR(1) to observed spread data, then invert $\varphi$ to recover
+      $\theta$.
+    worked: >
+      Take $\theta=0.5$, $\sigma=1$. The stationary variance is
+      $\sigma^{2}/(2\theta)=1/1=1$, so the long-run standard deviation is
+      exactly $1$. The half-life is $\ln 2/0.5\approx 1.386$ time units.
+      Sampled daily with $\Delta=1/252$, the implied AR(1) coefficient is
+      $\varphi=e^{-0.5/252}\approx e^{-0.00198}\approx 0.9980$ — a spread that
+      looks almost like a random walk day to day despite reverting
+      meaningfully over a couple of years.
+    interview: >
+      "Given daily spread data, how would you estimate the mean-reversion
+      speed" is answered by naming the AR(1) fit and the inversion
+      $\theta=-\ln(\hat\varphi)/\Delta$ — state the discretization link
+      explicitly, not just "run a regression." A quick follow-up asks for the
+      half-life formula directly from $\theta$.
+    pitfalls: >
+      Quoting the stationary variance as $\sigma^{2}/\theta$ instead of
+      $\sigma^{2}/(2\theta)$ drops the factor of $2$ from integrating
+      $e^{-2\theta(t-s)}$, not $e^{-\theta(t-s)}$. Treating the AR(1)
+      coefficient $\varphi$ as $\theta$ itself, rather than $e^{-\theta
+      \Delta}$, mixes up a continuous-time rate with a discrete-time
+      correlation.
+    recap: >
+      OU's variance rises to a stationary $\sigma^{2}/(2\theta)$ with
+      half-life $\ln 2/\theta$, and sampling it on any grid gives exactly an
+      AR(1) — the route from real spread data back to $\theta$.

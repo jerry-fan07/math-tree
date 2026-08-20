@@ -1,0 +1,284 @@
+unit: quant-processes.random-walks
+opening: >
+  A random walk is nothing more than a running sum of coin flips, but nearly every process question in a quant interview — option payoffs, P&L paths, ruin, Markov chains — eventually reduces to a fact proved here. The unit opens by pinning down the walk's law and its first two moments, then builds the path-counting and reflection machinery that turns any "does it ever..." question into pure combinatorics, driving the ballot problem, first-passage times and the running maximum. A second arc studies long-run behavior — the $1/\sqrt{\pi n}$ return-to-origin asymptotic, recurrence versus transience by dimension, and the expected number of visits — before closing with two intuition results, the arcsine law and the coexistence of certain eventual profit with infinite expected waiting time, that correct the most common wrong instincts about fair games.
+lessons:
+  - node: quant-processes.random-walks.ssrw
+    hook: >
+      Every process question in this unit — drift, ruin, first passage, recurrence — is a question about this one object, so the translation "coin flips become a binomial count" has to be automatic before anything else here makes sense.
+    explanation: >
+      Writing $U$ for the number of up-steps among $n$ flips, $U$ is exactly the binomial variable you already know, since each flip independently contributes a head with probability $1/2$. The load-bearing step is purely algebraic: with $D=n-U$ down-steps, the position is $S_n=U-D=U-(n-U)=2U-n$, a linear rescaling of a binomial. This is why every "where is the walk" question collapses to a binomial computation you already have machinery for — you never need new probability theory, only the change of variables.
+      That rescaling also explains the parity restriction: as $U$ moves by $1$, $S_n=2U-n$ moves by $2$, so $S_n$ can only land on integers with the same parity as $n$. Forgetting this is the single most common way to write a nonzero probability for an impossible outcome.
+      The stationary, independent-increments property is the other half worth internalizing: $S_{n+m}-S_n$ has exactly the same law as $S_m$, independent of everything up to time $n$. That's the formal statement of "the walk forgets its history," and it's what licenses every first-step and restart argument used later in this unit.
+    worked: >
+      For $n=8$, $k=2$: matching $2U-8=2$ gives $U=5$, so $\Pr(S_8=2)=\binom{8}{5}2^{-8}=56/256=7/32\approx0.219$.
+    interview: >
+      "A trader's P&L moves $\pm1$ on each of $n$ independent trades — what's the distribution of the net position?" wants $S_n=2U-n$ stated immediately, with $U$ named as binomial$(n,1/2)$, not a from-scratch derivation.
+    pitfalls: >
+      Quoting $\Pr(S_n=k)$ for a $k$ of the wrong parity as some small positive number instead of exactly $0$. Writing $\binom{n}{k}$ instead of $\binom{n}{(n+k)/2}$ — confusing the target position $k$ with the number of heads needed to reach it.
+    recap: >
+      $S_n=2U-n$ with $U$ binomial$(n,1/2)$: every random-walk probability is a binomial probability in disguise, restricted to one parity class.
+
+  - node: quant-processes.random-walks.moments
+    hook: >
+      "What's the standard deviation of your position after $n$ trades" is asked constantly, and the $\sqrt{n}$ answer — plus the slow-decaying correlation across time — is the fact the rest of the unit's scaling arguments run on.
+    explanation: >
+      Each step has $X_i^2=1$ identically, so $\operatorname{Var}(X_i)=\mathbb{E}[X_i^2]=1$ with no computation needed. Linearity gives $\mathbb{E}[S_n]=0$, and because the steps are independent, variances add: $\operatorname{Var}(S_n)=\sum\operatorname{Var}(X_i)=n$, so the position's standard deviation is $\sqrt{n}$.
+      The covariance is the part people don't expect: writing $S_n=S_m+(S_n-S_m)$ for $m\le n$, the increment $S_n-S_m$ is independent of $S_m$ with mean $0$, so $\operatorname{Cov}(S_m,S_n)=\operatorname{Cov}(S_m,S_m)=\operatorname{Var}(S_m)=m$. That gives $\operatorname{Cov}(S_m,S_n)=\min(m,n)$ and correlation $\sqrt{m/n}$ — a walk far in its past still correlates with its present, because the past steps are literally still counted in the present sum.
+      The mental model: nothing pulls two snapshots of the walk apart quickly, because they share every step up to the earlier time. This slow, square-root decay of correlation is what makes "the walk remembers" a precise statement, not a metaphor, and it is what the next node's confusion about self-correction actually rests on.
+    worked: >
+      Correlation between $S_{16}$ and $S_{100}$: $\sqrt{16/100}=2/5=0.4$. Also, $\operatorname{Var}(S_{100}-S_{16})=100-16=84$, so the standard deviation of the change between day $16$ and day $100$ is $\sqrt{84}\approx9.17$.
+    interview: >
+      "If daily moves are iid $\pm1$, what's the correlation between the price after $16$ days and after $100$ days?" is answered directly from $\operatorname{Cov}(S_m,S_n)=\min(m,n)$, giving $\sqrt{16/100}=0.4$, without ever writing out a joint density.
+    pitfalls: >
+      Assuming $S_m$ and $S_n$ are independent because the walk is "memoryless step to step" — they share the first $m$ increments and are strongly dependent. Computing $\operatorname{Var}(X_i)$ from a variance formula instead of noticing $X_i^2\equiv1$ makes $\mathbb{E}[X_i^2]=1$ immediate.
+    recap: >
+      $\mathbb{E}[S_n]=0$, $\operatorname{Var}(S_n)=n$, and $\operatorname{Cov}(S_m,S_n)=\min(m,n)$ — the walk's entire second-order structure in one line, decaying only like $\sqrt{m/n}$.
+
+  - node: quant-processes.random-walks.sqrt-n-scaling
+    hook: >
+      The classic gotcha: "it's a fair coin, so the lead should even out over time" sounds like the law of large numbers but is actually false for the quantity people mean — this node is where that confusion gets resolved for good.
+    explanation: >
+      From the previous node, $\operatorname{sd}(S_n)=\sqrt{n}$, so to double the typical distance from the origin you need four times as many steps — displacement scales like $\sqrt{n}$, not like $n$. Two different limits live side by side and get conflated constantly: the *fraction* of heads, $S_n/n$, shrinks to $0$ because the denominator grows linearly while the numerator's typical size grows only as $\sqrt{n}$; the *raw* lead $|S_n|$ itself grows without bound, because nothing in the moments computation supplies a restoring force — every new step adds an independent zero-mean contribution to the variance, never subtracts one.
+      The mental model: think of the walk as diluted, not corrected. A large early lead does not get erased; it just becomes a smaller fraction of an ever-larger total, while its absolute size keeps drifting via ordinary $\sqrt{n}$ noise. "The odds even out" is true only in the ratio sense.
+    worked: >
+      After $n=40{,}000$ flips, $\operatorname{sd}(S_n)=200$. A surplus of $S_n=200$ heads-over-tails is exactly one standard deviation — unremarkable — and corresponds to $20{,}100$ heads out of $40{,}000$, a fraction of $0.5025$: visibly close to $1/2$ even though the raw lead of $200$ is not shrinking at all.
+    interview: >
+      "After a long run of fair coin flips, is a lead of $X$ surprising?" wants the lead compared to $\sqrt{n}$, not to $n$ or to zero — and a clean statement that the head *fraction* converges while the head *count minus tail count* does not.
+    pitfalls: >
+      Treating a growing raw lead as evidence the coin is biased, without first normalizing by $\sqrt{n}$. Citing the law of large numbers to claim the walk "comes back toward zero" — LLN governs $S_n/n$, and says nothing about $S_n$ itself, which is unbounded.
+    recap: >
+      Displacement scales as $\sqrt{n}$: the head fraction converges to $1/2$ while the absolute lead diverges, because variance only ever accumulates.
+
+  - node: quant-processes.random-walks.biased-walk
+    hook: >
+      "You have a small statistical edge — how many trades until it's visible?" is answered by comparing a linear drift to a $\sqrt{n}$ noise floor, and the crossover point is a formula worth having cold.
+    explanation: >
+      With $\Pr(X_i=+1)=p$, linearity still gives $\mathbb{E}[S_n]=n(p-q)$ directly, exactly as in the fair case but with a nonzero per-step mean. The variance changes too: $\operatorname{Var}(X_i)=1-(p-q)^2=4pq$ (since $(p+q)^2=1$ forces $(p-q)^2=1-4pq$), so independence again gives $\operatorname{Var}(S_n)=4pqn$.
+      The load-bearing comparison is drift against noise: the drift $n(p-q)$ grows linearly in $n$, while the standard deviation $\sqrt{4pqn}$ grows only like $\sqrt{n}$, so their ratio is $\sqrt{n}\,(p-q)/\sqrt{4pq}$ — unbounded, but growing slowly. Setting that ratio to $1$ gives the crossover scale $n_0=4pq/(p-q)^2$: below $n_0$ the edge is buried in noise, above it the edge dominates by a growing multiple.
+      This is the "small edge, many trades" model: an edge that is invisible in a handful of trials becomes overwhelming given enough of them, purely because signal accumulates linearly while noise only accumulates as a square root.
+    worked: >
+      At $p=0.55$, $q=0.45$: $n_0=4(0.2475)/(0.1)^2=99$ trades to reach a one-sigma edge. After $n=2500$ trades ($\approx25.3\times n_0$), the ratio scales by $\sqrt{25.3}\approx5.03$: drift $=2500(0.1)=250$, standard deviation $=\sqrt{4(0.2475)(2500)}=\sqrt{2475}\approx49.75$, so the edge sits at $250/49.75\approx5.0$ standard deviations — decisively visible.
+    interview: >
+      "With a $55\%$ edge per trade, how many trades until you're statistically confident?" wants $n_0=4pq/(p-q)^2$ produced directly, plus the remark that going from one sigma to five sigmas of confidence costs a $25\times$ increase in sample size, not a $5\times$ one.
+    pitfalls: >
+      Using $\operatorname{Var}(X_i)=1$, the fair-coin value, when the walk is biased — it's $4pq<1$ whenever $p\ne1/2$. Reading "drift wins eventually" as "the walk is ahead at every $n$" — it's an asymptotic, almost-sure statement, and noise can dominate at small $n$ even with a real edge.
+    recap: >
+      Mean $n(2p-1)$ against standard deviation $\sqrt{4pqn}$: the edge needs on the order of $4pq/(p-q)^2$ trades before signal beats noise, and confidence grows only as $\sqrt{n}$ after that.
+
+  - node: quant-processes.random-walks.path-counting
+    hook: >
+      This is the single biggest simplification in the whole unit: any "what's the probability of..." question about the symmetric walk stops being a probability question and becomes a counting question.
+    explanation: >
+      Every $n$-step path has probability exactly $2^{-n}$, since each of its $n$ independent $\pm1$ steps occurs with probability $1/2$ regardless of the path's shape. That means any event's probability is just (number of paths satisfying it)$/2^n$ — from here on, computing a probability and counting a set of paths are the same task.
+      The basic count follows immediately: a path from $(0,a)$ to $(n,b)$ exists exactly when $n$ and $b-a$ share parity, and there are $\binom{n}{(n+b-a)/2}$ of them, because the path is fully determined by choosing which steps go up. For constrained counts — stay positive, avoid a level, touch a level — the strategy is always the same: find a bijection between the constrained paths and some unconstrained set you already know how to count. That bijection idea, not any new probability tool, is the engine behind the rest of this unit.
+      The biased walk breaks the "every path is equally likely" fact, but not the counting method: paths sharing an endpoint still share the weight $p^uq^{n-u}$, so a favorable-path count still isolates the constraint — you just multiply by that shared weight instead of by $2^{-n}$.
+    worked: >
+      $\Pr(S_8=4)$: matching $(n+k)/2=6$ up-steps needed, so there are $\binom{8}{6}=28$ favorable paths out of $2^8=256$, giving $\Pr(S_8=4)=28/256=7/64\approx0.109$.
+    interview: >
+      "What's the probability the walk is at $+4$ after $8$ steps?" is meant to be answered by naming the up-step count and writing the binomial coefficient immediately — the interviewer is checking that probability and path-counting are one move, not two.
+    pitfalls: >
+      Skipping the parity check before writing $\binom{n}{(n+k)/2}$, producing a non-integer index for an impossible outcome. Applying a symmetric-walk path count directly as a probability for the biased walk without multiplying by the path's actual weight $p^uq^{n-u}$.
+    recap: >
+      Every $n$-step path has probability $2^{-n}$, so probabilities are path counts: $\binom{n}{(n+b-a)/2}$ routes from height $a$ to height $b$.
+
+  - node: quant-processes.random-walks.reflection
+    hook: >
+      Every "does the walk ever reach a level" question in an interview is this one bijection wearing a different costume — ballot counting, first passage and the running maximum are all reflection aimed at a different target.
+    explanation: >
+      Fix a level $a\ge1$ and reflect a path's tail — everything after its first visit to $a$ — about the horizontal line at height $a$. This is an involution (reflecting twice returns the original path), so it is automatically a bijection on the set it's applied to.
+      The key fact that makes it useful is what the image set turns out to be: any path ending above $a$ must already have crossed $a$ at some earlier step, since the walk moves by $\pm1$ and cannot jump over a level. So the "touches $a$" condition, once you reflect, becomes automatic rather than something you have to track — reflecting a path touching $a$ and ending at $b<a$ produces a path ending at $2a-b>a$, and every path ending at $2a-b$ arises this way. That converts a constrained count (touches $a$, ends at $b$) into an unconstrained one (ends at $2a-b$), which path counting already answers: $\binom{n}{(n+2a-b)/2}$.
+      The mental model: don't try to track "did it touch $a$" directly. Fold the picture over at the first crossing and read the answer off the endpoint alone.
+    worked: >
+      Paths of length $7$ touching level $2$ and ending at $-1$: the reflected endpoint is $2(2)-(-1)=5$, so the count is $\binom{7}{(7+5)/2}=\binom{7}{6}=7$ paths out of $2^7=128$, giving probability $7/128\approx0.055$.
+    interview: >
+      "What's the probability a random walk ever crosses a barrier by time $n$?" is answered by reflecting to eliminate the "ever crosses" condition entirely, turning it into an endpoint count — the interviewer wants the bijection stated, not a case-by-case enumeration.
+    pitfalls: >
+      Applying the formula with $a<1$ or with the endpoint on the wrong side ($b\ge a$) — the setup requires $a\ge1$ and $b<a$. Worrying about paths that touch $a$ more than once and trying to inclusion–exclude over the touches — the bijection at the *first* hitting time already handles this with no double-counting.
+    recap: >
+      Reflect a path after its first visit to a level and restricted-path counts become unrestricted-path counts — the central trick of the subject.
+
+  - node: quant-processes.random-walks.ballot
+    hook: >
+      "Was the front-runner ever behind" is a constantly recurring framing — vote counts, P&L that must never dip negative, a game score — and it resolves to one clean fraction via reflection.
+    explanation: >
+      Recast the vote count as a path: $p$ up-steps for A, $q$ down-steps for B, ending at height $p-q$. "A strictly ahead at every stage" is exactly "the path stays strictly positive after the first step."
+      Reflection handles the complementary bad event. A path's first step is down with probability $q/(p+q)$ (by symmetry among the $p+q$ positions of the down-steps), and every such path automatically touches $0$ later since it must climb back up to end at $p-q>0$. Reflecting a bad path that instead starts up — one that touches $0$ before recovering — at its first return to $0$ produces a path that starts down, and this map is a bijection between the two kinds of bad path. So bad paths of both kinds are equinumerous, giving total bad probability $2q/(p+q)$, and the good probability is $1-2q/(p+q)=(p-q)/(p+q)$.
+      The reusable pattern: whenever "always ahead" needs to be counted, split the bad event by the sign of the first step and reflect one half onto the other — this is the exact argument reused, with different bookkeeping, in first passage and the running maximum.
+    worked: >
+      With $p=7$ votes to $q=4$: $\Pr(\text{A always strictly ahead})=(7-4)/(7+4)=3/11\approx0.273$.
+    interview: >
+      "In a vote count that ends $p$ to $q$, what's the probability the winner was ahead the whole way?" wants $(p-q)/(p+q)$ produced directly from the reflection argument, and a clean distinction from the weaker "never trailing, ties allowed" version, $(p-q+1)/(p+1)$.
+    pitfalls: >
+      Applying the formula when $p\le q$ — it requires a strict final lead $p>q$. Conflating the strict-ahead answer $(p-q)/(p+q)$ with the weak never-trailing answer $(p-q+1)/(p+1)$; these are different questions with different numbers.
+    recap: >
+      A leads wire-to-wire with probability $(p-q)/(p+q)$ — one reflection bijection splitting bad paths by their first step.
+
+  - node: quant-processes.random-walks.first-passage
+    hook: >
+      "Certain to happen eventually, yet the expected wait is infinite" is tested directly here, and it's the same trap that recurs throughout the unit whenever a $\Pr=1$ statement meets a heavy tail.
+    explanation: >
+      The hitting-time theorem $\Pr(T_a=n)=\frac{a}{n}\Pr(S_n=a)$ is a reflection consequence: among all paths ending at $a$ at time $n$, only a fraction $a/n$ reach $a$ for the *first* time at step $n$ rather than earlier, the same kind of "first crossing" bookkeeping that drove the ballot problem.
+      Because the walk can only move one level at a time, reaching level $a$ means passing through every intermediate level $1,\dots,a-1$ first, and the walk restarts fresh (by stationary independent increments) after each one — so $T_a$ is a sum of $a$ independent copies of $T_1$. That decomposition means understanding the single-level case fully answers the general case by addition.
+      $\Pr(T_a<\infty)=1$ for the symmetric walk — every level is reached eventually — but the waiting-time tail decays only like $n^{-3/2}$, a polynomial tail slow enough that $\mathbb{E}[T_a]=\sum_n n\Pr(T_a=n)$ diverges. "Certain" and "fast" are unrelated claims here.
+    worked: >
+      $\Pr(T_2=4)=\frac{2}{4}\Pr(S_4=2)$. Since $\Pr(S_4=2)=\binom{4}{3}2^{-4}=4/16=1/4$, this gives $\Pr(T_2=4)=\frac12\cdot\frac14=1/8$.
+    interview: >
+      "How many flips until your cumulative winnings first hit $+5$?" wants two facts stated together: the level is reached with probability $1$, but the expected number of flips is infinite — and the reason is the decomposition into $5$ independent copies of the one-level wait, each already infinite-mean.
+    pitfalls: >
+      Inferring finite expected waiting time from $\Pr(T_a<\infty)=1$ — probability-one events can have infinite mean. Using $n$ of the wrong parity for $T_a=n$; $n$ and $a$ must match parity exactly as $S_n$ does.
+    recap: >
+      $\Pr(T_a=n)=(a/n)\Pr(S_n=a)$: the level is hit with certainty, but as a sum of $a$ infinite-mean pieces, the wait has infinite expectation too.
+
+  - node: quant-processes.random-walks.max-distribution
+    hook: >
+      "What's the probability the walk ever reaches new territory by time $n$" sounds like it needs the maximum's own distribution built from scratch — reflection instead reads it straight off the endpoint law.
+    explanation: >
+      The key identity is that the events $\{M_n\ge a\}$ and $\{T_a\le n\}$ are literally the same event — the running maximum reaches $a$ exactly when the hitting time of $a$ is at most $n$. That converts a question about a maximum into a question about an endpoint, which reflection already answers.
+      Every path ending above $a$ has necessarily crossed $a$ already (the walk can't jump over a level), so it counts directly toward $\{M_n\ge a\}$; every path ending exactly at $a$ also counts, but reflecting the paths that touch $a$ and end below it produces exactly the "ends above $a$" paths a second time — hence the factor of two and the correction: $\Pr(M_n\ge a)=2\Pr(S_n\ge a)-\Pr(S_n=a)$.
+      The mental model is: don't track the maximum directly — reflect every overshoot back down, and the endpoint alone tells you whether the level was ever touched. The formula breaks at $a=0$, because $M_n\ge0$ is true by definition at time $0$ regardless of $n$, so that boundary case has to be handled by direct reasoning, not this formula.
+    worked: >
+      For $n=6$, $a=2$: $\Pr(S_6\ge2)=\Pr(S_6=2)+\Pr(S_6=4)+\Pr(S_6=6)=15/64+6/64+1/64=22/64$, and $\Pr(S_6=2)=15/64$. So $\Pr(M_6\ge2)=2(22/64)-15/64=29/64\approx0.453$.
+    interview: >
+      "Does a cumulative random walk ever cross a resistance level $a$ within $n$ steps?" is answered by converting the maximum question to an endpoint question via $\{M_n\ge a\}=\{T_a\le n\}$, not by trying to characterize the maximum's law directly.
+    pitfalls: >
+      Applying the formula at $a=0$, where it fails — $M_n\ge0$ always holds since $S_0=0$, so this boundary needs direct reasoning or a complement argument instead. Forgetting the $-\Pr(S_n=a)$ correction and simply doubling $\Pr(S_n\ge a)$, which overcounts paths ending exactly at $a$.
+    recap: >
+      $\Pr(M_n\ge a)=2\Pr(S_n\ge a)-\Pr(S_n=a)$ — the high-water mark of the walk, read off the endpoint law by reflection.
+
+  - node: quant-processes.random-walks.reach-level-example
+    hook: >
+      This is the template interviewers reuse for "does it ever cross a level" questions, and its most quotable feature — visiting a level is exactly twice as likely as finishing at or above it — is a special case, not a universal law, which is the part worth actually understanding.
+    explanation: >
+      The doubling in "twice as likely to visit as to end above" comes specifically from the correction term $\Pr(S_n=a)$ vanishing, and that vanishing is a parity fact: with $n$ even and $a$ odd, $S_n$ can never equal $a$ exactly, since $S_n$ only lands on integers matching $n$'s parity. When that correction term is zero, $\Pr(M_n\ge a)=2\Pr(S_n\ge a)$ exactly; when $n$ and $a$ share parity, the correction term is generally nonzero and the ratio is something other than $2$.
+      That distinction is the actual interview skill here: before reaching for "it's always twice as likely," check whether the target level's parity clashes with the step count's parity — that clash is precisely what makes "touching" a level strictly easier to satisfy than "ending at or above" it, since a path can touch an odd level on its way past even though it can never rest there at an even time.
+    worked: >
+      For $n=8$, $a=2$ — same parity, so the doubling does *not* apply cleanly. $\Pr(S_8=2)=\binom{8}{5}2^{-8}=56/256$. $\Pr(S_8\ge2)=(56+28+8+1)/256=93/256$. So $\Pr(M_8\ge2)=2(93/256)-56/256=130/256=65/128\approx0.508$, only about $1.4\times$ larger than $\Pr(S_8\ge2)\approx0.363$ — nowhere near the factor of $2$ seen when the parities clash.
+    interview: >
+      "Does a walk of length $n$ ever reach level $a$?" should trigger an immediate parity check between $n$ and $a$ before deciding whether the "exactly double" shortcut is even available.
+    pitfalls: >
+      Assuming the factor of two between "ever touches" and "ends at or above" holds universally — it only holds when $\Pr(S_n=a)=0$ by a parity mismatch between $n$ and $a$. Forgetting to verify that mismatch before quoting the shortcut.
+    recap: >
+      $11/32\approx34\%$ chance of touching $+3$ in ten tosses, exactly double the ending-there-or-above probability — because $10$ and $3$ have clashing parity, which kills the correction term.
+
+  - node: quant-processes.random-walks.return-origin
+    hook: >
+      $u_{2n}\sim1/\sqrt{\pi n}$ is the one number in this unit worth having memorized cold — it drives recurrence, first return, and expected distance, and its derivation is a clean Stirling exercise worth being able to redo on a whiteboard.
+    explanation: >
+      $u_{2n}=\Pr(S_{2n}=0)=\binom{2n}{n}/4^n$ falls straight out of path counting: exactly $n$ of the $2n$ steps must go up.
+      Stirling's approximation, $n!\sim\sqrt{2\pi n}(n/e)^n$, turns this into an asymptotic. Applying it to both factorials in $\binom{2n}{n}=(2n)!/(n!)^2$: the numerator is $\sim\sqrt{4\pi n}(2n/e)^{2n}$ and the denominator is $\sim2\pi n(n/e)^{2n}$. The load-bearing cancellation is in the exponential parts — $(2n/e)^{2n}=4^n(n/e)^{2n}$ exactly cancels the $(n/e)^{2n}$ in the denominator's square — leaving only the square-root prefactors: $\binom{2n}{n}\sim4^n\sqrt{4\pi n}/(2\pi n)=4^n/\sqrt{\pi n}$. Dividing by $4^n$ gives $u_{2n}\sim1/\sqrt{\pi n}$.
+      The mental model: this decay is polynomial, not exponential — slow. That slowness is precisely why the walk keeps drifting back near the origin far more often than intuition expects, and it's the single fact every asymptotic later in the unit is built from.
+    worked: >
+      $u_{40}=\binom{40}{20}/4^{20}=137{,}846{,}528{,}820/1{,}099{,}511{,}627{,}776\approx0.1254$, against the Stirling estimate $1/\sqrt{20\pi}\approx0.1261$ — agreement to three digits already at $n=20$.
+    interview: >
+      "What's the probability a fair random walk is back at zero after $2n$ steps, for large $n$?" wants both the exact form $\binom{2n}{n}/4^n$ and the Stirling-derived $1/\sqrt{\pi n}$, with the cancellation of the exponential parts sketched, not just quoted.
+    pitfalls: >
+      Forgetting the return probability is exactly $0$ at odd times rather than small. Dropping the $\sqrt{2\pi n}$ prefactor in Stirling and canceling only the exponential terms, which loses the constant and gives the wrong asymptotic entirely.
+    recap: >
+      $\Pr(S_{2n}=0)=\binom{2n}{n}/4^n\sim1/\sqrt{\pi n}$ — the master asymptotic of the one-dimensional walk, derived by canceling Stirling's exponential terms and keeping the square-root prefactor.
+
+  - node: quant-processes.random-walks.first-return
+    hook: >
+      Certain to come home, yet the average trip takes infinitely long — the same "$\Pr=1$ meets a heavy tail" trap as first passage, now pinned to an exact tail exponent worth remembering.
+    explanation: >
+      The first-return law $f_{2n}=u_{2n-2}-u_{2n}=u_{2n}/(2n-1)$ telescopes beautifully when summed: $\sum_{n\ge1}f_{2n}=\sum_{n\ge1}(u_{2n-2}-u_{2n})=u_0-\lim_{n\to\infty}u_{2n}$. Since $u_0=1$ and $u_{2n}\sim1/\sqrt{\pi n}\to0$ by the return-to-origin asymptotic, the sum is exactly $1$ — the walk returns to its start with certainty, proved using nothing but that single asymptotic fact.
+      Certainty does not mean speed: feeding the same asymptotic into $f_{2n}=u_{2n}/(2n-1)$ gives $f_{2n}\sim1/(2\sqrt{\pi}\,n^{3/2})$, so $\mathbb{E}[T_0]=\sum_n2nf_{2n}\sim\sum_n1/(\sqrt{\pi}\sqrt{n})$ — a $p$-series with $p=1/2<1$, which diverges. The expected return time is infinite even though return itself is certain.
+    worked: >
+      The probability the first return to the origin happens exactly at step $10$: $f_{10}=u_{10}/9$, and $u_{10}=\binom{10}{5}/4^5=252/1024=63/256$, so $f_{10}=(63/256)/9=7/256\approx0.0273$.
+    interview: >
+      "Prove a fair coin-flip game returns to break-even with probability $1$, but takes infinite expected time" wants the telescoping-sum argument for certainty and the $n^{-3/2}$-tail comparison-to-a-divergent-series for the infinite mean, both stated explicitly.
+    pitfalls: >
+      Reasoning "it returns with probability $1$, so the mean must be finite" — a non sequitur; the tail exponent, not the total probability, controls whether the mean is finite. Misplacing which of $u_{2n-2}-u_{2n}$ or $u_{2n}/(2n-1)$ uses which index — both equal $f_{2n}$, but plugging the wrong $n$ into either form is a common slip.
+    recap: >
+      The walk comes home with probability $1$, yet the expected time to do it is infinite: $\Pr(T_0=2n)\sim n^{-3/2}/(2\sqrt{\pi})$, a tail too heavy for a finite mean.
+
+  - node: quant-processes.random-walks.expected-distance
+    hook: >
+      "On average, how far from the start is the walk after $n$ steps?" has a specific constant — $\sqrt{2/\pi}\approx0.8$ times $\sqrt{n}$ — and confusing it with the standard deviation $\sqrt{n}$ itself is the exact error interviewers are checking for.
+    explanation: >
+      The exact identity $\mathbb{E}|S_{2n}|=2n\,u_{2n}$ turns into the headline asymptotic by substituting the return-to-origin estimate directly: $\mathbb{E}|S_{2n}|\sim2n/\sqrt{\pi n}=2\sqrt{n/\pi}=\sqrt{4n/\pi}$, matching $\sqrt{2m/\pi}$ at $m=2n$. Nothing new is needed here beyond plugging the earlier asymptotic into the exact formula.
+      The constant $\sqrt{2/\pi}\approx0.798$ is not arbitrary — it is exactly the ratio $\mathbb{E}|Z|/\sigma$ for a centered normal variable $Z$, consistent with $S_m$ having standard deviation $\sqrt{m}$: the expected *distance* from the origin is smaller than the *typical scale* of fluctuation $\sqrt{m}$, because occasionally being very close to $0$ pulls the average absolute value down below the root-mean-square value.
+    worked: >
+      At $m=40$: $u_{40}\approx0.1254$ (from return-to-origin), so $\mathbb{E}|S_{40}|=40(0.1254)\approx5.02$, closely matching the estimate $\sqrt{2(40)/\pi}=\sqrt{80/\pi}\approx5.05$.
+    interview: >
+      "Roughly how far from the start will a random walk be after $n$ steps, on average?" wants $\sqrt{2n/\pi}\approx0.8\sqrt{n}$, explicitly distinguished from the standard deviation $\sqrt{n}$ — a different constant answering a different question.
+    pitfalls: >
+      Quoting $\sqrt{n}$ instead of $\sqrt{2n/\pi}\approx0.8\sqrt{n}$ as the expected distance — that conflates mean absolute deviation with standard deviation. Applying the even-$m$ formula $2nu_{2n}$ at an odd $m$, or vice versa; the two parities have different exact formulas.
+    recap: >
+      Typical distance after $m$ steps is $\sqrt{2m/\pi}\approx0.8\sqrt{m}$, obtained by feeding the return-to-origin asymptotic into an exact identity — about $5$ after $40$ steps.
+
+  - node: quant-processes.random-walks.nonnegative-paths
+    hook: >
+      "The lead never changed hands" sounds like a rare, notable event — it is in fact exactly as likely as sitting precisely at zero, a genuinely surprising coincidence worth stating outright rather than re-deriving under pressure.
+    explanation: >
+      The ballot theorem's reflection argument, run with $p=q=n$ instead of $p>q$, is what produces the Catalan count $C_n=\binom{2n}{n}/(n+1)$ for paths of length $2n$ that return to $0$ while never dipping below it — the same "reflect the bad half onto the other" bookkeeping, just at the boundary case.
+      Dropping the requirement to end at $0$ and asking only "did the path ever dip negative" produces the striking identity $\Pr(S_1\ge0,\dots,S_{2n}\ge0)=u_{2n}$ — numerically the *same* number as the probability of being exactly at the origin at time $2n$. That equality has a bijective proof, but the number itself is the useful part: since $u_{2n}\sim1/\sqrt{\pi n}$ decays only polynomially, staying entirely on one side of zero for $2n$ steps is a "large," $\sqrt{n}$-probability event, not a rare one.
+      This is the direct setup for why long one-sided runs in a fair game are typical rather than exceptional — the next node makes that a full distributional statement.
+    worked: >
+      For $2n=16$ tosses: $u_{16}=\binom{16}{8}/4^8=12{,}870/65{,}536\approx0.1964$. So the probability heads is never behind tails over $16$ tosses is about $19.6\%$, and the strict version (heads strictly ahead throughout) is half that, $u_{16}/2\approx0.0982$.
+    interview: >
+      "In $2n$ coin flips, what's the probability heads is never behind tails?" is meant to be answered instantly with $u_{2n}$ — the same number as "probability of being at zero at time $2n$" — stated as a known identity, not derived live.
+    pitfalls: >
+      Conflating "never behind" (ties allowed, $\ge0$ throughout, probability $u_{2n}$) with "always strictly ahead" ($>0$ throughout, probability $u_{2n}/2$) — these differ by exactly a factor of $2$. Assuming the at-zero/nonnegative-throughout coincidence extends to the biased walk — it is a symmetric-walk fact only.
+    recap: >
+      Catalan numbers count nonnegative excursions, and the walk stays nonnegative through $2n$ steps with probability $u_{2n}=\binom{2n}{n}/4^n$ — the same number as being exactly at the origin at time $2n$.
+
+  - node: quant-processes.random-walks.recurrence-dimension
+    hook: >
+      "Does a random walk on a grid always find its way back?" has a clean yes/no answer that flips at dimension three — a favorite "does your intuition survive higher dimensions" question, and the flip is entirely about one exponent.
+    explanation: >
+      The recurrence criterion, $\sum_n\Pr(S_n=0)=\infty$, converts a hard probabilistic question into an elementary series-convergence test once you know how $\Pr(S_n=0)$ decays in each dimension. In one dimension, $u_{2n}\sim1/\sqrt{\pi n}$, and $\sum1/\sqrt{n}$ is a $p$-series with $p=1/2\le1$: it diverges, so the walk is recurrent.
+      In two dimensions, rotating the lattice $45$ degrees decomposes the walk into two independent one-dimensional walks along the new axes, so returning to the origin means both coordinates return simultaneously: $u_{2n}\sim(1/\sqrt{\pi n})^2=1/(\pi n)$. That's the harmonic series, $p=1$ — still divergent, so still recurrent, but only barely, right at the boundary of the test.
+      In three dimensions the decay steepens to $u_{2n}\sim cn^{-3/2}$, a $p=3/2>1$ series that converges — the walk becomes transient. The entire recurrent/transient split comes down to whether that one exponent crosses $1$, which is Kakutani's line: a drunk man finds his way home, but a drunk bird may not.
+    worked: >
+      Comparing partial sums makes the boundary concrete: $\sum_{n=1}^{1000}n^{-1/2}\approx61.8$ and is still climbing (as it must, since it diverges like $\sqrt{N}$), while $\sum_{n=1}^{1000}n^{-3/2}\approx2.61$, already essentially at its limit $\zeta(3/2)\approx2.612$.
+    interview: >
+      "Does a random walk on a $2$D grid return to its start? What about $3$D?" wants "yes with probability $1$" for $2$D and "no, positive probability of escaping forever" for $3$D, justified by the $\sum\Pr(S_n=0)$ criterion and the exponent crossing $1$ at $d=3$, not vague intuition about "more room to wander."
+    pitfalls: >
+      Assuming higher dimensions are "more likely" to return because there's more room to explore — that's backwards; more room is exactly why the walk escapes. Treating $2$D as quantitatively similar to $1$D just because both are recurrent — $2$D's return probability decays like $1/n$ against $1$D's $1/\sqrt{n}$, so $2$D excursions away from the origin are typically far longer.
+    recap: >
+      Recurrent in one and two dimensions, transient from three on — the split is exactly where the return-probability decay exponent crosses $1$ in $\sum_n\Pr(S_n=0)$.
+
+  - node: quant-processes.random-walks.expected-visits
+    hook: >
+      Turning "is it recurrent" into "how many times, on average, does it come back" replaces a yes/no with an actual number — and that number swings from infinite to about $1.5$ just by adding two dimensions.
+    explanation: >
+      Every visit to the origin is a fresh restart of the walk, so the number of visits $V$ (counting time $0$) is geometric: needing at least $k$ visits means returning $k-1$ more times, each independently with probability $R$ (the probability of ever returning at all), giving $\Pr(V=k)=R^{k-1}(1-R)$ and the standard geometric mean $\mathbb{E}[V]=1/(1-R)$.
+      That mean has a second expression worth knowing: $\mathbb{E}[V]=\sum_{n\ge0}\Pr(S_n=0)$, summing the exact return-origin sequence over all time — a Green's-function identity connecting the visit count directly to the analytic quantity from earlier in the unit. The dichotomy from recurrence follows immediately: $R=1$ in one and two dimensions forces $\mathbb{E}[V]=\infty$ (matching the divergent sum used to prove recurrence there), while $R\approx0.3405$ in three dimensions gives a small, genuinely finite number.
+    worked: >
+      In three dimensions, $R\approx0.3405$, so the full geometric tail is computable, not just its mean: $\Pr(V=1)=1-R\approx0.6595$ (never returns at all), $\Pr(V=2)=R(1-R)\approx0.2246$ (returns exactly once), $\Pr(V=3)=R^2(1-R)\approx0.0765$, and so on — consistent with the mean $\mathbb{E}[V]=1/(1-R)\approx1.516$.
+    interview: >
+      "What's the expected number of times a $3$D random walk revisits its starting point?" wants the geometric-restart argument, $\Pr(V=k)=R^{k-1}(1-R)$, stated explicitly — not just the number $1.52$ recited from memory.
+    pitfalls: >
+      Treating "finite expected visits" and "recurrence is all-or-nothing" as in tension — they're not: a finite mean like $1.52$ just means the geometric tail thins out fast, while recurrence itself remains a strict infinitely-often-or-finitely-often dichotomy. Forgetting to count time $0$ as the first visit when computing $V$.
+    recap: >
+      Visits are geometric with mean $1/(1-R)$, tying directly to $\sum_n\Pr(S_n=0)$ — infinite in one and two dimensions, about $1.5$ in three.
+
+  - node: quant-processes.random-walks.arcsine-law
+    hook: >
+      "Your friend was ahead the whole game — they must be skilled" is exactly backwards: the arcsine law says lopsided fair games are the *typical* outcome, not evidence of anything.
+    explanation: >
+      Staying nonnegative through $2n$ steps was already shown to be a large, $\sqrt{n}$-probability event, not a rare one — the arcsine law upgrades that single fact into a full distributional statement about the *fraction* of time spent on the positive side, and that fraction turns out to be U-shaped, concentrated near the extremes $0$ and $1$ rather than near $1/2$.
+      The mechanism is visible in the law of the last tie: its density is proportional to $u_{2k}u_{2n-2k}$, and since each $u$ term decays like $1/\sqrt{k}$, this product is smallest in the middle (where both factors are moderate) and largest at the extremes (where one factor is close to $u_0=1$). A last tie very early or very late is far more likely than one near the midpoint — which is exactly why one side dominates almost the entire game so often.
+    worked: >
+      $\Pr(\text{fraction of time ahead}\le0.10)=\frac{2}{\pi}\arcsin\sqrt{0.10}\approx\frac{2}{\pi}(0.3217)\approx0.205$. By symmetry the same probability applies to being ahead at least $90\%$ of the time, so roughly $41\%$ of fair games see one side dominate at least nine-tenths of the game.
+    interview: >
+      "Over a long run of a fair coin-flip game, what fraction of the time is one side ahead?" — the naive "close to half" answer is wrong; the correct answer cites the U-shaped arcsine density and states outright that lopsided dominance, not balance, is the common case.
+    pitfalls: >
+      Reaching for a law-of-large-numbers instinct here — it doesn't apply, because "which side is ahead at time $t$" is wildly dependent across $t$, unlike an iid sequence. Reading a one-sided track record in a genuinely fair process as evidence of skill, when a fair process already produces such runs at high frequency.
+    recap: >
+      The share of time spent ahead is U-shaped, not bell-shaped: about $41\%$ of fair games have one side ahead at least $90\%$ of the time.
+
+  - node: quant-processes.random-walks.fair-but-slow
+    hook: >
+      "You're certain to end up ahead eventually" is technically true and practically useless as a plan — this node is where interviewers test whether you can hold "certain," "fair," and "unbounded" as true at once without contradiction.
+    explanation: >
+      Three facts sit together without conflict. At every fixed $n$, $\mathbb{E}[S_n]=0$ — the game is fair moment to moment. First return's telescoping argument extends to any target level: the walk reaches $+a$ with probability $1$ for the same reason it returns to $0$ with probability $1$. Yet $T_a$ is a sum of $a$ independent copies of $T_1$, and $T_1$ already has infinite mean, so $\mathbb{E}[T_a]=\infty$ for every $a$ — adding more infinite-mean pieces cannot produce a finite sum.
+      The "sure win" is bought with unbounded time and unbounded drawdown along the way, and taking away either assumption destroys it: capping the bankroll turns the problem into gambler's ruin, where the guarantee can genuinely fail, and capping the patience means quitting before the certain event arrives. Risk limits are therefore written in capital and time directly, never in "wait until the probability of loss is low" — that probability can already be exactly the value you want and still describe an unworkable plan.
+    worked: >
+      By the return-to-origin tail, $\Pr(T_1>N)\sim1/\sqrt{\pi N/2}$; at $N=10^6$ this is about $1/\sqrt{\pi\cdot500{,}000}\approx0.0008$ — small on any given day, yet that same $n^{-1/2}$ tail is exactly what makes the average wait across all outcomes infinite.
+    interview: >
+      "A fair coin game has no stopping rule except 'quit once ahead' — is this a sure thing?" wants "yes, probability $1$," immediately followed by "but expected duration and expected required bankroll are both infinite," and the observation that a finite real bankroll turns this into gambler's ruin, where the guarantee is no longer automatic.
+    pitfalls: >
+      Treating "probability $1$ of eventual profit" as license to size a real, finite bankroll against the strategy — that is exactly the setup gambler's ruin analyzes, and the guarantee can fail there. Confusing "fair" ($\mathbb{E}[S_n]=0$ at each fixed time) with "protected from large excursions" — both extreme luck and its opposite are fully compatible with fairness.
+    recap: >
+      Probability-$1$ profit with infinite expected waiting time and unbounded drawdown along the way — the reason "certain to win eventually" is not by itself a strategy.

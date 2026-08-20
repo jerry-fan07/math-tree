@@ -55,6 +55,13 @@ def latex_errors(where, text):
     errors = []
     if "\t" in text:
         errors.append(f"{where}: contains a tab")
+    # The renderer flags ANY literal $ in its output, so \$ is unusable —
+    # write "10 dollars" or a bare math number, never a currency sign.
+    if "\\$" in text:
+        errors.append(f"{where}: \\$ renders a literal $ and fails the corpus check")
+    # A $ nested inside \text{...} splits the enclosing span and mangles it.
+    if re.search(r"\\text\{[^}]*\$", text):
+        errors.append(f"{where}: $ nested inside \\text{{...}} — un-nest the math")
     unescaped = re.sub(r"\\\$", "", text)
     if unescaped.count("$") % 2 != 0:
         errors.append(f"{where}: unbalanced $ delimiters")

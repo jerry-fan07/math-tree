@@ -90,8 +90,12 @@ explanations under 400 and lessons over 6,000.
 Exactly the corpus's rules — `content-quant/style.md` §LaTeX is normative.
 The short version: inline `$...$` only; no display math, no environments; only
 allow-listed macros (`\mathbb{E}[X]`, `\Pr`, `\operatorname{...}` for anything
-unlisted); balanced `$` everywhere. The corpus self-check renders every section
-of every lesson and CI fails on any deviation.
+unlisted); balanced `$` everywhere. Two traps the first batches hit: **never
+write a currency dollar sign** (`\$10` renders a literal `$` and fails the
+corpus check — write "$10$ dollars" or a bare number), and **never nest `$`
+inside `\text{...}`** (it splits the enclosing span — write digits in the
+`\text` directly). The corpus self-check renders every section of every lesson
+and CI fails on any deviation.
 
 ## Before you finish
 
