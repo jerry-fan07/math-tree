@@ -276,6 +276,17 @@ A user does not only arrive with "I want to understand the FTC". They arrive wit
 
 Everything else — met-boundary compression, the frontier's definition of "met", the left-to-right topological order — is §6.2 unchanged, which after turn 1 means the same stage columns ([DT1.7](implementation-plan.md#turn-1)): a subject's eyebrow reads LEARNING PATH rather than PREREQUISITE PATH, its imported steps are set quiet with their origin branch named, and its progress bar counts targets instead of the plan. A subject with no content authored yet ([§7.1](#71-process) fixes the outline before the content, so this is the common case for now) yields an empty path, which the display states rather than draws.
 
+### 6.6 The program
+
+§6.5 answers *"take me through linear algebra"*. The remaining question a curriculum obviously answers — and the one a learner starting from zero actually asks — is **"take me through all of it, in the order someone who knows the terrain chose"**. That order is not computable from the graph: `requires` yields a partial order with astronomically many linear extensions, and which one teaches well is pedagogy, not topology. So the program is **authored data, not a derived view**:
+
+- **The spine.** An ordered list of every subbranch of the tree — the *units* — grouped into named *parts*. This is the corpus outline's authoring order made machine-readable, and it is validated, not trusted: every unit must exist and be a subbranch, appear exactly once, cover every authored subbranch, and the order must be a linear extension of the cross-unit `requires` relation (no node may require a node in a later unit). That last rule is what makes each unit a self-contained chapter: within a unit, ordering by `requires` needs only the unit's own edges.
+- **Lessons.** Per content node, authored *teaching* text — the node's `statement` says what to know; the lesson says how to come to know it. Fixed sections, so the reader has a rhythm: **hook** (where this sits and why it earns a step), **explanation** (the actual teaching, several paragraphs), **worked** (an example computed to the end), **interview** (how it is asked under pressure), **pitfalls** (the standard traps), **recap** (one breath to retain). The first two and the last are required; the middle three are present wherever the node's kind can honestly fill them. Each unit also carries an **opening** — the paragraph a chapter starts with. This deliberately amends [§10](#10-non-goals)'s "no teaching content" for *authored* lesson corpora; what stays out of scope is generating explanations personalized to one user's history.
+- **Two starting points, one derivation.** "From the beginning" shows every step in full detail; "from what I know" compresses the steps already mastered ([§4.5](#45-color-mapping)'s exact notion of met) to one quiet line each, expandable. The **resume point** is the first step in program order that has *never been learned* — deliberately not the first *unmet* step: a program bookmark means "where I got to", and one decayed foundations node must not yank it from unit 40 back to unit 3. Decay surfaces through the due list and through compression un-compressing, never by moving the bookmark.
+- **Flexibility.** The program is a recommended order, not a lock: any unit and any lesson is openable at any time, the map, panel and focus mode all remain, and the panel links a node straight to its lesson. Position and progress are derived entirely from the evidence log ([§5.1](#51-evidence-model)) — the program keeps **no state of its own**, so reading a lesson and reporting it are the same acts they are everywhere else in the app.
+
+Display follows turn 1's grammar: a table-of-contents rail (parts, units, met-of-total per unit, the resume marker), one reading column (the unit as a chapter: opening, then each step as title · statement · lesson sections), the self-report action at each lesson's foot, and a progress bar over the whole program at the base. The program ships first for the quant-interview tree, whose corpus was authored against a fixed outline order; any tree gains it by authoring a spine and lessons.
+
 ---
 
 ## 7. Content Pipeline
@@ -321,13 +332,14 @@ Shifu integration is a **data contract, not a code dependency**: Shifu will push
 - **M5 — Scale content** across the undergraduate curriculum, subbranch by subbranch.
 - **M6 — Shifu integration** via the evidence contract.
 - **M7 — Subject paths** ([§6.5](#65-subject-paths)): a branch or subbranch as the goal, chosen by name.
+- **M8 — The program** ([§6.6](#66-the-program)): an authored curriculum over a whole tree — spine, lessons, reader — quant tree first.
 
 ---
 
 ## 10. Non-Goals
 
 - Non-math domains and beyond-undergraduate math (the graph model must merely not preclude them).
-- Generating *teaching* content (explanations, lessons) — v1 tracks and sequences knowledge; the personalized-explanation engine of the Vision is a later layer on top of the same graph.
+- Generating *teaching* content (explanations, lessons) — v1 tracks and sequences knowledge; the personalized-explanation engine of the Vision is a later layer on top of the same graph. *(Amended by [§6.6](#66-the-program): an **authored** lesson corpus with an authored teaching order is in scope; what stays out is generating explanations on the fly, personalized to one user.)*
 - Building or specifying Shifu itself.
 - Accounts, sync, multi-user, or social features.
 

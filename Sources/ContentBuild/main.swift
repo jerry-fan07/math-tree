@@ -24,6 +24,8 @@ commands:
 options:
   --content <dir>    content root (default: ./content)
   --problems <dir>   problem-bank root (default: ./problems; optional on disk)
+  --program <dir>    program root — program.yaml + lessons/ (§6.6; default:
+                     ./program; optional on disk)
   --out <dir>        artifact directory (default: ./build/content)
   --seed <n>         layout PRNG seed (default: \(LayoutParameters().seed))
   --iterations <n>   layout iterations (default: \(LayoutParameters().iterations))
@@ -46,6 +48,7 @@ struct Options {
     var command = ""
     var contentRoot = URL(fileURLWithPath: "content")
     var problemRoot = URL(fileURLWithPath: "problems")
+    var programRoot = URL(fileURLWithPath: "program")
     var outputDirectory = URL(fileURLWithPath: "build/content")
     var seed = LayoutParameters().seed
     var iterations = LayoutParameters().iterations
@@ -82,6 +85,7 @@ func parseOptions() -> Options {
         switch flag {
         case "--content": options.contentRoot = URL(fileURLWithPath: value(flag))
         case "--problems": options.problemRoot = URL(fileURLWithPath: value(flag))
+        case "--program": options.programRoot = URL(fileURLWithPath: value(flag))
         case "--out": options.outputDirectory = URL(fileURLWithPath: value(flag))
         case "--seed":
             guard let seed = UInt64(value(flag)) else { fail("--seed must be an integer") }
@@ -128,7 +132,8 @@ func note(_ message: String, quiet: Bool) {
 /// references the graph, so its diagnostics are only meaningful over a graph that
 /// already holds together. Both are reported in one pass when content is clean —
 /// an author wants the whole list, not one violation per run.
-func loadValidated(_ options: Options) -> (KnowledgeGraph, LoadedContent, ProblemBank, LoadedProblems)
+func loadValidated(_ options: Options)
+    -> (KnowledgeGraph, LoadedContent, ProblemBank, LoadedProblems, LoadedProgram)
 {
     let workingDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     let content: LoadedContent
@@ -191,14 +196,65 @@ func loadValidated(_ options: Options) -> (KnowledgeGraph, LoadedContent, Proble
         report(bankDiagnostics, scope: "problems", subjects: bank.count, noun: "problems")
     }
 
-    return (graph, content, bank, problems)
+    // The program (§6.6) is validated last, for the same reason the bank is
+    // second: it references the graph, and a spine diagnostic against a graph
+    // with a cycle is noise.
+    let program: LoadedProgram
+    do {
+        program = try ProgramLoader.load(root: options.programRoot, relativeTo: workingDirectory)
+    } catch {
+        fail("\(error)")
+    }
+    if program.exists {
+        let programDiagnostics = ProgramValidator.validate(program.program, against: graph)
+        if !programDiagnostics.isEmpty {
+            for diagnostic in programDiagnostics {
+                let where_ = program.location(of: diagnostic)?.display ?? "program"
+                var line = "\(where_): [\(diagnostic.rule.rawValue)] \(diagnostic.message)"
+                if !diagnostic.nodes.isEmpty {
+                    line +=
+                        "\n    nodes: \(diagnostic.nodes.map(\.rawValue).joined(separator: ", "))"
+                }
+                FileHandle.standardError.write(Data((line + "\n").utf8))
+            }
+            let count = programDiagnostics.count
+            let footer =
+                "\n\(count) violation\(count == 1 ? "" : "s") in the program "
+                + "(\(program.program.spine.units.count) units)\n"
+            FileHandle.standardError.write(Data(footer.utf8))
+            exit(1)
+        }
+    }
+
+    return (graph, content, bank, problems, program)
+}
+
+/// One line saying how much of §6.6's program exists — printed by `validate` the
+/// way subbranch and bank coverage are, because coverage grows batch by batch and
+/// must be *seen* on every run rather than asserted once.
+func programSummary(_ program: Program, graph: KnowledgeGraph) -> String {
+    let units = program.spine.units
+    var taught = 0
+    var expected = 0
+    var complete = 0
+    for unit in units {
+        let members = graph.children(of: unit).filter { graph[$0]?.kind.isContent == true }
+        let lessons = program.lessonUnits[unit].map { unit in Set(unit.lessons.map(\.node)) } ?? []
+        expected += members.count
+        let covered = members.filter(lessons.contains).count
+        taught += covered
+        if !members.isEmpty, covered == members.count { complete += 1 }
+    }
+    return "program: \(units.count) units in \(program.spine.parts.count) parts, "
+        + "lessons cover \(taught)/\(expected) content nodes "
+        + "(\(complete)/\(units.count) units complete)"
 }
 
 let options = parseOptions()
 
 switch options.command {
 case "validate", "lint":
-    let (graph, content, bank, _) = loadValidated(options)
+    let (graph, content, bank, _, program) = loadValidated(options)
     let contentNodes = graph.nodes.filter { $0.kind.isContent }
     let subbranches = graph.nodes.filter { $0.kind == .subbranch }
     let authored = subbranches.filter { subbranch in
@@ -213,6 +269,9 @@ case "validate", "lint":
             + "\(contentNodes.filter { !bank.problems(targeting: $0.id).isEmpty }.count)"
             + "/\(contentNodes.count) content nodes",
         quiet: options.quiet)
+    if program.exists {
+        note(programSummary(program.program, graph: graph), quiet: options.quiet)
+    }
 
     // The diff read-out, when a baseline was named. Printed for `validate` too:
     // "what did this do to the graph" is a review question, not a lint question.
@@ -232,6 +291,9 @@ case "validate", "lint":
 
     if options.command == "lint" {
         var hints = ContentLint.hints(for: graph)
+        if program.exists {
+            hints += ContentLint.hints(for: program.program, graph: graph)
+        }
         if let touched {
             // Scoped to the change, so a review of one subbranch is not buried
             // under the corpus's standing hints. Branch- and subbranch-level hints
@@ -249,9 +311,18 @@ case "validate", "lint":
                     + "(\(before - hints.count) elsewhere in the corpus, not shown)")
         }
 
+        // Lesson hints point into `lessons/`, everything else into `content/` —
+        // a lesson's subject is a content node, so the *rule* has to pick.
+        let lessonRules: Set<LintHint.Rule> = [
+            .lessonMissingWorked, .thinLesson, .oversizedLesson,
+        ]
         print("")
         for hint in hints {
-            let where_ = hint.subject.flatMap { content.locations[$0] }?.display ?? "content"
+            let where_ =
+                hint.subject.flatMap {
+                    lessonRules.contains(hint.rule)
+                        ? program.lessonLocations[$0] : content.locations[$0]
+                }?.display ?? "content"
             print("\(where_): \(hint.description)")
             if !hint.nodes.isEmpty {
                 print("    nodes: \(hint.nodes.map(\.rawValue).joined(separator: ", "))")
@@ -272,7 +343,7 @@ case "validate", "lint":
     }
 
 case "build":
-    let (graph, _, bank, _) = loadValidated(options)
+    let (graph, _, bank, _, program) = loadValidated(options)
     let url = options.outputDirectory.appendingPathComponent("graph.json")
     do {
         try Artifacts.write(GraphArtifact(graph), to: url)
@@ -292,8 +363,21 @@ case "build":
     }
     note("wrote \(problemsURL.path) (\(bank.count) problems)", quiet: options.quiet)
 
+    // Same rule as the bank: always written, even when no program is authored,
+    // so a stale artifact cannot answer "is there a program?" wrongly.
+    let programURL = options.outputDirectory.appendingPathComponent("program.json")
+    do {
+        try Artifacts.write(ProgramArtifact(program.program), to: programURL)
+    } catch {
+        fail("cannot write \(programURL.path): \(error)")
+    }
+    note(
+        "wrote \(programURL.path) (\(program.program.spine.units.count) units, "
+            + "\(program.program.lessonsByNode.count) lessons)",
+        quiet: options.quiet)
+
 case "layout":
-    let (graph, _, _, _) = loadValidated(options)
+    let (graph, _, _, _, _) = loadValidated(options)
     let order = graph.nodes.map(\.id).sorted()
     let index = Dictionary(uniqueKeysWithValues: order.enumerated().map { ($0.element, $0.offset) })
 
@@ -327,7 +411,7 @@ case "shifu-sim":
     // Validated first, and against the real content: §8.2's contract is *about*
     // this graph, and "unknown-id events are rejected" is only a meaningful claim
     // when the set of known ids is the shipping one.
-    let (graph, _, _, _) = loadValidated(options)
+    let (graph, _, _, _, _) = loadValidated(options)
 
     var streams = options.streams
     if streams.isEmpty {

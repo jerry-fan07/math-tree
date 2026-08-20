@@ -196,6 +196,36 @@ extension MathText {
             }
         }
 
+        /// Every renderable field of a program (§6.6): unit openings and every
+        /// authored lesson section. The lesson corpus is the largest body of
+        /// LaTeX-bearing text in the repository once authored — several times the
+        /// nodes it teaches — and none of it appears in any node or problem, so
+        /// skipping it would leave most of the corpus unreviewed.
+        static func samples(for program: Program) -> [Sample] {
+            program.lessonUnits.values.sorted { $0.unit < $1.unit }
+                .flatMap { unit -> [Sample] in
+                    var samples = [
+                        Sample(id: unit.unit.rawValue, field: "opening", source: unit.opening)
+                    ]
+                    for lesson in unit.lessons {
+                        let sections: [(String, String?)] = [
+                            ("lesson.hook", lesson.hook),
+                            ("lesson.explanation", lesson.explanation),
+                            ("lesson.worked", lesson.worked),
+                            ("lesson.interview", lesson.interview),
+                            ("lesson.pitfalls", lesson.pitfalls),
+                            ("lesson.recap", lesson.recap),
+                        ]
+                        for (field, source) in sections {
+                            guard let source else { continue }
+                            samples.append(
+                                Sample(id: lesson.node.rawValue, field: field, source: source))
+                        }
+                    }
+                    return samples
+                }
+        }
+
         /// Debug entry point. `MATHTREE_MATH_CHECK=1` runs it at launch and exits;
         /// it can also be called from a breakpoint:
         ///
@@ -221,15 +251,22 @@ extension MathText {
         @MainActor
         static func runIfRequested(
             document: GraphDocument, problems: ProblemDocument,
-            additionalDocuments: [GraphDocument] = []
+            additionalDocuments: [GraphDocument] = [],
+            programs: [ProgramDocument] = []
         ) {
             guard isRequested else { return }
             let all =
                 samples(for: document) + samples(for: problems.bank)
                 + additionalDocuments.flatMap { Self.samples(for: $0) }
+                + programs.flatMap { Self.samples(for: $0.program) }
             print(report(for: all))
             if let reason = problems.unavailable {
                 print("note: problem bank not checked — \(reason)")
+            }
+            for program in programs {
+                if let reason = program.unavailable {
+                    print("note: program not checked — \(reason)")
+                }
             }
             fflush(stdout)
             exit(findings(in: all).isEmpty ? 0 : 1)

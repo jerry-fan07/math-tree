@@ -252,6 +252,21 @@ Not a numbered phase: an outside design pass over what Phases 4–8 built, impor
 
 ---
 
+## Phase 12 — The program
+
+**Goal**: M8 — §6.6. An authored curriculum over a whole tree: the spine (ordered units), per-node lessons, and a reader. Ships first for the quant tree, whose 58-subbranch outline order is the spine.
+
+**Tasks**
+- `GraphCore`: `ProgramSpine`/`Lesson` types (Codable, artifact-shared with the app); `ProgramValidator` emitting the same typed `Diagnostic`s content gets — spine rules as errors (dangling/duplicate/non-subbranch units, coverage of authored subbranches, **order is a linear extension of cross-unit `requires`**), per-file lesson rules as errors (unknown node, node outside its unit, duplicate, missing required section), corpus-wide lesson coverage as a *report* (the bank precedent, D9.4 — coverage grows batch by batch and must not gate CI between batches); `ProgramPlan` — the pure computation: spine + graph + state → units with steps in (layer, id) order over in-unit edges, met flags, resume point, totals.
+- `ContentBuild`: `--program <dir>` (optional on disk, like `--problems`); `ProgramLoader` (Yams, file/line locations); wire into `validate`/`build`; `program.json` artifact always written (empty when no source — the stale-artifact rule, D8.8).
+- App: `ProgramDocument` (optional, non-fatal load, mirrors `ProblemDocument`); the Program overlay in the quant window — TOC rail, chapter reader, inline self-report, sequential/adaptive modes, resume; panel "read the lesson" link; the math check extended over openings and every lesson section, fail-loud on load failure exactly as the quant graph is.
+- Content: `content-quant-program/` — `program.yaml` (the outline's §1–§58 made machine-readable) + `lessons/<unit-id>.yaml`, drafted per-unit in outline order (the §7.1 pipeline, lessons instead of nodes), validated per batch.
+
+**Deliverable**: "teach me everything, in order, starting from what I know" answered as a readable course over the quant tree.
+**Exit criterion**: the spine validates as a linear extension of cross-unit `requires`; for fixture states the plan's step order is a valid topological order per unit, the resume point is the first never-learned step in program order (and provably *not* moved by decay), and progress counts match `Subjects`'; every lesson section of every unit renders clean under `MATHTREE_MATH_CHECK`; the reader shows every lesson of a fully-covered unit and states (rather than hides) a missing one.
+
+---
+
 ## Decision log
 
 Decisions made during implementation that deviate from, or resolve an option left open by, the plan above. Newest phase last.
@@ -672,6 +687,32 @@ One read-out changes shape with the mode rather than being computed twice. A nod
 
 **DT1.8 — Known gaps.**
 The live appearance *switch* — `GraphRenderer.setTheme`, which rewrites colour words in place and re-rasterises the atlas because the two directions disagree about the tier-1 face — has never executed in verification: every capture pinned `MATHTREE_THEME` at launch, and there is no headless way to drive a system-appearance change here. `Scripts/check-score-determinism.sh` could not be run either: `--probe` needs a window server this environment does not have, and it fails identically on the pre-turn-1 build ("probe: no frame completed within 12s"), so this is environmental rather than a regression. The label cull's nominal viewport is 1280×800 — a much wider window shows the same labels, further apart, rather than more of them. And the mid-zoom legends key off the zoom band rather than off whether a highlight is actually on screen, so they appear on any mid-zoom frame, hovered or not.
+
+### Phase 12
+
+**D12.1 — The spine is authored data, and the validator turns its one convention into a precondition.**
+The teaching order is not computable: `requires` yields a partial order with astronomically many linear extensions, and which one teaches well is pedagogy. So the spine is authored (`program.yaml`, the outline's §1–§58 verbatim — `theSpineFollowsTheOutlineOrder` pins the equality), and `program-order-violation` holds it to a **linear extension of cross-unit `requires`**. That rule is load-bearing, not hygiene: `ProgramPlan` orders each unit by its *own* edges only, which is complete precisely because precedence can never arrive from a later unit. The corpus's spine contract ("reference only earlier-ordered spines") made this true by construction; the validator is what keeps it true when someone reorders the spine without re-reading a contract.
+
+**D12.2 — The bookmark is the first *never-learned* step, and decay deliberately does not move it.**
+`FocusPlan` folds decay into the syllabus (§5.4 — a decayed prerequisite re-enters the path), and the program's *work* does the same: a decayed step is unmet, so adaptive mode un-compresses it. But `resume` reads `isLearned`, not met-under-τ, because a program position means "where I got to" — one decayed foundations node must not yank the bookmark from unit 40 back to unit 3. Decay reaches the user through the due list and the un-compression; `decayMakesAStepUnmetButDoesNotMoveTheBookmark` pins the split.
+
+**D12.3 — Unit membership is the primary parent; §6.5's membership stays the `contains` DAG.**
+D11.2 argued a cross-listed node belongs to *both* subjects, and it still does — a subject path is a claim about what you know. A program is a claim about where something is *taught*, and teaching a node twice because it is cross-listed would be the same lesson twice in one course. So `ProgramPlan` takes `children(of:)` (primary tree) where `FocusPlan.subject` takes `contentDescendants` (DAG), and `aCrossListedNodeIsTaughtOnlyInItsHomeUnit` pins the difference. Both readings are correct because they answer different questions.
+
+**D12.4 — Lesson coverage is a per-file error and a corpus-wide report, split exactly as the bank split (D9.4).**
+A corpus-wide coverage *error* would hold CI red from batch 1 until batch 58 landed. A per-file rule (`lesson-unit-incomplete`: a lessons file that exists must teach its whole unit, only its unit, exactly once) catches a generation batch's omissions at the batch boundary, and `validate` prints `lessons cover N/M content nodes (K/58 units complete)` on every run. Sections split by honesty rather than symmetry: `hook`/`explanation`/`recap` are validator-required, `worked`/`interview`/`pitfalls` are optional with lint hints (`lesson-missing-worked` on result/technique/example kinds, `thin-lesson`, `oversized-lesson`) — forcing a worked computation onto an `intuition` node manufactures filler, and filler is the opposite of the brief.
+
+**D12.5 — One artifact, always written; the math check covers every lesson section and fails loud.**
+`program.json` (spine + openings + lessons) follows `problems.json`'s rule: written even when empty, so a stale artifact can never answer "is there a program?" wrongly; `ProgramDocument` never throws and an unauthored program simply offers no surface. The corpus self-check gained `samples(for: Program)` — opening plus all six sections per lesson — because the lesson corpus is the largest LaTeX-bearing body in the repository once authored, none of it in any node or problem. An artifact that exists and cannot load exits 2 rather than noting and continuing, the same rule the quant graph got: a silently unchecked corpus is the outcome the check exists to prevent.
+
+**D12.6 — Verified by rendering, like every display phase: `program.png`, and the frame is deliberately 3,800 points tall.**
+`PanelShot` gained a program shot over a fixture program derived from the math tree's real taxonomy (82 units in the rail) plus one hand-authored chapter against real `analysis.svc` nodes. The height is the finding: the chapter scrolls, and an 800-point crop passed while showing *no authored lesson at all* — the lesson body, the one thing the phase adds visually, sat below the fold. The tall frame shows the contents rail with per-unit read-outs, the compression note, a DECAYED step in the attention colour, the missing-lesson state as words, and the full section rhythm (hook lead → explanation paragraphs → WORKED EXAMPLE → PITFALLS → RECAP) rendering correctly.
+
+**D12.7 — The author's pre-flight check is Python, not Swift.**
+Lesson generation fans out one agent per unit, and concurrent `swift run` invocations contend on `.build` locks — the one shared resource 58 otherwise-independent authors would have. `Scripts/check-lesson-file.py` mirrors the per-file validator rules plus the LaTeX allow-list with nothing but python3 + PyYAML, so an author validates *their one file* in isolation; `ContentBuild validate` remains the authority and runs between batches and in CI, and disagreements resolve in its favour.
+
+**D12.8 — Known gaps.**
+The reader's scroll-to-step works in the live app but not in the offscreen shot (`cacheDisplay` completes before the `ScrollViewReader` async scroll lands), so the shot verifies the chapter, not the jump. The adaptive/everything mode persists app-wide (`@AppStorage`), not per tree — acceptable while exactly one tree ships a program. Lessons carry no cross-references the app can follow (titles in prose, no links), and the reader offers self-report only — problems never route here, because the quant tree ships no bank; when one lands, the step foot should learn §5.4's routing rule. Unit openings are checked for presence, not read for quality, by anything but a reviewer.
 
 ---
 

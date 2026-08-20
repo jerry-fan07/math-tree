@@ -32,6 +32,9 @@ struct NodePanel: View {
     /// loaded, which leaves Phase 6's self-report as the only reviewer (§5.4's
     /// "whenever possible" cuts both ways).
     var onReview: ((NodeID) -> Void)? = nil
+    /// §6.6: open the program at this node's lesson. `nil` when the tree has no
+    /// program or the node no lesson.
+    var onLesson: ((NodeID) -> Void)? = nil
 
     var body: some View {
         let theme = ThemeStore.shared.theme
@@ -133,10 +136,10 @@ struct NodePanel: View {
     @ViewBuilder
     private func footer(_ theme: Theme) -> some View {
         let canProbe = onReview != nil && (scores?.canProbe(node.id) ?? false)
-        if onFocus != nil || canProbe {
+        if onFocus != nil || canProbe || onLesson != nil {
             VStack(spacing: 0) {
                 Rule()
-                HStack(alignment: .firstTextBaseline) {
+                HStack(alignment: .firstTextBaseline, spacing: 16) {
                     if let onFocus {
                         if node.kind.isContent {
                             TextAction(
@@ -152,6 +155,15 @@ struct NodePanel: View {
                         }
                     }
                     Spacer(minLength: 16)
+                    // §6.6's connective tissue, from the map's side: this node,
+                    // taught in place in the program's reader.
+                    if let onLesson {
+                        TextAction(
+                            title: "Read the lesson", size: 12.5, weight: .regular,
+                            isQuiet: true,
+                            accessibilityHint: "Opens the program at this node's lesson"
+                        ) { onLesson(node.id) }
+                    }
                     if canProbe, let onReview {
                         TextAction(
                             title: "Review with a problem", size: 12.5, weight: .regular,

@@ -49,6 +49,24 @@ public enum DiagnosticRule: String, Codable, Hashable, Sendable, CaseIterable {
     case problemTargetAlsoExercised = "problem-target-also-exercised"
     case problemExercisesNotPrerequisite = "problem-exercises-not-prerequisite"
     case problemConnectsUntaggedEndpoint = "problem-connects-untagged-endpoint"
+
+    // The program (§6.6). Spine rules protect the one property the plan's
+    // per-unit ordering depends on; lesson rules are per-file so coverage can
+    // grow batch by batch without gating CI in between (the bank precedent, D9.4).
+    case danglingProgramUnit = "dangling-program-unit"
+    case programUnitNotSubbranch = "program-unit-not-subbranch"
+    case duplicateProgramUnit = "duplicate-program-unit"
+    case programMissingSubbranch = "program-missing-subbranch"
+    case programOrderViolation = "program-order-violation"
+    case emptyProgramPartTitle = "empty-program-part-title"
+    case lessonUnitNotInProgram = "lesson-unit-not-in-program"
+    case lessonUnitMissingOpening = "lesson-unit-missing-opening"
+    case lessonUnitIncomplete = "lesson-unit-incomplete"
+    case danglingLessonNode = "dangling-lesson-node"
+    case lessonNodeNotContent = "lesson-node-not-content"
+    case lessonNodeOutsideUnit = "lesson-node-outside-unit"
+    case duplicateLesson = "duplicate-lesson"
+    case lessonMissingSection = "lesson-missing-section"
 }
 
 /// One invariant violation. Typed rather than pass/fail so `ContentBuild` can group,
