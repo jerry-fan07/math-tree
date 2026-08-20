@@ -1,0 +1,991 @@
+unit: quant-probability.conditioning
+opening: >
+  Conditioning turns a single random variable into a whole family of
+  forecasts, one per value of whatever you've observed, and this unit builds
+  the machinery to manipulate that family rigorously. It opens with
+  conditioning on an event and then on a variable, arrives at
+  $\mathbb{E}[X\mid Y]$ itself — a random variable, not a number — and its
+  algebra, then proves the two identities that do almost all the work
+  downstream: the tower property, which says a forecast is unbiased on
+  average, and the law of total variance, which splits risk into within- and
+  between-group pieces. The back half turns theory into technique:
+  conditioning on the first step of a process to set up an equation, the mean
+  and variance of a randomly-stopped sum, and a run of fully worked examples —
+  truncated exponentials and uniforms, regime mixtures, exchangeable shares of
+  a total — that are exactly the shape interview questions take.
+lessons:
+  - node: quant-probability.conditioning.conditional-given-event
+    hook: >
+      Every "expected value given that ..." question in an interview is this
+      move, and it's the base case the rest of the unit — conditional
+      distributions, $\mathbb{E}[X\mid Y]$, the tower property — is built
+      from.
+    explanation: >
+      Conditioning on an event throws away every outcome outside $A$ and
+      rescales what's left so probabilities inside $A$ still sum to $1$ —
+      divide by $\Pr(A)$. $\mathbb{E}[X\mid A]$ is just the ordinary
+      expectation computed in that shrunk world: average $x$ against the
+      renormalised law $\Pr(X=x\mid A)$.
+
+      The load-bearing algebra is one step: $\sum_x x\Pr(X=x\mid A) = \sum_x
+      x\Pr(X=x,A)/\Pr(A) = \mathbb{E}[X\mathbf{1}\{A\}]/\Pr(A)$, pulling the
+      constant $\Pr(A)$ out of the sum. This form — expectation of $X$ times
+      the indicator, divided by $\Pr(A)$ — is the one worth keeping in your
+      hands, since it never requires writing out the whole restricted
+      distribution when only the mean is wanted.
+
+      The general pattern behind "given that," "restricted to," "among
+      those who": average $X$ over the qualifying subset only, weighted the
+      same way probabilities inside that subset are weighted. A pension's
+      expected payout given survival to retirement, a trade's expected P&L
+      given a signal fired, a queue's expected wait given no cancellation yet
+      — all the same computation.
+    worked: >
+      Roll two fair dice and let $X$ be their sum. Condition on $A =
+      \{\text{first die shows } 3\}$: given $A$, the second die is still
+      uniform on $\{1,\dots,6\}$, so $X = 3 + \text{second die}$ and
+      $\mathbb{E}[X\mid A] = 3+\mathbb{E}[\text{second die}] = 3+3.5 = 6.5$.
+      Directly: the six equally likely outcomes under $A$ give sums
+      $4,5,6,7,8,9$, averaging to $39/6 = 6.5$, matching.
+    interview: >
+      "What's the expected value of $X$ given that [some event] happened" is
+      answered by restricting to the event and averaging inside it — state
+      $\mathbb{E}[X\mathbf{1}\{A\}]/\Pr(A)$ once, then compute directly by
+      restriction whenever the outcomes stay easy to enumerate, since
+      interviewers reward the faster route.
+    pitfalls: >
+      Averaging $X$ over $A$ with the unconditional probabilities instead of
+      the rescaled ones understates every conditional mean — you must divide
+      by $\Pr(A)$, not just sum $x\Pr(X=x,A)$. The formula needs $\Pr(A)>0$;
+      a conditioning event with zero probability makes the expression
+      $0/0$, not zero.
+    recap: >
+      $\mathbb{E}[X\mid A] = \mathbb{E}[X\mathbf{1}\{A\}]/\Pr(A)$ is
+      expectation computed after restricting to and rescaling within $A$ —
+      here, a die's sum given its first face is $3$ averages to $6.5$.
+
+  - node: quant-probability.conditioning.conditional-distribution
+    hook: >
+      The moment a problem says "given $Y=y$," it's handing you a whole new
+      distribution for $X$, not just a number — build it once and every
+      conditional question about $X$ becomes a plain computation inside it.
+    explanation: >
+      Slicing the joint law at $Y=y$ and renormalising by $\Pr(Y=y)$ (or
+      $f_Y(y)$) is exactly conditioning on the event $\{Y=y\}$, applied to
+      $X$ — the same rescaling as "Conditioning on an event," just done
+      outcome-by-outcome for every $y$ instead of once. What's new is
+      bookkeeping: a family of distributions, one $p_{X\mid Y}(\cdot\mid y)$
+      per value $y$ can take, not a single restricted law.
+
+      The continuous case forces a change of definition, not just of
+      notation: $\{Y=y\}$ has probability zero, so dividing by $\Pr(Y=y)$ is
+      meaningless. Instead $f_{X\mid Y}(x\mid y) = f(x,y)/f_Y(y)$ is
+      *defined* to be the ratio of densities, and it's checked directly to
+      integrate to $1$ in $x$ for each fixed $y$ — a genuine density,
+      arrived at without ever conditioning on a probability-zero event.
+
+      Reversing the ratio gives the chain rule $f(x,y) = f_{X\mid Y}(x\mid
+      y)f_Y(y)$, the standard recipe for building a joint law top-down: draw
+      $Y$ from its marginal, then draw $X$ from the conditional law attached
+      to that $Y$. Every hierarchical model — a random parameter followed by
+      data given the parameter — is written exactly this way.
+    worked: >
+      Let $Y$ be uniform on $\{1,2,3\}$ and, given $Y=y$, let $X$ be uniform
+      on $\{1,\dots,y\}$. Then $p_{X\mid Y}(x\mid 2) = 1/2$ for $x\in\{1,2\}$,
+      so $\mathbb{E}[X\mid Y=2]=1.5$; and $p_{X\mid Y}(x\mid 3)=1/3$ for
+      $x\in\{1,2,3\}$, so $\mathbb{E}[X\mid Y=3]=2$. Three different
+      distributions for $X$, one per value of $Y$, each a legitimate law in
+      its own right.
+    interview: >
+      "Given the parameter/regime/count is $y$, what does $X$ look like"
+      wants you to name the whole conditional law, not jump straight to a
+      mean — stating $p_{X\mid Y}(\cdot\mid y)$ or $f_{X\mid Y}(\cdot\mid y)$
+      explicitly signals you understand it's a distribution, and it sets up
+      the chain rule for building joint models.
+    pitfalls: >
+      In the continuous case, conditioning "on $Y=y$" is a definition (a
+      ratio of densities), not a literal restriction to a probability-zero
+      event — don't try to justify it the way you justify the discrete case.
+      Also, $f_{X\mid Y}(\cdot\mid y)$ is only defined where $f_Y(y)>0$;
+      plugging in a $y$ the marginal never reaches is undefined, not zero.
+    recap: >
+      Slicing the joint law at $Y=y$ and renormalising gives a full
+      distribution for $X$ per value of $y$, and reversing that ratio is the
+      standard way to build a joint law from "draw $Y$, then draw $X$ given
+      $Y$."
+
+  - node: quant-probability.conditioning.conditional-expectation
+    hook: >
+      The interview-killing distinction is $\mathbb{E}[X\mid Y=3]$, a
+      number, versus $\mathbb{E}[X\mid Y]$, a random variable — mixing them
+      up breaks every identity that follows in this unit.
+    explanation: >
+      For each fixed $y$, $g(y) = \mathbb{E}[X\mid Y=y]$ is an ordinary
+      number, computed by averaging against the conditional law attached to
+      that $y$ — nothing new here beyond plugging into the previous node's
+      family of distributions one $y$ at a time.
+
+      The move that matters is composing $g$ with the random variable $Y$
+      itself: $\mathbb{E}[X\mid Y] := g(Y)$. Before $Y$ is observed, you
+      don't know which number $g(y)$ you'll get, so $\mathbb{E}[X\mid Y]$ is
+      genuinely random — a function of $Y$ alone, completely determined once
+      $Y$ is known, but unknown beforehand exactly like $Y$ itself.
+
+      Read it as a forecast: $\mathbb{E}[X\mid Y]$ is "my best guess at $X$,
+      as a rule that updates once I see $Y$" — before observing $Y$ you can
+      already write down what your estimate of $X$ will be for every
+      possible outcome, and observing $Y$ just tells you which branch of
+      that rule you landed on. This is why $\mathbb{E}[X\mid Y]$ can be
+      added, squared, or averaged like any other random variable — it
+      appears on both sides of the tower property precisely because it is
+      one, not a placeholder for "the number you'd get if you conditioned."
+
+      It is defined only up to values $y$ that $Y$ never takes — nothing
+      forces $g$ to be sensible off the support of $Y$, since those values
+      never get used.
+    worked: >
+      Let $N$ be the number showing on a fair die and, given $N=n$, let $X$
+      be uniform on $\{1,\dots,n\}$. Then $g(n) = \mathbb{E}[X\mid N=n] =
+      (n+1)/2$, so $\mathbb{E}[X\mid N] = (N+1)/2$ — a random variable taking
+      value $1$ when $N=1$, value $3.5$ when $N=6$, and so on, still random
+      until the die is rolled.
+    interview: >
+      "Is $\mathbb{E}[X\mid Y]$ a number or a random variable" is asked
+      almost verbatim; the fluent answer distinguishes it from
+      $\mathbb{E}[X\mid Y=y]$ in one breath and states that
+      $\mathbb{E}[X\mid Y]$ is a function of $Y$, hence random exactly to
+      the extent $Y$ is.
+    pitfalls: >
+      Writing $\mathbb{E}[X\mid Y]=c$ for a constant $c$ silently assumes
+      independence, which hasn't been given — check the algebra of
+      conditional expectation before collapsing it. Treating
+      $\mathbb{E}[X\mid Y=y]$ and $\mathbb{E}[X\mid Y]$ as interchangeable
+      notation loses exactly the distinction the tower property and total
+      variance depend on.
+    recap: >
+      $\mathbb{E}[X\mid Y] = g(Y)$ packages the numbers $\mathbb{E}[X\mid
+      Y=y]$ into a single random variable — your forecast of $X$ as a rule
+      that resolves once $Y$ is observed.
+
+  - node: quant-probability.conditioning.conditional-expectation-rules
+    hook: >
+      These four rules are what actually gets used in an interview —
+      recognising "this factor is already known given $Y$" or "these are
+      independent" turns a page of conditioning into one line.
+    explanation: >
+      Each rule is conditional expectation inheriting a property of ordinary
+      expectation, applied inside the conditional law for each fixed $y$ and
+      repackaged as a random variable in $Y$. Linearity is nothing but
+      linearity of the ordinary average, done separately for every $y$.
+      Taking out what's known works because, once $Y=y$ is fixed,
+      $h(Y)=h(y)$ is a plain constant inside that averaging, and constants
+      factor out of an expectation.
+
+      Independence collapsing $\mathbb{E}[X\mid Y]$ to $\mathbb{E}[X]$ is
+      the sharpest rule to recognise fast: if $Y$ carries no information
+      about $X$, the conditional law of $X$ given $Y=y$ is the same
+      distribution for every $y$ — $X$'s own marginal law — so its mean
+      doesn't depend on $y$ at all; the "random variable" $g(Y)$ is secretly
+      the constant $\mathbb{E}[X]$.
+
+      The last rule, $\mathbb{E}[h(Y)\mid Y]=h(Y)$, says conditioning on $Y$
+      can't change anything already determined by $Y$ — there's no residual
+      randomness left to average over. It looks trivial stated abstractly,
+      but it's the rule that recurs constantly inside multi-step
+      calculations where part of the expression is already a function of
+      the conditioning variable.
+    worked: >
+      Let $Y$ be the number of items sold in a day and $X$ be the profit per
+      item, independent of $Y$ with $\mathbb{E}[X]=4$, and let the day's
+      fixed rent be a constant $100$. The day's total profit is $YX-100$.
+      Taking out what's known applied to $YX$ gives $\mathbb{E}[YX\mid Y] =
+      Y\,\mathbb{E}[X\mid Y]$, and independence collapses $\mathbb{E}[X\mid
+      Y]$ to $\mathbb{E}[X]=4$, so $\mathbb{E}[YX-100\mid Y] = 4Y-100$. On a
+      day with $Y=25$ items sold, this evaluates to $4(25)-100=0$ —
+      break-even at exactly $25$ items, read off the linear rule without
+      ever specifying $X$'s full distribution.
+    interview: >
+      "Simplify $\mathbb{E}[Y^{2}X\mid Y]$" is testing whether you instantly
+      pull $Y^{2}$ out as known and leave $\mathbb{E}[X\mid Y]$ alone — say
+      "$Y^{2}$ is determined by the conditioning, so it comes out" rather
+      than expanding anything.
+    pitfalls: >
+      Pulling $X$ itself out of $\mathbb{E}[h(Y)X\mid Y]$ alongside $h(Y)$
+      is the classic slip — only functions of the conditioning variable
+      factor out, never the variable being averaged. Applying the
+      independence rule just because $X$ and $Y$ "seem unrelated," without
+      independence actually holding, is unjustified; state the hypothesis.
+    recap: >
+      Conditional expectation is linear, lets you factor out anything
+      already determined by $Y$, collapses to $\mathbb{E}[X]$ under
+      independence, and leaves functions of $Y$ untouched — four moves that
+      cover most conditioning algebra.
+
+  - node: quant-probability.conditioning.indicator-conditional
+    hook: >
+      "What's the probability of $A$" and "what's the expected number of
+      $A$-type events" are the same computation wearing different words, and
+      seeing that saves you from learning two separate toolkits.
+    explanation: >
+      An indicator $\mathbf{1}\{A\}$ takes only the values $0$ and $1$, and
+      its expectation given anything is, by the ordinary definition of
+      expectation, $1\cdot\Pr(A\mid\cdot)+0\cdot\Pr(A^{c}\mid\cdot) =
+      \Pr(A\mid\cdot)$ — conditional expectation applied to an indicator is
+      conditional probability by construction, not by a separate theorem.
+
+      Concretely, $\mathbb{E}[\mathbf{1}\{A\}\mid Y]$ is the random variable
+      whose value at $Y=y$ is the number $\Pr(A\mid Y=y)$ — the ordinary
+      conditional probability of $A$ given the event $\{Y=y\}$, nothing new
+      needing to be defined. This node just names the special case.
+
+      Practically, this collapses two toolkits into one: any fact proved
+      later in this unit about conditional expectations — how they average,
+      how they split variance — applies automatically to conditional
+      probabilities once you first write $\Pr(A\mid Y) =
+      \mathbb{E}[\mathbf{1}\{A\}\mid Y]$. "What's the chance of $A$" and
+      "what's the expected number of $A$-type events" become, after that
+      substitution, literally the same computation.
+    worked: >
+      Roll a fair die to get $Y$, then flip a fair coin $Y$ times; let $A$
+      be "at least one flip lands heads." For $Y=3$,
+      $\mathbb{E}[\mathbf{1}\{A\}\mid Y=3] = \Pr(A\mid Y=3) = 1-(1/2)^{3} =
+      7/8$, since $A^{c}$ given $Y=3$ means all three flips are tails,
+      probability $(1/2)^{3}$. The expectation of the indicator and the
+      conditional probability are not two separate quantities to compute —
+      they're the same $7/8$ by definition.
+    interview: >
+      When a question asks for a probability but the natural route only
+      makes sense in expectation language — a continuous conditioning
+      variable, a sum you'd rather average — say "write it as
+      $\mathbb{E}[\mathbf{1}\{A\}\mid Y]$" out loud; it signals probability
+      and expectation aren't two subjects here.
+    pitfalls: >
+      Trying to prove a fact about conditional probabilities from scratch,
+      instead of reusing an already-proved conditional-expectation identity
+      via the indicator trick, wastes time on an interview clock. This
+      substitution is licensed only for indicators of genuine events, not
+      for general "probability-like" quantities dressed up the same way.
+    recap: >
+      $\Pr(A\mid Y) = \mathbb{E}[\mathbf{1}\{A\}\mid Y]$ means every tool
+      built for conditional expectations is already a tool for conditional
+      probabilities, with no separate theory required.
+
+  - node: quant-probability.conditioning.tower
+    hook: >
+      This is the single identity you'll use most in this unit — "condition
+      on the first thing, average back" is the plan behind most hard
+      interview probability questions, and the tower property is why
+      averaging back is legitimate.
+    explanation: >
+      The claim: averaging the conditional forecasts $\mathbb{E}[X\mid Y]$
+      over the possible values of $Y$, weighted by how likely each is,
+      returns exactly the unconditional mean $\mathbb{E}[X]$. In the
+      discrete case this is literally the law of total expectation,
+      $\mathbb{E}[X] = \sum_y \mathbb{E}[X\mid Y=y]\Pr(Y=y)$ — expand
+      $\mathbb{E}[X\mid Y=y]$ using the conditional law, and the double sum
+      over $x$ and $y$ collapses back to $\sum_x x\Pr(X=x)$ by regrouping,
+      since summing $\Pr(X=x,Y=y)$ over $y$ recovers $\Pr(X=x)$.
+
+      Applying it to $X=\mathbf{1}\{A\}$ recovers the law of total
+      probability exactly: $\mathbb{E}[\mathbf{1}\{A\}\mid Y=y]$ is just
+      $\Pr(A\mid Y=y)$ by definition of conditioning on $\{Y=y\}$, so
+      $\Pr(A) = \sum_y \Pr(A\mid Y=y)\Pr(Y=y)$ falls straight out of the
+      discrete form above — total variance's within/between split, met
+      next, is another instance of this one theorem, not a separate fact.
+
+      The intuitive content is that a forecast cannot be biased on average:
+      whatever rule updates your estimate of $X$ once $Y$ is revealed,
+      averaging that rule's output over every possible $Y$ has to land back
+      on the unconditional mean, because you haven't actually gained or
+      lost information by construction — you're re-deriving the same
+      average a different way.
+    worked: >
+      A student's exam score depends on which of two study methods they
+      used, each equally likely: method $A$ yields a mean score of $70$,
+      method $B$ a mean score of $85$. By the tower property,
+      $\mathbb{E}[\text{score}] = 0.5(70)+0.5(85) = 77.5$ — averaging the
+      two conditional means with the method probabilities as weights
+      recovers the overall expected score directly, with no need to know
+      the full score distribution under either method.
+    interview: >
+      "How do you compute an unconditional expectation when the problem
+      naturally splits into cases" is answered by naming the tower property
+      and writing the weighted sum of conditional means immediately — the
+      interviewer is checking you reach for conditioning as a first move,
+      not a last resort.
+    pitfalls: >
+      Averaging the conditional means with the wrong weights — counts
+      instead of probabilities, or a forgotten case — silently corrupts the
+      total. The identity needs $\mathbb{E}|X|<\infty$; without it,
+      $\mathbb{E}[X\mid Y]$ can fail to be well-defined for some $y$ and the
+      averaging step has nothing to work with.
+    recap: >
+      $\mathbb{E}[\mathbb{E}[X\mid Y]] = \mathbb{E}[X]$ — averaging the
+      conditional forecasts over $Y$'s distribution recovers the
+      unconditional mean, and total probability is the special case where
+      $X$ is an indicator.
+
+  - node: quant-probability.conditioning.tower-nested
+    hook: >
+      "I conditioned on more information, then averaged some of it back out
+      — did I gain anything?" comes up in every multi-stage argument, and
+      the answer, "no, you land exactly on the coarser forecast," is what
+      licenses peeling layers off one at a time.
+    explanation: >
+      $\mathbb{E}[\mathbb{E}[X\mid Y,Z]\mid Y]$ starts from the finer
+      forecast using both $Y$ and $Z$, then averages out $Z$ while keeping
+      $Y$ fixed — and the claim is this equals $\mathbb{E}[X\mid Y]$, the
+      forecast that never used $Z$. Conditioning on extra information and
+      then discarding it by averaging cannot manufacture an advantage:
+      whatever edge $Z$ gave you inside the slice $Y=y$ washes out once you
+      average over $Z$'s distribution within that slice, by the ordinary
+      tower property applied inside the world where $Y=y$ is fixed.
+
+      The plain tower property is the special case where the outer
+      conditioning variable is replaced by nothing — averaging out
+      everything you conditioned on leaves the fully unconditional mean,
+      consistent with this more general smoothing statement.
+
+      The practical use is architectural: when a problem has several layers
+      of randomness — a regime, then a signal, then an outcome — condition
+      on whichever layer makes the innermost expectation trivial, then work
+      outward one layer at a time, using this rule to confirm that averaging
+      a fine forecast down to a coarse one is always legitimate and never
+      needs re-deriving.
+    worked: >
+      Roll two independent fair dice, $Y$ the first and $Z$ the second, and
+      let $X=Y+Z$. Trivially $\mathbb{E}[X\mid Y,Z]=Y+Z$, since both dice are
+      already known. Fix $Y=4$ and average out $Z$: $\mathbb{E}[4+Z\mid
+      Y=4] = 4+\mathbb{E}[Z] = 7.5$, using independence of $Z$ from $Y$.
+      This matches $\mathbb{E}[X\mid Y=4]$ computed directly the same way —
+      conditioning on $Z$ and averaging it back out reproduced the coarser
+      forecast $7.5$ exactly.
+    interview: >
+      "You're allowed to peek at an extra signal but must forget it before
+      acting — does that peek help on average" tests this rule directly; the
+      sharp answer is "no, averaging a finer conditional expectation back
+      down to the coarser conditioning always returns the coarser one,
+      exactly."
+    pitfalls: >
+      The outer conditioning variable must be a subset of the inner one
+      ($Y$ alone, versus $Y$ and $Z$ together) — averaging $\mathbb{E}[X\mid
+      Y,Z]$ down to a variable unrelated to $Y,Z$ has no such guarantee.
+      Trying to run this the other way — building $\mathbb{E}[X\mid Y,Z]$
+      out of $\mathbb{E}[X\mid Y]$ — is not licensed; information can't be
+      manufactured in that direction either.
+    recap: >
+      Conditioning on more and then averaging back down to less returns
+      exactly the coarser conditional expectation — the rule that lets
+      multi-stage arguments peel off layers of information without penalty.
+
+  - node: quant-probability.conditioning.conditional-variance
+    hook: >
+      "How much uncertainty is left once you know $Y$" is a question every
+      risk desk asks about every signal, and conditional variance is the
+      object that answers it exactly.
+    explanation: >
+      $\operatorname{Var}(X\mid Y)$ is built exactly like ordinary variance,
+      but every expectation inside the formula is replaced by a conditional
+      one: it's $\mathbb{E}[(X-\mathbb{E}[X\mid Y])^{2}\mid Y]$, the average
+      squared deviation from the conditional mean, computed inside the
+      conditional law at each fixed $y$. Expanding the square gives the
+      computational form $\mathbb{E}[X^{2}\mid Y]-(\mathbb{E}[X\mid
+      Y])^{2}$, the same algebra that turns ordinary variance into
+      $\mathbb{E}[X^{2}]-(\mathbb{E}[X])^{2}$, done inside each slice.
+
+      Like $\mathbb{E}[X\mid Y]$, this is a random variable — a function of
+      $Y$ alone — and it's nonnegative for every value of $Y$ since it's an
+      average of squares. It measures the residual uncertainty about $X$
+      once $Y$ has been revealed: not "how spread out is $X$ overall," but
+      "how spread out is $X$ within the specific slice $Y=y$ you land in."
+
+      When $X$ and $Y$ are independent, the conditional law of $X$ given
+      $Y=y$ is the same for every $y$ — $X$'s own marginal law — so
+      $\operatorname{Var}(X\mid Y)$ collapses to the constant
+      $\operatorname{Var}(X)$: knowing $Y$ leaves exactly as much
+      uncertainty as not knowing it.
+    worked: >
+      A stock's daily return has an unknown regime $Y$ (calm or volatile,
+      each with probability $0.5$). Given calm, returns have mean $0$ and
+      variance $1$; given volatile, mean $0$ and variance $9$. Then
+      $\operatorname{Var}(X\mid Y)$ takes value $1$ when $Y=\text{calm}$ and
+      $9$ when $Y=\text{volatile}$ — a two-valued random variable, not a
+      single number, capturing that the residual risk genuinely depends on
+      the regime.
+    interview: >
+      "Once you observe the regime, how much risk is left" is answered by
+      naming $\operatorname{Var}(X\mid Y)$ as a function of $Y$, not a
+      single figure — a common follow-up asks you to compute
+      $\mathbb{E}[X^{2}\mid Y]$ minus the squared conditional mean, since
+      that's what you'd actually compute by hand.
+    pitfalls: >
+      Reporting a single number for $\operatorname{Var}(X\mid Y)$ instead of
+      a function of $Y$ drops exactly the information the object is built
+      to carry. Forgetting to square the conditional mean before
+      subtracting reproduces the same slip as with ordinary variance.
+    recap: >
+      $\operatorname{Var}(X\mid Y) = \mathbb{E}[X^{2}\mid
+      Y]-(\mathbb{E}[X\mid Y])^{2}$ is the leftover spread of $X$ once $Y$
+      is known, itself random in $Y$, and it collapses to plain
+      $\operatorname{Var}(X)$ exactly when $Y$ carries no information.
+
+  - node: quant-probability.conditioning.total-variance
+    hook: >
+      "How would you decompose the risk of a metric that depends on an
+      unobserved regime" is answered in one line by this theorem, and it's
+      why pooled variance is never just the average of within-group
+      variances.
+    explanation: >
+      Expand $\operatorname{Var}(X) = \mathbb{E}[X^{2}]-(\mathbb{E}[X])^{2}$
+      and apply the tower property to each piece:
+      $\mathbb{E}[X^{2}]=\mathbb{E}[\mathbb{E}[X^{2}\mid Y]]$ and
+      $(\mathbb{E}[X])^{2} = (\mathbb{E}[\mathbb{E}[X\mid Y]])^{2}$.
+      Rewriting $\mathbb{E}[X^{2}\mid Y]$ as $\operatorname{Var}(X\mid
+      Y)+(\mathbb{E}[X\mid Y])^{2}$ — conditional variance's own definition,
+      rearranged — and regrouping the two occurrences of $(\mathbb{E}[X\mid
+      Y])^{2}$ produces exactly $\operatorname{Var}(\mathbb{E}[X\mid Y])$
+      alongside $\mathbb{E}[\operatorname{Var}(X\mid Y)]$: bookkeeping once
+      the tower property is granted.
+
+      Read the two pieces as within-group and between-group variation:
+      $\mathbb{E}[\operatorname{Var}(X\mid Y)]$ is the average spread inside
+      each value of $Y$, and $\operatorname{Var}(\mathbb{E}[X\mid Y])$ is
+      the spread of the group means themselves as $Y$ varies. This is the
+      split behind why a mixture of regimes is riskier than any single
+      regime alone.
+
+      Because both summands are variances of real random variables, both
+      are nonnegative, giving two free bounds:
+      $\operatorname{Var}(\mathbb{E}[X\mid Y]) \le \operatorname{Var}(X)$ (a
+      forecast is never more spread out than the thing it forecasts) and
+      $\mathbb{E}[\operatorname{Var}(X\mid Y)] \le \operatorname{Var}(X)$
+      (conditioning on average never increases the leftover spread).
+    worked: >
+      Revisit the calm/volatile regime: $\Pr(Y=\text{calm}) =
+      \Pr(Y=\text{volatile}) = 0.5$, both regimes have mean return $0$,
+      variances $1$ and $9$. Within-group: $\mathbb{E}[\operatorname{Var}(X
+      \mid Y)] = 0.5(1)+0.5(9) = 5$. Between-group: both conditional means
+      are $0$, so $\operatorname{Var}(\mathbb{E}[X\mid Y]) = 0$. Total
+      $\operatorname{Var}(X) = 5$ — all the risk here is within-regime,
+      since the regimes share the same mean; the between-group term only
+      appears once the group means actually differ.
+    interview: >
+      "Why isn't the variance of a mixture just the weighted average of the
+      component variances" is answered by naming the missing between-group
+      term $\operatorname{Var}(\mathbb{E}[X\mid Y])$ explicitly — the
+      interviewer wants you to identify that differing group means, not
+      just differing group spreads, add extra variance.
+    pitfalls: >
+      Reporting $\mathbb{E}[\operatorname{Var}(X\mid Y)]$ alone as the total
+      variance understates risk whenever the conditional means actually
+      differ across $Y$. The theorem needs only $\mathbb{E}[X^{2}]<\infty$,
+      not independence or any distributional assumption on $Y$.
+    recap: >
+      $\operatorname{Var}(X) = \mathbb{E}[\operatorname{Var}(X\mid Y)] +
+      \operatorname{Var}(\mathbb{E}[X\mid Y])$ splits total risk into
+      average within-regime spread plus the spread of regime means — both
+      terms nonnegative, both bounded by $\operatorname{Var}(X)$.
+
+  - node: quant-probability.conditioning.best-predictor
+    hook: >
+      "What's the best possible forecast of $X$ given $Y$, in mean-square
+      error" is answered by $\mathbb{E}[X\mid Y]$, full stop, no linearity
+      assumed — the theoretical justification behind every regression and
+      every trading signal built on conditioning.
+    explanation: >
+      The claim is a genuine optimisation: among every function $g$ of $Y$
+      with finite second moment, not just linear ones, $g(Y)=\mathbb{E}[X
+      \mid Y]$ minimises $\mathbb{E}[(X-g(Y))^{2}]$. The load-bearing step
+      is a decomposition: write $X-g(Y) = (X-\mathbb{E}[X\mid
+      Y])+(\mathbb{E}[X\mid Y]-g(Y))$, square it, and expand. The cross term
+      vanishes because the residual $X-\mathbb{E}[X\mid Y]$ is orthogonal to
+      every function of $Y$, $\mathbb{E}[(X-\mathbb{E}[X\mid Y])h(Y)]=0$ for
+      any $h$ — itself the tower property combined with taking out what's
+      known.
+
+      With the cross term gone, $\mathbb{E}[(X-g(Y))^{2}] =
+      \mathbb{E}[(X-\mathbb{E}[X\mid Y])^{2}] + \mathbb{E}[(\mathbb{E}[X\mid
+      Y]-g(Y))^{2}]$, a sum of two nonnegative pieces where only the second
+      depends on your choice of $g$. It's smallest, namely $0$, exactly when
+      $g(Y)=\mathbb{E}[X\mid Y]$, leaving the minimum error as the first
+      piece, $\mathbb{E}[\operatorname{Var}(X\mid Y)]$.
+
+      This is why linear regression is only ever an approximation: it
+      restricts the search to affine functions $g(Y)=a+bY$, a strictly
+      smaller set than "all functions of $Y$," so the best affine predictor
+      can only tie or lose to $\mathbb{E}[X\mid Y]$ — it ties exactly when
+      the joint law is bivariate normal, since there the true best predictor
+      already is linear.
+    worked: >
+      Let $Y$ be uniform on $\{1,2,3\}$ and, given $Y=y$, let $X\sim
+      \operatorname{Uniform}\{1,\dots,y\}$, so $\mathbb{E}[X\mid
+      Y]=(Y+1)/2$ and $\operatorname{Var}(X\mid Y=y) = (y^{2}-1)/12$.
+      Among all guessing rules, this minimises mean-squared error; the
+      minimum error itself is $\mathbb{E}[\operatorname{Var}(X\mid Y)] =
+      \left(0+\tfrac{3}{12}+\tfrac{8}{12}\right)/3 = 11/36$, and a constant
+      guess like $g(Y)=2$ has strictly larger mean-squared error than
+      $11/36$.
+    interview: >
+      "Why is $\mathbb{E}[X\mid Y]$ called the best predictor, and best in
+      what sense" checks that you can state mean-squared error explicitly
+      and that no linearity is assumed — a common follow-up asks when linear
+      regression achieves the same minimum, and the bivariate normal is the
+      expected answer.
+    pitfalls: >
+      Assuming the optimality is only among linear predictors misses the
+      entire content of the result — it's among all functions of $Y$.
+      Forgetting the orthogonality step is the usual reason people can't
+      reproduce the proof: the cross term vanishing is not obvious without
+      invoking that the residual is orthogonal to every function of $Y$.
+    recap: >
+      No function of $Y$, linear or not, beats $\mathbb{E}[X\mid Y]$ under
+      squared-error loss, and the leftover error is exactly
+      $\mathbb{E}[\operatorname{Var}(X\mid Y)]$ — why regression is always
+      an approximation to something already optimal.
+
+  - node: quant-probability.conditioning.projection-view
+    hook: >
+      Every fact proved so far in this unit — linearity, the orthogonality
+      step behind the best-predictor property, total variance — falls out
+      of one picture: conditional expectation is a right angle.
+    explanation: >
+      Treat square-integrable random variables as vectors, with inner
+      product $\langle U,V\rangle = \mathbb{E}[UV]$ — "orthogonal" then
+      means $\mathbb{E}[UV]=0$, and "length squared" means
+      $\mathbb{E}[U^{2}]$. The functions of $Y$ form a subspace of this
+      vector space, and the orthogonality fact used to prove $\mathbb{E}[X
+      \mid Y]$ is the best mean-square predictor — that $X-\mathbb{E}[X\mid
+      Y]$ is perpendicular to every function of $Y$ — says exactly that
+      $\mathbb{E}[X\mid Y]$ is the orthogonal projection of $X$ onto that
+      subspace, in the ordinary Euclidean sense of "closest point in a
+      subspace."
+
+      Every property in the unit becomes geometry. Linearity of conditional
+      expectation is linearity of projection. $\mathbb{E}[\mathbb{E}[X\mid
+      Y]\mid Y]=\mathbb{E}[X\mid Y]$ (projecting an already-projected vector
+      changes nothing) is idempotence. Nested conditioning,
+      $\mathbb{E}[\mathbb{E}[X\mid Y,Z]\mid Y]=\mathbb{E}[X\mid Y]$, is
+      projecting onto the smaller subspace of functions of $Y$ alone, which
+      sits inside the larger subspace of functions of $(Y,Z)$ — projecting
+      onto a subspace of a subspace collapses to one projection onto the
+      smaller one.
+
+      Total variance becomes the Pythagorean theorem: $X = \mathbb{E}[X\mid
+      Y] + (X-\mathbb{E}[X\mid Y])$ splits $X$ into a piece inside the
+      subspace and a piece orthogonal to it, so squared lengths add — the
+      variance identity is exactly that statement once means are subtracted
+      off correctly. Linear regression is the same projection restricted to
+      the smaller subspace of affine functions of $Y$, which is why it can
+      only lose length compared to the full projection onto all functions
+      of $Y$.
+    interview: >
+      "Why does $\mathbb{E}[X\mid Y]$ minimise mean-squared error" answered
+      with "it's an orthogonal projection, and the closest point in a
+      subspace is always the perpendicular foot" is the fastest, most
+      memorable version of the best-predictor argument, and naming total
+      variance as Pythagoras in the same breath signals real fluency.
+    pitfalls: >
+      The inner product $\langle U,V\rangle=\mathbb{E}[UV]$ requires both to
+      have finite second moment — this picture is only valid for
+      square-integrable random variables, not general ones with only a
+      finite first moment. Don't over-extend the metaphor to claims about
+      probabilities or events directly; it applies to expectations and
+      mean-square distance specifically.
+    recap: >
+      Conditional expectation is orthogonal projection onto the subspace of
+      functions of $Y$, with mean-square distance as the metric — best
+      predictor is "closest point," idempotence is "projecting twice does
+      nothing," and total variance is Pythagoras.
+
+  - node: quant-probability.conditioning.conditioning-reduces-variance
+    hook: >
+      "Is this signal worth having" is answered by how much of
+      $\operatorname{Var}(X)$ the term $\operatorname{Var}(\mathbb{E}[X\mid
+      Y])$ actually claims — this node turns total variance into a genuine
+      tool for valuing information.
+    explanation: >
+      Total variance gives $\mathbb{E}[\operatorname{Var}(X\mid Y)] \le
+      \operatorname{Var}(X)$ immediately, since the other summand
+      $\operatorname{Var}(\mathbb{E}[X\mid Y])$ is nonnegative — on average,
+      the leftover uncertainty after learning $Y$ can't exceed the
+      uncertainty you started with, with equality exactly when
+      $\mathbb{E}[X\mid Y]$ is a constant and $Y$ carries no information
+      about $X$'s mean at all.
+
+      The word "average" is essential and easy to misread: the inequality
+      is about $\mathbb{E}[\operatorname{Var}(X\mid Y)]$, not about
+      $\operatorname{Var}(X\mid Y=y)$ for any particular $y$. A signal that
+      usually clarifies the picture can still land you, on an unlucky draw,
+      in a regime where the residual variance exceeds the unconditional
+      variance — a piece of news that resolves most scenarios cleanly but
+      occasionally reveals you're in the one genuinely murky case.
+
+      The trading reading turns the identity into a valuation formula: a
+      signal $Y$ is worth having exactly to the degree that
+      $\operatorname{Var}(\mathbb{E}[X\mid Y])$ is a large share of
+      $\operatorname{Var}(X)$, since that ratio is literally the fraction of
+      total variance the signal explains — the same quantity called $R^{2}$
+      once specialised to linear regression.
+    worked: >
+      A weather signal $Y$ (rain forecast probability) has
+      $\operatorname{Var}(X)=4$ for tomorrow's rainfall amount, with
+      $\mathbb{E}[\operatorname{Var}(X\mid Y)]=3.6$ and hence
+      $\operatorname{Var}(\mathbb{E}[X\mid Y])=0.4$. The forecast explains
+      $0.4/4=10\%$ of the variance — a weak but genuine signal; a second
+      sensor with $\mathbb{E}[\operatorname{Var}(X\mid Y)]=1$ would explain
+      $75\%$ and be worth far more, even though both satisfy the same
+      inequality $\mathbb{E}[\operatorname{Var}(X\mid Y)]\le 4$.
+    interview: >
+      "Is this indicator actually useful, or just noise dressed up as a
+      signal" is answered by estimating what share of $\operatorname{Var}
+      (X)$ the term $\operatorname{Var}(\mathbb{E}[X\mid Y])$ claims, not by
+      checking the inequality holds (it always does) — the interviewer
+      wants the ratio, not the sign.
+    pitfalls: >
+      Concluding that conditioning on $Y$ helps in every realized instance
+      because it helps on average is exactly the trap this node warns
+      against — a specific value of $Y$ can leave you worse off. Treating
+      $\mathbb{E}[\operatorname{Var}(X\mid Y)] \le \operatorname{Var}(X)$ as
+      informative on its own, without computing how much smaller, misses
+      whether a signal is strong or negligible.
+    recap: >
+      Conditioning cannot raise expected uncertainty, but a particular
+      realization of the signal can — and $\operatorname{Var}(\mathbb{E}[X
+      \mid Y])/\operatorname{Var}(X)$ is what actually prices how valuable a
+      signal is.
+
+  - node: quant-probability.conditioning.condition-first-step
+    hook: >
+      "Set up an equation for the unknown by conditioning on the very first
+      thing that can happen" solves a huge share of process and game
+      interview questions in three lines, and it's the single most reusable
+      technique in this part of the interview.
+    explanation: >
+      The mechanics: identify the first random event $Y$ once the process
+      starts — the first toss, the first draw, whichever of several clocks
+      rings first — enumerate its outcomes and their probabilities, then
+      evaluate the target quantity conditional on each outcome using
+      whatever makes the rest of the problem tractable (often: the
+      remainder of the process looks just like the original problem,
+      restarted). Recombine with the tower property, averaging the
+      conditional values by the first step's probabilities.
+
+      This is so often the right move rather than direct enumeration
+      because "conditional on each first-step outcome" frequently collapses
+      the remaining problem back to the same unknown quantity you started
+      with — the process is memoryless or self-similar after one step —
+      turning an infinite sum over all possible outcomes into a single
+      algebraic equation in one unknown.
+
+      Multi-state versions — several distinguishable states, each with its
+      own first-step analysis — produce not one equation but a linear
+      system, one equation per state, solved together; that system-building
+      step is exactly what linear recurrences and first-step analysis
+      formalise for repeated use.
+    worked: >
+      Two players alternately toss a coin biased $p=0.6$ toward heads; the
+      first to toss heads wins, and $q$ is the probability the starter
+      wins. Condition on the starter's first toss: with probability $0.6$
+      the starter wins immediately; with probability $0.4$ it's a tail, and
+      the opponent is now in the starter's original position, so the
+      original starter's win probability from there is $1-q$. So
+      $q=0.6+0.4(1-q)$, giving $1.4q=1.0$ and $q=5/7$.
+    interview: >
+      Any "two players/particles/processes alternate or race, what's the
+      probability the first one wins" question is solved by conditioning on
+      the first step and noticing the position resets — say "condition on
+      step one, and the remaining game is the same problem with the roles
+      swapped" before writing any equation.
+    pitfalls: >
+      Forgetting that after certain first-step outcomes the roles swap (the
+      responder becomes the new starter) is the most common setup error —
+      get the recursion's structure right before solving it. This technique
+      needs the restart property to collapse to one unknown; without it you
+      get a genuinely different equation per stage and need the full
+      linear-system machinery instead.
+    recap: >
+      Split on the first event, write the target's value conditional on
+      each branch, average by the tower property — the biased alternating
+      coin above gives the starter a $5/7$ chance to win in one short
+      equation.
+
+  - node: quant-probability.conditioning.random-sums
+    hook: >
+      "The number of trades/claims/customers today is itself random" is the
+      setup behind most "law of total X" questions about aggregate risk,
+      and this proposition is the one-line answer for both the mean and the
+      variance of the total.
+    explanation: >
+      Condition on $N$ and treat it as a fixed number $n$: $S=X_1+\dots+
+      X_N$ becomes an ordinary sum of $n$ iid terms, so $\mathbb{E}[S\mid
+      N=n]=n\mu$ and $\operatorname{Var}(S\mid N=n)=n\sigma^{2}$ by the
+      standard formulas for sums of iid variables — nothing about
+      randomness in $N$ complicates this step, since $N$ is held fixed
+      inside the conditioning. Writing this as $\mathbb{E}[S\mid N]=N\mu$
+      and $\operatorname{Var}(S\mid N)=N\sigma^{2}$ packages both as random
+      variables in $N$.
+
+      The tower property turns $\mathbb{E}[S\mid N]=N\mu$ directly into
+      $\mathbb{E}[S]=\mathbb{E}[N]\mu$. The variance needs total variance:
+      $\operatorname{Var}(S) = \mathbb{E}[\operatorname{Var}(S\mid N)] +
+      \operatorname{Var}(\mathbb{E}[S\mid N]) = \mathbb{E}[N]\sigma^{2} +
+      \operatorname{Var}(N\mu) = \mathbb{E}[N]\sigma^{2} +
+      \mu^{2}\operatorname{Var}(N)$ — the within-group term is average
+      per-term noise scaled by how many terms there typically are, and the
+      between-group term is new: the extra variance contributed purely by
+      not knowing $N$ in advance.
+
+      That second term is the entire point: a process with a fixed count
+      $\mathbb{E}[N]$ has variance only $\mathbb{E}[N]\sigma^{2}$, so
+      treating a random count as if it were its average silently drops
+      $\operatorname{Var}(N)\mu^{2}$ of real variance. Independence of $N$
+      from the sequence is essential throughout; if the count is chosen by
+      watching the $X_i$ as they arrive, the martingale machinery is needed
+      instead.
+    worked: >
+      An insurer receives $N$ claims a month with $\mathbb{E}[N]=50$,
+      $\operatorname{Var}(N)=20$, and each claim's payout is independent of
+      $N$ and of other claims with mean $\mu=3\,000$ dollars and variance
+      $\sigma^{2}=4\,000\,000$. Then $\mathbb{E}[S]=50\cdot 3\,000 =
+      150\,000$ dollars and $\operatorname{Var}(S) = 50(4\,000\,000) +
+      20(3\,000)^{2} = 200\,000\,000+180\,000\,000 = 380\,000\,000$, so the
+      standard deviation is $\sqrt{380\,000\,000} \approx 19\,494$ dollars —
+      the random claim count contributes nearly as much variance as the
+      claim sizes themselves here.
+    interview: >
+      "The number of $X$ is itself random — find the mean and variance of
+      the total" is answered by conditioning on the count first, applying
+      the tower property for the mean and total variance for the variance,
+      and stating explicitly that $\operatorname{Var}(N)\mu^{2}$ is what a
+      fixed-count model would miss.
+    pitfalls: >
+      Assuming $\operatorname{Var}(S)=\mathbb{E}[N]\sigma^{2}$ alone,
+      ignoring the second term entirely, is the standard error — it
+      silently assumes $N$ is deterministic. Independence of $N$ from the
+      $X_i$ sequence is a hypothesis, not automatic; a count correlated
+      with the sizes needs a different treatment.
+    recap: >
+      Conditioning on the random count gives $\mathbb{E}[S]=\mathbb{E}[N]
+      \mu$ and $\operatorname{Var}(S)=\mathbb{E}[N]\sigma^{2}+
+      \operatorname{Var}(N)\mu^{2}$ — the second term is the extra risk a
+      fixed-count model would miss entirely.
+
+  - node: quant-probability.conditioning.random-sums-desk
+    hook: >
+      The two-line variance split here is the fastest way to answer "how
+      much does an uncertain trade count actually add to your day's risk,"
+      and the answer is usually "less than you'd guess."
+    explanation: >
+      This is the mean and variance of a random sum plugged into a single
+      concrete desk: $N$ trades with a given mean and variance, each trade
+      an iid draw with its own mean and standard deviation, independent of
+      $N$. The two variance contributors separate cleanly —
+      $\mathbb{E}[N]\sigma^{2}$ from trade-level noise,
+      $\operatorname{Var}(N)\mu^{2}$ from not knowing how many trades will
+      happen — and comparing their sizes is the entire exercise.
+
+      The comparison usually favors trade-level noise by a wide margin
+      whenever a single trade's mean $\mu$ is small relative to its
+      standard deviation $\sigma$, since the count's contribution scales
+      with $\mu^{2}$ while the trade-noise term scales with $\sigma^{2}$ — a
+      strategy with thin per-trade edge and fat per-trade risk is dominated
+      by $\sigma$, and randomness in the trade count barely registers.
+
+      The practical use of splitting the two terms is diagnostic: if a desk
+      wants to shrink its P&L variance, the split tells you whether to
+      target trade-level risk (position sizing, hedging) or count-level
+      risk (execution consistency, capacity limits) — attacking the wrong
+      one wastes effort.
+    worked: >
+      A different desk profile: $\mathbb{E}[N]=200$,
+      $\operatorname{Var}(N)=400$, and each trade has mean $\mu=5$ dollars,
+      standard deviation $\sigma=8$ dollars. Then $\mathbb{E}[S]=200\cdot 5
+      = 1\,000$ dollars and $\operatorname{Var}(S) = 200(64)+400(25) =
+      12\,800+10\,000 = 22\,800$, so the standard deviation is
+      $\sqrt{22\,800}\approx 151$ dollars — the count's contribution
+      ($10\,000$) is nearly as large as the trade-level noise ($12\,800$)
+      here, since this trade's edge $\mu=5$ is large relative to its own
+      noise $\sigma=8$.
+    interview: >
+      "Does a more volatile trade count matter more for a high-frequency,
+      thin-edge strategy or a low-frequency, fat-edge one" is answered by
+      comparing $\mathbb{E}[N]\sigma^{2}$ against $\operatorname{Var}(N)
+      \mu^{2}$ directly — a strong answer states that count variance
+      matters more exactly when $\mu$ is large relative to $\sigma$.
+    pitfalls: >
+      Assuming the count's contribution is always negligible, because it
+      often is for thin-edge strategies, misses cases like this desk where
+      $\mu$ is comparable to $\sigma$ and the count term rivals trade-level
+      noise. Reporting variance instead of standard deviation when asked
+      "how much extra risk in dollars" misstates the units by a square.
+    recap: >
+      With $\mathbb{E}[N]=200$, $\operatorname{Var}(N)=400$, $\mu=5$,
+      $\sigma=8$ dollars, the standard deviation is about $151$ dollars, and
+      here the uncertain count contributes almost as much variance as
+      trade-level noise — because $\mu$ is large relative to $\sigma$.
+
+  - node: quant-probability.conditioning.truncated-mean
+    hook: >
+      "Given it's already lasted this long, how much longer should you
+      expect to wait" is a memorylessness stress test — exponential says the
+      past is irrelevant, uniform says it isn't, and confusing the two is
+      the classic trap.
+    explanation: >
+      For $X\sim\operatorname{Exp}(\lambda)$, the tail probability
+      $\Pr(X>t+s\mid X>t) = \Pr(X>t+s)/\Pr(X>t) = e^{-\lambda(t+s)}/
+      e^{-\lambda t} = e^{-\lambda s}$ depends only on $s$, not on $t$ — the
+      elapsed time cancels completely out of the ratio, the load-bearing
+      algebraic step. So the overshoot $X-t$, conditional on having
+      survived to $t$, has exactly the same $\operatorname{Exp}(\lambda)$
+      law it started with, and its mean is $1/\lambda$ regardless of $t$,
+      giving $\mathbb{E}[X\mid X>t] = t+1/\lambda$.
+
+      The uniform case runs the opposite way precisely because it lacks
+      that cancellation: conditioning $U\sim\operatorname{Uniform}(0,1)$ on
+      $\{U>t\}$ restricts to the interval $(t,1)$, and since the density was
+      already flat, the restricted law is exactly $\operatorname{Uniform}
+      (t,1)$ — its mean is the interval's midpoint, $(1+t)/2$, and the
+      remaining expected wait $(1-t)/2$ shrinks toward $0$ as $t\to 1$.
+
+      The general lesson: $\mathbb{E}[X\mid X>t]-t$, the expected remaining
+      wait, is constant in $t$ exactly for the memoryless exponential, and
+      this single computation is the standard way an interview checks
+      whether you actually understand memorylessness rather than just
+      reciting the definition.
+    worked: >
+      A machine's time to failure is $\operatorname{Exp}(\lambda)$ with
+      mean $1/\lambda=4$ years; given it has already run for $6$ years, the
+      expected total lifetime is $6+4=10$ years — three more years of
+      survival added exactly three more years to the answer. Contrast a
+      component with a uniform lifetime on $(0,8)$ years: given it has
+      survived $6$ years, its conditional mean lifetime is $(8+6)/2=7$
+      years, only $1$ more year expected beyond the $6$ already elapsed —
+      the uniform component is "aging," its expected remaining life
+      shrinking the longer it survives.
+    interview: >
+      "A part has survived $t$ years already — what's its expected total
+      lifetime" tests memorylessness directly for an exponential ("no
+      penalty or bonus for age, just add the mean"), and swapping in a
+      uniform or bounded lifetime is the natural follow-up to check you
+      don't blindly reuse $t+1/\lambda$ where it doesn't apply.
+    pitfalls: >
+      Applying $t+1/\lambda$ to a non-exponential lifetime is the single
+      most common error this node exists to prevent — memorylessness is a
+      special property of the exponential, not a general fact about
+      conditioning on survival. Forgetting the uniform's support is bounded
+      above and computing a remaining-wait formula that ignores the upper
+      endpoint breaks the calculation.
+    recap: >
+      Exponential survival adds no information — $\mathbb{E}[X\mid X>t] =
+      t+1/\lambda$ always — while a bounded uniform's remaining expected
+      wait genuinely shrinks as $t$ grows, $(1+t)/2$ on $(0,1)$.
+
+  - node: quant-probability.conditioning.regime-mixture
+    hook: >
+      "Mixing two calm-looking regimes still gives you extra risk from the
+      fact that their means differ" is the numeric gut-check every total
+      variance calculation should pass before trusting it.
+    explanation: >
+      This is the law of total variance applied to a two-point regime
+      variable $Y$: compute $\mathbb{E}[X]$ as the probability-weighted
+      average of the regime means, then split $\operatorname{Var}(X)$ into
+      $\mathbb{E}[\operatorname{Var}(X\mid Y)]$ (the weighted average of the
+      regime variances) plus $\operatorname{Var}(\mathbb{E}[X\mid Y])$,
+      which for a two-point $Y$ with conditional means $m_1,m_2$ and
+      probabilities $p,1-p$ simplifies to $p(1-p)(m_1-m_2)^{2}$ — a formula
+      worth memorising for exactly this shape.
+
+      The comparison worth internalising: naively averaging the two regime
+      variances, ignoring that the means differ, always understates the
+      true total variance whenever $m_1\ne m_2$, since it drops the entire
+      between-group term. The gap grows with how far apart the regime means
+      are and with how balanced the regime probabilities are — maximised,
+      for fixed means, at $p=0.5$.
+
+      This two-regime shape recurs constantly: bull and bear markets, on
+      and off promotional pricing, day and night traffic — anywhere a
+      variable's mean shifts between a small number of states, the
+      between-group term is not an edge case to check for, it's the default
+      source of extra variance.
+    worked: >
+      A trading strategy is "on" with probability $0.3$, earning mean P&L
+      $10$ dollars with standard deviation $4$ dollars, and "off" with
+      probability $0.7$, earning mean $0$ with standard deviation $1$
+      dollar. Then $\mathbb{E}[X] = 0.3(10)+0.7(0) = 3$. Within-group:
+      $\mathbb{E}[\operatorname{Var}(X\mid Y)] = 0.3(16)+0.7(1) = 5.5$.
+      Between-group: $p(1-p)(m_1-m_2)^{2} = (0.3)(0.7)(10)^{2} = 21$. Total
+      $\operatorname{Var}(X)=26.5$, standard deviation
+      $\sqrt{26.5}\approx 5.15$ dollars — averaging the two variances alone
+      ($5.5$) would have understated the true variance by nearly a factor
+      of five, because almost all the risk here comes from not knowing
+      whether the strategy is on.
+    interview: >
+      "A strategy is only sometimes active — how do you find its overall
+      P&L variance" is answered by naming the two-point total-variance
+      formula directly, $\mathbb{E}[\operatorname{Var}(X\mid Y)] +
+      p(1-p)(m_1-m_2)^{2}$, rather than averaging the component variances.
+    pitfalls: >
+      Averaging the two regime variances and stopping there is the error
+      this example exists to make vivid, understating risk here by nearly
+      $5\times$. Using the wrong weights in the between-group term, or
+      forgetting to square the mean difference, mis-states its contribution.
+    recap: >
+      An on/off strategy with regime probabilities $0.3/0.7$ and means
+      $10/0$ dollars has standard deviation about $5.15$ dollars, almost
+      entirely from the between-regime term $21$ — averaging the component
+      variances alone would have badly understated the risk.
+
+  - node: quant-probability.conditioning.exchangeable-share
+    hook: >
+      "Given the total, what's the expected value of just one of the
+      contributing pieces" is answered instantly by symmetry whenever the
+      pieces are exchangeable — no distribution ever needs to be computed.
+    explanation: >
+      Symmetry, not independence, is the hypothesis: if $X_1,\dots,X_n$ are
+      exchangeable, permuting their labels doesn't change the joint law, so
+      relabelling inside the conditioning event $\{S=s\}$ leaves everything
+      unchanged too — every $\mathbb{E}[X_i\mid S]$ must equal every other
+      one, since nothing in the setup distinguishes index $i$ from index
+      $j$ once you know only their sum.
+
+      The rest is one line of algebra: summing the (all equal) conditional
+      expectations over $i=1,\dots,n$ gives $\sum_i \mathbb{E}[X_i\mid S] =
+      \mathbb{E}[\sum_i X_i\mid S] = \mathbb{E}[S\mid S] = S$, using
+      linearity and the rule that a function of $S$ passes through
+      conditioning on $S$ unchanged. Since all $n$ terms on the left are
+      identical, each one equals $S/n$ — no distributional computation, no
+      need to even know the individual $X_i$'s marginal law.
+
+      The result is special to the sum, not a general symmetry fact:
+      conditioning on $\max(X_1,\dots,X_n)$ or on $X_1-X_2$ instead of $S$
+      does not give a clean closed form this way, because those statistics
+      don't interact with "sum of conditional expectations equals
+      conditional expectation of the sum" the same way — the sum is exactly
+      the one function of the $X_i$ for which linearity turns "add up $n$
+      equal unknowns" into "solve for one."
+    worked: >
+      Deal five cards from a well-shuffled standard deck and let $X_i$ be
+      the numeric value of the $i$-th card (ace $=1$, ..., king $=13$),
+      exchangeable since the deck is uniformly shuffled. Given the five
+      cards sum to $S=40$, each card's conditional expected value is
+      $\mathbb{E}[X_i\mid S=40] = 40/5 = 8$ — true for every one of the
+      five cards individually, without ever working out which specific
+      hands sum to $40$.
+    interview: >
+      "Given the total of $n$ symmetric draws, what's the expected value of
+      one specific draw" should be answered immediately with $S/n$ and the
+      one-line symmetry argument — interviewers use this to check whether
+      you reach for symmetry before reaching for a distributional
+      computation that isn't needed.
+    pitfalls: >
+      Applying $S/n$ when the $X_i$ are not exchangeable — different
+      distributions, or non-symmetric dependence — has no justification;
+      the equal-conditional-expectation step is exactly where it breaks.
+      Trying the same trick on $\max(X_i)$ or a difference like $X_1-X_2$
+      doesn't work; the clean closed form is special to conditioning a
+      summand on the sum.
+    recap: >
+      Given the total $S$ of $n$ exchangeable variables, each one's
+      conditional expectation is $S/n$ by symmetry alone — five cards
+      summing to $40$ give each card conditional mean $8$, no distribution
+      needed.

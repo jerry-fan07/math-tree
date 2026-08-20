@@ -1,0 +1,1053 @@
+unit: quant-probability.joint
+opening: >
+  A single random variable only ever tells you about itself; the moment a
+  desk problem involves two quantities that move together — a hedge, a
+  spread, a portfolio — you need the joint law, and this unit builds the
+  toolkit for handling it. It opens with joint pmfs, densities and
+  marginals, then independence and the quick support test that can rule it
+  out on sight. The long middle section is covariance and correlation:
+  their algebra, their bounds, and the single most common conceptual trap
+  in the whole subject — mistaking zero correlation for zero dependence.
+  From there, variance of a sum exposes exactly where dependence enters a
+  risk calculation, convolution gives the law of a sum outright, and a
+  short technique handles the expected max and min of two variables with
+  no independence assumption at all. The unit closes with the bivariate
+  and multivariate normal, the one family where correlation really does
+  tell the whole story.
+lessons:
+  - node: quant-probability.joint.joint-law
+    hook: >
+      "Give me the joint distribution" is the interviewer checking whether
+      you reach for a single table or density instead of trying to patch
+      two separate one-variable answers together.
+    explanation: >
+      A joint pmf or density is the same object as a single-variable one,
+      just indexed by a pair instead of a point: it assigns mass or
+      density to every outcome $(x,y)$, and the two marginals are what's
+      left after you stop caring about one coordinate — sum or integrate
+      it away. Nothing new is defined here beyond bookkeeping over pairs
+      instead of points.
+
+      The one fact worth sitting with is directional: the joint pins down
+      both marginals uniquely, by construction, but the two marginals
+      never pin down the joint. Summing out $y$ throws away exactly the
+      information about how $x$ and $y$ co-occur, and that information
+      cannot be recovered afterward from the marginals alone.
+
+      So whenever a problem states "$X$ is such-and-such and $Y$ is
+      such-and-such" without saying how they relate, treat it as
+      genuinely underdetermined — many different joints share those same
+      two marginals, and they can disagree sharply on any question that
+      involves both variables at once, like $\Pr(X=Y)$.
+    worked: >
+      Let $(X,Y)$ each take values in $\{0,1\}$. Joint A: $p(0,0)=0.4$,
+      $p(1,1)=0.4$, $p(0,1)=p(1,0)=0.1$. Joint B: all four cells equal
+      $0.25$. Both give the same marginals, $p_X(0)=p_X(1)=0.5$ and
+      $p_Y(0)=p_Y(1)=0.5$ — check: Joint A's row and column sums are
+      $0.5,0.5$ in both directions. Yet $\Pr(X=Y)=p(0,0)+p(1,1)=0.8$ under
+      Joint A against $\Pr(X=Y)=0.5$ under Joint B: identical marginals,
+      opposite answers to a question about the pair.
+    interview: >
+      Any prompt that gives you two marginal distributions and asks for a
+      joint quantity (a sum, a max, an equality) is testing whether you
+      say "not determined — depends on the joint" instead of guessing.
+      State the two candidate joints only if the interviewer wants the gap
+      demonstrated concretely.
+    pitfalls: >
+      Assuming independence by default whenever a problem only states
+      marginals is the single most common shortcut that silently answers
+      the wrong question. Confusing "the joint determines the marginals"
+      (always true) with its converse (false) is an easy one-line error
+      under time pressure.
+    recap: >
+      A joint law determines both marginals by summing or integrating out
+      the other coordinate, but two variables sharing the same marginals
+      can have wildly different joints.
+
+  - node: quant-probability.joint.independence-rvs
+    hook: >
+      Independence is invoked constantly and checked rarely — the working
+      test here is the fast, honest way to actually verify it instead of
+      assuming it because the problem "feels" independent.
+    explanation: >
+      Independence says the joint carries no extra information beyond the
+      two marginals — it factors, $p(x,y)=p_X(x)p_Y(y)$ or
+      $f(x,y)=f_X(x)f_Y(y)$, so knowing $X$'s value changes nothing about
+      $Y$'s distribution. The equivalent event statement,
+      $\Pr(X\in A,Y\in B)=\Pr(X\in A)\Pr(Y\in B)$ for every $A,B$, is the
+      same claim applied to arbitrary sets rather than single points.
+
+      The practical shortcut is the working test: you don't need the
+      correctly normalized marginals to check factorization, only that the
+      joint density splits as some nonnegative $g(x)$ times some
+      nonnegative $h(y)$. Whatever constant is missing from $g$ or $h$
+      individually gets absorbed once you actually integrate each one to
+      $1$, so the split alone is the entire test.
+
+      Mutual independence of more than two variables is strictly stronger
+      than every pair being independent on its own — the joint must factor
+      across every subset simultaneously, not just pairwise — and once
+      independence holds, it passes through functions for free: $g(X)$ and
+      $h(Y)$ stay independent no matter how nonlinear $g,h$ are.
+    worked: >
+      Let $f(x,y)=4xy$ on the unit square $0<x<1,0<y<1$. This splits as
+      $g(x)h(y)=(x)(y)$ with the constant $4$ distributed however you
+      like — the split alone confirms independence. Integrating out
+      confirms the marginals directly: $f_X(x)=\int_0^1 4xy\,dy=2x$ and
+      $f_Y(y)=2y$, and indeed $f_X(x)f_Y(y)=4xy=f(x,y)$. As a check,
+      $\Pr(X<0.5,Y<0.5)=\int_0^{0.5}\int_0^{0.5}4xy\,dx\,dy=0.25\times0.25
+      =0.0625$, exactly $\Pr(X<0.5)\Pr(Y<0.5)$.
+    interview: >
+      "Are $X$ and $Y$ independent?" almost always wants the factorization
+      test stated and applied, not a verbal argument about the setup.
+      Naming the working-test shortcut — split first, normalize later —
+      signals you're not about to grind through two separate integrals
+      unnecessarily.
+    pitfalls: >
+      Checking independence only at a couple of sample points instead of
+      confirming the factorization holds identically over the whole
+      support gives false confidence. Trying to verify $g,h$ are already
+      normalized densities before comparing wastes a step the working test
+      makes unnecessary.
+    recap: >
+      $X,Y$ are independent exactly when the joint factors into a function
+      of $x$ alone times a function of $y$ alone — check the split, and
+      let the normalizing constants take care of themselves.
+
+  - node: quant-probability.joint.support-rectangle-test
+    hook: >
+      This is the five-second check to run before any algebra: a glance at
+      the support can kill independence outright, or tell you the real
+      work is still ahead.
+    explanation: >
+      If $X$ and $Y$ are independent, the region where the joint density
+      is positive has to be a rectangle $S_X\times S_Y$, because
+      $f_X(x)f_Y(y)>0$ turns on independently in each coordinate. So the
+      moment a support's shape ties the two coordinates together — a
+      disc, a triangle, any region where the allowed range of $y$ shifts
+      as $x$ moves — independence is dead before you write a single
+      integral.
+
+      The test only cuts one way. A rectangular support is necessary for
+      independence but never sufficient: the density can still be
+      non-constant and non-factoring inside a perfectly rectangular
+      region, and at that point you're back to actually checking the
+      factorization.
+
+      Treat this as a triage step, not a proof of independence — it's a
+      fast way to close out "are they independent" questions that are
+      actually geometry questions in disguise, saving the factorization
+      check for supports that survive the first look.
+    worked: >
+      Let $(X,Y)$ be uniform on the unit disc $x^2+y^2\le1$. The support
+      is a disc, not a rectangle, so $X,Y$ are dependent with no further
+      computation. Concretely: at $X=0.99$, $Y$ is confined to
+      $|y|\le\sqrt{1-0.9801}\approx0.141$, while at $X=0$, $Y$ ranges over
+      all of $[-1,1]$ — the allowed spread of $Y$ visibly depends on the
+      value of $X$, which is exactly what dependence means.
+    interview: >
+      "Are these two independent?" for a uniform-on-a-region setup should
+      be answered by inspecting the support shape first — naming
+      "rectangle" or "not a rectangle" out loud before any integral is
+      what the interviewer is checking for.
+    pitfalls: >
+      Declaring independence just because the support happens to be a
+      rectangle skips the half of the test that still needs the density to
+      factor. Missing that an unbounded region (like the whole plane) can
+      still be a "rectangle" in this sense — $\mathbb{R}\times\mathbb{R}$
+      counts — and wrongly assuming unboundedness rules the test out.
+    recap: >
+      A non-rectangular support proves dependence instantly; a rectangular
+      one only earns the right to check whether the density actually
+      factors.
+
+  - node: quant-probability.joint.covariance
+    hook: >
+      $\operatorname{Cov}(X,Y)=\mathbb{E}[XY]-\mathbb{E}[X]\mathbb{E}[Y]$
+      is the one line you compute with every time — knowing it's the same
+      object as the centered-product definition is what lets you recover
+      it cold.
+    explanation: >
+      Start from the intuitive definition,
+      $\operatorname{Cov}(X,Y)=\mathbb{E}[(X-\mathbb{E}[X])(Y-\mathbb{E}[Y])]$:
+      expand the product and apply linearity termwise (valid for any $X,Y$,
+      no independence required) to get
+      $\mathbb{E}[XY]-\mathbb{E}[X]\mathbb{E}[Y]-\mathbb{E}[X]\mathbb{E}[Y]
+      +\mathbb{E}[X]\mathbb{E}[Y]=\mathbb{E}[XY]-\mathbb{E}[X]\mathbb{E}[Y]$.
+      One moment computation and one subtraction, exactly the same
+      shortcut that turns variance's definition into a usable formula.
+
+      Read the sign directly off the definition: positive covariance means
+      $X$ and $Y$ tend to sit on the same side of their own means together,
+      negative means opposite sides, and either can vanish entirely if one
+      variable is constant, since a constant has nothing to co-vary with.
+
+      The number itself carries the units of $X$ times the units of $Y$,
+      so a covariance of $2$ means nothing on its own until you know what's
+      being measured — doubling the scale of $X$ doubles the covariance
+      with no change in how related the variables actually are. That
+      units problem is exactly what correlation exists to fix.
+    worked: >
+      Roll two fair dice; let $Y$ be the first die and $X=Y+D_2$ the
+      total. Summing directly over the $36$ equally likely pairs,
+      $\mathbb{E}[Y^{2}]=91/6$ and $\mathbb{E}[YD_2]=(21\times21)/36=49/4$,
+      so $\mathbb{E}[XY]=\mathbb{E}[Y^{2}]+\mathbb{E}[YD_2]
+      =91/6+49/4=329/12$. With $\mathbb{E}[X]=7$ and $\mathbb{E}[Y]=3.5$,
+      $\operatorname{Cov}(X,Y)=329/12-24.5=35/12\approx2.92$ — positive,
+      as it should be, since a higher first die pushes the total up too.
+    interview: >
+      "Compute the covariance" should trigger
+      $\mathbb{E}[XY]-\mathbb{E}[X]\mathbb{E}[Y]$ immediately, not the
+      centered-product form worked out term by term. A quick follow-up
+      asks you to read the sign of a covariance before computing it, from
+      the setup alone.
+    pitfalls: >
+      Reporting a raw covariance as if its magnitude alone measured
+      strength of association ignores that it scales with the units of
+      both variables — a covariance of $1000$ can be a weaker relationship
+      than a covariance of $0.01$ measured on different scales. Forgetting
+      that $\operatorname{Cov}(X,X)=\operatorname{Var}(X)$ leads to
+      re-deriving variance from scratch when it's just this formula's
+      special case.
+    recap: >
+      Covariance reduces in practice to $\mathbb{E}[XY]
+      -\mathbb{E}[X]\mathbb{E}[Y]$, a signed, unit-carrying measure of
+      whether two variables deviate from their means together — $35/12$
+      for a die and the total it contributes to.
+
+  - node: quant-probability.joint.covariance-bilinearity
+    hook: >
+      Every covariance of a linear combination — a portfolio, a spread, a
+      hedge ratio — reduces to this one expansion rule, which is why it's
+      worth being able to apply without re-deriving it each time.
+    explanation: >
+      Bilinearity falls straight out of the definition: centering
+      $aX+b$ removes $b$ entirely, since $\mathbb{E}[aX+b]=a\mathbb{E}[X]+b$
+      shifts by the same $b$, leaving $(aX+b)-\mathbb{E}[aX+b]
+      =a(X-\mathbb{E}[X])$ with no trace of the constant. Multiplying two
+      such centered, scaled differences and taking expectation pulls both
+      constants $a,c$ straight out front, giving
+      $\operatorname{Cov}(aX+b,cY+d)=ac\operatorname{Cov}(X,Y)$.
+
+      The general sum version is the same idea applied twice: expand each
+      linear combination into its terms, multiply everything out, and
+      collect — every cross-term becomes a coefficient times a pairwise
+      covariance,
+      $\operatorname{Cov}(\sum_i a_iX_i,\sum_j b_jY_j)
+      =\sum_i\sum_j a_ib_j\operatorname{Cov}(X_i,Y_j)$. There is no
+      independence hypothesis anywhere in this — it's pure algebra on the
+      centered variables.
+
+      This turns every covariance-of-a-combination question into
+      bookkeeping: write out the coefficient grid, look up or compute each
+      pairwise covariance once, and sum weighted entries — never
+      re-derive the expansion from the definition each time.
+    worked: >
+      Suppose $\operatorname{Var}(A)=4$, $\operatorname{Var}(B)=9$,
+      $\operatorname{Cov}(A,B)=2$. Then
+      $\operatorname{Cov}(2A+B,\,A-3B)
+      =2(1)\operatorname{Var}(A)+2(-3)\operatorname{Cov}(A,B)
+      +1(1)\operatorname{Cov}(B,A)+1(-3)\operatorname{Var}(B)
+      =2(4)-6(2)+2-3(9)=8-12+2-27=-29$. Adding constants anywhere in
+      either combination — say $2A+B+5$ — changes nothing about this
+      answer, since bilinearity already discards them.
+    interview: >
+      "What's the covariance of these two portfolios" wants the
+      coefficient-grid expansion stated explicitly, not an attempt to
+      simulate or reason about it qualitatively. Naming that added
+      constants drop out immediately, before computing anything, is a
+      quick fluency signal.
+    pitfalls: >
+      Dropping the cross terms $a_ib_j\operatorname{Cov}(X_i,Y_j)$ for
+      $i\ne j$ and treating covariance as if it distributed like a plain
+      sum of individual variances is the most common slip. Forgetting the
+      sign on a negative coefficient — treating $\operatorname{Cov}(A,-3B)$
+      as $+3\operatorname{Cov}(A,B)$ — silently flips the answer.
+    recap: >
+      Covariance expands bilinearly over linear combinations and ignores
+      added constants entirely, turning any combination's covariance into
+      a weighted sum over a coefficient grid.
+
+  - node: quant-probability.joint.independence-zero-covariance
+    hook: >
+      This is the direction of the implication interviewers actually rely
+      on day to day — independent legs of a trade have zero covariance by
+      construction, which is what makes risk calculations on independent
+      pieces so clean.
+    explanation: >
+      When $X,Y$ are independent, the joint density or pmf factors, so the
+      double sum or integral defining $\mathbb{E}[XY]$ separates into a
+      product of two single-variable integrals:
+      $\mathbb{E}[XY]=\mathbb{E}[X]\mathbb{E}[Y]$. Subtracting this from
+      itself in the covariance formula leaves
+      $\operatorname{Cov}(X,Y)=0$ immediately — no cancellation to check,
+      the factorization does all the work.
+
+      The same argument runs for any functions of the two variables:
+      $\mathbb{E}[g(X)h(Y)]=\mathbb{E}[g(X)]\mathbb{E}[h(Y)]$ whenever both
+      sides are finite, since independence of $X,Y$ passes through to
+      independence of $g(X),h(Y)$. This is the fact that makes computing
+      moments of transformed independent variables painless.
+
+      The implication runs one direction only, and treating it as
+      reversible is the single most common conceptual error in this
+      subbranch: zero covariance rules out a linear relationship between
+      $X$ and $Y$, but says nothing whatsoever about nonlinear dependence,
+      which can be total.
+    worked: >
+      Let $X\sim\text{Bernoulli}(0.3)$ and $Y\sim\text{Bernoulli}(0.6)$ be
+      independent. Then $XY=1$ exactly when both are $1$, so
+      $\mathbb{E}[XY]=\Pr(X=1,Y=1)=\Pr(X=1)\Pr(Y=1)=(0.3)(0.6)=0.18$ by
+      independence. Since $\mathbb{E}[X]\mathbb{E}[Y]=(0.3)(0.6)=0.18$
+      too, $\operatorname{Cov}(X,Y)=0.18-0.18=0$, exactly as the general
+      argument predicts.
+    interview: >
+      "If two trades are independent, what's their covariance?" wants an
+      immediate "zero," with the factorization reason stated in one
+      sentence — not a computation from scratch. The sharper follow-up
+      flips the question: "if covariance is zero, are they independent?"
+      and the correct answer is no.
+    pitfalls: >
+      Concluding independence from an observed covariance of zero reverses
+      an implication that only runs one way. Applying the factorization
+      shortcut $\mathbb{E}[XY]=\mathbb{E}[X]\mathbb{E}[Y]$ to variables you
+      haven't actually verified are independent quietly assumes the
+      conclusion.
+    recap: >
+      Independence forces $\mathbb{E}[XY]=\mathbb{E}[X]\mathbb{E}[Y]$ and
+      hence zero covariance, but the converse fails — zero covariance
+      only rules out linear association.
+
+  - node: quant-probability.joint.correlation
+    hook: >
+      $\rho$ is the number that actually gets quoted on a desk, precisely
+      because covariance's raw value depends on units nobody can compare
+      across problems — knowing where the $[-1,1]$ bound comes from is
+      what lets you sanity-check any reported correlation on sight.
+    explanation: >
+      Dividing by $\sigma_X\sigma_Y$ turns covariance into a dimensionless
+      number: rescaling $X\to aX$ multiplies both the numerator's
+      covariance and the denominator's $\sigma_X$ by $|a|$ (or by $a$
+      itself in the covariance, with a matching sign), so the ratio is
+      unaffected by the units either variable happens to be measured in.
+
+      The bound $-1\le\rho\le1$ is Cauchy–Schwarz applied to the two
+      centered variables $X-\mu_X$ and $Y-\mu_Y$: their inner product is
+      bounded by the product of their norms, and dividing through by
+      exactly those norms is what correlation already does. Equality
+      $|\rho|=1$ happens exactly when one centered variable is a scalar
+      multiple of the other — an exact line, $Y=aX+b$ with probability
+      $1$ — and the sign of $\rho$ then matches the sign of $a$.
+
+      Because it is unit-free, $\rho$ is the number that transfers across
+      problems: a correlation of $0.4$ means the same thing whether $X,Y$
+      are measured in ticks, dollars, or basis points, which is exactly
+      what makes it comparable and quotable in a way covariance never is.
+    worked: >
+      Continuing the die example: with $Y$ the first die and
+      $X=Y+D_2$ the total, $\operatorname{Cov}(X,Y)=35/12$ from before.
+      Since the two dice are independent, $\operatorname{Var}(X)
+      =\operatorname{Var}(Y)+\operatorname{Var}(D_2)=35/12+35/12=35/6$,
+      while $\operatorname{Var}(Y)=35/12$. So
+      $\rho=\dfrac{35/12}{\sqrt{(35/12)(35/6)}}
+      =\dfrac{35/12}{35/\sqrt{72}}=\dfrac{\sqrt{72}}{12}
+      =\dfrac{6\sqrt2}{12}=\dfrac{\sqrt2}{2}\approx0.707$ — a single die
+      correlates with the total of two dice at exactly $1/\sqrt2$,
+      regardless of how many sides the dice have.
+    interview: >
+      "What's the correlation between one component and the sum it
+      belongs to?" is a classic setup for testing whether you can compute
+      $\rho$ cleanly using variance-of-a-sum, rather than trying to eyeball
+      the answer. Stating the bound $[-1,1]$ and what equality means is
+      the expected framing before any number appears.
+    pitfalls: >
+      Reporting a computed $\rho$ outside $[-1,1]$ and not treating it as
+      an automatic sign of an arithmetic error skips the cheapest sanity
+      check available. Assuming $|\rho|=1$ requires the two variables to
+      be literally equal, rather than related by any exact affine map
+      $Y=aX+b$, misses that shifts and negative slopes are allowed too.
+    recap: >
+      Correlation is covariance rescaled to $[-1,1]$ by the two standard
+      deviations, hitting an endpoint exactly under an exact linear
+      relation — a single die correlates with the sum of two dice at
+      $1/\sqrt2$.
+
+  - node: quant-probability.joint.correlation-linear-only
+    hook: >
+      Quoting $\rho=0.3$ as "moderately correlated" without squaring it
+      first is the most common way candidates overstate a correlation's
+      actual strength — the interviewer is listening for whether you catch
+      that yourself.
+    explanation: >
+      $\rho$ answers exactly one question: how tightly does the joint
+      cloud of points hug a straight line. It has no opinion on curved
+      relationships at all, so a correlation of exactly $0$ is entirely
+      consistent with one variable being a deterministic, nonlinear
+      function of the other — the linear-fit machinery simply can't see
+      that kind of structure.
+
+      Reading magnitude honestly means squaring: $\rho^{2}$ is the
+      fraction of $Y$'s variance a linear fit in $X$ removes, so a
+      correlation that sounds respectable in isolation often removes
+      surprisingly little variance — $\rho=0.3$ accounts for only $9\%$,
+      not $30\%$, of what's actually going on.
+
+      That said, a small $\rho$ is not automatically worthless in trading:
+      a modest edge applied across many independent bets compounds, so the
+      threshold for "useful" correlation in a repeated-bet setting is far
+      below what "useful" would mean for a single one-shot prediction.
+    worked: >
+      Continuing the die-and-sum example: $\rho=\sqrt2/2$ between a single
+      die and the total of two dice gives $\rho^{2}=1/2$ — a linear fit
+      using the total explains exactly half the variance in either
+      individual die. Contrast a trading signal with $\rho=0.15$ against
+      next-period returns: $\rho^{2}=0.0225$, so it explains barely over
+      $2\%$ of the variance, yet a signal that small, applied consistently
+      across thousands of independent bets, can still be the entire basis
+      of a profitable strategy.
+    interview: >
+      "Is a correlation of $0.4$ strong?" should be answered by squaring
+      it on the spot — $16\%$ of variance explained — rather than reacting
+      to the raw number. A sharper follow-up asks for a scenario where
+      $\rho=0$ but the variables are completely dependent.
+    pitfalls: >
+      Treating $\rho=0$ as proof of "no relationship" instead of "no
+      linear relationship" misses curved dependence entirely. Comparing
+      raw $\rho$ values across contexts (a $0.05$ trading signal versus a
+      $0.05$ physical measurement correlation) without asking how many
+      independent repetitions are involved conflates two very different
+      notions of "small."
+    recap: >
+      $\rho$ measures linear co-movement only, and $\rho^{2}$ is the
+      honest read of its strength — a small $\rho$ repeated over many
+      independent bets can still be worth a great deal.
+
+  - node: quant-probability.joint.uncorrelated-not-independent
+    hook: >
+      This is the example every interviewer keeps in their back pocket to
+      test whether "uncorrelated" and "independent" have actually been
+      kept separate in your head, or just live as synonyms.
+    explanation: >
+      Zero covariance only forbids one specific kind of structure — a
+      linear one. Nothing stops a variable from being fully, deterministically
+      determined by another through a symmetric, nonlinear function while
+      the linear signal that covariance measures happens to cancel out
+      exactly.
+
+      The mechanism is always the same shape: pick $X$ symmetric about its
+      mean and let $Y$ be an even function of $X$, like $X^{2}$. Every
+      positive deviation of $X$ from its mean is matched by an equally
+      likely negative deviation producing the identical $Y$, so the
+      covariance's defining sum cancels term by term even though $Y$'s
+      exact value is fully pinned down by $X$.
+
+      The fastest way to spot this trap in a stated problem is to check
+      for an even function of a symmetric variable — squares, absolute
+      values, anything invariant under $X\to-X$ — since that symmetry is
+      precisely what forces the linear signal to vanish while leaving all
+      the real dependence intact.
+    worked: >
+      Let $X$ be uniform on $\{-1,0,1\}$ and $Y=X^{2}$, so $Y=0$ when
+      $X=0$ and $Y=1$ otherwise. Then $\mathbb{E}[X]=0$ and
+      $\mathbb{E}[XY]=\mathbb{E}[X^{3}]
+      =\frac{(-1)^{3}+0^{3}+1^{3}}{3}=0$, so
+      $\operatorname{Cov}(X,Y)=0$. Yet $Y$ is completely determined by
+      $X$: unconditionally $\Pr(Y=1)=2/3$, but given $X=0$,
+      $\Pr(Y=1\mid X=0)=0$ exactly — the dependence is total, the
+      correlation is exactly zero.
+    interview: >
+      "Give an example where $\operatorname{Corr}(X,Y)=0$ but $X,Y$ are
+      dependent" is asked almost verbatim. The fastest correct response
+      names any even function of a symmetric variable and states why the
+      odd-moment cancellation happens, rather than reaching for a formula.
+    pitfalls: >
+      Assuming this only works for continuous, symmetric-interval
+      variables like a uniform on $[-1,1]$ misses that any symmetric
+      distribution with a finite third moment produces the same
+      cancellation. Confusing "zero correlation, total dependence" with
+      "zero correlation, some dependence" understates how extreme the gap
+      between the two concepts can be.
+    recap: >
+      A symmetric variable and its square have correlation exactly zero
+      while one completely determines the other — zero correlation rules
+      out linear structure and nothing else.
+
+  - node: quant-probability.joint.variance-sum
+    hook: >
+      This is where dependence stops being an abstract worry and becomes
+      a concrete correction term in every portfolio-risk calculation you
+      will ever run.
+    explanation: >
+      Expand $\operatorname{Var}(\sum_iX_i)
+      =\operatorname{Cov}(\sum_iX_i,\sum_jX_j)$ using bilinearity: every
+      ordered pair $(i,j)$ contributes $\operatorname{Cov}(X_i,X_j)$, the
+      diagonal pairs $i=j$ give the variances since
+      $\operatorname{Cov}(X_i,X_i)=\operatorname{Var}(X_i)$, and the
+      off-diagonal pairs pair up as $(i,j)$ and $(j,i)$ with equal
+      covariances, contributing the factor of $2$ in front of the
+      $i<j$ sum.
+
+      Unlike expectation, which is additive no matter what, variance only
+      adds when the cross-terms happen to vanish — and with $n$ variables
+      there are $n$ diagonal terms against $n(n-1)$ off-diagonal ones, so
+      for a large collection the covariance structure, not the individual
+      variances, dominates the total.
+
+      This is exactly the object behind portfolio risk: the variance of a
+      sum of positions is never just the sum of their individual risks
+      unless those positions are provably uncorrelated, and the gap
+      between the two is entirely the covariance cross-terms.
+    worked: >
+      Three assets have $\operatorname{Var}=4,9,16$ with
+      $\operatorname{Cov}(1,2)=1$, $\operatorname{Cov}(1,3)=2$,
+      $\operatorname{Cov}(2,3)=-1$. Then
+      $\operatorname{Var}(X_1+X_2+X_3)=(4+9+16)+2(1+2-1)=29+2(2)=33$ —
+      noticeably more than the $29$ you'd get by (wrongly) ignoring the
+      cross-terms, even though one of the three pairwise covariances is
+      negative.
+    interview: >
+      "What's the variance of this sum of correlated positions" always
+      wants the diagonal-plus-cross-terms decomposition named explicitly.
+      A common follow-up asks you to state how many cross-terms exist for
+      $n$ variables, to check you're not silently dropping them.
+    pitfalls: >
+      Summing individual variances and stopping there, without asking
+      whether the variables are actually uncorrelated, is the default
+      wrong answer under time pressure. Forgetting the factor of $2$ on
+      the cross-term sum (writing $\sum_{i<j}$ instead of
+      $2\sum_{i<j}$) undercounts by exactly half the correction.
+    recap: >
+      Variance of a sum equals the sum of variances only after adding
+      $2\sum_{i<j}\operatorname{Cov}(X_i,X_j)$ — with three assets and one
+      negative pairwise covariance, the total still came out above the
+      naive sum.
+
+  - node: quant-probability.joint.variance-independent-sum
+    hook: >
+      "Diversification reduces risk" quietly assumes correlation, not just
+      independence of direction — this node is where that assumption
+      either pays off or backfires, in exact numbers.
+    explanation: >
+      When every pair of variables is uncorrelated — a strictly weaker
+      condition than mutual independence, since only the pairwise
+      covariances need to vanish — every cross-term in the variance-of-a-sum
+      formula drops out, leaving the clean additive rule
+      $\operatorname{Var}(\sum_iX_i)=\sum_i\operatorname{Var}(X_i)$. For
+      $n$ iid copies of variance $\sigma^{2}$ this is $n\sigma^{2}$, the
+      source of the familiar $\sqrt n$ scaling of a sum's spread.
+
+      The formula for a difference is where intuition most often goes
+      wrong: uncorrelated $X,Y$ give
+      $\operatorname{Var}(X-Y)=\operatorname{Var}(X)+\operatorname{Var}(Y)$,
+      with a plus sign, not a minus — subtracting one noisy quantity from
+      another never cancels their variances, it adds them, because the
+      minus sign inside $\operatorname{Var}(-Y)$ disappears under the
+      square in the definition.
+
+      This is precisely why a "hedge" built from two uncorrelated legs
+      does nothing to reduce risk and can make it worse per unit of
+      exposure: a spread only gets quieter than its legs when the legs are
+      genuinely positively correlated, so the covariance term the previous
+      node introduced actively subtracts something.
+    worked: >
+      Two uncorrelated return streams each have variance $0.04$ (standard
+      deviation $20\%$). Their spread has
+      $\operatorname{Var}(X-Y)=0.04+0.04=0.08$, so the spread's standard
+      deviation is $\sqrt{0.08}\approx0.283$, or $28.3\%$ — noisier than
+      either leg on its own, even though the position nets two supposedly
+      offsetting bets. Only if $\operatorname{Cov}(X,Y)$ were positive
+      would the spread's variance drop below $0.08$.
+    interview: >
+      "If I go long one uncorrelated asset and short another, is my risk
+      lower?" is testing exactly this sign trap. The correct instinct is
+      to state immediately that variances add for a difference of
+      uncorrelated legs, so the position is not automatically safer.
+    pitfalls: >
+      Assuming pairwise uncorrelated is the same hypothesis as mutually
+      independent overstates what's needed — the additive variance rule
+      only needs the weaker pairwise condition. Reflexively subtracting
+      variances for $\operatorname{Var}(X-Y)$ instead of adding them is the
+      single most common arithmetic error in this whole subbranch.
+    recap: >
+      Pairwise zero covariance is enough for variances to add, giving the
+      $\sqrt n$ scaling for sums — but it also means an uncorrelated
+      "hedge" makes a spread noisier than either leg, not quieter.
+
+  - node: quant-probability.joint.covariance-matrix
+    hook: >
+      Every portfolio-variance formula a desk actually uses is this
+      matrix's quadratic form in disguise — building $\Sigma$ once and
+      reading off $a'\Sigma a$ replaces re-deriving variance-of-a-sum for
+      every new set of weights.
+    explanation: >
+      $\Sigma$ just packages every pairwise covariance from the previous
+      two nodes into one symmetric table: the diagonal entries are
+      ordinary variances, and entry $(i,j)$ off the diagonal is
+      $\operatorname{Cov}(X_i,X_j)$. Symmetry follows because covariance is
+      symmetric in its two arguments — there's no directionality to
+      encode.
+
+      Positive semidefiniteness isn't a separate fact to verify; it's the
+      weighted variance-of-a-sum formula from two nodes back read as a
+      matrix product: for any weight vector $a$, $a'\Sigma a$ is exactly
+      $\operatorname{Var}(a'X)$, the variance of the portfolio with those
+      weights, and a variance can never be negative. $\Sigma$ is singular
+      exactly when some nonzero weighted combination of the coordinates is
+      a constant with probability $1$ — an exact linear redundancy among
+      the variables.
+
+      Affine transformations of the whole vector transform $\Sigma$ the
+      same way a single variance transforms under rescaling, generalized to
+      matrices: $\operatorname{Cov}(AX+b)=A\Sigma A'$, which is the tool
+      behind computing the risk of any linear combination of assets
+      without redoing the sum-of-covariances expansion by hand each time.
+    worked: >
+      Two assets have $\operatorname{Var}(1)=4$, $\operatorname{Var}(2)=9$,
+      $\operatorname{Cov}(1,2)=3$. For weights $a=(2,1)$, the portfolio
+      variance is $a'\Sigma a=a_1^{2}\Sigma_{11}+2a_1a_2\Sigma_{12}
+      +a_2^{2}\Sigma_{22}=4(4)+2(2)(1)(3)+1(9)=16+12+9=37$ — read directly
+      off the matrix entries, with no need to re-expand
+      $\operatorname{Var}(2X_1+X_2)$ from the bilinearity rule from
+      scratch.
+    interview: >
+      "Write down the covariance matrix for this portfolio" is checking
+      whether you can build $\Sigma$ from stated variances and covariances
+      without hesitation, and then use $a'\Sigma a$ directly for the
+      variance of any weighted combination.
+    pitfalls: >
+      Forgetting that $\Sigma$ must be symmetric and accidentally writing
+      $\operatorname{Cov}(1,2)\ne\operatorname{Cov}(2,1)$ in the two
+      off-diagonal slots produces an inconsistent matrix. Treating a
+      singular $\Sigma$ as a computational quirk rather than a signal that
+      some linear combination of the assets is literally redundant misses
+      real information about the position.
+    recap: >
+      The covariance matrix packages every pairwise covariance
+      symmetrically, and its quadratic form $a'\Sigma a$ is nothing more
+      than the variance of the weighted combination $a'X$ — here $37$ for
+      weights $(2,1)$.
+
+  - node: quant-probability.joint.correlation-transitivity
+    hook: >
+      "If $A$ and $B$ are highly correlated, and so are $B$ and $C$, must
+      $A$ and $C$ be correlated too?" is a trap question with a
+      counterintuitive, exactly computable answer.
+    explanation: >
+      Correlations among three variables cannot be chosen independently of
+      each other, because the $3\times3$ correlation matrix — built from
+      $\rho_{XY},\rho_{YZ},\rho_{XZ}$ on its off-diagonals and ones on its
+      diagonal — must itself be positive semidefinite, being a covariance
+      matrix in disguise. Requiring its determinant to stay nonnegative
+      pins the third correlation to a specific interval once the other two
+      are fixed.
+
+      That interval is
+      $\rho_{XZ}\in\left[\rho_{XY}\rho_{YZ}
+      -\sqrt{(1-\rho_{XY}^{2})(1-\rho_{YZ}^{2})},\;
+      \rho_{XY}\rho_{YZ}+\sqrt{(1-\rho_{XY}^{2})(1-\rho_{YZ}^{2})}\right]$,
+      derived directly from the determinant condition — worth recognizing
+      as a Cauchy–Schwarz-flavored bound rather than memorizing outright.
+
+      The width of that interval shrinks as $\rho_{XY}$ and $\rho_{YZ}$
+      individually grow, so two strong pairwise correlations only start to
+      force $\rho_{XZ}$ to be positive once both legs individually exceed
+      $1/\sqrt2\approx0.707$ — below that threshold, a common middle
+      variable is not enough to rule out an inverse relationship between
+      the outer two.
+    worked: >
+      Suppose $\operatorname{Corr}(X,Y)=\operatorname{Corr}(Y,Z)=0.5$.
+      The bound gives $\rho_{XZ}\in\left[0.25-\sqrt{0.75\times0.75},\,
+      0.25+\sqrt{0.75\times0.75}\right]=[0.25-0.75,\,0.25+0.75]
+      =[-0.5,\,1]$ — even at a moderate common correlation of $0.5$ with
+      each, $X$ and $Z$ could be negatively correlated at $-0.5$.
+    interview: >
+      "If $\operatorname{Corr}(X,Y)$ and $\operatorname{Corr}(Y,Z)$ are
+      both $0.5$, what can you say about $\operatorname{Corr}(X,Z)$?" is
+      testing whether you know correlation doesn't chain like an ordering
+      relation. Stating the PSD-determinant reasoning, even without the
+      exact formula memorized, is the substantive part of the answer.
+    pitfalls: >
+      Assuming two strong positive correlations with a common variable
+      force the third pairwise correlation to be positive is false in
+      general — only once both legs individually exceed $1/\sqrt2$ is
+      positivity guaranteed. Treating correlation as if it obeyed a
+      triangle-inequality-style transitivity, the way physical distances
+      do, misreads what positive semidefiniteness actually constrains.
+    recap: >
+      Correlation is not transitive: pairwise correlations of $0.5$ and
+      $0.5$ through a common variable still permit the outer two variables
+      to be correlated as low as $-0.5$.
+
+  - node: quant-probability.joint.equicorrelation-bound
+    hook: >
+      "Can I build a basket where every asset is negatively correlated
+      with every other?" has a hard numerical answer that gets stricter
+      the more assets you add — a fact every basket-construction question
+      is quietly testing.
+    explanation: >
+      If $X_1,\dots,X_n$ each have variance $\sigma^{2}$ and every pair
+      shares the same correlation $\rho$, the variance-of-a-sum formula
+      collapses to a clean closed form: there are $n$ diagonal terms of
+      $\sigma^{2}$ and $n(n-1)$ off-diagonal terms of
+      $\rho\sigma^{2}$, giving
+      $\operatorname{Var}(\sum_iX_i)=n\sigma^{2}(1+(n-1)\rho)$.
+
+      A variance can never be negative, so this forces
+      $\rho\ge-1/(n-1)$ — a floor that gets stricter as $n$ grows, because
+      the number of negative cross-terms needed to cancel the $n$ positive
+      diagonal terms grows faster than the diagonal itself. At $n=2$ the
+      floor is $-1$, fully attainable; as $n\to\infty$ the floor rises all
+      the way to $0$.
+
+      The asymmetry with the upper end is the point worth remembering:
+      $\rho=1$ (every variable equal) is always attainable for any $n$,
+      but universal mutual negative correlation becomes essentially
+      impossible once the collection is even moderately large — everything
+      can move together, but not everything can move apart from
+      everything else simultaneously.
+    worked: >
+      For $n=5$ equally correlated variables, the floor is
+      $\rho\ge-1/4$. At exactly $\rho=-1/4$,
+      $\operatorname{Var}(\sum X_i)=5\sigma^{2}(1+4(-1/4))
+      =5\sigma^{2}(1-1)=0$ — the sum is forced to be constant with
+      probability $1$, the boundary case where the semidefiniteness
+      constraint binds exactly and no more negative correlation is
+      possible among the five.
+    interview: >
+      "Can you have five stocks that are all pairwise negatively
+      correlated at $-0.4$?" should be answered by checking against
+      $-1/(n-1)=-1/4$ immediately — since $-0.4<-1/4$, the answer is no,
+      no such configuration exists.
+    pitfalls: >
+      Assuming any negative common correlation is achievable for any group
+      size ignores that the floor $-1/(n-1)$ tightens toward $0$ as the
+      group grows — a value that's fine for $3$ assets can be
+      mathematically impossible for $10$. Forgetting that the bound only
+      applies under the equicorrelation assumption (every pair sharing
+      exactly the same $\rho$) and misapplying it to a general, unequal
+      correlation structure gives a wrong constraint.
+    recap: >
+      Equally correlated variables satisfy $\rho\ge-1/(n-1)$, so at $n=5$
+      the floor is already $-1/4$ and mutual negative correlation becomes
+      essentially impossible as the group grows.
+
+  - node: quant-probability.joint.convolution
+    hook: >
+      Whenever a "closure" fact (normal plus normal is normal, Poisson
+      plus Poisson is Poisson) doesn't apply, convolution is the fallback
+      that always works — slow, but it always works.
+    explanation: >
+      To find the density of $S=X+Y$ for independent $X,Y$, fix a target
+      value $s$ and add up every way the two pieces could split to
+      produce it: $X=x$ paired with $Y=s-x$, weighted by how likely each
+      split is. Discretely that's
+      $p_S(s)=\sum_xp_X(x)p_Y(s-x)$; continuously the sum becomes
+      $f_S(s)=\int_{-\infty}^{\infty}f_X(x)f_Y(s-x)\,dx$, with the actual
+      limits narrowed down by wherever both factors are simultaneously
+      positive.
+
+      Independence is what makes this valid at all — the joint density
+      only splits into a product of $X$'s and $Y$'s own marginals because
+      independence guarantees it; without independence you'd need to
+      integrate against the true, possibly unfactorable, joint density
+      instead.
+
+      Convolution is a fallback, not a first resort: closure properties
+      (sums of independent normals, independent Poissons, independent
+      gammas of the same rate) skip the integral entirely, and moment
+      generating functions turn the same computation into multiplying two
+      functions together. Reach for convolution when none of those apply.
+    worked: >
+      Let $X,Y$ be independent, each uniform on $[0,1]$. For
+      $0\le s\le1$, the constraint $0\le x\le1$ and $0\le s-x\le1$ forces
+      $x\in[0,s]$, so $f_S(s)=\int_0^s1\,dx=s$; for $1\le s\le2$ it forces
+      $x\in[s-1,1]$, so $f_S(s)=2-s$ — the familiar triangular density,
+      peaking at $s=1$. As a check,
+      $\Pr(X+Y\le0.5)=\int_0^{0.5}s\,ds=0.125$.
+    interview: >
+      "What's the distribution of the sum of these two independent
+      variables?" wants you to check for a closure fact first and only
+      set up the convolution integral if none applies. Stating the split
+      limits correctly before integrating is the part that actually gets
+      watched.
+    pitfalls: >
+      Forgetting to restrict the integration limits to where both
+      densities are simultaneously positive integrates over regions that
+      contribute nothing, or worse, misses regions that do. Reaching for
+      convolution when a known closure property (normal, Poisson, gamma)
+      already answers the question wastes time on an integral that isn't
+      necessary.
+    recap: >
+      The density of a sum of independent variables is their convolution,
+      $\int f_X(x)f_Y(s-x)\,dx$ — for two independent uniforms on $[0,1]$
+      this is the triangular density, peaking at $s=1$.
+
+  - node: quant-probability.joint.convolution-poisson
+    hook: >
+      Pooling two independent Poisson arrival streams into one, and then
+      splitting a pooled count back apart, are the same calculation read
+      forwards and backwards — and it's a two-line convolution, not a
+      simulation.
+    explanation: >
+      Convolving two independent Poisson pmfs and applying the binomial
+      theorem to the resulting sum collapses everything into a single
+      Poisson pmf with the rates added — $X+Y\sim
+      \operatorname{Poisson}(\lambda+\mu)$ whenever $X\sim
+      \operatorname{Poisson}(\lambda)$ and $Y\sim\operatorname{Poisson}(\mu)$
+      are independent. This is the general convolution technique applied
+      to a distribution with just enough algebraic structure (the binomial
+      theorem inside the exponential's series) to close exactly.
+
+      Reading the middle of that same derivation backwards is the more
+      useful fact in practice: conditional on the pooled total $X+Y=n$,
+      the split between the two sources is
+      $\operatorname{Binomial}(n,\lambda/(\lambda+\mu))$ — each arrival,
+      independently of the others, "came from" the first source with
+      probability equal to that source's share of the combined rate.
+
+      This pooling-then-splitting pattern shows up constantly: merge
+      independent counting processes by adding rates, then recover the
+      composition of any observed total using only the relative rates, no
+      re-derivation needed each time.
+    worked: >
+      Source A arrives at rate $\lambda=4$ per minute, source B at
+      $\mu=1$ per minute, independently. The pooled count is
+      $T\sim\operatorname{Poisson}(5)$, so
+      $\Pr(T=3)=e^{-5}5^{3}/3!=125e^{-5}/6\approx0.1404$. Given exactly
+      $10$ arrivals were observed in a minute, the expected number from
+      source A is $10\times(4/5)=8$, using the binomial split with
+      success probability $\lambda/(\lambda+\mu)=4/5$ — no need to know
+      which arrival came from which source individually.
+    interview: >
+      "If I pool two independent Poisson streams, what's the distribution
+      of the total, and given the total, how are arrivals split between
+      sources?" is asked as a pair. The rate-addition answer and the
+      binomial-split answer with probability $\lambda/(\lambda+\mu)$
+      should come back together, not just the first half.
+    pitfalls: >
+      Using the average rate $(\lambda+\mu)/2$ instead of the summed rate
+      $\lambda+\mu$ for the pooled process is a common slip. Forgetting
+      that the binomial split probability is $\lambda/(\lambda+\mu)$, a
+      source's *share* of the total rate, not $\lambda$ or $\mu$ on its
+      own, misapplies the conditional result.
+    recap: >
+      Independent Poisson rates add under pooling, and reading the same
+      convolution backwards gives a binomial split of any observed
+      total — with rates $4$ and $1$, an observed total of $10$ splits
+      to an expected $8$ from the faster source.
+
+  - node: quant-probability.joint.expected-max-min
+    hook: >
+      This sidesteps building the actual distribution of the max or min
+      entirely — no independence assumption, no order statistics, just
+      two algebraic identities and one number, $\mathbb{E}|X-Y|$.
+    explanation: >
+      The two identities are pure algebra, true pointwise on every
+      outcome, not just on average: whichever of $X,Y$ is bigger,
+      $\max(X,Y)+\min(X,Y)=X+Y$ always, and
+      $\max(X,Y)-\min(X,Y)=|X-Y|$ always, since the gap between the larger
+      and smaller value is exactly the absolute difference.
+
+      Taking expectations of both identities (linearity needs no
+      independence) and solving the resulting $2\times2$ system for the
+      two unknowns $\mathbb{E}[\max]$ and $\mathbb{E}[\min]$ gives
+      $\mathbb{E}[\max(X,Y)]
+      =\left(\mathbb{E}[X]+\mathbb{E}[Y]+\mathbb{E}|X-Y|\right)/2$, with
+      the minimum being the same expression with the last term subtracted
+      instead of added.
+
+      Every trace of how $X$ and $Y$ depend on each other is compressed
+      into the single number $\mathbb{E}|X-Y|$ — once that one quantity is
+      in hand, both extremes follow from arithmetic, which is what makes
+      this the fastest route to $\mathbb{E}[\max]$ or $\mathbb{E}[\min]$
+      whenever $\mathbb{E}|X-Y|$ is directly computable.
+    worked: >
+      Let $X,Y$ be independent fair four-sided dice. Enumerating all $16$
+      equally likely pairs, the sixteen values of $|i-j|$ sum to $20$
+      (row sums $6,4,4,6$), so $\mathbb{E}|X-Y|=20/16=1.25$. With
+      $\mathbb{E}[X]=\mathbb{E}[Y]=2.5$,
+      $\mathbb{E}[\max]=(2.5+2.5+1.25)/2=3.125$ and
+      $\mathbb{E}[\min]=(5-1.25)/2=1.875$ — matching the $3.125$ reached
+      earlier via the tail-sum formula on $\Pr(M\ge k)$, a genuinely
+      different route to the identical number.
+    interview: >
+      "What's the expected value of the larger of two draws?" can be
+      answered two ways — this joint identity, or a tail-sum over
+      survival probabilities. Naming both and picking whichever makes
+      $\mathbb{E}|X-Y|$ or the tail probabilities easier to compute is
+      what a fluent answer sounds like.
+    pitfalls: >
+      Assuming this identity needs $X,Y$ independent is an unnecessary
+      restriction the algebra never requires — it holds for any pair with
+      finite means, dependent or not. Computing $\mathbb{E}|X-Y|$
+      incorrectly as $|\mathbb{E}[X]-\mathbb{E}[Y]|$ swaps a genuinely hard
+      quantity for a trivially wrong shortcut; the two agree only when $X$
+      and $Y$ never cross each other in value.
+    recap: >
+      Max plus min is the sum and max minus min is $|X-Y|$, so both means
+      follow from the single number $\mathbb{E}|X-Y|$ — for two
+      four-sided dice, $3.125$ and $1.875$, matching the tail-sum answer
+      exactly.
+
+  - node: quant-probability.joint.bivariate-normal
+    hook: >
+      "Given $X=x$, what do you expect $Y$ to be?" for jointly normal
+      variables is answered by a straight line with a slope you can read
+      off $\rho$ directly — the mental model every linear regression
+      argument in finance quietly relies on.
+    explanation: >
+      Bivariate normality is defined by a closure property, not a formula:
+      $(X,Y)$ is bivariate normal precisely when every linear combination
+      $aX+bY$ is itself univariate normal. Once that holds, the whole
+      joint law collapses to five numbers — the two means, two standard
+      deviations, and the single correlation $\rho$ — nothing else about
+      the joint shape needs to be specified.
+
+      The conditional law given $X=x$ stays normal, with mean
+      $\mu_Y+\rho\dfrac{\sigma_Y}{\sigma_X}(x-\mu_X)$: linear in $x$, which
+      is exactly the population regression line, with slope
+      $\rho\sigma_Y/\sigma_X$ set entirely by the correlation and the two
+      scales. The conditional variance,
+      $\sigma_Y^{2}(1-\rho^{2})$, doesn't depend on $x$ at all — knowing
+      $X$ shrinks $Y$'s spread by the same fixed factor regardless of
+      which value $X$ took.
+
+      Read the slope as shrinkage: a one-standard-deviation move in $X$
+      forecasts only a $\rho$-standard-deviation move in $Y$, never a full
+      one unless $|\rho|=1$ — the single most useful mental habit this
+      node gives you for reading any regression-style forecast.
+    worked: >
+      Let $\mu_X=\mu_Y=0$, $\sigma_X=2$, $\sigma_Y=3$, $\rho=0.5$. Given
+      $X=4$, the conditional mean of $Y$ is
+      $0+0.5\times(3/2)\times4=3$, and the conditional variance is
+      $9\times(1-0.25)=6.75$, so $Y\mid X=4\sim N(3,6.75)$ — a $2$-sigma
+      move in $X$ (since $\sigma_X=2$) forecasts a move to $3$ in $Y$,
+      only $1$ standard deviation of $Y$'s unconditional spread, exactly
+      the shrinkage $\rho=0.5$ predicts.
+    interview: >
+      "If $X$ moves up by one standard deviation, how much do you expect
+      $Y$ to move?" is testing whether you state the answer as
+      "$\rho$ standard deviations" immediately, rather than assuming a
+      full one-for-one move. Naming that the conditional variance shrinks
+      by $(1-\rho^{2})$ and doesn't depend on $x$ is the natural follow-up.
+    pitfalls: >
+      Assuming the conditional mean is linear in $x$ for any joint normal
+      marginals is backwards — linearity here is a consequence of joint
+      normality specifically, not something that holds for arbitrary
+      normal-looking pairs. Forgetting the $(1-\rho^{2})$ factor and
+      quoting $\sigma_Y^{2}$ as the conditional variance overstates the
+      remaining uncertainty once $X$ is known.
+    recap: >
+      Five numbers fix a bivariate normal pair, and conditioning on $X$
+      gives a normal $Y$ with mean linear in $x$ (regression) and variance
+      $\sigma_Y^{2}(1-\rho^{2})$ — a $2$-sigma move in $X$ here forecast
+      only a $1$-sigma move in $Y$, exactly as $\rho=0.5$ predicts.
+
+  - node: quant-probability.joint.bivariate-normal-independence
+    hook: >
+      This is the one corner of probability where "uncorrelated" really
+      does mean "independent" — and interviewers test it by handing you
+      two normal marginals with $\rho=0$ that are secretly not jointly
+      normal at all.
+    explanation: >
+      For a genuinely bivariate normal pair, setting $\rho=0$ in the joint
+      density makes the cross term in the exponent vanish, and the density
+      literally factors into the product of the two normal marginal
+      densities — so $\rho=0$ forces independence in this family
+      specifically, unlike the general case where zero covariance never
+      implies independence.
+
+      The hypothesis doing all the work is joint normality, not merely
+      "each marginal happens to be normal." Two variables can each be
+      individually normal, and even uncorrelated, while their joint shape
+      is nothing like the bivariate normal's elliptical contours — in
+      which case the factorization argument for $\rho=0$ simply doesn't
+      apply.
+
+      The standard demonstration that the marginals-alone hypothesis isn't
+      enough: take $X\sim N(0,1)$ and an independent random sign
+      $S=\pm1$, and set $Y=SX$. Both $X$ and $Y$ are individually
+      standard normal, and $\operatorname{Cov}(X,Y)=0$, yet
+      $|Y|=|X|$ always — total dependence hiding behind zero correlation
+      and two normal marginals, because the pair is never jointly normal.
+    worked: >
+      Portfolio returns $X,Y$ are jointly normal with $\mu_X=5\%$,
+      $\sigma_X=10\%$, $\mu_Y=3\%$, $\sigma_Y=8\%$, and $\rho=0$. Because
+      $\rho=0$ and the pair is jointly normal, $X,Y$ are independent, so
+      $\Pr(X>15\%,\,Y>11\%)=\Pr(X>15\%)\Pr(Y>11\%)$. Both events are
+      exactly one standard deviation above their means, so each has
+      probability $\Pr(Z>1)\approx0.1587$, giving a joint probability of
+      $0.1587^{2}\approx0.0252$ — a computation that would be invalid
+      without both the joint normality and $\rho=0$.
+    interview: >
+      "$X$ and $Y$ are each normal and uncorrelated — are they
+      independent?" is a trap unless joint normality is explicitly stated.
+      The correct response asks whether the pair is jointly normal before
+      answering, and can produce the $Y=SX$ counterexample if pushed.
+    pitfalls: >
+      Assuming any pair of individually normal, uncorrelated variables is
+      automatically independent skips the joint-normality hypothesis
+      entirely — it's the one thing doing all the work. Treating the
+      $Y=\pm X$ counterexample as an exotic edge case rather than the
+      standard rebuttal undersells how easily two normal marginals can
+      hide serious dependence.
+    recap: >
+      Zero correlation implies independence only for genuinely jointly
+      normal pairs — two normal marginals alone are not enough, as
+      $Y=\pm X$ with a random sign shows.
+
+  - node: quant-probability.joint.multivariate-normal
+    hook: >
+      Every "what's the mean and variance of this weighted basket" question
+      about a multivariate normal vector reduces to one line,
+      $a'X\sim N(a'\mu,a'\Sigma a)$ — the entire point of packaging a
+      whole vector's law into just $\mu$ and $\Sigma$.
+    explanation: >
+      The definition generalizes bivariate normality directly: $X=(X_1,
+      \dots,X_n)$ is multivariate normal when every linear combination
+      $a'X$ is univariate normal, and in that case $a'X\sim
+      N(a'\mu,a'\Sigma a)$ — the mean is the ordinary weighted average
+      $a'\mu$, and the variance is the covariance matrix's quadratic form
+      already familiar from portfolio variance.
+
+      Three structural consequences follow with no extra work: any
+      subvector of $X$ is again multivariate normal (drop the coordinates
+      you don't need), affine images stay in the family with
+      $AX+b\sim N(A\mu+b,A\Sigma A')$, and any block of coordinates with
+      zero cross-covariance to another block is independent of it — the
+      bivariate independence fact extended block by block.
+
+      Every valid $(\mu,\Sigma)$ pair is realizable: starting from
+      independent standard normal coordinates $Z$ and any matrix $A$ with
+      $AA'=\Sigma$, the vector $X=\mu+AZ$ has exactly the target mean and
+      covariance, which is also the computational recipe for simulating
+      correlated normal vectors from independent building blocks.
+    worked: >
+      Three assets have mean vector $\mu=(0.05,0.03,0.02)$, variances
+      $0.04,0.09,0.01$, and covariances $\operatorname{Cov}(1,2)=0.01$,
+      $\operatorname{Cov}(2,3)=0.02$, $\operatorname{Cov}(1,3)=0$. For
+      portfolio weights $a=(0.5,0.3,0.2)$: $a'\mu
+      =0.5(0.05)+0.3(0.03)+0.2(0.02)=0.038$, and expanding $a'\Sigma a$
+      termwise gives $0.5^{2}(0.04)+0.3^{2}(0.09)+0.2^{2}(0.01)
+      +2(0.5)(0.3)(0.01)+2(0.3)(0.2)(0.02)+2(0.5)(0.2)(0)=0.01+0.0081
+      +0.0004+0.003+0.0024+0=0.0239$. So the portfolio return is
+      $N(0.038,\,0.0239)$ — mean $3.8\%$, standard deviation
+      $\approx15.5\%$.
+    interview: >
+      "What's the distribution of this weighted basket of correlated
+      normal assets?" wants $a'X\sim N(a'\mu,a'\Sigma a)$ stated
+      immediately, with $a'\Sigma a$ expanded as diagonal terms plus
+      weighted pairwise covariances, not re-derived from variance-of-a-sum
+      each time.
+    pitfalls: >
+      Computing $a'\Sigma a$ by summing only the diagonal contributions
+      $a_i^{2}\Sigma_{ii}$ and forgetting the off-diagonal
+      $2a_ia_j\Sigma_{ij}$ terms silently drops the entire dependence
+      structure. Assuming any $(\mu,\Sigma)$ with $\Sigma$ merely symmetric
+      (not positive semidefinite) is realizable ignores the constraint
+      that rules out invalid covariance structures.
+    recap: >
+      A multivariate normal vector is fully described by $\mu$ and
+      $\Sigma$, and any weighted combination is normal with variance
+      $a'\Sigma a$ — for this three-asset basket, mean $3.8\%$ and
+      standard deviation about $15.5\%$.
