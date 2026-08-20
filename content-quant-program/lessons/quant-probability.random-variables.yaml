@@ -1,0 +1,943 @@
+unit: quant-probability.random-variables
+opening: >
+  A random variable turns an experiment into a number, and everything you can
+  ask about it is captured by one function: the CDF. This unit builds the
+  toolkit for working with that function directly — classifying a law as
+  discrete, continuous or mixed, reading off the pmf or pdf, inverting the CDF
+  into quantiles and spotting symmetry for a free median, and turning an event
+  into an indicator variable whose algebra converts counting into arithmetic.
+  The second half is about transformations: solve $Y=g(X)$ by the CDF method
+  when $g$ has no structure, specialise to a clean change-of-variables formula
+  when $g$ is monotone, handle the affine case explicitly, and meet the
+  probability integral transform tying every continuous law back to the
+  uniform. It closes with the machinery for extremes — the min, the max, and
+  the $k$-th smallest of $n$ independent draws — leaving expectation itself
+  for the next unit.
+lessons:
+  - node: quant-probability.random-variables.rv
+    hook: >
+      Every interview question opens with an experiment described in words,
+      and the first move — silently, before any formula — is deciding what
+      number $X$ tracks; skip it and you'll compute the right arithmetic for
+      the wrong quantity.
+    explanation: >
+      A random variable is not a random number in your hand — it is the rule
+      that reads an outcome of the experiment and reports a number. The
+      subtlety in the definition, that $\{X \le t\}$ must be an event for
+      every $t$, is really the minimal requirement for $\Pr(X \le t)$ to make
+      sense at all; in every interview setting, with a finite or countable
+      $\Omega$, this holds automatically and is never the obstacle.
+
+      The payoff of separating $X$ from $\Omega$ is that once the law — the
+      map $B \mapsto \Pr(X \in B)$ — is pinned down, the underlying experiment
+      can be forgotten entirely. Two variables built from completely
+      different mechanisms are, for every probability question you'll ever
+      ask, the same object the moment their laws agree. This is why later
+      results are always stated in terms of the law of $X$, never in terms of
+      how $\Omega$ was built.
+
+      The practical habit: when a problem hands you a description, write down
+      explicitly what $X$ measures and over what experiment, before reaching
+      for a formula. A vague "let $X$ be the outcome" invites the exact
+      modelling errors the sample-space discipline was built to prevent.
+    worked: >
+      Experiment A: flip a fair coin and let $X=1$ if heads, $0$ if tails.
+      Experiment B: draw one card from a standard deck and let $Y=1$ if the
+      card is red, $0$ if black. These live on totally different sample
+      spaces — one has $2$ outcomes, the other $52$ — yet both give
+      $\Pr(X=1)=\Pr(Y=1)=1/2$ and $\Pr(X=0)=\Pr(Y=0)=1/2$: the same law. Any
+      probability question about $X$ has the identical numerical answer for
+      $Y$, even though no outcome of the coin flip literally equals any card.
+    interview: >
+      Interviewers rarely ask "define a random variable" outright; they watch
+      whether you name the experiment and the numeric rule together when
+      restating their prompt — "let $X$ be the number of heads in three
+      flips" said out loud before any counting starts is the signal they're
+      listening for.
+    pitfalls: >
+      Treating $X$ as if it were the outcome itself (a card, a die face)
+      rather than the number attached to it collapses the function/value
+      distinction the rest of the subject depends on. Skipping past what $X$
+      actually measures and jumping straight to a formula is the fastest way
+      to answer a different question than the one asked.
+    recap: >
+      A random variable is the numeric readout of an outcome, and once its
+      law is fixed the experiment that produced it is irrelevant.
+
+  - node: quant-probability.random-variables.cdf
+    hook: >
+      Nearly every "at most / at least / between" probability question is
+      answered by $F$ or $1-F$ directly — knowing which of the four defining
+      properties is in play, on sight, is a baseline fluency check.
+    explanation: >
+      $F$ inherits monotonicity straight from monotonicity of $\Pr$:
+      $\{X\le s\}\subseteq\{X\le t\}$ whenever $s\le t$, so $F(s)\le F(t)$.
+      Right-continuity and the two limits are the same continuity-of-
+      probability idea applied to shrinking or growing sequences of events —
+      nothing new is invoked beyond what probability already guarantees.
+
+      The more useful fact for computation is the jump identity:
+      $F(t)-F(t^{-})$ is exactly $\Pr(X=t)$, because the interval
+      $(t-1/n, t]$ shrinks down to the single point $\{t\}$ as $n\to\infty$.
+      So reading $F$'s graph tells you everything — a flat stretch means
+      those values are never taken, a jump means a point has positive mass,
+      and a smooth climb means no single value stands out.
+
+      Switching to $S(t)=1-F(t)$ is not just notation: for "how long until"
+      and other tail questions, $S$ is the quantity that composes cleanly (it
+      is what gets multiplied together for independent minima, met later in
+      this unit), while $F$ is the natural one for "at most" questions.
+    worked: >
+      Flip a fair coin three times and let $X$ count the heads, so
+      $\Pr(X=0)=1/8$, $\Pr(X=1)=3/8$, $\Pr(X=2)=3/8$, $\Pr(X=3)=1/8$. Then
+      $F(1.5)=\Pr(X\le 1.5)=\Pr(X\le 1)=1/8+3/8=1/2$. Approaching $t=1$ from
+      below, $F(1^{-})=\Pr(X<1)=\Pr(X=0)=1/8$, so the jump at $t=1$ is
+      $F(1)-F(1^{-})=1/2-1/8=3/8$, matching $\Pr(X=1)$ exactly.
+    interview: >
+      A common ask is "sketch the CDF of [some described variable]" — the
+      grader checks that jumps land at the right places with the right
+      heights and the curve is flat everywhere else, not a smooth guess. A
+      sharper follow-up: "why must $F$ be right-continuous" tests whether you
+      can reproduce the shrinking-interval argument.
+    pitfalls: >
+      Computing a point probability as $F(t)-F(t-1)$ instead of the correct
+      left-hand limit $F(t)-F(t^{-})$ silently uses the wrong gap whenever
+      values aren't spaced by exactly $1$. Assuming $F$ is continuous by
+      default, rather than checking for jumps first, misreads any variable
+      with atoms.
+    recap: >
+      $F(t)=\Pr(X\le t)$ is monotone, right-continuous, and its jump at $t$
+      equals $\Pr(X=t)$ — the one description that answers every probability
+      question about $X$.
+
+  - node: quant-probability.random-variables.equality-in-distribution
+    hook: >
+      $X\sim Y$ is the single most misused symbol in the subject — reached
+      for correctly it transfers an entire computation for free, reached for
+      inside a sum or a difference it silently asserts something false.
+    explanation: >
+      Same distribution means $F_X=F_Y$, so every question of the form
+      "$\Pr(X\in B)$" has the same answer as "$\Pr(Y\in B)$" — but that is a
+      statement about two separate one-dimensional questions, never about how
+      $X$ and $Y$ sit together. Two variables can satisfy $X\sim Y$ while
+      being built to disagree at every single outcome, and the definition
+      doesn't even require them to share a sample space.
+
+      The forward use is powerful: if you can exhibit a relabelling of the
+      experiment — a symmetry — that carries $X$ to $Y$ while preserving
+      probabilities, then any distributional fact already known about one
+      instantly applies to the other, with zero new computation. This is the
+      engine behind every symmetry argument in the unit.
+
+      The trap is applying $X\sim Y$ as though it licensed substituting $Y$
+      for $X$ inside an expression involving both, such as a sum or a
+      difference. Those quantities depend on the joint law, which equality in
+      distribution says nothing about — two variables can share a law and yet
+      have a sum that behaves nothing like twice that law.
+    worked: >
+      Let $X$ take the values $-1$ and $1$ each with probability $1/2$, and
+      set $Y=-X$. Since $X$ is symmetric about $0$, $Y$ has the same two
+      values with the same probabilities, so $X\sim Y$. But $X+Y=0$ always —
+      $\Pr(X+Y=0)=1$ — while $2X$ takes the values $-2$ and $2$ each with
+      probability $1/2$, so $\Pr(2X=0)=0$. Treating $X\sim Y$ as license to
+      replace $Y$ by "another copy of $X$" inside the sum gives the wrong
+      answer entirely — the two are not interchangeable inside an expression.
+    interview: >
+      A typical probe is "if $X$ and $Y$ have the same distribution, is
+      $\operatorname{Var}(X+Y)$ the same as $\operatorname{Var}(2X)$" — the
+      expected answer is no, not without a joint assumption like independence
+      or $X=Y$, and producing a quick counterexample on the spot is what
+      separates memorised from understood.
+    pitfalls: >
+      Substituting $Y$ for $X$ inside a sum, difference, or product because
+      $X\sim Y$ ignores that those operations depend on the joint law, not
+      the marginal one. Assuming equal distribution forces $X=Y$ pointwise
+      conflates a very weak relation with a very strong one.
+    recap: >
+      Equal distribution means every marginal probability question about $X$
+      and $Y$ agrees, and nothing about how the two move together — powerful
+      used forwards through a symmetry, wrong used inside a sum.
+
+  - node: quant-probability.random-variables.discrete-vs-continuous
+    hook: >
+      The actual question buried in "classify this variable" is whether you
+      sum or integrate to get a probability — misreading the CDF's shape here
+      derails every calculation downstream.
+    explanation: >
+      Three shapes of $F$, three regimes. A step function means all the
+      probability mass sits on countably many points — read $F$'s graph for
+      the flat-then-jump pattern and you've found the discrete case without
+      ever writing a pmf. A continuous $F$ means no single value carries
+      positive probability, and in every interview case that continuity comes
+      packaged with a density, so $F$ is an integral. A mix of both — some
+      flat-then-jump segments alongside genuinely smooth climbing — is what
+      any real-world payoff with a floor, cap, or knockout produces, since
+      those mechanisms force a whole range of underlying outcomes onto one
+      boundary value while leaving the interior untouched.
+
+      The diagnostic habit is mechanical: before doing any arithmetic, ask
+      whether the described random quantity can get stuck at a specific
+      boundary value with positive probability. If yes, there's an atom and
+      the law is at least partly discrete; wherever the quantity moves freely
+      through a continuum with no such sticking point, that stretch is
+      continuous. Most interview "distributions" that aren't a named
+      textbook law are mixed for exactly this reason.
+    worked: >
+      A machine fails instantly with probability $0.3$; otherwise its failure
+      time is uniform on $(0,5)$ years. Then $F(0)=0.3$ (the atom at $t=0$)
+      and for $0<t\le 5$, $F(t)=0.3+0.7\cdot(t/5)$, climbing smoothly from
+      $0.3$ to $1$. At $t=2$: $F(2)=0.3+0.7(2/5)=0.3+0.28=0.58$. The CDF has a
+      jump of size $0.3$ at $0$ plus a smooth climb after — neither purely
+      discrete nor purely continuous.
+    interview: >
+      Phrased as "is this random variable discrete, continuous, or neither"
+      for a described payoff — the interviewer listens for you to check
+      whether any single value can occur with positive probability before
+      defaulting to "continuous" just because a range of numbers is involved.
+    pitfalls: >
+      Assuming any variable taking a continuum of values must be purely
+      continuous ignores that caps, floors, and instant-failure scenarios
+      routinely inject an atom into an otherwise continuous quantity. Trying
+      to write a pmf for the continuous stretch of a mixed law, or a pdf for
+      its atom, applies the wrong tool to each piece.
+    recap: >
+      Read the shape of $F$ — flat-then-jump is discrete, a smooth climb is
+      continuous, and both together is the mixed case any capped or floored
+      payoff produces.
+
+  - node: quant-probability.random-variables.pmf
+    hook: >
+      Before any probability of a discrete variable can be computed, its pmf
+      has to be written down explicitly — and checking a candidate table is
+      legitimate is how you reverse-engineer an unknown weight under time
+      pressure.
+    explanation: >
+      The pmf is nothing more than $F$'s jump heights, read one point at a
+      time: $p(x)=F(x)-F(x^{-})$. Equivalently, and usually more directly in
+      an interview, you build $p$ straight from the story — list every value
+      the variable can take and assign each the probability of that outcome —
+      without ever going through $F$ first.
+
+      The two defining conditions, $p(x)\ge 0$ and $\sum_x p(x)=1$, are the
+      entire legitimacy check, and running them in reverse is a standard
+      move: if a story specifies probabilities only up to an unknown constant
+      or a missing weight, normalisation alone pins it down.
+
+      Once $p$ is written, every other probability about the variable is a
+      sum over $p$: $\Pr(X\in B)=\sum_{x\in B}p(x)$. This is the discrete
+      analogue of what integrating a density will do for continuous
+      variables, and it's why a fully specified pmf answers every question
+      about a discrete law in one line of arithmetic.
+    worked: >
+      A bag holds six balls numbered $1,2,2,3,3,3$; draw one uniformly. Let
+      $X$ be the number drawn, so $p(1)=1/6$, $p(2)=2/6=1/3$, $p(3)=3/6=1/2$,
+      and indeed $1/6+1/3+1/2=1$. The probability the draw is at least $2$ is
+      $\Pr(X\ge 2)=p(2)+p(3)=1/3+1/2=5/6$.
+    interview: >
+      "Here's a description of a random process — write down its pmf" is the
+      entry point to nearly every discrete probability question; the
+      interviewer checks that you list values and weights cleanly and, if a
+      parameter is unspecified, that you reach for normalisation to pin it
+      down.
+    pitfalls: >
+      Forgetting to check a hand-built pmf actually sums to $1$ before using
+      it lets an earlier arithmetic slip propagate silently through every
+      later computation. Assigning probability to a value the variable
+      literally cannot take (or omitting one it can) is the other common
+      setup error.
+    recap: >
+      The pmf is the list of point probabilities — $F$'s jump heights read
+      one at a time — and any nonnegative list summing to $1$ is a legitimate
+      one.
+
+  - node: quant-probability.random-variables.pdf
+    hook: >
+      The moment a problem describes a continuous quantity, the fastest path
+      in is usually writing down $f$ and integrating — but that only works
+      once you've confirmed $f$ is legitimate, and interviewers love asking
+      for the missing normalising constant first.
+    explanation: >
+      A density turns probability into area: $\Pr(a\le X\le b)$ is the area
+      under $f$ between $a$ and $b$, which is why $f\ge 0$ and total area $1$
+      are the only two conditions a candidate density must satisfy — exactly
+      analogous to the pmf's conditions, with sum replaced by integral.
+      Differentiating the resulting $F$ recovers $f$ wherever $f$ is
+      continuous, so integrate to get $F$ and differentiate to get $f$ are
+      inverse operations on this class of variables.
+
+      Because $\Pr(X=x)=0$ for a continuous variable, the inequality can be
+      strict or weak at either endpoint with no effect on the answer — a fact
+      worth using to simplify notation rather than tracking endpoint cases
+      that don't matter.
+
+      When a story specifies a density up to an unknown constant —
+      "$f(x)=cx$ on some interval" — the normalisation condition
+      $\int f = 1$ is the equation that solves for $c$, exactly the
+      continuous analogue of pinning down a missing pmf weight.
+    worked: >
+      Find $c$ so that $f(x)=cx$ on $(0,4)$, $0$ elsewhere, is a valid
+      density. Normalisation gives $\int_0^4 cx\,dx = c\cdot 16/2 = 8c = 1$,
+      so $c=1/8$. Then $\Pr(1<X<3)=\int_1^3 (x/8)\,dx =
+      \left[x^{2}/16\right]_1^3 = (9-1)/16 = 1/2$.
+    interview: >
+      The canonical ask is "for what constant is this a valid density"
+      followed immediately by "now find $\Pr(a<X<b)$" — the interviewer
+      watches whether normalisation and area-under-the-curve are both
+      automatic, one right after the other, without prompting.
+    pitfalls: >
+      Integrating over the wrong support — missing part of a piecewise
+      density, or including a region where $f$ is actually $0$ — under- or
+      overstates the normalising constant. Assuming $F'(t)=f(t)$ holds
+      everywhere, rather than only where $f$ is continuous, misses that
+      kinked densities need care at the kink.
+    recap: >
+      A density turns probability into area under $f$: normalise so the
+      total area is $1$, and $f$ is the derivative of $F$ wherever that
+      derivative exists.
+
+  - node: quant-probability.random-variables.density-not-probability
+    hook: >
+      Seeing $f(x)=3$ and concluding "that's impossible, probabilities can't
+      exceed $1$" is a reflex that costs points immediately — a density and a
+      probability are different kinds of quantity.
+    explanation: >
+      A density has units: probability per unit of $x$, not probability
+      itself. Rescale the axis — measure the same quantity in cents instead
+      of dollars — and every value of $f$ divides by $100$ even though
+      nothing about the underlying randomness changed; only the total area
+      under the curve, and ratios between two heights of the curve, are
+      invariant. A bounded-looking density with values above $1$ is
+      completely ordinary whenever the variable is concentrated on a short
+      interval.
+
+      Separately, $\Pr(X=x)=0$ for every single $x$ under a continuous law,
+      and yet some value of $X$ occurs — probability zero is a statement
+      about measure, not about possibility. "The closing price is exactly
+      $100.00$" genuinely has probability $0$ while "within a cent of $100$"
+      does not, and both facts are simultaneously true.
+
+      A third consequence, worth flagging even without working it:
+      conditioning on a probability-zero event can't use the ordinary ratio
+      definition of conditional probability, since that ratio would divide by
+      $0$ — it needs a limiting argument instead, developed once conditioning
+      is covered properly.
+    worked: >
+      Let $X$ be a price change measured in dollars, uniform on $(0,0.1)$, so
+      $f(x)=10$ throughout — already above $1$. Measuring the same quantity
+      in cents, $Y=100X$ is uniform on $(0,10)$ with density $g(y)=1/10$.
+      Despite the very different-looking heights, $\Pr(0.02<X<0.08)=10\times
+      0.06=0.6$ exactly equals $\Pr(2<Y<8)=(1/10)\times 6=0.6$ — the
+      probability is invariant even though the density values used to
+      compute it are not.
+    interview: >
+      A quick probe is "I've computed a density of $4$ at some point — did I
+      make an error" — the correct answer is that nothing is wrong yet, since
+      only area needs checking, not any single height; a sharper follow-up
+      asks you to name a specific event with probability exactly $0$ that
+      could still happen.
+    pitfalls: >
+      Rejecting a computed density purely because a value exceeds $1$ throws
+      out correct work. Reading "probability zero" as "cannot happen" leads
+      to contradictions the moment a continuous variable is involved, since
+      every one of its possible values individually has probability $0$.
+    recap: >
+      A density's numeric size depends on the units of $x$ and carries no cap
+      at $1$; only area is invariant, and probability zero never means
+      impossible for a continuous variable.
+
+  - node: quant-probability.random-variables.quantiles
+    hook: >
+      Median, percentile, and $\operatorname{VaR}$ are all the same object in
+      different clothes — the quantile function — built specifically to
+      survive the flats and jumps that break naively "solving $F(x)=u$".
+    explanation: >
+      Plain inversion of $F$ fails in two ways a definition has to route
+      around. If $F$ jumps over $u$ — skips it entirely because of an atom —
+      no $x$ solves $F(x)=u$ exactly, so the definition takes the smallest
+      $x$ where $F$ has climbed at least to $u$, landing on the far side of
+      the jump. If $F$ is flat at height $u$ over a stretch of $x$-values —
+      because the variable never visits that stretch — many $x$'s would
+      satisfy $F(x)=u$, so the definition takes the leftmost one, the
+      infimum.
+
+      The equivalence $q(u)\le x \iff u\le F(x)$ is what makes this
+      well-behaved: it says $q$ and $F$ are still inverses in the only sense
+      that matters, order-preserving, even though pointwise inversion breaks
+      down. When $F$ happens to be continuous and strictly increasing, this
+      collapses to the ordinary inverse function.
+
+      Quantiles commute with increasing transformations — the median of
+      $g(X)$ is $g$ of the median of $X$ — for exactly this reason: an
+      increasing map sends "the point with $u$ fraction of the mass below it"
+      to another point with the same fraction below it, since order is all
+      that's tracked.
+    worked: >
+      A discrete variable has $p(0)=0.2$, $p(1)=0.5$, $p(2)=0.3$, so
+      $F(0)=0.2$, $F(1)=0.7$, $F(2)=1$. The median $q(0.5)$ is the smallest
+      $x$ with $F(x)\ge 0.5$: since $F(0)=0.2<0.5$ and $F(1)=0.7\ge 0.5$,
+      $q(0.5)=1$. The same reasoning gives $q(0.6)=1$ too — $u=0.6$ lands in
+      the same flat stretch, both mapping to the single value $x=1$.
+    interview: >
+      Given a table of values and probabilities, "find the median" or "find
+      the $70$th percentile" is answered directly from the definition —
+      cumulate probabilities until the target threshold is first reached or
+      exceeded, then stop; the interviewer checks you don't try to solve an
+      equation that a jump makes unsolvable.
+    pitfalls: >
+      Trying to solve $F(x)=u$ exactly for a discrete variable, rather than
+      finding the smallest $x$ with $F(x)\ge u$, fails whenever $u$ isn't
+      itself one of $F$'s jump values. Forgetting the strict order of the
+      equivalence direction — using $q(u)<x$ instead of $q(u)\le x$ —
+      misplaces boundary cases.
+    recap: >
+      $q(u)=\inf\{x:F(x)\ge u\}$ is the order-preserving inverse of $F$ that
+      stays well defined through every jump and flat stretch $F$ has.
+
+  - node: quant-probability.random-variables.symmetric
+    hook: >
+      Spotting a reflection symmetry in the setup — swap heads and tails,
+      swap two dice, negate a centered quantity — hands you the median for
+      free, no integral or sum required.
+    explanation: >
+      Symmetry about $c$ says $c-X$ and $X-c$ share a law: reflecting the
+      variable through $c$ changes nothing about its distribution. Because
+      equality in distribution preserves every marginal probability,
+      $\Pr(X>c)$ and $\Pr(X<c)$ must be equal to each other, and since they
+      also add up to $1-\Pr(X=c)$, each is exactly half of that — which is
+      precisely the definition of $c$ being a median.
+
+      Spotting the symmetry is the whole skill: look for a relabelling of the
+      underlying experiment — an exchange, a sign flip, a swap of two
+      identically-behaving pieces — that leaves the story unchanged while
+      sending $X$ to $2c-X$. If such a relabelling exists, the reflection
+      identity follows immediately from equality in distribution, without
+      touching the pmf or pdf at all.
+
+      The quantile pairing $q(u)+q(1-u)=2c$, valid once $F$ is also strictly
+      increasing, extends the same idea to every percentile, not just the
+      median: the $10$th and $90$th percentiles average to $c$, and so on for
+      any matched pair.
+    worked: >
+      Roll two fair dice and let $D$ be the first roll minus the second.
+      Swapping which die is "first" negates $D$ while leaving the joint
+      distribution of the two dice unchanged (they're iid), so $D\sim -D$:
+      symmetric about $0$. Among the $36$ equally likely pairs, $D=0$ occurs
+      for the $6$ pairs with equal faces, so $\Pr(D=0)=6/36=1/6$. By
+      symmetry, $\Pr(D>0)=\Pr(D<0)=(1-1/6)/2=5/12$ — the median of $D$ is
+      $0$, obtained without ever listing the full distribution of $D$.
+    interview: >
+      "What's the median of [some visibly balanced setup]" is answered by
+      naming the relabelling that proves symmetry, then reading off the
+      median as the center point — interviewers listen for the symmetry
+      argument stated explicitly, not a guess that "it's probably the middle
+      value".
+    pitfalls: >
+      Declaring a setup "symmetric" because it looks balanced, without naming
+      the actual relabelling that swaps $X$ for $2c-X$, is an unjustified
+      leap. Forgetting the atom term when $\Pr(X=c)>0$ gives tails of exactly
+      $1/2$ each when they should be $(1-\Pr(X=c))/2$.
+    recap: >
+      If reflecting $X$ about $c$ leaves its law unchanged, $c$ is a median
+      with equal tails on both sides — a computation-free answer the moment
+      the relabelling is spotted.
+
+  - node: quant-probability.random-variables.indicator
+    hook: >
+      Turning "how many of these $n$ events occur" from a case-by-case
+      enumeration into a single sum is the most reused trick in the interview
+      canon, and it starts here.
+    explanation: >
+      An indicator is the simplest possible random variable — a Bernoulli
+      switch reporting whether $A$ happened — but its payoff is algebraic:
+      because $\mathbf{1}\{A\}$ only ever takes the values $0$ and $1$, set
+      operations on events become ordinary multiplication and subtraction on
+      numbers. Intersection becomes a product, complement becomes "$1$
+      minus," and squaring an indicator does nothing, since $0^2=0$ and
+      $1^2=1$.
+
+      The identity worth internalising is
+      $\mathbf{1}\{A_1\cap A_2\}=\mathbf{1}\{A_1\}\mathbf{1}\{A_2\}$ — this
+      holds as pure algebra for any two events, independent or not, because
+      both sides are $1$ exactly when both indicators are $1$. Independence
+      is a separate, stronger fact that lets you go further and say the
+      probability of that product equals the product of the probabilities.
+
+      The general pattern this unlocks: any count — how many components fail,
+      how many cards match a suit, how many of $n$ trials succeed — is
+      $N=\sum_i \mathbf{1}\{A_i\}$, turning "count how many things happen"
+      into "add up $0$'s and $1$'s." Every variable also generates its own
+      family of indicators, $\mathbf{1}\{X>t\}$, converting a question about
+      $X$'s size into a question about an event.
+    worked: >
+      Flip a fair coin $3$ times; let $A_i$ be "flip $i$ is heads" and
+      $N=\sum_{i=1}^{3}\mathbf{1}\{A_i\}$, the total number of heads. The
+      algebra $\mathbf{1}\{A_1\}\mathbf{1}\{A_2\}\mathbf{1}\{A_3\}=
+      \mathbf{1}\{A_1\cap A_2\cap A_3\}$ says $N=3$ exactly when all three
+      indicators equal $1$ at once, so
+      $\Pr(N=3)=\Pr(A_1\cap A_2\cap A_3)=(1/2)^3=1/8$ by independence of the
+      flips — no separate enumeration of outcomes needed.
+    interview: >
+      Any prompt shaped like "how many of these $n$ [events] occur" is a cue
+      to define $N$ as a sum of indicators immediately — the interviewer
+      watches for that decomposition to appear before any attempt at a direct
+      pmf, since the sum form is what the next unit's linearity trick
+      exploits without needing independence.
+    pitfalls: >
+      The identity $\mathbf{1}\{A\cap B\}=\mathbf{1}\{A\}\mathbf{1}\{B\}$ is
+      pure algebra and holds regardless of independence — but the
+      probability statement $\Pr(A\cap B)=\Pr(A)\Pr(B)$ obtained by taking
+      probabilities of both sides only holds once independence is separately
+      established. Conflating the two lets an unjustified independence
+      assumption slip in unnoticed.
+    recap: >
+      An indicator is a $0/1$ Bernoulli variable whose algebra turns
+      intersection into multiplication and complement into subtraction, and
+      every count is a sum of indicators.
+
+  - node: quant-probability.random-variables.mixed
+    hook: >
+      Any payoff with a cap, floor, or knockout produces exactly this shape,
+      and the standard interview trap is analysing it as purely continuous —
+      silently dropping the entire atom of probability sitting at the
+      boundary.
+    explanation: >
+      The shape comes from a general mechanism worth naming: whenever a
+      transformation sends an entire tail of the underlying variable's range
+      to one boundary value while behaving one-to-one everywhere else, the
+      transformed variable inherits an atom at that boundary equal to the
+      tail probability, plus a continuous piece — rescaled but otherwise
+      undistorted — on the interior. Capping does this by collapsing
+      everything above the cap onto the cap itself; flooring collapses
+      everything below the floor onto the floor.
+
+      Computing with a mixed law is just bookkeeping: split any probability
+      into the piece captured by the atom and the piece captured by the
+      density, and add. The CDF itself is built the same direct way it always
+      is — $\Pr(\text{transformed variable}\le t)$ — evaluated separately for
+      $t$ below the boundary and at or past it.
+
+      The instinct to build is checking, before any computation: does the
+      described transformation ever send a whole range of outcomes to a
+      single number? If so, that number carries an atom, and treating the
+      whole law as purely continuous will understate probabilities at exactly
+      that point.
+    worked: >
+      A contract pays $Y=\max(Z,1)$ where $Z$ is uniform on $(0,3)$ — a floor
+      at $1$ instead of a cap. The atom is $\Pr(Y=1)=\Pr(Z\le 1)=1/3$. For
+      $1\le t\le 3$, $F_Y(t)=\Pr(Z\le t)=t/3$, so $F_Y$ jumps to $1/3$ at
+      $t=1$ and then climbs linearly to $1$ at $t=3$, giving a density of
+      $1/3$ on $(1,3)$. The median solves $F_Y(t)=1/2$: since the jump only
+      reaches $1/3<1/2$, the median sits in the continuous part,
+      $t/3=1/2 \Rightarrow t=1.5$. And $\Pr(Y>2)=1-F_Y(2)=1-2/3=1/3$.
+    interview: >
+      The canonical framing is a payoff with a deductible or a cap —
+      "describe the distribution of the insurer's payout" — and the
+      interviewer wants immediate recognition of an atom at the boundary plus
+      a rescaled continuous piece elsewhere, not an attempt to force one
+      unified density or pmf over the whole range.
+    pitfalls: >
+      Computing probabilities as though the law were purely continuous
+      silently drops the atom at the boundary, understating the probability
+      of landing exactly there. Normalising the continuous piece on its own —
+      integrating the density over just the interior and expecting it to hit
+      $1$ — forgets that the atom carries the rest of the mass.
+    recap: >
+      A capped or floored payoff is a mixed law: an atom at the boundary
+      equal to the collapsed tail probability, plus a rescaled continuous
+      density on the interior, computed by splitting and adding.
+
+  - node: quant-probability.random-variables.cdf-method
+    hook: >
+      Whenever $g$ has a kink or isn't one-to-one — squares, absolute values,
+      maxima — this is the fallback that always works, and interviewers
+      reach for exactly such a $g$ to see whether you default to it instead
+      of guessing at a shortcut.
+    explanation: >
+      The whole method is one sentence: $F_Y(y)=\Pr(g(X)\le y)$ is the
+      probability that $X$ lands in whichever set of $x$-values satisfies
+      $g(x)\le y$ — so the entire problem is finding that set correctly
+      before any calculus happens. Once the set is written down as an
+      interval or union of intervals in terms of $X$, its probability comes
+      from $F_X$ or from integrating $f_X$, exactly as usual, and only after
+      that is $F_Y$ differentiated, if a density is wanted at all.
+
+      The step that actually requires care is that the set solving
+      $g(x)\le y$ can change shape as $y$ moves through different ranges — a
+      different algebraic description above one threshold than below it — so
+      the range of $y$ has to be split into pieces before a single formula
+      for $f_Y$ can be trusted. Skipping this and writing one global formula
+      is the most common way this technique goes wrong.
+
+      Compare this to what the monotone change-of-variables shortcut buys
+      later: when $g$ is one-to-one, the preimage of $(-\infty,y]$ is always
+      a single ray, and there's no casework — this method is what you fall
+      back to exactly when that simplification isn't available.
+    worked: >
+      Let $X$ be uniform on $(-2,3)$, so $f_X(x)=1/5$ there, and $Y=|X|$,
+      which ranges over $[0,3]$ and is not one-to-one. For $0\le y\le 2$,
+      $\{-y\le X\le y\}$ sits entirely inside $(-2,3)$, giving
+      $F_Y(y)=\Pr(-y\le X\le y)=2y/5$. But for $2<y\le 3$, $X$ can't go below
+      $-2$, so the set is really $\{-2\le X\le y\}$, giving
+      $F_Y(y)=(y+2)/5$ — a different formula past $y=2$ because the support
+      is asymmetric. This gives $\Pr(Y>2.5)=1-F_Y(2.5)=1-4.5/5=0.1$.
+    interview: >
+      Given a non-monotone transform like $Y=X^2$, $Y=|X|$, or
+      $Y=\min(X,c)$, the interviewer watches whether you write
+      $F_Y(y)=\Pr(g(X)\le y)$ and solve for the correct set immediately,
+      rather than guessing a shortcut formula that only applies to monotone
+      $g$.
+    pitfalls: >
+      Writing a single formula for $F_Y$ across the whole range of $y$,
+      without checking whether the shape of the solution set to $g(x)\le y$
+      changes at some threshold, misses exactly the kind of asymmetric-
+      support case above. Differentiating before fixing which range of $y$
+      the formula is valid on produces a density with the wrong support.
+    recap: >
+      Solve $g(x)\le y$ for the exact set of $x$ it describes, get its
+      probability from $F_X$, and only then differentiate — always
+      available, and the only route when $g$ isn't monotone.
+
+  - node: quant-probability.random-variables.transformation
+    hook: >
+      Once $g$ is monotone the general CDF method collapses into a one-line
+      formula — but only after the stretch factor $|g'|$ is divided in
+      correctly, which is where the sign and the wrong evaluation point both
+      like to slip in.
+    explanation: >
+      Picture probability mass sitting on the $x$-axis as $f_X(x)\,dx$ in a
+      thin slice of width $dx$. A monotone $g$ relabels that slice onto the
+      $y$-axis as a slice of width $|g'(x)|\,dx$ around $y=g(x)$ —
+      stretching where $|g'|>1$, compressing where $|g'|<1$. Since the actual
+      amount of probability in the slice can't change under a relabelling,
+      $f_Y(y)\,dy$ must equal $f_X(x)\,dx$, and solving for $f_Y$ divides by
+      that local stretch factor.
+
+      This is exactly the monotone special case of the CDF method: because
+      $g$ is one-to-one, the set $\{g(X)\le y\}$ is always a single ray in
+      $x$ with no casework, which is what lets the formula skip straight to
+      differentiation instead of splitting $y$ into ranges first.
+
+      Two bookkeeping habits prevent the common errors: evaluate $f_X$ at
+      $x=g^{-1}(y)$, not at $y$ itself, and take the absolute value of the
+      derivative, since a decreasing $g$ would otherwise hand back a negative
+      "density."
+    worked: >
+      Let $X$ be uniform on $(0,1)$ and $Y=X^{1/3}$, increasing, so $Y$ also
+      ranges over $(0,1)$ with $g^{-1}(y)=y^3$ and $(g^{-1})'(y)=3y^2$. Then
+      $f_Y(y)=f_X(y^3)\cdot 3y^2=1\cdot 3y^2=3y^2$ on $(0,1)$ — check:
+      $\int_0^1 3y^2\,dy=1$. And $\Pr(Y>0.5)=\int_{0.5}^1 3y^2\,dy=
+      \left[y^3\right]_{0.5}^1=1-0.125=0.875$.
+    interview: >
+      Given a strictly increasing or decreasing $g$, "find the density of
+      $Y=g(X)$" is answered directly by the change-of-variables formula — the
+      interviewer listens for the stretch-factor intuition stated out loud,
+      plus the correct support for $Y$, not just a memorised formula plugged
+      in mechanically.
+    pitfalls: >
+      Dropping the absolute value on $g'$ for a decreasing transform
+      produces a negative density, an immediate sign that something's wrong.
+      Evaluating $f_X$ at $y$ instead of at $x=g^{-1}(y)$ silently uses the
+      wrong input whenever $g$ isn't the identity.
+    recap: >
+      For strictly monotone $g$,
+      $f_Y(y)=f_X(g^{-1}(y))\,|(g^{-1})'(y)|$ — divide by the local stretch
+      factor, evaluated at the right point, always as an absolute value.
+
+  - node: quant-probability.random-variables.linear-transformation
+    hook: >
+      This is the one change of variables you'll do without thinking —
+      standardising $Z=(X-b)/a$ before reading off a table — so the sign flip
+      that appears only when $a<0$ is exactly the detail worth having
+      automatic.
+    explanation: >
+      An affine map is the simplest possible monotone transform: $g'(x)=a$
+      is constant, so the stretch factor from the monotone change-of-
+      variables formula is the same everywhere, and the density just gets
+      divided by $|a|$ and shifted — no pointwise variation to track. That
+      constancy is also why the effect on quantiles is so clean: shifting and
+      rescaling the whole axis moves every quantile the identical way,
+      $a\,q_X(u)+b$, except that a negative $a$ reverses which end of the
+      distribution each quantile lands on, exactly what the $q_X(1-u)$ swap
+      corrects for.
+
+      The location-scale idea is this closure property elevated to a family:
+      if every member of a family of laws is reachable from one reference
+      member by shifting and rescaling, then solving one problem — usually
+      for the standardised member with $b=0$ and $a=1$ — silently solves it
+      for the whole family, since the answer for any other member is a
+      shift-and-rescale of the reference answer. This is precisely why one
+      table of standard values, looked up after standardising, serves every
+      member of the family.
+    worked: >
+      Let $X$ be uniform on $(0,1)$ and $Y=-3X+5$, so $a=-3<0$, $b=5$. As $X$
+      ranges over $(0,1)$, $Y$ ranges over $(2,5)$, decreasing, with density
+      $f_Y(y)=\dfrac{1}{3}f_X\!\left(\dfrac{y-5}{-3}\right)=1/3$ on $(2,5)$ —
+      still uniform, just stretched to length $3$. The median uses the $a<0$
+      quantile rule: $q_Y(0.5)=a\,q_X(1-0.5)+b=-3(0.5)+5=3.5$, the midpoint
+      of $(2,5)$ as expected by symmetry, and directly,
+      $\Pr(Y<3)=\int_2^3(1/3)\,dy=1/3$.
+    interview: >
+      The standard application is "given $X$ is normal with mean $\mu$ and
+      standard deviation $\sigma$, use the $Z$-table to find
+      $\Pr(X<x_0)$" — the interviewer wants the standardisation
+      $Z=(X-\mu)/\sigma$ produced automatically, table value looked up, then
+      mapped back, with no hesitation over the direction of the shift.
+    pitfalls: >
+      Using $q_Y(u)=a\,q_X(u)+b$ unconditionally, without the $1-u$ swap when
+      $a<0$, silently reverses which quantile you've actually computed.
+      Dividing the density by $a$ instead of $|a|$ when $a$ is negative
+      produces a formally negative density.
+    recap: >
+      Affine maps shift and rescale the CDF, quantiles, and density in
+      lockstep — dividing the density by $|a|$ and reversing quantile order
+      exactly when $a<0$ — which is why one standardised table covers a whole
+      location-scale family.
+
+  - node: quant-probability.random-variables.pit
+    hook: >
+      "Why are p-values uniform under the null" is this theorem asked in
+      applied language, and its reverse direction is literally how a
+      computer turns a stream of uniform random numbers into a sample from
+      any distribution you like.
+    explanation: >
+      The forward direction says $F$ is a universal translator: feed a
+      continuous variable through its own CDF and, no matter how unevenly
+      $X$'s probability mass is spread out, the result is spread perfectly
+      evenly on $(0,1)$. The intuition is that $F$ measures "what fraction of
+      $X$'s mass lies at or below this point," and that fraction, by
+      construction, moves at a constant rate as you scan through the possible
+      values — exactly what being uniform means. Continuity is what makes
+      this exact rather than approximate: without it, whole chunks of
+      probability sit on single points, and pushing those through $F$
+      produces the same jumps in $U$ that were in $X$, rather than smoothing
+      them away.
+
+      The reverse direction is the more surprising half: it needs no
+      continuity assumption on the target law at all. Feed a uniform
+      variable through any quantile function $q$ and the output has exactly
+      the CDF $F$ that $q$ came from — this works even to generate discrete
+      or mixed samples, since $q$ was built to handle jumps and flats
+      gracefully. This asymmetry — forward needs continuity, backward
+      doesn't — is what makes simulation universal: one uniform generator,
+      run through the right $q$, reaches any law at all.
+    worked: >
+      Let $X$ have CDF $F(x)=x^2$ on $(0,1)$ (density $f(x)=2x$), and set
+      $U=F(X)=X^2$. Directly: $\Pr(U\le 0.3)=\Pr(X^2\le 0.3)=
+      \Pr(X\le\sqrt{0.3})=F(\sqrt{0.3})=(\sqrt{0.3})^2=0.3$ — matching
+      $\Pr(U\le 0.3)=0.3$ exactly as the uniform law predicts, for a variable
+      whose own density was very much not flat.
+    interview: >
+      The applied phrasing is "why is a p-value uniformly distributed when
+      the null hypothesis is true" — answered by naming the test statistic's
+      own CDF as the transform, invoking continuity of that CDF under the
+      null; the reverse-direction phrasing is "how would you sample from an
+      arbitrary distribution given only a uniform random number generator,"
+      answered with $q(U)$.
+    pitfalls: >
+      Applying the forward direction to a variable with any atoms — a
+      discrete or mixed law — breaks the theorem, since $F(X)$ then inherits
+      the same jumps $X$ had rather than smoothing to uniform. Assuming the
+      reverse direction also needs continuity is the opposite mistake:
+      $q(U)$ produces the correct law $F$ even when $F$ itself has jumps.
+    recap: >
+      Push a continuous variable through its own CDF and you always land on
+      uniform; push a uniform variable through any quantile function and you
+      land on any law you like, continuous or not.
+
+  - node: quant-probability.random-variables.min-max
+    hook: >
+      Series and parallel systems in a reliability question are literally
+      min and max in disguise — recognising that translation and multiplying
+      survival functions or CDFs is the whole solution in one line.
+    explanation: >
+      The translation runs both ways and is worth having automatic: a series
+      system works only if every component works, so its lifetime is the
+      minimum of the component lifetimes, while a parallel system works if
+      any single component works, so its lifetime is the maximum. "All $n$
+      survive past $t$" is an intersection of $n$ independent events, and
+      independent intersections multiply — that single fact is the entire
+      content of both formulas, applied to $F_i(t)$ for the maximum (all
+      below $t$) and to $1-F_i(t)$ for the minimum (all above $t$).
+
+      The mnemonic worth keeping is "maxima multiply CDFs, minima multiply
+      survival functions" — get the pairing backwards under time pressure and
+      the formula for a series system silently becomes the one for a
+      parallel system. Independence is not a technicality here; without it
+      the intersection of "$X_i\le t$" events doesn't factor into a product
+      at all, and the one-line formula is simply unavailable.
+    worked: >
+      Three independent components have $\Pr(\text{survive past } t_0)=
+      0.9,\,0.8,\,0.7$. Wired in series (needs all three), the system
+      survives past $t_0$ with probability $0.9\times 0.8\times 0.7=0.504$ —
+      the minimum-survival product. Wired in parallel (needs at least one),
+      the system survives with probability $1-(0.1)(0.2)(0.3)=1-0.006=0.994$
+      — one minus the product of the failure probabilities, which is the
+      maximum's CDF-complement written directly.
+    interview: >
+      The reliability framing — "what's the probability a series/parallel
+      system of $n$ independent components is still working" — is asked
+      almost verbatim; the interviewer listens for immediate recognition
+      that series is the minimum and parallel is the maximum, followed by the
+      one-line product, not a case-by-case enumeration.
+    pitfalls: >
+      Applying the product formula when components share a common point of
+      failure (correlated, not independent) silently produces a number with
+      no justification, since the intersection no longer factors. Swapping
+      which formula goes with series versus parallel — multiplying survival
+      probabilities for a parallel system, say — is the classic slip under
+      time pressure.
+    recap: >
+      Series systems are the minimum of independent lifetimes and multiply
+      survival probabilities; parallel systems are the maximum and multiply
+      CDFs — both from independence alone.
+
+  - node: quant-probability.random-variables.max-of-uniforms
+    hook: >
+      This is the standard shape of a "slowest of $n$ requests" or "worst of
+      $n$ trials" question, and the headline fact — extremes crowd into the
+      last $1/n$ of the range — is worth having as an instant sanity check on
+      any answer.
+    explanation: >
+      Once $F_M=F^n$ is in hand from the general min-max formula, everything
+      about the maximum is a matter of plugging into that single expression:
+      raise the common CDF to the $n$-th power for a tail probability, and
+      invert it — solve $F(t)^n=u$ for $t$ — for any quantile including the
+      median.
+
+      The crowding-toward-the-top behaviour is worth understanding, not just
+      quoting: checking $F_M(t_0)$ for $t_0$ near the top of the range shows
+      the maximum's probability mass concentrating in a shrinking window as
+      $n$ grows — raising a number less than $1$ to a growing power drives it
+      toward $0$ fast, so only points very near the top keep $F(t)^n$
+      non-negligible. This is the general shape behind any "worst of many"
+      question: the more independent draws, the tighter the extreme squeezes
+      against the boundary.
+
+      The recipe generalises past uniforms immediately: identify $F$ for the
+      underlying variable, whatever its shape, and every fact about the
+      maximum — tail probability, median, any percentile — follows from
+      $F^n$ alone.
+    worked: >
+      Six users' request latencies are iid uniform on $(0,10)$ ms; let $M$ be
+      the slowest. Then $F_M(t)=(t/10)^6$ on $(0,10)$, so
+      $\Pr(M>9)=1-0.9^6=1-0.531441=0.468559$. The median solves
+      $(t/10)^6=1/2$, giving $t=10\cdot(1/2)^{1/6}\approx 8.909$ ms — already
+      close to the top of the range even at just $n=6$.
+    interview: >
+      "What's the probability the maximum of $n$ iid draws exceeds some
+      threshold," or its applied version "the slowest of $n$ requests exceeds
+      some latency target," is answered immediately with $1-F(t)^n$; the
+      natural follow-up asks for a percentile, solved by inverting
+      $F(t)^n=u$.
+    pitfalls: >
+      Using the minimum's formula $1-(1-F(t))^n$ for a maximum question, or
+      vice versa, is the classic slip under time pressure — check which
+      extreme is actually asked for before writing anything down. Applying
+      $F^n$ to draws that aren't actually independent silently invalidates
+      the whole computation.
+    recap: >
+      $\Pr(M>9)=0.468559$ and the median is about $8.909$ for six
+      uniform-$(0,10)$ draws — the maximum's whole law reduces to $F^n$, with
+      mass crowding toward the top as $n$ grows.
+
+  - node: quant-probability.random-variables.order-statistics
+    hook: >
+      The $k$-th smallest of $n$ draws is asked about far more than just the
+      min or the median — and the same binomial-counting derivation that
+      produces the general density also hands you a self-check: setting
+      $k=1$ or $k=n$ has to reproduce the min and max formulas already known.
+    explanation: >
+      The CDF form is the natural generalisation of "the minimum is above
+      $t$" or "the maximum is below $t$": $X_{(k)}\le x$ says at least $k$ of
+      the $n$ independent draws landed at or below $x$, and each does so with
+      probability $F(x)$, so counting how many succeed out of $n$ independent
+      Bernoulli trials with that success probability is literally a binomial
+      tail — $\sum_{j\ge k}\binom{n}{j}F(x)^{j}(1-F(x))^{n-j}$.
+
+      Differentiating (or arguing directly) gives the density as a three-way
+      partition of the sample: one draw sits exactly at $x$ ($n$ choices for
+      which one), $k-1$ of the remaining $n-1$ fall below it, and the rest
+      fall above — a multinomial count that becomes the coefficient
+      $n!/((k-1)!\,(n-k)!)$ multiplying $F(x)^{k-1}(1-F(x))^{n-k}f(x)$.
+
+      Setting $k=n$ collapses this to $nF(x)^{n-1}f(x)$, the maximum's
+      density, and $k=1$ collapses it to $n(1-F(x))^{n-1}f(x)$, the
+      minimum's — exactly the min-max formulas as special cases, the fast
+      way to sanity-check the general coefficient rather than re-deriving it
+      from scratch each time.
+    worked: >
+      Let $X_1,X_2,X_3$ be iid with density $f(x)=2x$ on $(0,1)$, so
+      $F(x)=x^2$. The middle order statistic $X_{(2)}$ has density
+      $\dfrac{3!}{1!\,1!}F(x)(1-F(x))f(x)=6\cdot x^2(1-x^2)\cdot 2x=
+      12x^3-12x^5$ on $(0,1)$ — check: $\int_0^1(12x^3-12x^5)\,dx=3-2=1$.
+      Then $\Pr(X_{(2)}>1/2)=\int_{1/2}^1(12x^3-12x^5)\,dx=
+      \left[3x^4-2x^6\right]_{1/2}^1=1-(3/16-2/64)=1-5/32=27/32$.
+    interview: >
+      The general ask — "find the density of the $k$-th smallest of $n$ iid
+      draws" — is answered by sketching the binomial-count derivation, not
+      reciting the formula from memory, and the interviewer often follows up
+      by asking you to check it reduces correctly to the min or max case.
+    pitfalls: >
+      Swapping $k-1$ and $n-k$ in the exponents is the classic index slip,
+      invisible when $k$ happens to make the formula symmetric (like the
+      median of an odd sample) but glaring otherwise. Forgetting that $F$
+      here need not be uniform — the formula holds for any continuous law,
+      not just the textbook uniform case.
+    recap: >
+      The $k$-th order statistic's density,
+      $\dfrac{n!}{(k-1)!(n-k)!}F^{k-1}(1-F)^{n-k}f$, comes from a binomial
+      count of draws below the point, and reduces to the known min and max
+      formulas at $k=1$ and $k=n$.
+
+  - node: quant-probability.random-variables.uniform-order-statistics
+    hook: >
+      Uniform order statistics are the test case every textbook reaches for
+      because $F(x)=x$ turns the general order-statistic formula into a pure
+      polynomial — and the same simplification hands you a fast
+      normalisation check worth knowing.
+    explanation: >
+      Substituting $F(x)=x$ into the general order-statistic density
+      collapses $F^{k-1}(1-F)^{n-k}f$ to $x^{k-1}(1-x)^{n-k}$ exactly, with
+      no composition left to untangle — this is why the uniform case is the
+      one every formula gets checked against first, and it's also exactly
+      the Beta family that reappears once named distributions are covered.
+
+      There's a faster way to confirm such a density integrates to $1$ than
+      expanding the polynomial term by term: the Beta integral identity
+      $\int_0^1 x^{a-1}(1-x)^{b-1}\,dx=(a-1)!\,(b-1)!/(a+b-1)!$ for positive
+      integers $a,b$ cancels the multinomial coefficient out front exactly,
+      since that coefficient was built from the same factorials in the first
+      place. Reaching for that identity instead of grinding through the
+      antiderivative is both faster and less error-prone under time
+      pressure.
+
+      The general recipe carries over to any $k$ and $n$, not just the
+      symmetric median case: write down the exponents $k-1$ and $n-k$
+      directly from "how many of the other draws must fall below" versus
+      "above," multiply by the matching multinomial coefficient, and the
+      density is complete.
+    worked: >
+      Four independent uniform-$(0,1)$ draws; find the density of the second
+      smallest, $X_{(2)}$. Here $n=4$, $k=2$:
+      $f_{(2)}(x)=\dfrac{4!}{1!\,2!}x^{1}(1-x)^{2}=12x(1-x)^2$ on $(0,1)$ —
+      check via the Beta identity, $\int_0^1 x(1-x)^2\,dx=1!\,2!/4!=2/24=
+      1/12$, and $12\times 1/12=1$ exactly. Then
+      $\Pr(X_{(2)}<0.25)=\int_0^{0.25}12x(1-x)^2\,dx=
+      \left[6x^2-8x^3+3x^4\right]_0^{0.25}=67/256\approx 0.2617$.
+    interview: >
+      A direct ask, "what's the density of the second-smallest of four
+      uniform draws," is answered by plugging $k=2$, $n=4$ into the general
+      formula; a sharp follow-up, "how do you know it integrates to $1$
+      without expanding it," is answered by naming the Beta-integral
+      cancellation rather than grinding through the antiderivative.
+    pitfalls: >
+      Misassigning which exponent is $k-1$ and which is $n-k$ is far more
+      visible here than in a symmetric-median case, since the two exponents
+      are genuinely different numbers. Expanding the polynomial to check
+      normalisation, rather than using the Beta-integral shortcut, wastes
+      time and invites an arithmetic slip exactly when accuracy matters most.
+    recap: >
+      Under $F(x)=x$, the general order-statistic density becomes the pure
+      polynomial $x^{k-1}(1-x)^{n-k}$ up to a multinomial constant — the Beta
+      family — whose normalisation is confirmed fastest by the Beta-integral
+      identity, not by expanding.

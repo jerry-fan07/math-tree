@@ -1,0 +1,361 @@
+unit: quant-tools.series-calculus
+opening: >
+  This unit is the arithmetic toolkit the rest of the tree assumes is already automatic — closed forms for the sums an interview throws at you cold, and the handful of integrals and asymptotics that turn a hard expectation into a number at the whiteboard. It runs in order: arithmetic and geometric sums and the telescoping trick that generates the power sums and harmonic numbers, Taylor expansion and the standard series and compounding limit it produces, the double-sum swap that unlocks the Gaussian integral and the Gamma and Beta functions and Stirling's approximation, and finally AM–GM and Cauchy–Schwarz alongside the habit of naming which term dominates before computing anything. By the end, seeing $t^n e^{-\lambda t}$, $(1+x/n)^n$, or a rational summand with a factorable denominator should trigger the closed form immediately, not a derivation from scratch.
+lessons:
+  - node: quant-tools.series-calculus.arithmetic-series
+    hook: >
+      "Sum the integers from $1$ to $100$" and its relatives are the single most common opening warm-up in a quant interview, and the expected answer is Gauss's pairing trick recalled instantly, not long addition.
+    explanation: >
+      Gauss's trick works because reversing the sum and adding it to itself turns $n$ unequal terms into $n$ identical pairs: writing $S = a_1 + a_2 + \cdots + a_n$ and $S = a_n + a_{n-1} + \cdots + a_1$ underneath, each column adds to the same total $a_1 + a_n$, so $2S = n(a_1+a_n)$ and dividing by two gives the formula. The result is really just "count times average" — an arithmetic sequence is symmetric around its midpoint, so the sum equals the number of terms times the value sitting at that midpoint.
+
+      A second way to see $1 + \cdots + n = n(n+1)/2$ is geometric: a staircase of $1,2,\ldots,n$ unit squares, doubled by a rotated copy of itself, exactly fills an $n\times(n+1)$ rectangle, so the staircase is half that area. The odd-number case has its own visual proof worth keeping: adding the $k$-th odd number extends a $(k-1)\times(k-1)$ square into a $k\times k$ square by wrapping an L-shaped border of $2k-1$ new unit squares around it, so after $n$ steps the accumulated area is exactly $n^2$.
+
+      The test for whether a sum is arithmetic at all is to difference consecutive terms — if $a_{k+1}-a_k$ is the same constant for every $k$, the closed form applies directly; a sum that looks complicated is very often exactly this in disguise.
+    worked: >
+      Sum the first $15$ positive multiples of $7$: $a_1=7$, $a_{15}=105$, $d=7$. The count-times-average formula gives $\dfrac{15(7+105)}{2} = \dfrac{15\cdot 112}{2} = 15\cdot 56 = 840$, so the fifteen multiples of $7$ from $7$ through $105$ sum to $840$.
+    interview: >
+      The direct form is "sum $1$ through $n$" or "sum every multiple of $k$ up to $N$" asked as a speed check; the interviewer listens for the closed form recalled in one line, not a running total. A sharper version hides the arithmetic structure inside a word problem — equally spaced payment dates, evenly spaced seat numbers — and rewards spotting the constant difference before reaching for a formula.
+    pitfalls: >
+      Miscounting the number of terms is the most common slip: for a sequence starting at $a$ with common difference $d$ ending at $\ell$, the count is $n=(\ell-a)/d+1$, not $\ell/d$. Applying the formula to a sequence whose differences are not actually constant silently gives a wrong answer with no warning.
+    recap: >
+      An arithmetic sum is the number of terms times the average of the first and last, $n(a_1+a_n)/2$, provable by pairing the sum with its own reversal.
+
+  - node: quant-tools.series-calculus.geometric-series
+    hook: >
+      Perpetuity-style cash flow problems, and any "probability of first success by trial $k$" calculation, both collapse to this one closed form, and interviewers expect the finite and infinite cases both fluent, including exactly where $r=1$ breaks the formula.
+    explanation: >
+      Write $S = a + ar + \cdots + ar^{n-1}$ and multiply through by $r$ to get $rS = ar + \cdots + ar^n$. Subtracting cancels every interior term, leaving $S-rS = a - ar^n$, so $S = a\,\dfrac{1-r^n}{1-r}$ whenever $r\ne 1$ — the shift-and-subtract trick is the whole proof, and it only fails at $r=1$, where every term equals $a$ and the sum is just $na$ by inspection.
+
+      The mental model is decay: each term is the previous one shrunk by the same factor $r$, so if $|r|<1$ the tail shrinks to nothing and $r^n\to 0$, leaving the finite formula's limit $a/(1-r)$ as the infinite sum. If $|r|\ge 1$ the terms never shrink, so the partial sums cannot settle down and the series diverges.
+
+      The tail form follows for free: summing from $k=m$ onward is the same series with first term $ar^m$ instead of $a$, so $\sum_{k\ge m} ar^k = ar^m/(1-r)$ — useful whenever a problem's series doesn't conveniently start at $k=0$.
+    worked: >
+      Evaluate $\sum_{k\ge 4} (1/3)^k$. This is the tail form with $a=1$, $r=1/3$, $m=4$: $\dfrac{(1/3)^4}{1-1/3} = \dfrac{1/81}{2/3} = \dfrac{1}{81}\cdot\dfrac{3}{2} = \dfrac{1}{54}$, so the sum is $1/54 \approx 0.0185$.
+    interview: >
+      "Value a perpetuity that grows at rate $g$ forever, discounted at rate $r$" is this formula wearing finance clothes; so is "what's the probability the first success comes on an odd-numbered trial", summing a geometric series over every other index. The interviewer listens for whether you check $|r|<1$ before writing down the infinite-sum answer.
+    pitfalls: >
+      Using $a/(1-r)$ when $|r|\ge 1$ gives a finite-looking number for a series that actually diverges — always confirm $|r|<1$ first. Plugging $r=1$ into $a(1-r^n)/(1-r)$ divides by zero; that case is $na$, not a limit of the general formula.
+    recap: >
+      A constant ratio between terms gives $a(1-r^n)/(1-r)$ finitely and $a/(1-r)$ exactly when $|r|<1$, with the tail form $ar^m/(1-r)$ for series that start later.
+
+  - node: quant-tools.series-calculus.geometric-derivative
+    hook: >
+      "Find $\mathbb{E}[X]$ for a geometric random variable" and "evaluate $\sum n/2^n$" are the same weighted-sum problem, and differentiating the closed form you already know is faster than any direct resummation trick.
+    explanation: >
+      Differentiating $\sum_{k\ge 0} x^k = 1/(1-x)$ term by term is legal for $|x|<1$, strictly inside the radius of convergence, and it turns each $x^k$ into $kx^{k-1}$ — exactly the weight $k$ you want, sitting one power too low. Multiplying the differentiated identity by $x$ restores the power, giving $\sum_{k\ge 1} kx^k = x/(1-x)^2$.
+
+      The same move iterates: differentiate $x/(1-x)^2$ again and multiply by $x$ once more, and the algebra produces $\sum_{k\ge 1} k^2x^k = x(1+x)/(1-x)^3$ — each differentiation buys one more factor of $k$ in the weight, at the cost of one more power of $(1-x)$ in the denominator.
+
+      The general recipe is worth keeping as a reflex: differentiating a generating function pulls down a factor of the index, and integrating instead divides by it, so $\sum x^k/k$ comes from integrating $1/(1-x)$ rather than differentiating it. Recognizing which direction a weighted sum needs is the whole skill.
+    worked: >
+      At $x=1/3$: $\sum_{k\ge 1} k(1/3)^k = \dfrac{x}{(1-x)^2} = \dfrac{1/3}{(2/3)^2} = \dfrac{1/3}{4/9} = \dfrac{1}{3}\cdot\dfrac{9}{4} = \dfrac{3}{4}$, so the weighted sum evaluates to $3/4$.
+    interview: >
+      "A geometric random variable has success probability $p$ — find its mean" applies this directly to $\sum_k k(1-p)^{k-1}p$; a bare version, "evaluate $\sum n/2^n$", tests whether you reach for differentiation instead of hunting for a telescoping trick that doesn't exist here.
+    pitfalls: >
+      Forgetting the extra factor of $x$ after differentiating — leaving $\sum kx^{k-1}$ instead of $\sum kx^k$ — is the most common slip and throws off every downstream computation by a factor of $x$. Differentiating outside the radius of convergence, at $|x|\ge 1$, produces a formula with no convergent sum behind it.
+    recap: >
+      Differentiate $1/(1-x)$ term by term and rescale by $x$ to price $\sum kx^k$; at $x=1/3$ the sum is $3/4$, and integrating instead handles weights of $1/k$.
+
+  - node: quant-tools.series-calculus.telescoping
+    hook: >
+      Any rational summand whose denominator factors is a telescoping sum wearing a disguise, and partial fractions is exactly the tool that manufactures the cancelling difference.
+    explanation: >
+      Whenever the summand can be written as $b_{k+1}-b_k$ for some sequence $b$, the sum from $k=1$ to $n$ collapses because every interior value appears once with a $+$ sign (as a $b_{k+1}$) and once with a $-$ sign one step later (as the next term's $b_k$) — only $b_{n+1}$ at the top and $-b_1$ at the bottom survive.
+
+      Partial fractions manufactures that difference from a rational summand: split $\dfrac{1}{k(k+1)}$ into $\dfrac{1}{k}-\dfrac{1}{k+1}$ by the cover-up method, and the difference is exactly a $b_k-b_{k+1}$ pair with $b_k=1/k$. Whenever the denominator factors into pieces that differ by a fixed shift, this decomposition exists.
+
+      Check one thing before trusting the cancellation: the shift in the decomposition must match the sum's own index step exactly. A term written as a difference of things two apart, like $\tfrac{1}{k}-\tfrac{1}{k+2}$, leaves two boundary terms uncancelled at each end, not one — treat it as its own case rather than assuming the single-term pattern.
+    worked: >
+      Sum $\sum_{k=1}^{4} \dfrac{2}{(2k-1)(2k+1)}$. Partial fractions give $\dfrac{2}{(2k-1)(2k+1)} = \dfrac{1}{2k-1}-\dfrac{1}{2k+1}$, so the sum telescopes to $1 - \dfrac{1}{9} = \dfrac{8}{9} \approx 0.889$.
+    interview: >
+      "Evaluate $\sum_{k=1}^{n} 1/(k(k+1))$" is the canonical warm-up; the interviewer wants the partial-fraction split and the words "only the first and last terms survive" said explicitly, not a guessed closed form. Product telescoping shows up too, simplifying things like $\prod_k(1-1/k^2)$ through ratios.
+    pitfalls: >
+      Assuming any rational summand telescopes without checking that partial fractions actually produces a matching shift wastes time on a dead end. Miscounting which boundary terms survive when the decomposition's shift is larger than the sum's index step leaves a spurious extra term in the final answer.
+    recap: >
+      Write the summand as a difference of consecutive sequence terms and the interior cancels completely — $\sum 2/((2k-1)(2k+1))$ over four terms collapses to $8/9$.
+
+  - node: quant-tools.series-calculus.power-sums
+    hook: >
+      Variance of a discrete uniform random variable — a die roll, a random rank — needs $\sum k^2$ on the spot, and rederiving it from telescoping is faster and safer than trusting a half-remembered formula.
+    explanation: >
+      The closed forms for $\sum k^2$ and $\sum k^3$ fall out of telescoping applied to a higher power: summing the identity $(k+1)^3-k^3 = 3k^2+3k+1$ over $k=1,\ldots,n$ collapses the left side to $(n+1)^3-1$, and expanding the right side gives $3\sum k^2 + 3\sum k + n$ — a linear equation for $\sum k^2$ once $\sum k=n(n+1)/2$ is substituted in from the arithmetic series formula. The same trick one power up, starting from $(k+1)^4-k^4$, isolates $\sum k^3$.
+
+      The result $\sum k^3 = (\sum k)^2$ is worth keeping as a checkable mnemonic rather than a coincidence to memorize separately — any value of $\sum k^3$ you compute should come out to a perfect square equal to $(n(n+1)/2)^2$.
+
+      For a fast size check rather than the exact value, $\sum_{k=1}^n k^p$ grows like $n^{p+1}/(p+1)$, matching $\int_0^n x^p\,dx$ — before trusting an exact computation, checking its leading behavior matches this rate catches an algebra slip immediately.
+    worked: >
+      At $n=6$: $\sum k=21$, $\sum k^2 = \dfrac{6\cdot 7\cdot 13}{6}=91$, and $\sum k^3 = 21^2 = 441$ — indeed $441$ is exactly the square of $21$, confirming the mnemonic.
+    interview: >
+      "What's the variance of a fair die roll" needs $\sum k^2$ for $k=1$ to $6$ mid-calculation; a bare version, "sum the squares from $1$ to $50$", tests whether the formula is instant recall or a derivation from scratch. Stating the telescoping derivation unprompted signals real understanding over memorization.
+    pitfalls: >
+      Misremembering the constant in $n(n+1)(2n+1)/6$ — swapping the $6$ for a $3$ or dropping the $(2n+1)$ factor — is the most common recall error; rederiving via telescoping catches it. The cube-sum identity only holds for sums starting at $k=1$; it does not extend to a range like $\sum_{k=5}^{10}k^3$ without adjustment.
+    recap: >
+      $\sum k$, $\sum k^2$, and $\sum k^3$ are $n(n+1)/2$, $n(n+1)(2n+1)/6$, and $(n(n+1)/2)^2$, each derivable by telescoping the next power up.
+
+  - node: quant-tools.series-calculus.integral-comparison
+    hook: >
+      When a sum has no closed form, this is the fastest way to answer "does it converge" or "how big is it roughly" without evaluating a single term.
+    explanation: >
+      Picture the graph of a nonincreasing $f$ with a unit-width rectangle of height $f(k)$ drawn over $[k,k+1]$: because $f$ is falling, that rectangle sits above the curve on $[k,k+1]$ and below it on $[k-1,k]$. Stacking these rectangles and comparing each to the area under the curve gives the sandwich $\int_1^{n+1} f(x)\,dx \le \sum_{k=1}^n f(k) \le f(1)+\int_1^n f(x)\,dx$ — the sum is trapped between two integrals differing by at most one term's area. A nondecreasing $f$ gives the mirror-image inequality, with the correction term $f(n)$ landing on the upper bound instead.
+
+      The first payoff is a convergence test: if $\int_1^\infty f(x)\,dx$ is finite, the sandwich forces $\sum f(k)$ finite too, and if the integral diverges so does the sum — exactly why $\sum k^{-p}$ converges precisely when $p>1$, matching $\int_1^\infty x^{-p}\,dx$.
+
+      The second payoff is size rather than convergence: even when a sum has no closed form, its integral gives a usable asymptotic, accurate up to one term's worth of slack.
+    worked: >
+      Bound $\sum_{k=1}^{100} 1/\sqrt{k}$ using $f(x)=x^{-1/2}$, which is decreasing. The lower bound is $\int_1^{101} x^{-1/2}\,dx = 2(\sqrt{101}-1) \approx 18.10$, and the upper bound is $f(1)+\int_1^{100}x^{-1/2}\,dx = 1+2(\sqrt{100}-1)=19$. The true sum, $\approx 18.59$, sits inside that trapped range as guaranteed.
+    interview: >
+      "Does $\sum 1/k^{1.5}$ converge — justify it in one line" is answered by naming the exponent $p=1.5>1$ and citing the integral test, not by attempting to sum the series. "Estimate $\sum_{k=1}^{10^6} 1/\sqrt{k}$ without a calculator" tests whether you reach for the integral bound instead of adding terms.
+    pitfalls: >
+      Using the decreasing-function inequality on an increasing function flips which side the correction term belongs on, giving a bound in the wrong direction. Applying the comparison to a function that isn't monotone on the whole range invalidates the sandwich outright — check monotonicity first, not just nonnegativity.
+    recap: >
+      A monotone sum is trapped between two adjacent integrals differing by one term's area — the fastest route to both a convergence verdict and a numeric estimate.
+
+  - node: quant-tools.series-calculus.harmonic-numbers
+    hook: >
+      A harmonic sum buried inside an expected-value answer is the tell for a coupon-collector or record-counting setup, and knowing $H_n \approx \ln n + 0.577$ lets you finish the arithmetic without a series in sight.
+    explanation: >
+      Applying the integral sandwich to the decreasing function $f(x)=1/x$ gives $\ln(n+1)\le H_n \le 1+\ln n$ directly — $H_n$ sits within one unit of $\ln n$ for every $n$, which already proves the sum diverges (since $\ln n\to\infty$) but only logarithmically slowly. The gap between $H_n$ and $\ln n$ settles down to a genuine constant as $n$ grows, $\gamma \approx 0.5772$, refining the crude bound into the sharper $H_n \approx \ln n + \gamma$.
+
+      Because the growth is logarithmic, doubling $n$ only adds $\ln 2 \approx 0.693$ to $H_n$ regardless of how large $n$ already is — a useful anchor for how slowly this sum actually grows despite genuinely diverging.
+
+      A harmonic sum in a final answer is close to a signature: it appears whenever a computation sums $1/k$ over $k=1,\ldots,n$, exactly the shape of "expected time to see something new" problems, where at each stage a shrinking fraction of outcomes is still novel.
+    worked: >
+      How many rolls of a fair six-sided die, on average, until every face has appeared at least once? This is $n=6$ coupons, and the expected count is $nH_n = 6\left(1+\tfrac{1}{2}+\tfrac{1}{3}+\tfrac{1}{4}+\tfrac{1}{5}+\tfrac{1}{6}\right) = 6(2.45) = 14.7$ rolls.
+    interview: >
+      "Expected number of draws to collect all $n$ distinct coupons" is asked almost verbatim, and $nH_n$ should come out immediately, with the reasoning that the wait for each new coupon is a geometric count. "How many random hash writes before every bucket has been hit" is the identical problem in different words.
+    pitfalls: >
+      $H_n$ has no elementary closed form — treating $\ln n+\gamma$ as exact rather than an excellent approximation causes trouble when a problem demands the precise value. In the coupon-collector application, quoting $H_n$ alone instead of $nH_n$ is a common off-by-a-factor-of-$n$ mistake.
+    recap: >
+      $H_n$ diverges but only like $\ln n + 0.577$, and it is the number that appears whenever an answer counts records or waits to collect every one of $n$ things.
+
+  - node: quant-tools.series-calculus.taylor
+    hook: >
+      "Estimate this function near a point without a calculator" is always a Taylor expansion question, and interviewers want the size of the truncation error justified, not just the leading approximation stated.
+    explanation: >
+      The polynomial $\sum_{k=0}^n f^{(k)}(a)(x-a)^k/k!$ is built to match $f$ and its first $n$ derivatives exactly at the single point $a$ — matching the zeroth derivative pins the constant term, matching the first pins the slope, and so on, so locally the polynomial and $f$ are indistinguishable to that order. The Lagrange remainder measures exactly what's left over, and its shape — the same derivative-and-factorial structure as the next term in the pattern, evaluated at some unknown point between $a$ and $x$ — says the truncation error looks like one more term of the same series, with the derivative's exact value swapped for its worst case on the interval.
+
+      The practical reading follows directly: each additional term you keep buys roughly one more factor of $|x-a|$ in accuracy, since the omitted remainder scales like $(x-a)^{n+1}$. That's why these expansions are only trustworthy for $x$ genuinely close to $a$ — a truncated polynomial excellent at $x-a=0.1$ can be worthless at $x-a=2$, because the error term grows with the same power that made it small in the first place.
+
+      The exponential is the one case where the remainder vanishes for every real $x$ no matter how far from $a=0$, because its derivatives never grow — most other functions are not so forgiving, and the interval where the approximation stays good must be checked, not assumed.
+    worked: >
+      Approximate $\sin(0.2)$ using the first two nonzero terms of its expansion at $a=0$: $\sin(0.2) \approx 0.2 - \dfrac{0.2^3}{6} = 0.2 - 0.001333 = 0.198667$. The true value is $0.198669$, so two terms already give four correct decimal places.
+    interview: >
+      "Estimate $\cos(0.1)$ to four decimal places by hand" wants the truncated series produced and the omitted term's size mentioned as an error bound, not a numeric guess. "Why does a two-term approximation get worse the farther you move from the expansion point" is answered by pointing at the $(x-a)^{n+1}$ factor in the remainder.
+    pitfalls: >
+      The remainder formula needs $f$ differentiable enough times on the whole interval between $a$ and $x$, not just at $a$ itself — a kink or blow-up in between invalidates the bound. Trusting a low-order truncation far from $a$ ignores that the remainder's growth can swamp the leading terms entirely.
+    recap: >
+      $f(x)$ equals its derivative-matching polynomial at $a$ plus a remainder shaped like the next omitted term — the license behind every small-displacement approximation.
+
+  - node: quant-tools.series-calculus.standard-series
+    hook: >
+      These six expansions are the lookup table for "estimate this to three significant figures" questions, and the fast win is recognizing which one a disguised expression secretly is.
+    explanation: >
+      Each of these is exactly the Maclaurin form of Taylor's theorem — the polynomial built from derivatives at $a=0$ — applied to one particular function, a table worth having memorized rather than rederived under time pressure. The geometric series is itself a special case of the binomial series: taking $\alpha=-1$ in $(1+x)^\alpha$ gives coefficients $(-1)^k$, and evaluating at $-x$ instead of $x$ recovers $1/(1-x)=\sum x^k$ exactly — the two entries in the table are really one identity viewed two ways.
+
+      The ranges matter as much as the formulas. $e^x$, $\sin x$, and $\cos x$ converge for every real $x$ because their derivatives stay bounded, so truncating them is safe arbitrarily far from $0$ in principle. $\ln(1+x)$ and $(1+x)^\alpha$ only converge for $|x|<1$ (with $\ln(1+x)$ scraping in at $x=1$) — trying to use either series for $x=2$ produces nonsense, not merely an inaccurate answer.
+
+      In practice these are used for fast numerical estimates near a reference point: write the quantity as $1$ plus something small, match it to the right series, and keep two or three terms.
+    worked: >
+      Estimate $\ln(1.05)$ using $x=0.05$: $\ln(1.05) \approx 0.05 - \dfrac{0.05^2}{2} + \dfrac{0.05^3}{3} = 0.05 - 0.00125 + 0.0000417 \approx 0.048792$, matching the true value $0.048790$ to five decimal places.
+    interview: >
+      "Estimate $(1.02)^{10}$ without a calculator" is answered fastest by writing it as $e^{10\ln(1.02)}$ and expanding $\ln(1.02)$ with the series, then $e^x$ with its own series — chaining two entries from the table. A direct ask, "what's $\ln(1.05)$ to three decimals", tests the series cold.
+    pitfalls: >
+      Using the $\ln(1+x)$ or binomial series outside $|x|<1$ gives a numerically wrong or divergent result, unlike $e^x$, $\sin x$, $\cos x$, which are safe for any $x$. Forgetting the alternating signs in $\ln(1+x)$ is an easy slip when writing the series quickly from memory.
+    recap: >
+      Six Maclaurin series are worth reciting cold, each valid on its own range — $e^x$, $\sin x$, $\cos x$ everywhere, $\ln(1+x)$ and $(1+x)^\alpha$ only for $|x|<1$.
+
+  - node: quant-tools.series-calculus.exp-limit
+    hook: >
+      Continuous compounding and the "roughly $1/e$ of items get missed" heuristic behind derangements and coupon problems both come from this one limit, and the interview trap is the direction and size of the correction term.
+    explanation: >
+      Taking logs turns the limit into something the standard series can handle directly: $n\ln(1+x/n) = n\left(\dfrac{x}{n}-\dfrac{(x/n)^2}{2}+\cdots\right) = x - \dfrac{x^2}{2n} + O(n^{-2})$, which tends to $x$ as $n\to\infty$ since every term past the first carries a positive power of $1/n$. Exponentiating recovers $(1+x/n)^n \to e^x$, and the same expansion shows the error vanishes at a specific rate, $(1+x/n)^n = e^x\left(1-x^2/(2n)+O(n^{-2})\right)$.
+
+      For $x>0$ that correction factor is below $1$, so the approach to $e^x$ is from underneath and it is slow — halving the gap needs roughly doubling $n$, not adding a fixed amount. Candidates who assume $(1+x/n)^n$ is already close to $e^x$ for moderate $n$ underestimate how much of the gap remains.
+
+      The mental model worth keeping is compounding: splitting a growth rate $x$ into $n$ equal steps of $x/n$ converges to continuous compounding, and the special case $x=-1$ is exactly "each of $n$ independent trials misses a fixed target with probability $1-1/n$" — the chance every one of them misses is $(1-1/n)^n \to 1/e$.
+    worked: >
+      Eight independent draws, each hitting a specific item with probability $1/8$: the chance all eight miss it is $(7/8)^8$. Computing directly, $(7/8)^2 = 0.765625$, squared gives $(7/8)^4 \approx 0.586182$, squared again gives $(7/8)^8 \approx 0.343609$ — noticeably below the limiting $1/e \approx 0.367879$, confirming the slow approach from below.
+    interview: >
+      "If $n$ people each throw a hat into a pile and grab one at random, roughly what's the probability nobody gets their own hat back" is answered with $\approx 1/e$, from this limit at $x=-1$. "Is $(1-1/n)^n$ above or below $1/e$ for finite $n$" checks whether the direction of convergence is understood, not just the limit value.
+    pitfalls: >
+      Assuming $(1+x/n)^n$ is already essentially $e^x$ for a moderate $n$ like $10$ or $20$ ignores that the relative error is only $O(1/n)$, not exponentially small. The general form needs $a_n\to x$, not just $a_n$ bounded — a sequence that doesn't converge to a fixed $x$ invalidates the limit.
+    recap: >
+      $(1+x/n)^n \to e^x$, approaching from below when $x>0$ at rate $\sim x^2/(2n)$, and at $x=-1$ this is exactly the $1/e$ "missed every time" probability.
+
+  - node: quant-tools.series-calculus.sum-exchange
+    hook: >
+      Swapping which index is "outer" in a double sum is the same move that turns a hard count into $\mathbb{E}[X]=\sum_k \Pr(X\ge k)$, and the only real skill is redrawing the region of index pairs correctly before flipping it.
+    explanation: >
+      A double sum $\sum_i\sum_j a_{ij}$ is really a single sum over the set of index pairs $(i,j)$ where $a_{ij}$ is defined; grouping that set "by rows" (fix $i$, sum over $j$) or "by columns" (fix $j$, sum over $i$) counts every pair exactly once either way, so the two totals must agree. The entire skill is sketching the region of valid pairs and reading off the correct inner limits after flipping which variable is outer — get the boundary wrong and the swap silently drops or duplicates terms.
+
+      For finitely many terms this needs no justification. For infinitely many terms it's legal whenever every term is nonnegative, or whenever the sum of absolute values is finite — outside those hypotheses, rearranging an infinite sum can genuinely change its value, so the swap is not automatic once both indices range over infinite sets.
+
+      This is the same principle already used implicitly: writing $k=\sum_{i=1}^k 1$ and swapping order is exactly how the arithmetic series formula can be rederived by counting, and the geometric tail form is what falls out when a swapped sum-of-integrals lands back on a geometric series.
+    worked: >
+      Evaluate $\sum_{i=1}^{4}\sum_{j=i}^{4} \dfrac{1}{j}$. The region is all pairs with $1\le i\le j\le 4$; summing by columns instead, for each $j$ there are exactly $j$ valid values of $i$, so the sum becomes $\sum_{j=1}^{4} j\cdot\dfrac{1}{j} = \sum_{j=1}^{4} 1 = 4$ — a swap that turns a sum of fractions into an exact integer.
+    interview: >
+      "Rewrite $\sum_i\sum_j a_{ij}$ with the sums in the other order" checks the region-sketching habit directly; a disguised version is deriving $\mathbb{E}[X]=\sum_{k\ge 1}\Pr(X\ge k)$ for a nonnegative integer random variable, exactly this swap applied to $X=\sum_k \mathbf{1}\{X\ge k\}$.
+    pitfalls: >
+      Flipping the sum without redrawing the index region — just swapping the summation symbols and keeping the same-looking bounds — almost always produces the wrong limits. Applying the swap to a series that is neither nonnegative nor absolutely summable risks changing the value entirely, not just the method of computing it.
+    recap: >
+      A double sum can be regrouped by rows or by columns over the same region of index pairs, legal unconditionally for finite sums and under nonnegativity or absolute summability for infinite ones.
+
+  - node: quant-tools.series-calculus.gaussian-integral
+    hook: >
+      This constant normalizes every normal-density calculation you'll ever set up, and the interviewer wants the "square it and go polar" proof produced cold, not the number $\sqrt{2\pi}$ recited from memory.
+    explanation: >
+      The same idea behind recombining a double sum into one region and resumming it along a more convenient axis works for integrals too: writing $I=\int_{-\infty}^\infty e^{-x^2/2}\,dx$ and squaring gives $I^2 = \iint e^{-(x^2+y^2)/2}\,dx\,dy$, a single integral over the whole plane, and the integrand's dependence on only $x^2+y^2$ makes polar coordinates the obvious choice — something the Cartesian form completely hid.
+
+      Switching to polar coordinates, the integrand becomes $e^{-r^2/2}$ and the area element becomes $r\,dr\,d\theta$, so $I^2 = \int_0^{2\pi}\int_0^\infty e^{-r^2/2}r\,dr\,d\theta$. The radial integral is now elementary: substituting $u=r^2/2$ turns $\int_0^\infty e^{-r^2/2}r\,dr$ into $\int_0^\infty e^{-u}\,du=1$, and the angular integral contributes a factor of $2\pi$, giving $I^2=2\pi$. Since the original integrand is strictly positive, $I$ itself must be positive, so $I=\sqrt{2\pi}$ rather than $-\sqrt{2\pi}$.
+
+      Rescaling the exponent's coefficient and completing the square inside it extend the same computation to $\int e^{-ax^2}dx = \sqrt{\pi/a}$ and to integrals with a linear term added in the exponent, both direct corollaries of this one derivation.
+    worked: >
+      Evaluate $\int_{-\infty}^\infty e^{-3x^2}\,dx$ using the scaled form with $a=3$: $\sqrt{\pi/3} = \sqrt{1.0472} \approx 1.0233$.
+    interview: >
+      "What normalizes the standard normal density" is answered with $\sqrt{2\pi}$, but the interviewer usually wants the derivation — "derive it, don't just state it" is the explicit follow-up to watch for. Squaring and going polar should be produced without prompting.
+    pitfalls: >
+      Stopping at $I^2=2\pi$ without arguing $I>0$ leaves the sign technically unresolved — the positivity of the original integrand is the step that pins it down. Forgetting the extra factor of $r$ in the polar area element breaks the radial integral's elementary substitution entirely.
+    recap: >
+      Squaring the Gaussian integral and switching to polar coordinates turns an intractable single integral into two elementary ones, giving $\int e^{-x^2/2}dx = \sqrt{2\pi}$.
+
+  - node: quant-tools.series-calculus.gaussian-moments
+    hook: >
+      Kurtosis, the fourth moment, and "what's the average of $|Z|$" are all this recursion in disguise, and mixing up which moments vanish versus which merely shrink is an instant tell of a shaky derivation.
+    explanation: >
+      Every odd moment $\int x^{2k+1}\varphi(x)\,dx$ vanishes for a structural reason, not a computational coincidence: $x^{2k+1}$ is odd and $\varphi$ is even, so the integrand is odd, and an odd function integrated over the symmetric interval $(-\infty,\infty)$ contributes equal and opposite area on each side of $0$.
+
+      The even moments follow from one identity: $\varphi'(x)=-x\varphi(x)$, so $x\varphi(x)$ is literally $-\varphi'(x)$. Writing $x^{2k}\varphi(x) = x^{2k-1}\cdot(x\varphi(x)) = -x^{2k-1}\varphi'(x)$ and integrating by parts moves the derivative off $\varphi$ and onto $x^{2k-1}$, whose derivative is $(2k-1)x^{2k-2}$; the boundary term vanishes because $\varphi$ decays faster than any polynomial grows, leaving exactly $\int x^{2k}\varphi\,dx = (2k-1)\int x^{2k-2}\varphi\,dx$ — each step peels one power of $x^2$ off in exchange for a factor of $2k-1$.
+
+      Starting the recursion at the $0$-th moment, which is $1$ since $\varphi$ integrates to $1$, unrolls it into the double factorials $(2k-1)!!$ directly.
+    worked: >
+      Find $\operatorname{Var}(X^2)$ for a standard normal $X$. $\mathbb{E}[X^2]=1$ and $\mathbb{E}[X^4]=3$ from the recursion, so $\operatorname{Var}(X^2) = \mathbb{E}[X^4]-(\mathbb{E}[X^2])^2 = 3-1=2$.
+    interview: >
+      "What's the fourth moment of a standard normal, and derive it — don't just quote $3$" expects the integration-by-parts recursion produced live. "Why is $3$ the kurtosis benchmark for 'normal-like' tails" is answered by pointing at this exact computation.
+    pitfalls: >
+      Treating an odd moment as merely small rather than exactly zero misses that it's a genuine symmetry argument, not an approximation. Confusing the recursion's multiplier $(2k-1)$ with a factorial-looking $(2k)!!$ is an easy slip that throws off every moment past the second.
+    recap: >
+      Odd Gaussian moments vanish by symmetry, and the even moments follow the recursion $(2k-1)\times$ the previous one, giving $1,1,3,15,105,\ldots$ — so $\operatorname{Var}(X^2)=2$.
+
+  - node: quant-tools.series-calculus.gamma-function
+    hook: >
+      Any interview integral shaped like $t^n e^{-\lambda t}$ should trigger $\Gamma$ immediately — recognizing it beats integrating by parts $n$ times live at the whiteboard.
+    explanation: >
+      $\Gamma(z)=\int_0^\infty t^{z-1}e^{-t}\,dt$ converges for every $z>0$: the exponential decay dominates any polynomial growth as $t\to\infty$, and near $t=0$ the power $t^{z-1}$ stays integrable as long as $z>0$. Integration by parts, taking $u=t^z$ and $dv=e^{-t}dt$, moves a derivative off the exponential and onto $t^z$: the boundary term vanishes at both ends, leaving $\Gamma(z+1) = z\int_0^\infty t^{z-1}e^{-t}\,dt = z\,\Gamma(z)$.
+
+      Since $\Gamma(1)=\int_0^\infty e^{-t}\,dt=1$, the functional equation unrolls into $\Gamma(n)=(n-1)!$ for every positive integer $n$ — $\Gamma$ is the factorial extended to a continuous argument. Half-integers come from a different route: substituting $t=u^2$ turns $\Gamma(1/2)$ into $2\int_0^\infty e^{-u^2}\,du$, exactly half the Gaussian integral in disguise, evaluating to $\sqrt{\pi}$; the functional equation generates every other half-integer value from that one anchor.
+
+      The identity that pays off constantly is a rescaled version: substituting $s=\lambda t$ turns $\int_0^\infty t^n e^{-\lambda t}\,dt$ into $\Gamma(n+1)/\lambda^{n+1} = n!/\lambda^{n+1}$, collapsing any polynomial-times-exponential integral to a single lookup.
+    worked: >
+      Evaluate $\int_0^\infty t^3 e^{-2t}\,dt$. Using $n=3$, $\lambda=2$: $\dfrac{3!}{2^4} = \dfrac{6}{16} = \dfrac{3}{8} = 0.375$.
+    interview: >
+      "Evaluate $\int_0^\infty x^5 e^{-3x}\,dx$" is meant to be answered in one line via $5!/3^6$, not five rounds of integration by parts. "What is $\Gamma(1/2)$, and why" checks whether the Gaussian-integral connection is remembered, not just the number $\sqrt{\pi}$.
+    pitfalls: >
+      $\Gamma(n)=(n-1)!$, not $n!$ — this off-by-one shift is the single most common recall error. Substituting $s=\lambda t$ without tracking the scaling correctly drops the $1/\lambda^{n+1}$ factor, leaving an answer off by a power of $\lambda$.
+    recap: >
+      $\Gamma(z)=\int_0^\infty t^{z-1}e^{-t}dt$ satisfies $\Gamma(z+1)=z\Gamma(z)$ with $\Gamma(n)=(n-1)!$ and $\Gamma(1/2)=\sqrt{\pi}$, and it collapses $\int t^n e^{-\lambda t}dt$ to $n!/\lambda^{n+1}$.
+
+  - node: quant-tools.series-calculus.beta-function
+    hook: >
+      "What's the expected value of the $k$-th smallest of $n$ uniform draws" collapses instantly to this identity, and memorizing the integer form directly beats setting up the calculus fresh in the room.
+    explanation: >
+      The substitution $t\mapsto 1-t$ leaves $\int_0^1 t^{a-1}(1-t)^{b-1}\,dt$ unchanged in value while swapping $a$ and $b$'s roles, which is why $B(a,b)=B(b,a)$ is visible directly from the integral, matching the symmetry already built into $\Gamma(a)\Gamma(b)/\Gamma(a+b)$.
+
+      For nonnegative integers $m,n$, the Gamma factors collapse to factorials: $\int_0^1 t^m(1-t)^n\,dt = m!\,n!/(m+n+1)!$ — worth having memorized directly rather than rederived through $\Gamma$ each time, since it turns up constantly on its own.
+
+      The reason it governs order statistics: among $n$ independent uniform draws on $[0,1]$, the $k$-th smallest value landing near $t$ requires $k-1$ draws below $t$, one at $t$, and $n-k$ above — a combinatorial weight times exactly $t^{k-1}(1-t)^{n-k}$, so the Beta integral is precisely the normalizing constant that makes order statistics' means and densities come out clean.
+    worked: >
+      Evaluate $\int_0^1 t^2(1-t)^4\,dt = \dfrac{2!\,4!}{7!} = \dfrac{2\cdot 24}{5040} = \dfrac{48}{5040} = \dfrac{1}{105}$.
+    interview: >
+      "What's the expected position of the minimum of $n$ independent uniform$(0,1)$ draws" is answered via a Beta integral; a bare version, "evaluate $\int_0^1 x^4(1-x)^3\,dx$ by inspection", tests whether the factorial identity is reflexive rather than requiring a fresh setup.
+    pitfalls: >
+      The denominator is $(m+n+1)!$, one more than the sum of the two exponents, not $(m+n)!$ — dropping the $+1$ is the most common slip. The clean factorial form only applies for nonnegative integer $a,b$; noninteger exponents need the $\Gamma$ form directly.
+    recap: >
+      $\int_0^1 t^m(1-t)^n\,dt = m!\,n!/(m+n+1)!$, the identity behind every clean order-statistic mean, and here it evaluates to $1/105$.
+
+  - node: quant-tools.series-calculus.stirling
+    hook: >
+      "How many digits does $100!$ have" and "approximate $\binom{2n}{n}$" both start here, and the interviewer wants the log form produced from the integral estimate, not a memorized numeric coincidence.
+    explanation: >
+      Writing $n! = \Gamma(n+1) = \int_0^\infty t^n e^{-t}\,dt = \int_0^\infty e^{n\ln t - t}\,dt$ turns the factorial into an integral whose exponent peaks sharply at $t=n$ and looks locally like a downward parabola there — a Gaussian bump sitting on top of the peak value. Approximating that bump by an actual Gaussian and integrating it is exactly where the $\sqrt{2\pi n}$ prefactor originates; it's the same constant as the Gaussian integral because the local shape genuinely is Gaussian.
+
+      The log form, $\ln(n!) = n\ln n - n + \tfrac{1}{2}\ln(2\pi n) + O(1/n)$, has a leading part, $n\ln n - n$, that is exactly the integral bound $\int_1^n \ln x\,dx = n\ln n - n + 1$ on $\sum \ln k$ — the same integral-comparison sandwich used for the harmonic numbers, applied here to $f(x)=\ln x$ instead of $1/x$. Stirling's contribution beyond that estimate is the sharper correction term, $\tfrac{1}{2}\ln(2\pi n)$.
+
+      The relative error of the leading approximation is about $1/(12n)$ — small for $n$ in the tens or hundreds, but not negligible for single-digit $n$, where a percent-level correction is easy to spot by direct comparison.
+    worked: >
+      Estimate $6!$: $\sqrt{2\pi\cdot 6}\,(6/e)^6 = \sqrt{12\pi}\,(6/e)^6 \approx 6.140\times 115.63 \approx 710.0$, against the true $6!=720$ — low by about $1.4\%$, matching the predicted $1/(12\cdot 6) \approx 1.39\%$.
+    interview: >
+      "Roughly how big is $50!$, order of magnitude" is answered by taking logs and plugging into the log form, since the raw number is unmanageable by hand. "Derive the leading term from an integral bound, not the full formula" points straight back to comparing $\sum\ln k$ to $\int\ln x\,dx$.
+    pitfalls: >
+      Using only the crude estimate $n\ln n - n$ and dropping the $\tfrac{1}{2}\ln(2\pi n)$ correction underestimates $\ln(n!)$ by a term that, while lower order, is not negligible for moderate $n$. Treating Stirling as exact rather than asymptotic is risky for small $n$, where the relative error is already several percent.
+    recap: >
+      $n! \sim \sqrt{2\pi n}(n/e)^n$, with the $\sqrt{2\pi}$ coming from the locally Gaussian peak of $\Gamma(n+1)$'s integrand and relative error about $1/(12n)$.
+
+  - node: quant-tools.series-calculus.stirling-central-binomial
+    hook: >
+      "What's the probability of exactly half heads in a large number of flips" is answered cold with this one asymptotic, no exact factorial arithmetic required.
+    explanation: >
+      Apply Stirling to each factorial in $\binom{2n}{n} = (2n)!/(n!)^2$: the $e^{-2n}$ from $(2n)!$ exactly cancels the $e^{-2n}$ from $(n!)^2$, and the leftover power terms simplify to $2^{2n}=4^n$ once collected — the messy exponential and polynomial pieces vanish, leaving a clean $4^n$ times a square-root correction, $\binom{2n}{n} \sim 4^n/\sqrt{\pi n}$.
+
+      Dividing by the total count of sequences, $2^{2n}=4^n$, turns this into a probability: the chance of exactly $n$ heads in $2n$ fair flips is $\approx 1/\sqrt{\pi n}$. This is the discrete cousin of a bell curve's peak height — the binomial distribution's tallest bar shrinks like $1/\sqrt{n}$ as the number of flips grows, the same square-root-of-$n$ scaling that shows up whenever a sum of many independent steps is examined near its center.
+    worked: >
+      In $40$ fair coin flips, estimate the probability of exactly $20$ heads. With $n=20$: $\binom{40}{20}/2^{40} \approx 1/\sqrt{20\pi} = 1/\sqrt{62.83} \approx 1/7.927 \approx 0.126$, close to the exact value $0.1254$.
+    interview: >
+      "In $40$ coin flips, what's the probability of exactly $20$ heads" is answered directly with $1/\sqrt{\pi n}$ at $n=20$; "how does the central binomial coefficient grow with $n$" tests whether the $4^n/\sqrt{\pi n}$ form comes out without deriving Stirling from scratch each time.
+    pitfalls: >
+      Dropping the $\sqrt{\pi n}$ correction and answering with $4^n$ alone is wrong by a factor that itself grows with $\sqrt{n}$. The clean cancellation is special to the exactly-central case $\binom{2n}{n}$ — a nearby coefficient like $\binom{2n}{n+1}$ needs its own similar but distinct asymptotic.
+    recap: >
+      $\binom{2n}{n} \sim 4^n/\sqrt{\pi n}$, so the probability of exactly half heads in $2n$ fair flips is about $1/\sqrt{\pi n}$ — roughly $12.6\%$ at $n=20$.
+
+  - node: quant-tools.series-calculus.am-gm
+    hook: >
+      "Maximize a product given a fixed sum" or "minimize $x+1/x$" is AM–GM in one line, and the interviewer listens for the equality condition stated alongside the inequality, not just the bound.
+    explanation: >
+      The two-term case is one line of algebra: $(\sqrt a - \sqrt b)^2 \ge 0$ expands to $a+b \ge 2\sqrt{ab}$, and dividing by $2$ gives $\dfrac{a+b}{2} \ge \sqrt{ab}$, with equality exactly when $\sqrt a = \sqrt b$, i.e., $a=b$. The general $n$-term case extends this by induction, or by the concavity of $\ln$, which turns "the average of $\ln a_i$ is at most $\ln$ of the average of $a_i$" into exactly this inequality after exponentiating.
+
+      The mental model worth keeping: holding the sum of a group of numbers fixed, spreading them apart can only shrink their product, and pulling them back together toward equal values can only grow it — so the product is maximized exactly when there's no spread left, all values equal.
+
+      Two consequences are used constantly. Setting $a=x$, $b=1/x$ gives $x+1/x\ge 2$ for any $x>0$. And for a fixed sum $S$ split into $n$ positive parts, the product is largest exactly when every part equals $S/n$, with maximum value $(S/n)^n$ — the one-line answer to any "split a budget to maximize a product" question.
+    worked: >
+      Minimize $x+4/x$ for $x>0$. By AM–GM, $x+4/x \ge 2\sqrt{x\cdot(4/x)} = 2\sqrt{4} = 4$, with equality when $x=4/x$, i.e., $x=2$. So the minimum value is $4$, attained at $x=2$.
+    interview: >
+      "What's the minimum of $x+1/x$ for $x>0$" is meant to be answered in one line, cold. "Split a budget $S$ among $n$ investments to maximize the product of the returns" expects "split equally, giving $(S/n)^n$" without hesitation.
+    pitfalls: >
+      AM–GM requires nonnegative terms — applying it to negative numbers can reverse or invalidate the inequality entirely. Equality demands every term be equal simultaneously, not just that the arithmetic mean happens to match the geometric mean for some subset.
+    recap: >
+      The arithmetic mean is always at least the geometric mean, with equality only when every term is equal — the one-line answer to "maximize a product given a fixed sum".
+
+  - node: quant-tools.series-calculus.cauchy-schwarz
+    hook: >
+      Bounding a correlation coefficient in $[-1,1]$, or maximizing a linear combination subject to a fixed sum of squares, is this inequality every time, and the interviewer wants the discriminant proof, not a memorized formula.
+    explanation: >
+      For real numbers $a_i,b_i$, the function $t\mapsto \sum_i(a_i+tb_i)^2$ is a sum of squares, so it's never negative for any real $t$ — expanding it as a quadratic in $t$, $\left(\sum b_i^2\right)t^2 + 2\left(\sum a_ib_i\right)t + \sum a_i^2$, a nonnegative quadratic can have at most one real root, forcing its discriminant $\le 0$: exactly $\left(\sum a_ib_i\right)^2 \le \left(\sum a_i^2\right)\left(\sum b_i^2\right)$.
+
+      The geometric reading is that an inner product can never exceed the product of the two vectors' lengths, with equality exactly when one vector is a scalar multiple of the other — nothing "sideways" left over. This is the source of the bound $|\rho|\le 1$ on any correlation coefficient, since a correlation is an inner product of centered variables normalized by their lengths.
+
+      Taking every $b_i=1$ specializes it to $\left(\sum a_i\right)^2 \le n\sum a_i^2$, which rearranges to $\sqrt{\sum a_i^2/n} \ge \left(\sum a_i\right)/n$ — root-mean-square is at least the arithmetic mean, a close cousin of the AM–GM chain rather than an unrelated fact.
+    worked: >
+      Maximize $x+2y+2z$ subject to $x^2+y^2+z^2=9$. Cauchy–Schwarz with $(1,2,2)$ gives the bound $\sqrt{1+4+4}\cdot\sqrt{9} = 3\cdot 3 = 9$, attained when $(x,y,z)$ is proportional to $(1,2,2)$, i.e., at $(1,2,2)$ itself since that already has norm $3$.
+    interview: >
+      "Show that any correlation coefficient is between $-1$ and $1$" is answered by applying Cauchy–Schwarz to the centered variables, with the discriminant argument stated, not just asserted. "Maximize $\sum a_ix_i$ subject to $\sum x_i^2=1$" is the same inequality with the equality condition, parallel vectors, as the punchline.
+    pitfalls: >
+      Forgetting that equality requires the two vectors to be proportional — not merely that both sides happen to be positive — misses the actual maximizing point. Applying the raw, uncentered inequality directly to random variables instead of their centered, standardized versions gives a bound on the wrong quantity for a correlation claim.
+    recap: >
+      $(\sum a_ib_i)^2 \le (\sum a_i^2)(\sum b_i^2)$, proved from a nonnegative quadratic's discriminant, with equality only when the vectors are parallel — here it caps $x+2y+2z$ at $9$.
+
+  - node: quant-tools.series-calculus.asymptotic-hierarchy
+    hook: >
+      "Which term dominates" is the two-second check that stops you from doing careful algebra on a piece of an expression that vanishes in the limit anyway.
+    explanation: >
+      Taking logs turns every comparison in the chain $\ln n \ll n^\alpha \ll c^n \ll n! \ll n^n$ into ordinary arithmetic on simpler functions: $\alpha\ln n$ grows slower than $n\ln c$ for any fixed $\alpha$ and $c>1$ because $\ln n$ itself grows slower than $n$, and $n\ln c$ grows slower than $\ln(n!) \approx n\ln n - n$ because $\ln n\to\infty$ eventually swamps the fixed constant $\ln c$ — that last comparison is exactly Stirling's log form doing the work.
+
+      The slow end of the chain is calibrated by the harmonic numbers: $H_n \sim \ln n$ is about the gentlest genuine divergence you'll encounter, and $\sum k^{-p}$ for $p>1$ doesn't diverge at all, sitting below every term in the chain.
+
+      The habit this buys: name the single dominant term in an expression before doing any algebra on it, so everything else becomes a correction whose size you can bound rather than a term you might casually drop without noticing it mattered.
+    worked: >
+      Which is bigger, $100!$ or $10^{150}$? Using Stirling's log form, $\ln(100!) \approx 100\ln 100 - 100 + \tfrac{1}{2}\ln(200\pi) \approx 460.52 - 100 + 3.22 = 363.74$. And $\ln(10^{150}) = 150\ln 10 \approx 345.39$. Since $363.74 > 345.39$, $100!$ is the larger number — in fact $100! \approx 9.3\times 10^{157}$.
+    interview: >
+      "Which grows faster, $n!$ or $2^n$" wants the log-ranking recited without hesitation, not a guess based on which "feels" bigger at small $n$. A sharper version asks to order several expressions at once, testing whether the full chain, not just one pairwise comparison, is available on demand.
+    pitfalls: >
+      Comparing raw magnitudes by hand for large arguments is numerically unstable or outright impossible — always compare logs instead. Assuming a bigger-looking base always wins ignores that the exponent's own growth rate matters more than the base; $n^n$ eventually beats any fixed $c^n$ even though $c^n$ looks faster for small $n$.
+    recap: >
+      Logs turn growth comparisons into arithmetic, $\ln n \ll n^\alpha \ll c^n \ll n! \ll n^n$, so naming the dominant term is a two-second check, not a derivation.
