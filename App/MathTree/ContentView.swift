@@ -22,6 +22,10 @@ struct ContentView: View {
     @State private var isProgramOpen = false
     /// The node the program should open at — the panel's "read the lesson" jump.
     @State private var programTarget: NodeID?
+    /// §6.7's player. Non-nil while one node's lesson is being played card by
+    /// card; it covers the program reader when both are open, because the player
+    /// is a way *into* a step and closing it should return to the chapter.
+    @State private var playing: NodeID?
     /// The renderer's zoom band, pushed up when it changes. The map legends are
     /// drawn from mid zoom on, matching the design's frames.
     @State private var band: ZoomBand = .overview
@@ -50,7 +54,7 @@ struct ContentView: View {
                     renderer: renderer, selection: $selection,
                     onToggleSidebar: { isSidebarVisible.toggle() },
                     onEscape: { escape() },
-                    isNavigationSuspended: focus != nil || isProgramOpen
+                    isNavigationSuspended: focus != nil || isProgramOpen || playing != nil
                 )
                 .ignoresSafeArea()
                 .overlay(alignment: .top) { commandBar(scene: scene, renderer: renderer) }
@@ -60,6 +64,7 @@ struct ContentView: View {
                 // *over* the reader, so a lesson and its node's history can be
                 // read side by side without leaving the program.
                 .overlay { programOverlay(scene: scene) }
+                .overlay { playerOverlay(scene: scene) }
                 .overlay(alignment: .topTrailing) {
                     if let selection, let index = scene.document.index(of: selection) {
                         panel(for: scene.document[index], renderer: renderer)
@@ -95,7 +100,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private func commandBar(scene: GraphScene, renderer: GraphRenderer) -> some View {
-        if focus == nil, !isProgramOpen {
+        if focus == nil, !isProgramOpen, playing == nil {
             CommandBar(
                 document: scene.document,
                 scores: store.scores,
@@ -113,7 +118,9 @@ struct ContentView: View {
     @ViewBuilder
     private var legends: some View {
         let theme = ThemeStore.shared.theme
-        if focus == nil, attempt == nil, !isPlacing, !isProgramOpen, band != .overview {
+        if focus == nil, attempt == nil, !isPlacing, !isProgramOpen, playing == nil,
+            band != .overview
+        {
             HStack(alignment: .bottom) {
                 EdgeLegend()
                 Spacer(minLength: 24)
@@ -149,8 +156,8 @@ struct ContentView: View {
     }
 
     /// Escape closes the topmost thing: the problem sheet, then placement, then the
-    /// node panel, then the program, then focus mode — outermost-first, matching
-    /// what covers what.
+    /// node panel, then the lesson player, then the program, then focus mode —
+    /// outermost-first, matching what covers what.
     private func escape() {
         if attempt != nil {
             attempt = nil
@@ -158,6 +165,8 @@ struct ContentView: View {
             isPlacing = false
         } else if selection != nil {
             selection = nil
+        } else if playing != nil {
+            closePlayer()
         } else if isProgramOpen {
             withAnimation(.easeInOut(duration: 0.3)) { isProgramOpen = false }
             programTarget = nil
@@ -235,6 +244,7 @@ struct ContentView: View {
                 scores: scores,
                 target: programTarget,
                 onSelect: { id in selection = id },
+                onPlay: { id in openPlayer(id) },
                 onExit: {
                     withAnimation(.easeInOut(duration: 0.3)) { isProgramOpen = false }
                     programTarget = nil
@@ -248,6 +258,62 @@ struct ContentView: View {
         programTarget = target
         selection = nil
         withAnimation(.easeInOut(duration: 0.3)) { isProgramOpen = true }
+    }
+
+    // MARK: - Lesson player
+
+    /// §6.7's player, over everything except the modal flows. It reads the same
+    /// `Program` the reader does and writes through the same `ScoreStore`; what it
+    /// adds is the interaction — cards, checks, and a mastery set that routes into
+    /// the problem sheet already above it.
+    @ViewBuilder
+    private func playerOverlay(scene: GraphScene) -> some View {
+        if let playing, let scores = store.scores,
+            let index = scene.document.index(of: playing),
+            let lesson = store.program.program.lesson(for: playing)
+        {
+            LessonPlayer(
+                node: scene.document[index],
+                lesson: lesson,
+                unitTitle: unitTitle(of: playing, in: scene.document),
+                document: scene.document,
+                scores: scores,
+                mastery: scores.bank.masterySet(for: playing),
+                onAttempt: { problem, subject in
+                    attempt = Attempt(problem: problem, subject: subject)
+                },
+                // Leaving the player for the chapter is a *widening*, not a
+                // different place: the reader opens at the same node.
+                onRead: { id in
+                    self.playing = nil
+                    openProgram(at: id)
+                },
+                onExit: { closePlayer() }
+            )
+            .transition(.opacity)
+        }
+    }
+
+    private func unitTitle(of id: NodeID, in document: GraphDocument) -> String? {
+        guard let index = document.index(of: id), let parent = document[index].parent,
+            let unit = document.index(of: parent)
+        else { return nil }
+        return document[unit].title
+    }
+
+    private func openPlayer(_ id: NodeID) {
+        selection = nil
+        withAnimation(.easeInOut(duration: 0.3)) { playing = id }
+    }
+
+    private func closePlayer() {
+        withAnimation(.easeInOut(duration: 0.3)) { playing = nil }
+    }
+
+    /// Whether the tree can play this node at all — §6.7 needs a lesson, and the
+    /// panel/reader hide the action rather than offering one that does nothing.
+    private func canPlay(_ id: NodeID) -> Bool {
+        store.program.program.lesson(for: id) != nil
     }
 
     @ViewBuilder
@@ -265,7 +331,7 @@ struct ContentView: View {
     }
 
     private var isRailVisible: Bool {
-        isSidebarVisible && focus == nil && !isProgramOpen && store.scores != nil
+        isSidebarVisible && focus == nil && !isProgramOpen && playing == nil && store.scores != nil
     }
 
     /// The review queue and the frontier (§5.4, §4.5). Absent when there is no
@@ -324,9 +390,9 @@ struct ContentView: View {
             onReview: { review($0) },
             // §6.6's connective tissue: any node on the map, straight to its
             // lesson in the program.
-            onLesson: store.program.program.lesson(for: node.id) == nil
-                ? nil
-                : { id in openProgram(at: id) }
+            onLesson: canPlay(node.id) ? { id in openProgram(at: id) } : nil,
+            // §6.7's: the same node, taught rather than read.
+            onPlay: canPlay(node.id) ? { id in openPlayer(id) } : nil
         )
         .frame(width: theme.panelWidth)
         .padding(.top, focus == nil ? theme.barHeight : 0)

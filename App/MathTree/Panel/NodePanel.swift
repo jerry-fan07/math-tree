@@ -35,6 +35,11 @@ struct NodePanel: View {
     /// §6.6: open the program at this node's lesson. `nil` when the tree has no
     /// program or the node no lesson.
     var onLesson: ((NodeID) -> Void)? = nil
+    /// §6.7: play this node's lesson card by card. Same availability as
+    /// `onLesson` — both need a lesson — and this is the *primary* action where
+    /// there is one, because "teach me this" is a more direct answer to a node
+    /// than "show me the path to it".
+    var onPlay: ((NodeID) -> Void)? = nil
 
     var body: some View {
         let theme = ThemeStore.shared.theme
@@ -136,14 +141,27 @@ struct NodePanel: View {
     @ViewBuilder
     private func footer(_ theme: Theme) -> some View {
         let canProbe = onReview != nil && (scores?.canProbe(node.id) ?? false)
-        if onFocus != nil || canProbe || onLesson != nil {
+        if onFocus != nil || canProbe || onLesson != nil || onPlay != nil {
             VStack(spacing: 0) {
                 Rule()
                 HStack(alignment: .firstTextBaseline, spacing: 16) {
+                    // One accent per surface, so which action takes it is a
+                    // decision rather than an accident: where a lesson exists,
+                    // §6.7's player is the primary answer to "what do I do with
+                    // this node", and focus mode steps back to a quiet action.
+                    if let onPlay {
+                        TextAction(
+                            title: "Start the lesson →", size: 13,
+                            accessibilityHint:
+                                "Teaches this node one card at a time, ending in problems"
+                        ) { onPlay(node.id) }
+                    }
                     if let onFocus {
                         if node.kind.isContent {
                             TextAction(
                                 title: "Learn this →", size: 13,
+                                weight: onPlay == nil ? .medium : .regular,
+                                isQuiet: onPlay != nil,
                                 accessibilityHint: "Opens focus mode with this node as the goal"
                             ) { onFocus(.node(node.id)) }
                         } else {

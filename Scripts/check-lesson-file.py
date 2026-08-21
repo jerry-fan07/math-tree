@@ -42,6 +42,10 @@ ALLOWED_MACROS = set(
 
 REQUIRED = ["hook", "explanation", "recap"]
 OPTIONAL = ["worked", "interview", "pitfalls"]
+# §6.7's cards. Optional at the lesson level (a lesson with no `steps` pages off
+# its prose — D13.1), but a `steps` list that exists must be playable.
+CARD_FIELDS = ["teach", "ask", "choices", "expects", "tolerance", "hint", "feedback"]
+CHOICE_FIELDS = ["text", "correct", "feedback"]
 
 
 def fail(errors):
@@ -72,6 +76,141 @@ def latex_errors(where, text):
     for macro in re.findall(r"\\([a-zA-Z]+)", text):
         if macro not in ALLOWED_MACROS:
             errors.append(f"{where}: macro \\{macro} is not on the allow-list")
+    return errors
+
+
+def numeric_value(source):
+    """Mirror of GraphCore's NumericAnswer (D13.4): generous spelling, strict value.
+
+    Returns a float, or None when the text is not a number this parser reads —
+    which is exactly when `check-unparsable-answer` fires in ContentBuild.
+    """
+    text = str(source).strip()
+    if not text:
+        return None
+    text = text.replace("$", "")
+    for spacing in ["\\,", "\\;", "\\!", "\\ ", "\\quad", "\\qquad", "\\left", "\\right"]:
+        text = text.replace(spacing, "")
+    # \frac{a}{b} / \dfrac / \tfrac → a/b. Non-nesting, like the Swift side's
+    # common case; a malformed macro simply fails to parse below.
+    text = re.sub(r"\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}", r"\1/\2", text)
+    text = text.replace("\\times", "").replace("\\%", "%")
+    text = text.replace("\u2212", "-").replace("\u2044", "/")
+    for junk in [",", " ", "(", ")"]:
+        text = text.replace(junk, "")
+    percent = text.endswith("%")
+    if percent:
+        text = text[:-1]
+    if not text:
+        return None
+    parts = text.split("/")
+    if len(parts) > 2:
+        return None
+    try:
+        values = [float(p) for p in parts]
+    except ValueError:
+        return None
+    if any(v != v or v in (float("inf"), float("-inf")) for v in values):
+        return None
+    if not all(re.fullmatch(r"[-+]?[0-9.]*(?:[eE][-+]?[0-9]+)?", p) and any(c.isdigit() for c in p)
+               for p in parts):
+        return None
+    if len(values) == 2:
+        if values[1] == 0:
+            return None
+        result = values[0] / values[1]
+    else:
+        result = values[0]
+    return result / 100 if percent else result
+
+
+def card_errors(node, index, card):
+    """The per-card rules of ProgramValidator.cardChecks plus AnswerCheck.faults."""
+    where = f"{node}.steps[{index}]"
+    errors = []
+    if not isinstance(card, dict):
+        return [f"{where}: is not a mapping"]
+
+    for key in card:
+        if key not in CARD_FIELDS:
+            errors.append(f"{where}: unknown field `{key}`")
+
+    teach = (card.get("teach") or "").strip()
+    ask = (card.get("ask") or "").strip()
+    choices = card.get("choices") or []
+    expects = card.get("expects")
+    expectation = "" if expects is None else str(expects).strip()
+    tolerance = card.get("tolerance")
+    feedback = (card.get("feedback") or "").strip()
+
+    if not teach and not ask:
+        return errors + [f"{where}: has neither `teach` nor `ask`"]
+    if teach and ask:
+        errors.append(f"{where}: has both `teach` and `ask` — one beat or one question")
+
+    for field in ["teach", "ask", "hint"]:
+        text = (card.get(field) or "").strip()
+        if text:
+            errors += latex_errors(f"{where}.{field}", text)
+
+    if teach and not ask:
+        stranded = [f for f in ["choices", "expects", "tolerance", "feedback"] if f in card]
+        if stranded:
+            errors.append(
+                f"{where}: `teach` card carrying {', '.join(stranded)} — "
+                "add an `ask`, or delete the answer fields"
+            )
+        return errors
+
+    if not choices and not expectation:
+        errors.append(f"{where}: needs either `choices` or an `expects` value")
+    if choices and expectation:
+        errors.append(f"{where}: declares both `choices` and `expects`")
+
+    if choices:
+        if len(choices) < 2:
+            errors.append(f"{where}: has {len(choices)} choice — a choice needs at least two rows")
+        correct = 0
+        for j, choice in enumerate(choices):
+            if not isinstance(choice, dict):
+                errors.append(f"{where}.choices[{j}]: is not a mapping")
+                continue
+            for key in choice:
+                if key not in CHOICE_FIELDS:
+                    errors.append(f"{where}.choices[{j}]: unknown field `{key}`")
+            text = (choice.get("text") or "").strip()
+            if not text:
+                errors.append(f"{where}.choices[{j}]: has no text")
+            else:
+                errors += latex_errors(f"{where}.choices[{j}].text", text)
+            if choice.get("correct"):
+                correct += 1
+            note = (choice.get("feedback") or "").strip()
+            if "feedback" in choice and not note:
+                errors.append(f"{where}.choices[{j}]: `feedback` is present but empty")
+            elif note:
+                errors += latex_errors(f"{where}.choices[{j}].feedback", note)
+        if correct == 0:
+            errors.append(f"{where}: marks no choice `correct: true`")
+        elif correct > 1:
+            errors.append(f"{where}: marks {correct} choices correct — exactly one is right")
+
+    if expectation:
+        errors += latex_errors(f"{where}.expects", expectation)
+        if numeric_value(expectation) is None:
+            errors.append(
+                f"{where}: `expects: {expectation}` is not a number the answer parser reads — "
+                "write a decimal, a fraction `a/b`, a percentage, or use `choices`"
+            )
+
+    if tolerance is not None and not (isinstance(tolerance, (int, float)) and tolerance > 0):
+        errors.append(f"{where}: `tolerance: {tolerance}` is not a positive number")
+
+    if not feedback:
+        errors.append(f"{where}: has no `feedback` — a reader who guessed right needs the reason")
+    else:
+        errors += latex_errors(f"{where}.feedback", feedback)
+
     return errors
 
 
@@ -111,13 +250,14 @@ def main():
         errors += latex_errors("opening", opening)
 
     taught = []
+    interactive = []
     for i, lesson in enumerate(lessons.get("lessons") or []):
         node = lesson.get("node", f"lessons[{i}]")
         taught.append(node)
         if node not in expected:
             errors.append(f"{node}: not a content node of {unit}")
         for key in lesson:
-            if key not in ["node"] + REQUIRED + OPTIONAL:
+            if key not in ["node", "steps"] + REQUIRED + OPTIONAL:
                 errors.append(f"{node}: unknown field `{key}`")
         for section in REQUIRED:
             text = (lesson.get(section) or "").strip()
@@ -142,6 +282,28 @@ def main():
         if total > 6000:
             errors.append(f"{node}: sections total {total} chars — probably two lessons")
 
+        # §6.7. `steps` is optional; a `steps` list that exists must be playable.
+        steps = lesson.get("steps")
+        if steps is not None:
+            if not isinstance(steps, list) or not steps:
+                errors.append(f"{node}: `steps` is present but empty — omit it instead")
+            else:
+                for j, card in enumerate(steps):
+                    errors += card_errors(node, j, card)
+                checks = sum(
+                    1 for c in steps if isinstance(c, dict) and (c.get("ask") or "").strip()
+                )
+                if checks == 0:
+                    errors.append(
+                        f"{node}: {len(steps)} authored cards and not one `ask` — "
+                        "a paged slideshow still measures nothing"
+                    )
+                if len(steps) < 4:
+                    errors.append(
+                        f"{node}: {len(steps)} authored card(s) — one idea per screen means more"
+                    )
+                interactive.append(node)
+
     duplicates = {n for n in taught if taught.count(n) > 1}
     for node in sorted(duplicates):
         errors.append(f"{node}: taught more than once")
@@ -151,7 +313,14 @@ def main():
 
     if errors:
         fail(errors)
-    print(f"ok: {unit} — opening + {len(taught)} lessons, all checks pass")
+    cards = sum(
+        len(lesson.get("steps") or [])
+        for lesson in (lessons.get("lessons") or [])
+    )
+    print(
+        f"ok: {unit} — opening + {len(taught)} lessons "
+        f"({len(interactive)} interactive, {cards} cards), all checks pass"
+    )
 
 
 if __name__ == "__main__":

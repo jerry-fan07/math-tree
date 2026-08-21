@@ -40,9 +40,9 @@ math-tree/
 
 ### Phase → milestone map (mapping, not renumbering — §9 stays authoritative)
 
-| Phase | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Milestone | M0 | M0 | M0 | M1 | M1 | M3 | M3 | M3 | M4 | M5 | M6 | M7 |
+| Phase | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Milestone | M0 | M0 | M0 | M1 | M1 | M3 | M3 | M3 | M4 | M5 | M6 | M7 | M8 | M9 |
 
 Two items are deliberately built one milestone early: the precomputed-layout pipeline (Phase 2, though §9 lists it under M1) and graph propagation (Phase 5, though §9 lists it under M4) — each is cheapest to build alongside its surrounding code (layout with the content compiler, propagation with the scoring fold). Their §9 milestones remain where the capability is *demonstrated*.
 
@@ -264,6 +264,22 @@ Not a numbered phase: an outside design pass over what Phases 4–8 built, impor
 
 **Deliverable**: "teach me everything, in order, starting from what I know" answered as a readable course over the quant tree.
 **Exit criterion**: the spine validates as a linear extension of cross-unit `requires`; for fixture states the plan's step order is a valid topological order per unit, the resume point is the first never-learned step in program order (and provably *not* moved by decay), and unit progress agrees with §6.5's `Subjects` read-out up to exactly the cross-listed members D12.3 excludes; every lesson section of every unit renders clean under `MATHTREE_MATH_CHECK`; the reader shows every lesson of a fully-covered unit and states (rather than hides) a missing one.
+
+---
+
+## Phase 13 — Interactive lessons
+
+**Goal**: M9 — §6.7. The course made clickable: a lesson is a paged sequence of cards, checks are answered and machine-checked with authored per-answer feedback, and a lesson ends on a mastery set of real problems. Phase 12 shipped the corpus; this phase turns reading it into doing it, and gives the quant tree the problem bank it has never had.
+
+**Tasks**
+- `GraphCore`: `AnswerCheck` — one machine-checkable question shape (multiple choice, or a typed value compared numerically), with `NumericAnswer` parsing fractions, decimals, percents, thousands separators and `\frac`; `AnswerChoice`; `LessonCard` (`teach` **xor** `ask`, plus the check's fields inline so the YAML stays flat); optional `steps` on `Lesson` and a **derived-card fallback** so a lesson with no authored steps still pages; `Problem.expects`/`tolerance`/`choices` so a bank problem can be checked *and* keep its rubric; `ProblemBank.masterySet(for:)` — hardest-first, the inverse of the probe ladder's order.
+- Validation: card rules as per-file errors (`lesson-card-empty`, `lesson-card-ambiguous`, `lesson-teach-card-answerable`), check rules shared by both hosts (`check-unanswerable`, `check-thin-choices`, `check-no-correct-choice`, `check-many-correct-choices`, `check-missing-feedback`, `check-unparsable-answer`), interactivity coverage as a lint hint + a `validate` report (D12.4's split, unchanged).
+- Pipeline: `ProgramLoader`/`ProblemLoader` decode the new fields; `Scripts/check-lesson-file.py` learns the `steps` schema and the same check rules; `MathTextCheck.samples` covers every new LaTeX-bearing field (card `teach`, `ask`, `hint`, `feedback`, every choice's `text` and `feedback`, and a problem's `expects` and choices).
+- App: `LessonPlayer` — one card per screen, choice rows and a typed-answer field, attempt-then-reveal feedback, a mastery card routing to §5.2's sheet, self-report as the fallback at the foot; entry from the node panel's primary action, each step of §6.6's reader, and the rail; `PanelShot` seams (start at card *n*, start resolved) because interactive states cannot be driven offscreen.
+- Content: `content-quant-problems/` — the quant tree's first bank, mastery-grade problems with typed answers; `steps` authored for the pilot units.
+
+**Deliverable**: click any node in the quant tree and get a paged, checked lesson that ends in problems that measure.
+**Exit criterion**: a lesson with no authored `steps` still pages (derived cards cover all six sections); an authored check accepts every spelling of its answer the parser promises and rejects a near miss outside tolerance; a passed mastery problem writes `test` evidence through the existing `Grading` path and visibly moves the node's colour, the unit read-out and the program progress bar, with **no new state file**; every new authored field renders clean under `MATHTREE_MATH_CHECK`; the player renders offscreen in both themes across teach, unresolved check, resolved-correct, resolved-wrong and mastery cards.
 
 ---
 
@@ -713,6 +729,29 @@ Lesson generation fans out one agent per unit, and concurrent `swift run` invoca
 
 **D12.8 — Known gaps.**
 The reader's scroll-to-step works in the live app but not in the offscreen shot (`cacheDisplay` completes before the `ScrollViewReader` async scroll lands), so the shot verifies the chapter, not the jump. The adaptive/everything mode persists app-wide (`@AppStorage`), not per tree — acceptable while exactly one tree ships a program. Lessons carry no cross-references the app can follow (titles in prose, no links), and the reader offers self-report only — problems never route here, because the quant tree ships no bank; when one lands, the step foot should learn §5.4's routing rule. Unit openings are checked for presence, not read for quality, by anything but a reviewer.
+
+### Phase 13
+
+**D13.1 — Cards are an optional layer with a derived fallback, so "clickable" arrives for the whole corpus at once.**
+The obvious shape for Phase 13 is a new authored field, and the obvious consequence is that 958 lessons have no cards until someone writes 958 files. That would make the phase's own deliverable — *click any node and be taught it* — false everywhere except the pilot, and it would make coverage a wall the reader hits rather than a gradient. So `Lesson.cards` is a computed property: authored `steps` when present, and otherwise a derivation from the prose that is already there (hook, each explanation paragraph, worked, interview, pitfalls, recap — one card each, in the reader's own order). Every node with a lesson pages on day one; authoring `steps` upgrades a node from paged prose to a *checked* lesson, and `LessonCard.isDerived` is what the player reads to say which it is showing. The alternative — a `steps`-only player — was rejected for the same reason D12.4 rejected corpus-wide coverage errors: the corpus grows batch by batch, and a surface that is empty until the last batch lands cannot be reviewed while it is being built.
+
+**D13.2 — Checks are formative and write no evidence; only the mastery set and self-report do.**
+A check inside a lesson is there to make a beat land, and answering one is not evidence of durable knowledge — the reader has the explanation on the previous card, so a correct answer measures short-term transfer at best. Writing FSRS state from it would inflate every score in the tree and, worse, would give the program state of its own, which §6.6 spent a section refusing. So a check resolves, renders feedback, and stops. Evidence comes from the mastery set (§5.2's instrument, through the existing `Grading.evidence` path) and from the self-report at the lesson's foot (§5.4's fallback for a node the bank cannot ask about). One consequence worth naming: `LessonPlayer` holds card position and check verdicts in `@State` and persists nothing, so closing a lesson loses the reader's place inside it by design — the *bookmark* is `ProgramPlan.resume`, which is derived (D12.2), and a second, undecayable notion of position would contradict it.
+
+**D13.3 — One check shape, two hosts, flat in YAML.**
+A lesson card's question and a bank problem's final answer are the same object — a prompt, an expected value or a set of choices, a tolerance, feedback — so they are one type (`AnswerCheck`) with one grading implementation and one set of diagnostics. But `AnswerCheck` is deliberately **not** `Codable`: it is *composed* from fields the host declares inline (`choices`, `expects`, `tolerance`), so a card and a problem both stay flat in YAML and both artifacts stay byte-stable under ground rule 5's `encodeIfPresent` discipline. This is what lets a `work` problem carry a checked numeric answer *and* keep its rubric — §5.2's "math free response cannot be machine-graded" is scoped rather than repealed: the final value of a quant problem is a number, and `justify` problems still self-grade.
+
+**D13.4 — The typed-answer parser is generous about spelling and strict about value.**
+A reader who computes $7/15$ will type `7/15`, `0.4667`, `46.67%`, or paste `$\frac{7}{15}$`, and rejecting three of those measures typing rather than probability. `NumericAnswer` therefore strips `$`, spaces and thousands separators, rewrites `\frac{a}{b}`/`\dfrac` to `a/b`, reads a trailing `%` as a division by 100, and evaluates a single fraction or decimal — then compares *numerically*. It deliberately stops there: no expression evaluator, no symbolic algebra, no multi-term arithmetic. Tolerance is the author's call and defaults to $10^{-6}$ relative, which is effectively exact; a check whose answer is irrational or long-decimal states its own tolerance, and `check-unparsable-answer` fails the build when an author writes an `expects` the parser cannot read — the failure mode that would otherwise reach a reader as "your correct answer is wrong".
+
+**D13.5 — Nothing gates, and the mastery set is offered rather than required.**
+Brilliant blocks the next screen until the check is answered. This app does not, for the reason §6.6 already gave about unit order: the program is a recommendation, not a lock, and a reader who wants the next idea has a legitimate claim to it. `continue` is always live; a skipped check simply resolves to nothing. The same applies at the end — the mastery set is the last card, not a gate on marking the node learned, and self-report stays available beside it. What the player *does* enforce is the house rhythm from §5.2: the feedback and the verdict appear only after the reader commits to an answer, because a check whose answer is visible while you think is not a check.
+
+**D13.6 — The mastery set is the probe ladder read backwards.**
+`ProblemBank.problemsByTarget` orders easiest-first, which is right for placement (a ladder should not open with the hardest problem in the bank) and exactly wrong here: a mastery set that opens with a `routine` problem tests nothing the lesson has not just handed over. `masterySet(for:)` therefore sorts `(difficulty descending, id)` and caps at three, and it is a separate accessor rather than a flag on the existing one so the two orderings can never be confused at a call site.
+
+**D13.7 — Known gaps.**
+Derived cards split `explanation` on paragraph breaks, so a lesson whose explanation is one long paragraph derives one long card — the fallback is honest but not clever, and the fix is authoring `steps`. A typed check accepts only a single number: "give both roots" cannot be asked as a typed check and is authored as multiple choice instead. The player has no keyboard shortcut for choice selection (click or tab), and no animation between cards beyond a crossfade. Mastery problems open in `ProblemSheet` over the player, which means the player's card position survives but the sheet's own diagnosis flow does not know it was reached from a lesson — a miss localizes exactly as it does from the rail, which is correct behaviour but loses the chance to say "reread card 4". Check feedback is authored per *choice* for multiple choice but only once for a typed answer, so a typed near-miss gets the same words as a wild guess.
 
 ---
 

@@ -29,6 +29,10 @@ struct ProgramView: View {
     var target: NodeID?
     /// Open the node panel over the reader (details, history, prerequisites).
     var onSelect: (NodeID) -> Void
+    /// §6.7: play this step as cards instead of reading it. The reader keeps its
+    /// place — the player is a way *into* a step, not a replacement for the
+    /// chapter around it.
+    var onPlay: ((NodeID) -> Void)?
     var onExit: () -> Void
 
     /// nil until the reader navigates: the open unit follows the bookmark.
@@ -470,6 +474,17 @@ struct ProgramView: View {
     /// and the bookmark advances — visibly.
     private func actions(_ step: ProgramPlan.Step, theme: Theme) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 16) {
+            // §6.7's entry from the reader's side. It takes the accent because a
+            // step's foot is exactly where "I have read this, now make me do it"
+            // is the next thing a reader wants — the self-report words stay
+            // beside it, quiet, as they were.
+            if let onPlay, program.lesson(for: step.id) != nil {
+                TextAction(
+                    title: "Play this step →", size: 11.5,
+                    accessibilityHint:
+                        "Teaches this step one card at a time, ending in problems"
+                ) { onPlay(step.id) }
+            }
             Text(step.isLearned ? "review:" : "got it?")
                 .font(Typeface.sans(11))
                 .foregroundStyle(theme.inkFaint.color)

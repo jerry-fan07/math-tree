@@ -57,6 +57,12 @@ public struct LintHint: Hashable, Sendable, CustomStringConvertible {
         case thinLesson = "thin-lesson"
         /// A lesson far past the corpus norm — probably teaching two nodes.
         case oversizedLesson = "oversized-lesson"
+        /// A lesson (§6.7) with authored `steps` that never asks anything. It
+        /// pages, which already beats prose, but paging without a check is a
+        /// slideshow — and the whole reason to author cards is the check.
+        case lessonStepsNoCheck = "lesson-steps-no-check"
+        /// A `steps` list short enough that "bite-sized" is doing no work.
+        case thinLessonSteps = "thin-lesson-steps"
     }
 
     public var rule: Rule
@@ -92,6 +98,9 @@ public struct LintConfig: Sendable {
     public var thinLessonFloor = 400
     /// All sections together above this is probably two lessons.
     public var oversizedLessonCeiling = 6000
+    /// Fewer authored cards than this and the lesson is not paged, it is split in
+    /// two (§6.7 wants one idea per screen).
+    public var lessonStepsFloor = 4
 
     public init() {}
 }
@@ -289,6 +298,28 @@ public enum ContentLint {
                             message:
                                 "\(lesson.node): lesson totals \(total) characters — "
                                 + "probably teaching two nodes (§2.2 applies to lessons too)"))
+                }
+
+                // §6.7. Both hints are about *authored* cards only: a lesson with
+                // no `steps` pages off its prose (D13.1), and hinting that every
+                // one of 958 lessons could be more interactive would bury the
+                // hints that name a fixable defect.
+                guard lesson.isInteractive else { continue }
+                if lesson.checkCount == 0 {
+                    hints.append(
+                        .init(
+                            rule: .lessonStepsNoCheck, subject: lesson.node,
+                            message:
+                                "\(lesson.node): \(lesson.steps.count) authored cards and not one "
+                                + "`ask` — a paged slideshow still measures nothing"))
+                }
+                if lesson.steps.count < config.lessonStepsFloor {
+                    hints.append(
+                        .init(
+                            rule: .thinLessonSteps, subject: lesson.node,
+                            message:
+                                "\(lesson.node): \(lesson.steps.count) authored card(s) — "
+                                + "one idea per screen means more than \(config.lessonStepsFloor)"))
                 }
             }
         }

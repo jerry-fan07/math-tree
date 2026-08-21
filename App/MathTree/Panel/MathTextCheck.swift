@@ -193,6 +193,13 @@ extension MathText {
                             id: problem.id.rawValue, field: "rubric[\($0.offset)]",
                             source: $0.element)
                     }
+                    // §6.7's check fields. `expects` is included on purpose even
+                    // though it is compared numerically rather than read: the
+                    // player *shows* it on reveal, so a `\frac` that does not
+                    // render is as visible here as in a statement.
+                    + (problem.check?.renderableFields ?? []).map {
+                        Sample(id: problem.id.rawValue, field: $0.field, source: $0.source)
+                    }
             }
         }
 
@@ -220,6 +227,18 @@ extension MathText {
                             guard let source else { continue }
                             samples.append(
                                 Sample(id: lesson.node.rawValue, field: field, source: source))
+                        }
+                        // §6.7's cards. `steps` rather than `cards` on purpose:
+                        // derived cards are slices of the prose already sampled
+                        // above, so checking them again would double every
+                        // finding and report the same defect twice.
+                        for (index, card) in lesson.steps.enumerated() {
+                            for (field, source) in card.renderableFields {
+                                samples.append(
+                                    Sample(
+                                        id: lesson.node.rawValue,
+                                        field: "steps[\(index)].\(field)", source: source))
+                            }
                         }
                     }
                     return samples

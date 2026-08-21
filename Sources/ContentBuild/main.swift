@@ -245,9 +245,15 @@ func programSummary(_ program: Program, graph: KnowledgeGraph) -> String {
         taught += covered
         if !members.isEmpty, covered == members.count { complete += 1 }
     }
+    // §6.7's coverage, on the same line and under the same rule (D13.1): a lesson
+    // with no authored `steps` still pages off its prose, so this number is how
+    // much of the corpus is *checked*, not how much of it works.
+    let interactive = program.interactiveLessonCount
+    let checks = program.lessonsByNode.values.reduce(0) { $0 + $1.checkCount }
     return "program: \(units.count) units in \(program.spine.parts.count) parts, "
         + "lessons cover \(taught)/\(expected) content nodes "
-        + "(\(complete)/\(units.count) units complete)"
+        + "(\(complete)/\(units.count) units complete), "
+        + "\(interactive) with authored cards carrying \(checks) checks"
 }
 
 let options = parseOptions()
