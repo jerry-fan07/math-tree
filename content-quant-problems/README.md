@@ -62,10 +62,20 @@ So this bank is authored mastery-first, which changes two conventions:
 
 ## Coverage
 
-`quant-probability.foundations` — all 18 content nodes, 2 problems each. Every
-node has a `demanding` problem, so every mastery set opens with one.
+Two units, 76 problems, 2 per node — every node with a `demanding` problem, so
+every mastery set opens with one:
 
-The rest of the tree's 58 units are lesson-covered but bank-empty, and their
-lessons end on self-report alone and say so. `ContentBuild validate` prints the
-corpus-wide number on every run, so the gap stays visible rather than becoming a
-test somebody weakened.
+| Unit | Nodes | Problems |
+|---|---|---|
+| `quant-probability.foundations` | 18 | 36 |
+| `quant-probability.expectation` | 20 | 40 |
+
+The other 56 units are lesson-covered but bank-empty, and their lessons end on
+self-report alone and say so. `ContentBuild validate` prints the corpus-wide
+number on every run, so the gap stays visible rather than becoming a test
+somebody weakened.
+
+Placement readiness is *not* declared for these units. `problems/README.md`'s
+manifest and `PlacementFixtureTests` cover the math tree; the quant tree has no
+equivalent yet, and adding one is the natural next step now that the bank
+exists.
