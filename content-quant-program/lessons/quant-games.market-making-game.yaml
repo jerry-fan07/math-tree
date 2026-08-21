@@ -1,0 +1,793 @@
+unit: quant-games.market-making-game
+opening: >
+  This unit is the canonical trading-interview set piece: "make me a market
+  on X." Every earlier unit in this program feeds into it — fair value, the
+  Fermi machinery for building an estimate, confidence intervals, Bayesian
+  updating, the Kelly criterion — and this is where you show you can run all
+  of it live, under a clock, against a counterparty who already knows the
+  answer. The arc runs from the rules of play and the mechanics of a clean
+  quote, through pricing the centre and the width, into what happens once
+  trades start arriving: updating on flow, adverse selection, inventory risk
+  and the skew that manages it, sizing discipline, and the calibration that
+  tells you whether your stated confidence is honest. It closes with a full
+  worked session and a note on what the game keeps from, and drops from,
+  real market making.
+lessons:
+  - node: quant-games.market-making-game.protocol
+    hook: >
+      This is the single most common shape a trading interview takes, and
+      the obligation is the whole test: naming a number is easy, standing
+      behind two firm, tradeable prices is what actually gets graded.
+    explanation: >
+      The game turns a single-number estimate into a two-sided commitment.
+      You state a bid $b$ and an ask $a$ with $b < a$, both good for a
+      stated size, and you must honor whichever side the interviewer takes
+      — buy from you at $a$, sell to you at $b$, or pass. That obligation is
+      new next to a bare estimate: a single number can't be marked against
+      anything once the truth arrives, but a firm two-sided price can,
+      immediately, just by comparing it to what actually happened.
+
+      Scoring makes the incentive explicit. A unit you bought at $b$ marks
+      to $T-b$, a unit you sold at $a$ marks to $a-T$, a pass marks to $0$.
+      Both formulas reward a price close to the truth and, more
+      importantly, reward a price you were genuinely willing to trade at —
+      there's no way to fake conviction here, because the interviewer, not
+      you, decides which side gets hit.
+
+      The interviewer typically trades more than once, re-quoting between
+      fills, so this is really a short sequence of decisions rather than
+      one number. Grading is mostly about process — a defensible centre, a
+      width that matches your stated uncertainty, and updating that makes
+      sense — which is exactly why the fastest way to fail is refusing to
+      name a two-sided price at all, or quoting something absurd, which
+      reads as not taking the exercise seriously rather than as caution.
+    worked: >
+      Quote $3800$ / $4600$, one lot, on the number of registered taxis in a
+      large city. The interviewer buys from you, lifting the ask at $4600$.
+      The truth is later revealed to be $5100$. Your fill marks to $a - T =
+      4600 - 5100 = -500$ — a losing trade, but a legitimate one: you
+      honored a price you'd committed to, and the score reflects exactly
+      how far that price was from the truth.
+    interview: >
+      Expect the literal phrase "make me a market on X." The interviewer is
+      listening for a genuine bid and ask, not a single guess, delivered
+      with a size attached, and for whether you flinch at the idea that
+      they get to choose which side to trade.
+    pitfalls: >
+      Refusing to quote at all, or offering a single number instead of two,
+      fails immediately regardless of how good that number is. So does
+      quoting and then hedging your commitment — "well, I'd probably trade
+      around there" — since the whole exercise tests whether you'll
+      actually stand behind a firm, tradeable price.
+    recap: >
+      A market-making answer is a firm bid and ask you're obliged to honor,
+      scored against the truth once it's revealed — the obligation, not the
+      number, is what's actually being tested.
+
+  - node: quant-games.market-making-game.clarify-the-quantity
+    hook: >
+      The ambiguity hiding in a casually phrased quantity is worth more
+      than any spread you'll ever quote around it, and resolving it is the
+      very first thing graded — before you've said a single price.
+    explanation: >
+      Spend the first several seconds only on units, scope, timing, and
+      definition, not on estimating. A quantity phrased casually usually
+      hides a fork worth a factor of two or more: metric or imperial, one
+      city or a whole country, a current figure or a historical one.
+      Guessing the wrong branch of that fork costs more than any spread
+      discipline can recover, because you'd be quoting confidently around
+      the wrong number entirely.
+
+      The fix is one or two closed questions — phrased so a single word
+      answers them — followed by committing. Two failure modes sit on
+      either side of the right behaviour. Interrogating past the point of
+      genuine ambiguity turns the opening of the game into stalling and
+      reads as an inability to act under uncertainty. Quoting immediately
+      and only asking for clarification after being traded against, so as
+      to reinterpret the question in your favour, reads as worse than the
+      bad fill itself — it looks like welching.
+
+      Some ambiguity the interviewer will simply decline to resolve, on
+      purpose. When that happens, stop asking: the ambiguity is genuine
+      variance in the quantity you're pricing, and it belongs in your
+      spread. Treating unresolved ambiguity as an unfair trick to complain
+      about after the truth is revealed misreads what's being tested —
+      whether you can price what you don't know, not whether you can argue
+      your way out of it.
+    worked: >
+      "Make me a market on average rent in a major city." Two readings sit
+      a factor apart: studio units average near $2200$ a month, one-
+      bedrooms near $3400$ — a $55\%$ gap, wider than any spread worth
+      quoting blind. One closed question, "one-bedroom, city-wide, current
+      month?", resolves the fork; once confirmed, you build your Fermi
+      estimate around one-bedrooms specifically instead of guessing which
+      reading was meant.
+    interview: >
+      Expect the fork to be genuinely ambiguous on purpose. The
+      interviewer is listening for one or two closed questions that
+      resolve it quickly, then a clean commitment — not an open-ended
+      "what do you mean by that?"
+    pitfalls: >
+      Asking more than one or two questions turns clarification into
+      stalling. Quoting first and redefining the question after a bad fill
+      reads as welching, not diligence. Treating an interviewer's refusal
+      to clarify as unfair, rather than pricing it as width, misses the
+      actual test.
+    recap: >
+      Resolve units, scope and timing with one or two closed questions
+      before building any number — and price whatever ambiguity remains as
+      width, not as a grievance.
+
+  - node: quant-games.market-making-game.fair-value-first
+    hook: >
+      A centre you can't defend with an explicit chain of reasoning is a
+      centre the interviewer can dismantle with one follow-up, so it has to
+      exist, out loud, before any spread gets attached to it.
+    explanation: >
+      Fix the centre before touching the width, because the two decisions
+      draw on different information: the centre comes from your best
+      estimate of the quantity, the width from how uncertain that estimate
+      is. Conflating them — widening because the arithmetic felt shaky, say
+      — muddies both decisions at once. Build the centre by decomposing the
+      unknown into factors you can anchor individually and multiplying them
+      out, or, when there's no natural decomposition, by bracketing the
+      quantity between a bound you're confident is too low and one you're
+      confident is too high and averaging the two in log space.
+
+      Say the chain out loud as you build it. An interviewer who hears
+      "population, times a catchment ratio, times a conversion factor" can
+      challenge one link — "why that ratio?" — and you revise just that
+      link and recompute, instead of the whole estimate collapsing because
+      you can't defend where it came from. A number produced with no stated
+      chain is unimprovable: any challenge forces you to either invent a
+      justification on the spot or abandon the number outright, and both
+      read badly.
+
+      Only once that centre is fixed do you turn to a spread. That's a
+      separate decision, made from your uncertainty about the centre you
+      just built, never from the centre's value itself.
+    worked: >
+      Estimate the number of dry cleaners in a city of $1.6$ million
+      people. Decompose: about $800{,}000$ households, each dropping off
+      clothes roughly every two weeks, or about $26$ times a year, giving
+      $800{,}000 \times 26 = 20{,}800{,}000$ drop-offs annually. A single
+      shop handling about $40{,}000$ drop-offs a year serves that volume,
+      so the centre is $20{,}800{,}000 / 40{,}000 = 520$ dry cleaners.
+    interview: >
+      "Walk me through how you get there" wants the decomposition spoken
+      aloud, factor by factor, and the ability to revise a single link when
+      challenged — not a number that arrived fully formed.
+    pitfalls: >
+      A gut-feel centre with no stated chain is unimprovable and gets
+      exposed by the first follow-up question. Widening the spread to
+      cover discomfort with the arithmetic, instead of just fixing the
+      estimate, confuses the two separate decisions this technique keeps
+      apart.
+    recap: >
+      Build the centre first, out loud, by decomposition or bracketed
+      bounds — the width is a second, separate decision made only once the
+      centre is fixed.
+
+  - node: quant-games.market-making-game.width-uncertainty
+    hook: >
+      Your spread is the one part of the quote where the interviewer can
+      grade your self-knowledge directly — quote it too tight and you've
+      announced "I know more than I do," in public, in a way that gets
+      tested immediately.
+    explanation: >
+      Treat the half-width as roughly one standard deviation of your belief
+      about the truth — the same object a confidence interval is built
+      from — which puts about $68\%$ of your belief inside the market: wide
+      enough to be honest, narrow enough to still function as a real quote.
+      A centre with, say, $25\%$ relative uncertainty needs a spread
+      reflecting a full quarter of the centre on each side, not a token few
+      percent shaved off for appearances.
+
+      Width is not a confidence signal in the sense that tighter is always
+      better — a wide market you can defend, and then tighten as real
+      information arrives, beats a tight one that gets run over on the
+      first trade. What is a genuine mistake is arbitrary width: a spread
+      you can't trace back to a stated uncertainty is exactly as unmoored
+      as a centre with no decomposition behind it.
+
+      Tighten only when something actually changes your uncertainty — a
+      resolved ambiguity, a trade you can update on, a hint volunteered
+      mid-question. Tightening because the interviewer asks "are you sure,
+      can you do better" with no new information attached is selling
+      optionality for free, and a good interviewer collects on it every
+      time.
+    worked: >
+      A dry-cleaner estimate centred at $520$, with roughly $30\%$ relative
+      uncertainty typical of a multi-factor Fermi build, needs a half-width
+      of $0.3 \times 520 = 156$. Bounds of $520-156=364$ and $520+156=676$,
+      rounded to sensible ticks, give a quote of $360$ / $680$.
+    interview: >
+      "How wide should that be?" wants the one-standard-deviation reasoning
+      stated as an actual number — a named relative uncertainty times the
+      centre — not "however wide feels safe."
+    pitfalls: >
+      Setting width from nerve rather than a named uncertainty is the
+      single most common failure. Treating "tighter" as automatically "more
+      confident" rather than as a claim that has to be earned by new
+      information is the other.
+    recap: >
+      Half-width tracks roughly one standard deviation of your actual
+      belief — wide is honest, arbitrary is not, and tightening needs a
+      reason.
+
+  - node: quant-games.market-making-game.quote-hygiene
+    hook: >
+      These are the cheapest points in the whole game and the ones most
+      often given away — a crossed market or a flinch at "are you sure?"
+      reads as "doesn't actually trade," no matter how good the centre
+      underneath it was.
+    explanation: >
+      Keep the bid strictly below the ask, state the quote bid-then-ask
+      with size attached in one breath — "$360$ at $680$, one" — and round
+      to sensible ticks. A quote like $364.2$ at $675.8$ claims a precision
+      your Fermi estimate never had, and it slows down the one part of the
+      exercise that should be instant.
+
+      Answer within a few seconds. A long silence after "make me a market"
+      is itself a signal of how confident you actually are, independent of
+      the number you eventually give.
+
+      Once quoted, hold it. "Are you sure?" carries no information about
+      the truth — it's a test of nerve, not a hint — so moving the price in
+      response teaches the interviewer that pressure works on you, and
+      invites more of it. If you want to trade a smaller size than your
+      first instinct, say so the moment you quote, never after being hit;
+      changing size after the fact is the same flinch as changing price.
+    worked: >
+      A dry-cleaner market centred at $520$ with a half-spread of $156$
+      gives bounds of $364$ and $676$. Quoted as "$676$ at $364$, one," the
+      market is crossed — bid above ask — and hands over free money.
+      Corrected and rounded, "$360$ at $680$, one" is the right quote. When
+      the interviewer follows with "are you sure you don't want to tighten
+      that up?", the answer is to hold $360$ / $680$, not to move it.
+    interview: >
+      "Are you sure?" is a scripted pressure test, not new information. The
+      interviewer is watching for bid below ask, size stated up front, and
+      a quote delivered without a long pause.
+    pitfalls: >
+      A crossed market — bid above ask — hands over free money outright.
+      False precision signals a confidence you don't have. Moving price or
+      size after being questioned or hit is a visible flinch.
+    recap: >
+      Bid below ask, size stated at the moment you quote, sensible ticks,
+      and no movement in response to a question that carries no new
+      information.
+
+  - node: quant-games.market-making-game.mark-to-truth
+    hook: >
+      This is the arithmetic underneath every score you'll get, and it says
+      something non-obvious: a fair value that's genuinely wrong can still
+      earn you money, as long as whoever trades against you isn't choosing
+      sides on purpose.
+    explanation: >
+      Write $V$ for your fair value and $s$ for your half-spread, so your
+      quote is $V-s$ / $V+s$. Once the truth $T$ is known, selling a unit
+      at the ask marks to $(V+s)-T$, which rearranges to $s-(T-V)$; buying a
+      unit at the bid marks to $T-(V-s)$, which rearranges to $s+(T-V)$.
+      Both fills reduce to the same shape: the half-spread you captured,
+      adjusted by your mis-estimate $T-V$, with the sign of that adjustment
+      flipping depending on which side got traded.
+
+      If the counterparty's choice of side has nothing to do with the sign
+      of $T-V$ — a coin flip, unrelated to your accuracy — the two signed
+      adjustments cancel across many fills, and your expected score
+      converges to exactly $s$ per trade, however badly $V$ missed. The
+      entire economics of the game reduces to one question: is the side
+      traded correlated with your error?
+
+      When it is — when the counterparty only trades the side that's
+      actually bad for you — no amount of averaging saves you; that
+      correlation between the side traded and the sign of your error is
+      adverse selection by name. When it isn't, the half-spread is yours,
+      mis-estimate and all.
+    worked: >
+      $V=50$, $s=5$, quote $45$ / $55$. Truth turns out to be $58$, and the
+      interviewer's side is a coin flip unrelated to it. Half the time he
+      buys at $55$: score $= s-(T-V) = 5-8 = -3$. Half the time he sells to
+      you at $45$: score $= s+(T-V) = 5+8 = 13$. Averaged over the coin
+      flip, $0.5(-3)+0.5(13) = 5 = s$ exactly — despite $V$ missing the
+      truth by $8$, uninformed flow still nets exactly the half-spread.
+    interview: >
+      "How do you actually make money on this?" wants this derivation
+      ending in "half-spread minus selection," not a vague appeal to "the
+      spread is my edge."
+    pitfalls: >
+      Assuming a wider spread always raises expected profit ignores that it
+      only helps against uninformed flow. Forgetting that the sign of
+      $T-V$ flips between a buy fill and a sell fill breaks the arithmetic.
+    recap: >
+      Every fill nets the half-spread minus your mis-estimate signed by the
+      side traded — uninformed flow earns exactly $s$ regardless of how
+      wrong $V$ was.
+
+  - node: quant-games.market-making-game.adverse-selection
+    hook: >
+      A perfectly centred market can still lose money on every single fill
+      it attracts — this is why, and it's the entire reason a spread
+      exists.
+    explanation: >
+      A live two-sided quote is a pair of free options handed to whoever's
+      on the other side: your bid is a put they can exercise by selling to
+      you at $b$, your ask a call they can exercise by buying from you at
+      $a$, both live at once, paid for by no one up front except you, via
+      the spread you collect if they go unused.
+
+      A counterparty who knows more about $T$ than your quote reflects
+      exercises exactly the profitable option and lets the other expire —
+      buys from you when $T$ exceeds $a$, sells to you when $T$ is below
+      $b$, passes otherwise. Because of that filter, the fills you actually
+      receive are not a representative sample of $T$: they're the specific
+      slice where trading against you was worth it, so
+      $\mathbb{E}[T \mid \text{lifted}]$ sits above the unconditional mean
+      and $\mathbb{E}[T \mid \text{hit}]$ sits below it.
+
+      Adverse selection is that gap between the conditional and
+      unconditional expectation, and it's why being traded with is itself
+      bad news about $T$ before you even see the number. The spread exists
+      to be paid, in advance, for exactly this: quote too tight against
+      genuinely informed flow and a market centred exactly right on average
+      still loses on every fill it gets.
+    worked: >
+      $T$ is uniform on $[0,100]$, quote $40$ / $60$ — centred exactly on
+      the true mean of $50$. A fully informed counterparty trades whenever
+      profitable: lifts when $T>60$, hits when $T<40$. Conditional on a
+      lift, $\mathbb{E}[T \mid T>60] = (60+100)/2 = 80$, so that fill marks
+      to $60-80=-20$. Conditional on a hit, $\mathbb{E}[T \mid T<40] =
+      (0+40)/2 = 20$, so that fill marks to $20-40=-20$ too. Every fill
+      this market actually gets, despite being dead-on-average, marks to
+      $-20$.
+    interview: >
+      "If your fair value is right on average, why would you ever lose
+      money?" wants the free-option framing and the biased-sample answer —
+      not "I wouldn't."
+    pitfalls: >
+      Assuming a correctly centred market can't lose is the core error
+      adverse selection exists to correct. Treating "tight" and
+      "well-quoted" as synonyms ignores that tight quotes are exactly what
+      informed flow is most eager to trade against.
+    recap: >
+      Your quote is a pair of free options that a better-informed
+      counterparty exercises selectively, so the fills you get are a biased
+      sample of the truth even when your centre is exactly right.
+
+  - node: quant-games.market-making-game.spread-compensation
+    hook: >
+      This turns "how wide is wide enough" into an actual number instead of
+      a feeling — the minimum half-spread that survives however much of
+      your flow is genuinely informed.
+    explanation: >
+      Model the counterparty as a mixture: with probability $\alpha$
+      they're informed and take an average $\delta$ of value from you when
+      they trade; with probability $1-\alpha$ they trade for reasons
+      unrelated to $T$. An uninformed fill nets the full half-spread $s$;
+      an informed fill nets $s-\delta$. Averaging over the mixture,
+      expected profit per trade is $(1-\alpha)s + \alpha(s-\delta) =
+      s-\alpha\delta$.
+
+      Breaking even needs $s \ge \alpha\delta$ — the minimum viable
+      half-spread is the chance a counterparty is informed times what they
+      take when they are, with nothing about your own confidence in $V$
+      entering the formula at all. Two readings follow directly: your
+      spread is set by the counterparty's information, not your own
+      certainty, so two people with identical fair values should quote
+      different widths if they face different flow; and as $\alpha$
+      approaches $1$, no finite spread survives — the actual reason desks
+      pull quotes entirely ahead of a scheduled announcement, rather than
+      merely widening them.
+    worked: >
+      $\alpha=0.2$, $\delta=25$. Break-even half-spread is $s \ge 0.2
+      \times 25 = 5$. Quoting exactly $s=5$ nets zero expected profit per
+      trade; quoting $s=8$ nets $8-5=3$ expected profit per trade instead.
+    interview: >
+      "One in five people you quote actually know something and take $25$
+      off you when they do — what's the least you can quote?" wants
+      $\alpha\delta$ computed on the spot.
+    pitfalls: >
+      Setting the minimum spread to $\delta$ alone, instead of
+      $\alpha\delta$, wildly over-widens by ignoring that $\delta$ is only
+      realized on the informed fraction of fills. Treating $\alpha$ as a
+      property of the market in general rather than of your own realistic
+      flow is the other.
+    recap: >
+      Break-even half-spread is $\alpha\delta$ — the chance of informed
+      flow times what it costs you — and no finite spread survives once
+      $\alpha$ reaches $1$.
+
+  - node: quant-games.market-making-game.update-on-flow
+    hook: >
+      A fill isn't the end of a round, it's a data point, and the single
+      most diagnostic thing you can do next is what you do to the market
+      immediately after — re-quote the same number, or move it.
+    explanation: >
+      Treat a fill as an observation and update via Bayes' rule: a lift on
+      your ask is evidence $T$ sits above that ask, because a counterparty
+      acting on information lifts exactly when that's true, so the right
+      response is to shift the whole market up — re-centre — not repeat the
+      same quote and hope for a round-trip in the other direction.
+
+      How far to move depends on how informed you think the fill was.
+      Treating it as fully informative, the new centre is the posterior
+      mean conditional on the truth clearing that price, which for a
+      diffuse belief sits materially above the price itself, not just
+      barely above it. If there's a real chance the counterparty is trading
+      noise, or testing your nerve rather than acting on information,
+      shrink the move toward your old centre in proportion to that chance —
+      a full re-centre on every fill overreacts to trades that carried no
+      signal.
+
+      One rule holds regardless of how much you shrink: never quote a new
+      ask below the price you were just lifted at. Repeated lifts compound
+      the same evidence and should compound the move in the same
+      direction, not reset it.
+    worked: >
+      Quote $200$ / $240$, with a prior belief roughly uniform over
+      $[150,350]$. The interviewer lifts the $240$ ask. Treating the fill
+      as fully informative, the posterior for $T$ given $T>240$ is uniform
+      on $[240,350]$, with mean $(240+350)/2=295$. Re-centring there, with
+      a similar half-width of about $20$, gives a next quote of $275$ /
+      $315$ — comfortably above the $240$ you were just lifted at.
+    interview: >
+      "He just bought your offer — what's your next quote?" wants an
+      immediate re-centre computation stated out loud, not "I'd quote the
+      same thing and see what happens."
+    pitfalls: >
+      Repeating an unchanged quote after a fill, hoping for a round-trip in
+      the other direction, ignores the evidence the fill just gave you.
+      Treating a single lift as certainty and swinging the whole market on
+      one trade, instead of compounding evidence across repeated lifts,
+      overreacts the other way.
+    recap: >
+      A lift says the truth is above your ask and a hit says it's below
+      your bid — re-centre on the posterior implied by the fill, and never
+      offer again below where you were just taken.
+
+  - node: quant-games.market-making-game.inventory-risk
+    hook: >
+      Two units of an uncertain quantity is a bigger bet than anything else
+      you'll take in this interview, and unlike a real trading book, you
+      have no way to hedge it away before the truth is revealed.
+    explanation: >
+      Inventory is your net position $q$ after fills — positive when
+      you've bought more than you've sold, negative the other way —
+      carried at the average price $\bar{p}$ you traded it at. Its mark,
+      once $T$ is known, is $q(T-\bar{p})$: exposure scales linearly in
+      both how large the position is and how wrong you turn out to be.
+
+      Risk, as opposed to exposure, scales differently: the variance of
+      that mark is $q^{2}\operatorname{Var}(T)$, quadratic in position
+      size, so the standard deviation of your risk grows linearly in $|q|$
+      even though the mark itself is linear — doubling your position
+      doubles the dollar-scale risk you're carrying, which sounds modest
+      until you remember it started from the single-unit uncertainty of a
+      quantity you may only know to within a factor of two.
+
+      A flat book, $q=0$, carries no mark risk at all, whatever your fair
+      value happened to be. Every fill is therefore a deliberate decision
+      to take on some of this risk, and the entire justification for
+      quoting in the first place is being paid, via the half-spread, to
+      take it.
+    worked: >
+      Short $3$ units at an average traded price of $210$, with per-unit
+      uncertainty in $T$ carrying a standard deviation of $40$. The mark's
+      standard deviation at $q=3$ is $|q| \times 40 = 120$ — three times
+      the single-unit risk, since $\operatorname{Var}(\text{mark}) = q^{2}
+      \times 40^{2} = 9 \times 1600 = 14400$ and $\sqrt{14400}=120$. If the
+      truth turns out to be $T=250$, the actual mark is $q(T-\bar{p}) =
+      -3(250-210) = -120$ — the unlucky tail of that risk realizing.
+    interview: >
+      "How much risk are you actually carrying after those three lifts?"
+      wants $q$ and $\bar{p}$ tracked explicitly, and the quadratic-
+      variance point named — not just "I'm short some."
+    pitfalls: >
+      Treating repeated fills on the same quantity as diversifying is
+      wrong — every fill is exposed to the identical single truth $T$, so
+      there's no law of large numbers across them. Tracking exposure,
+      which is linear in $q$, while forgetting that risk is quadratic in
+      $q$, understates how much a second or third fill actually costs.
+    recap: >
+      Inventory marks to $q(T-\bar{p})$ but its risk grows like $q^{2}$,
+      and in this game it can't be hedged away before the reveal — every
+      fill is a deliberate risk decision.
+
+  - node: quant-games.market-making-game.quote-skewing
+    hook: >
+      Carrying a position changes what your next quote should say even
+      when nothing new has been learned about the truth — this is the one
+      adjustment that's about you, not about $T$.
+    explanation: >
+      Once you're carrying inventory, stop quoting symmetrically around
+      fair value. Shift both sides in the same direction: toward making
+      the trade that flattens you cheap for the counterparty, and the
+      trade that extends your position expensive. Long a position, that
+      means lowering both bid and ask — a lower ask invites the
+      counterparty to buy from you and flatten you, a lower bid makes
+      selling to you, and extending your long further, less attractive to
+      them.
+
+      Keep the two adjustments mentally separate, because they draw on
+      different information. Re-centring on flow is informational — it
+      happens because a fill told you something about the truth. Skewing
+      is a risk adjustment layered on top of that, driven purely by $|q|$
+      and by how much uncertainty you're still carrying, growing as either
+      one grows. Widening one side alone instead of shifting the whole
+      pair is a weaker, different instrument: it changes how much room a
+      trade has to happen in, not which side is being made attractive.
+
+      Skew is not a change of view about the quantity — you still believe
+      your centre is right. You're leaning the quote to manage the
+      position you already have, a distinct decision from believing the
+      truth has moved.
+    worked: >
+      Long $2$ units at an average price of $150$, with a re-centred fair
+      value still at $150$ and a half-spread of $15$ — symmetric would be
+      $135$ / $165$. Being long, skew down by $10$ to encourage
+      flattening: quote $125$ / $155$. The ask at $155$ is now more
+      attractive to lift, flattening the position; the bid at $125$ is
+      less attractive to hit, discouraging the counterparty from extending
+      it.
+    interview: >
+      "Why would you quote a market that isn't centred on your own
+      number?" wants the two-step answer — re-centre first from the flow,
+      then lean the pair for the position — with the skew's size tied
+      explicitly to how large $q$ is.
+    pitfalls: >
+      Folding the risk skew into the informational re-centre makes the two
+      adjustments impossible to size separately. Widening one side alone
+      and calling it a skew changes the market's width rather than which
+      side is favoured.
+    recap: >
+      Lean both quotes toward the trade that flattens you, by an amount
+      growing with $|q|$ — a risk adjustment layered on top of, not
+      instead of, the informational re-centre.
+
+  - node: quant-games.market-making-game.size-discipline
+    hook: >
+      "One lot or five?" gets asked as often as the price itself, and
+      raising your size right after a bad fill to look unbothered is the
+      single most common way a small loss turns into a large one.
+    explanation: >
+      The repeated-bet structure that makes Kelly-style sizing the right
+      frame here is exactly satisfied: each round is a fresh trade with its
+      own edge and its own variance, and the interviewer keeps re-offering
+      the same kind of bet as the session continues. The Kelly criterion
+      balances the marginal growth from a bigger stake against the
+      marginal risk of one; the same balance, worked out for a bet whose
+      outcome is closer to continuous than a coin flip, lands on staking in
+      proportion to edge over variance rather than the discrete
+      odds-and-probability terms — the growth-optimal principle is
+      identical, only the bet's shape has changed.
+
+      The reason to shade down further than that number, rather than
+      staking it exactly, is that the edge itself is an estimate here, not
+      a known quantity the way it's assumed to be in the textbook setup.
+      Overestimating the edge and staking to it costs growth asymmetrically
+      — overbetting the true optimum is punished harder than underbetting
+      it by the same amount — so on a genuinely uncertain edge, erring
+      toward less size is the safer side of that asymmetry.
+
+      Operationally: state your size the moment you quote, keep total
+      exposure across the session small relative to how wrong you could
+      plausibly be, and respond to rising uncertainty by cutting size
+      rather than widening the spread without limit — an unboundedly wide
+      market stops functioning as a market at all. The one move to avoid
+      categorically is raising size right after being picked off in order
+      to look confident: that raises the stake exactly when the fill was
+      fresh evidence the edge estimate was wrong.
+    worked: >
+      Half-spread $8$, expected adverse-selection cost $5$, so per-trade
+      edge is $3$; per-unit standard deviation of the mark is $10$, so
+      variance is $100$. Edge over variance is $3/100 = 0.03$ — small
+      enough on its own to rule out quoting size $5$ to sound aggressive.
+      Shaded further for how uncertain the edge estimate itself is, the
+      size that comes out the other end is $1$, not $5$.
+    interview: >
+      Listen for edge over variance named explicitly, the shading-down
+      step stated as deliberate, and cutting size — rather than widening
+      without limit — as the response to rising uncertainty.
+    pitfalls: >
+      Doubling size immediately after a loss to project confidence raises
+      the stake exactly when the evidence turned against the edge. Quoting
+      a size that merely sounds decisive, with no link back to edge over
+      variance, makes the same error less visibly.
+    recap: >
+      Size from edge over variance, then shade down for how uncertain that
+      edge estimate is — and never raise size right after a loss to save
+      face.
+
+  - node: quant-games.market-making-game.calibration
+    hook: >
+      This is the only part of the game graded across an entire session
+      rather than one quote at a time, and it's the part interviewers
+      actually log.
+    explanation: >
+      An interval is honest only if it hits at its advertised rate across
+      many questions — a stated $90\%$ range should contain the truth
+      about $90\%$ of the time, no more and no less. This is directly
+      testable: log every interval you state and whether the truth landed
+      inside it, and compute the hit rate once you have enough data
+      points.
+
+      Calibration is a property of a batch, never of a single quote — one
+      interval either happens to contain the truth or it doesn't, and that
+      single outcome says nothing about whether your process is sound.
+      This is exactly why an interviewer who cares about calibration asks a
+      whole series of estimation questions rather than one, and watches the
+      pattern across the series rather than grading any individual answer.
+
+      The fix, once you have a hit rate, is mechanical rather than a
+      matter of trying harder: scale every stated width by a constant
+      factor until the hit rate on a fresh batch lands near the target,
+      then check again. There's no shortcut that skips the re-check — the
+      factor that fixes one batch is only a starting guess for the next.
+    worked: >
+      Twenty stated $90\%$ intervals over a session, and $12$ of them
+      contain the truth — a $60\%$ hit rate against a $90\%$ target,
+      meaning the intervals ran meaningfully under-width. Widening every
+      future interval by about $50\%$ as a first correction, logging the
+      next $20$, and recomputing: landing near $18$ out of $20$ confirms
+      the correction; landing at $14$ or $15$ says widen further still.
+    interview: >
+      "How would you know if your ranges are any good?" wants the
+      batch-logging framing stated directly — hit rate against advertised
+      rate, computed over many questions, never judged off one.
+    pitfalls: >
+      Judging your calibration off a single interval's outcome, good or
+      bad, misreads what the test measures. Treating one round of
+      rescaling as a permanent fix, instead of re-checking the hit rate on
+      the next batch, assumes a correction that hasn't actually been
+      confirmed.
+    recap: >
+      Score stated intervals against the truth over many questions — a
+      $90\%$ interval should hit $90\%$ of the time, and widths get
+      rescaled, mechanically, until it does.
+
+  - node: quant-games.market-making-game.overconfidence
+    hook: >
+      Before you've quoted a single market, the base rate already tells
+      you which direction your first mistake will run — too tight, almost
+      never too wide.
+    explanation: >
+      The default human error runs one way. Asked for $90\%$ ranges on
+      general-knowledge quantities, people's stated intervals contain the
+      truth only about $30\%$ to $50\%$ of the time — not slightly
+      optimistic, but routinely half the width they'd need to be to
+      actually hit their advertised rate.
+
+      The mechanism is anchoring: the first number that comes to mind
+      fixes a scale, and the outward adjustment from that anchor —
+      widening the interval to actually cover your real uncertainty —
+      stops far short of where it needs to. Two countermeasures work
+      reliably against this: produce the bounds before committing to a
+      point estimate, so the anchor doesn't get to fix the scale first, and
+      ask what would have to be true for the answer to come out ten times
+      larger than your instinct — if you can tell a coherent story for
+      that, the bound was too close in.
+
+      In this game the symptom is specific and recognizable: a market that
+      looks impressively tight in the first round and then gets picked off
+      from both sides as the session goes on, because the width never
+      reflected the real uncertainty behind the centre in the first place.
+    interview: >
+      "Why would your first quote usually be too tight?" wants anchoring
+      named as the mechanism, plus a concrete habit — bounds before the
+      point estimate — not just an acknowledgment that people are
+      overconfident.
+    pitfalls: >
+      Assuming this bias only applies to trivia-style questions, not to
+      your own market-making numbers, misses the point entirely. Treating
+      one deliberate widening as solved, rather than as a standing
+      correction re-applied every session, undoes the fix.
+    recap: >
+      Stated $90\%$ intervals hit closer to $40\%$ because anchoring cuts
+      the outward adjustment short — the practical correction is to widen
+      deliberately, roughly by a factor of two, every session.
+
+  - node: quant-games.market-making-game.worked-747
+    hook: >
+      A full session can end in a real loss even when every individual
+      decision was defensible, and the useful thing to take from any
+      worked session is which round the damage actually happened in.
+    explanation: >
+      A full session chains together the moves this unit teaches: pin down
+      the quantity, build a fair value, size the width from actual
+      uncertainty, then react to whatever the interviewer does through
+      re-centring and, once you're carrying a position, skewing. Every
+      later decision inherits the consequences of the earlier ones — a
+      width that understated your real uncertainty in round one doesn't
+      just cost that round, it forces every later re-centre and skew to
+      work harder to contain the damage.
+
+      This is why the single biggest lever in any session is the first
+      quote's width, not the cleverness of the later updates. A market
+      that's honestly wide from the start rarely gets run over more than
+      once, because there's little room left between the quote and the
+      truth for a second informed trade to exploit; a market that's too
+      tight invites exactly the sequence of lifts or hits that then has to
+      be managed round by round.
+
+      Reading a session afterward, the useful question isn't whether the
+      final score was good or bad — one session is far too short to say
+      anything about your process, the same reason calibration is judged
+      over a batch — but which specific decision, redone, would have
+      stopped the bleeding earliest.
+    worked: >
+      "Make me a market on average annual snowfall in Chicago." Clarify:
+      inches, at O'Hare, most recent full year. Fermi: certainly above
+      $10$, certainly below $100$, so centre at $\sqrt{10 \cdot 100} \approx
+      31.6$, call it $30$. Round 1, quote $27$ / $33$ — a tenth of the
+      centre either way, tight for a bracket this wide. He lifts, leaving
+      you short one at $33$. An informed lift says the truth is above $33$,
+      so re-centre, modestly, to $36$. Round 2, symmetric would be $33$ /
+      $39$, but short one you skew up to $35$ / $41$; he passes, since the
+      truth sits inside that range. Truth: $38$. Score: $33-38=-5$, all of
+      it from the single fill in round one — round two's wider, skewed
+      market stopped the bleeding instead of adding to it.
+    interview: >
+      Across a multi-round session, the interviewer is watching whether
+      each quote responds to what just happened — a repeated, unchanged
+      quote after a fill reads as not having updated at all, regardless of
+      how good the opening number was.
+    pitfalls: >
+      Reading a small final loss as proof the whole session went well
+      ignores that the loss traces to one identifiable decision, not to
+      bad luck spread evenly across every round. Reading a large final
+      loss as proof every decision was wrong makes the same mistake in
+      reverse — usually one round did the damage and the rest were
+      reasonable given it.
+    recap: >
+      A session's score traces back to one or two specific decisions,
+      almost always the first quote's width, rather than being evenly
+      earned or lost across every round.
+
+  - node: quant-games.market-making-game.game-vs-real-markets
+    hook: >
+      The natural next question after any session is whether this is
+      actually the job, and knowing exactly what's been left out is what
+      separates rehearsing a puzzle from understanding the business behind
+      it.
+    explanation: >
+      The interview session keeps the decision logic of quoting intact:
+      build a fair value, size a width from genuine uncertainty, re-centre
+      when a fill teaches you something, skew when you're carrying a
+      position, and expect your edge to be the spread minus whatever
+      informed flow takes from you. Every one of those moves, run on a
+      trading desk, is the same move, just executed continuously instead
+      of across three or four rounds.
+
+      What the interview version drops is the machinery around those
+      decisions. A real market maker quotes continuously into a limit order
+      book with queue priority rather than one private conversation, gets
+      thousands of fills a day so the law of large numbers does real work
+      that a handful of interview trades never can, hedges accumulated
+      inventory in correlated instruments instead of sitting exposed until
+      an announced truth arrives, and competes on latency for the right to
+      be first to a new quote. None of that belongs to the decision logic
+      being tested here — it belongs to market microstructure, a separate
+      and much larger subject.
+
+      The practical consequence: one bad session is weak evidence about
+      your actual process, for the same reason a single missed interval
+      doesn't indict your calibration — small samples are noisy regardless
+      of whether the process behind them is sound. Treating the game as a
+      party trick disconnected from the job it's meant to test misses the
+      point just as badly.
+    interview: >
+      Asked directly how this differs from a real desk, name specifically
+      what survives — the decision logic — against what's missing —
+      continuous flow, hedging, latency, queue priority — rather than
+      answering with a vague "it's simplified."
+    pitfalls: >
+      Treating three or four interview fills as if they diversify the way
+      thousands of real fills do overstates what one session can tell you.
+      Dismissing the whole exercise as disconnected from real trading
+      misunderstands what it's actually rehearsing.
+    recap: >
+      The game keeps the decision logic of quoting — fair value, width,
+      re-centring, skew, spread minus selection — and drops the machinery
+      of continuous markets, which is exactly where market microstructure
+      picks up.

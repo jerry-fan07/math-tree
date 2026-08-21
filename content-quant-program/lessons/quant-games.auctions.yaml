@@ -1,0 +1,681 @@
+unit: quant-games.auctions
+opening: >
+  Auctions formalize any deal that closes at whatever price a rule extracts from competing
+  bidders, and this unit builds that machinery from the ground up. It opens with the shared
+  skeleton — allocation and payment rules, the four standard formats, and the private-versus-common-value
+  fork that decides everything downstream — then proves the two headline results under private
+  values: truthful bidding is dominant in second-price, and first-price bidding shades to
+  a closed form under uniform values, tied together by revenue equivalence. It closes on common-value
+  ground, where the same machinery produces the winner's curse — winning is evidence your
+  estimate ran high — and the correction that fixes it, worked through the jar-of-coins classic,
+  a takeover-bid variant, and the two-directional effect of adding more bidders to the room.
+lessons:
+  - node: quant-games.auctions.setup
+    hook: >
+      Every take-home or live prompt that starts with "suppose you're selling X" is quietly
+      asking you to name two functions before anything else: who gets the object, and what
+      they pay for it.
+    explanation: >
+      An auction formalizes a specific decision problem: $n$ bidders each hold private information
+      about an object, submit some action (a bid), and the auctioneer commits in advance to
+      two rules — an allocation rule mapping bids to a winner, and a payment rule mapping
+      bids to a price. Nothing about "highest bid wins" or "winner pays their own bid" is
+      inherent to the word "auction"; those are just the most common choices for the two rules,
+      and the whole subject is really about how different choices for either rule change what
+      a rational bidder should submit.
+
+
+      The payoff arithmetic is deliberately simple: if your value for the object is $v$ and
+      you end up paying $p$, your payoff is $v - p$ on a win and $0$ on a loss. That $0$ for
+      every loser is not a detail to skim past — it's what makes "profit comes only from winning
+      below value" true, and it's why a bidder who pays exactly their own value has accomplished
+      nothing, whatever the allocation rule handed them.
+
+
+      Holding this frame — payoff $v - p$ on a win, an allocation rule, and a payment rule
+      as three separate, freely choosable ingredients — is what lets you evaluate any auction
+      variant an interviewer invents on the spot instead of pattern-matching to the one format
+      you memorized. Unless a problem says otherwise, assume a single object, no reserve price,
+      no budget constraint, no collusion, and no resale.
+    worked: >
+      Three bids arrive for a used forklift: $25$, $35$, and your own bid of $60$, all in
+      dollars. The allocation rule says the highest bid wins, so you take the forklift regardless
+      of which payment rule is in force. Under a pay-your-bid rule you owe $60$, so your payoff
+      is $60 - 60 = 0$; under a pay-the-second-highest rule you owe $35$, so your payoff is
+      $60 - 35 = 25$. Same three bids, same winner, but the payment rule alone turns an identical
+      win into either zero profit or a profit of $25$ dollars — exactly why the payment rule,
+      not the allocation rule, does almost all the work in every technique that follows.
+    interview: >
+      Any "design a mechanism" or "here's an auction, what happens" prompt wants the allocation
+      rule and payment rule stated as two explicit, separate objects before you commit to
+      any format — interviewers are listening for the $v - p$ payoff and the fact that losers
+      earn zero, not a jump straight to "the highest bidder wins and pays their bid."
+    pitfalls: >
+      Assuming "auction" automatically means highest-bid-wins-and-pays-own-bid; that's one
+      specific pair of rules among many, and this unit exists because other pairs behave completely
+      differently. Forgetting that a bidder who pays exactly their value nets zero regardless
+      of winning — "I won" and "I profited" are different claims.
+    recap: >
+      An auction is an allocation rule plus a payment rule layered on private information,
+      and since every loser earns zero, all profit comes from winning at a price below your
+      own value.
+  - node: quant-games.auctions.formats
+    hook: >
+      Four different-sounding formats collapse into two behaviors the moment you ask one question:
+      does your own bid set the price you pay, or only whether you win at all?
+    explanation: >
+      The two rules from the general definition — allocation and payment — take four standard
+      concrete forms. English (ascending): the price rises continuously, bidders drop out
+      publicly and irreversibly, and the last one standing wins at roughly the price the second-to-last
+      bidder quit at. Dutch (descending): the price falls from a high starting point until
+      the first bidder to accept claims the object at whatever price the clock had reached.
+
+
+      First-price sealed-bid: every bidder submits one number in secret, the highest wins,
+      and the winner pays exactly their own bid. Second-price sealed-bid, or Vickrey: bids
+      are again sealed and secret, the highest still wins, but the price charged is the second-highest
+      bid, not the winner's own.
+
+
+      The grouping that actually matters is the payment rule, not visibility. English and
+      first-price both make the winner's own number the price paid — call these pay-your-bid
+      formats. Dutch's descending clock and second-price both make the price come from somewhere
+      other than the number that decided the win — English from the runner-up's exit point,
+      second-price from the runner-up's bid. Recognizing which bucket a described format falls
+      into is worth more than memorizing four separate names.
+    worked: >
+      Three bidders value a delivery van at $20$, $50$, and $80$ dollars. Run it as English:
+      the price climbs from zero, the $20$-value bidder drops out at $20$, the $50$-value
+      bidder drops out at $50$, and the $80$-value bidder wins, paying just above $50$. Run
+      the same three values as second-price sealed-bid, each bidding their true value: the
+      highest bid, $80$, wins and pays the second-highest bid, $50$. Both formats land the
+      winner at a price of $50$ here. The number that matters is not which format ran, but
+      the price paid — first-price or Dutch would instead charge whatever price the $80$-value
+      bidder personally chose to stop at, which need not be $50$ at all.
+    interview: >
+      "Walk me through the four auction formats" wants each one named by its allocation and
+      payment behavior, not just its label, and the sharper question — "which two behave the
+      same way?" — is testing whether you reach for the pay-your-bid-versus-pay-the-runner-up
+      split rather than reciting definitions in isolation.
+    pitfalls: >
+      Describing second-price as "the second-highest bidder wins" — the highest bidder still
+      wins; only the price they pay comes from the runner-up. Treating "sealed" and "first-price"
+      as synonyms — second-price is also sealed-bid, and the sealed-versus-open distinction
+      is orthogonal to the payment rule that actually drives strategy.
+    recap: >
+      The four formats split cleanly by payment rule: English and first-price make your own
+      bid the price you pay, Dutch and second-price make the price come from someone else's
+      number.
+  - node: quant-games.auctions.value-models
+    hook: >
+      Before a single equation gets written, an interviewer's setup always answers one silent
+      question — is the bidder estimating their own taste, or estimating a shared unknown
+      fact — and misreading which one derails everything downstream.
+    explanation: >
+      Private values mean bidder $i$ already knows $v_i$ exactly, and nothing any rival knows
+      or reveals would change that number — a specific concert ticket for a show you either
+      want to attend or don't. Independent private values (IPV) adds a modeling convenience
+      on top: the $v_i$ are independent draws from one shared distribution, which is what
+      lets later formulas talk about "the distribution of values" at all.
+
+
+      Common value describes the opposite extreme: the object is worth the same unknown amount
+      $V$ to every bidder — an oil tract, a jar of coins, a company's future cash flows —
+      and each bidder only observes a private, noisy signal of that shared $V$. Interdependent
+      values sit between the two, where your true value depends partly on your own information
+      and partly on what others privately know, closer to appraising a used car than to buying
+      a ticket for yourself.
+
+
+      The fork matters because it changes what winning teaches you. Under private values,
+      learning that you won says nothing new — your value was fixed before the auction started,
+      and nothing about rivals' bids revises it. Under common values, winning is itself evidence,
+      because the winner is systematically the bidder whose signal happened to run highest,
+      and that fact should update your belief about $V$ downward before you've spent a cent.
+    worked: >
+      Classify two live prompts before touching any math. First: you're bidding for a signed
+      jersey you plan to keep and hang on your wall — nobody else's opinion of the jersey
+      changes what it's worth to you, so this is private values, IPV if the room's tastes
+      are also drawn from a common pool. Second: you're bidding for a sealed envelope containing
+      a check for an unknown amount, and everyone in the room got to peek at it for one second
+      — the envelope is worth the same amount to whoever holds it, only the peek differs person
+      to person, so this is common value. Answering "private" to the second prompt is the
+      single most common setup mistake this unit exists to prevent.
+    interview: >
+      "Is this a private-value or common-value setup?" is asked directly or, more often, buried
+      in the story — a car you'll drive yourself signals private, a company you'll resell
+      or a mineral deposit signals common — and interviewers are listening for you to extract
+      the answer from the story before writing anything down.
+    pitfalls: >
+      Treating every valuation problem as private values by default because the math is simpler
+      — real interview classics like the jar of coins and acquiring a company are common-value
+      on purpose. Conflating interdependent values with common value; interdependent still
+      lets your own information matter, common value does not.
+    recap: >
+      Private values mean winning teaches you nothing new about your own value; common values
+      mean winning is itself evidence about a shared unknown, which is the fork the rest of
+      this unit is built around.
+  - node: quant-games.auctions.strategic-equivalence
+    hook: >
+      Knowing that Dutch and first-price are literally the same game, not just similar ones,
+      saves you from re-deriving an equilibrium twice under two different names.
+    explanation: >
+      Two games are strategically equivalent when they share the same strategy sets and the
+      same payoff at every strategy profile — a much stronger claim than merely producing
+      the same outcome. Dutch and first-price sealed-bid meet that bar exactly: in a Dutch
+      auction nothing is revealed before the moment you accept a price, so choosing when to
+      accept is really choosing one number in advance, precisely the same single decision
+      a first-price sealed bid asks for. A bidder cannot condition on anything the clock reveals,
+      because by the time it reaches a price low enough to reveal information, someone has
+      already claimed the object.
+
+
+      English and second-price are a weaker relationship — outcome-equivalent, not strategically
+      equivalent, and only once private values are assumed. Under private values, staying
+      in an English auction until the price reaches your own value costs nothing while you're
+      still in and gains nothing once the price exceeds it, so that threshold is the natural
+      stopping point for every bidder; the auction then ends with the price sitting just above
+      the second-highest value, the same number a second-price sealed bid would have charged.
+      The two games still have very different strategy spaces — one a sequence of stay-or-quit
+      decisions, the other a single sealed number — they merely land on the same price.
+
+
+      That equivalence leans on private values specifically. Under common values, watching
+      rivals drop out in an English auction hands you information a sealed bid never gets
+      to use — each exit is evidence about the shared $V$ — so the two formats stop lining
+      up, and ascending auctions typically raise more revenue than sealed-bid ones on common-value
+      objects precisely because they let bidders learn as they go.
+    worked: >
+      Three bidders privately value a delivery contract at $30$, $55$, and $70$ dollars. Run
+      it as English: the $30$-value bidder drops when the clock passes $30$, the $55$-value
+      bidder drops when it passes $55$, and the $70$-value bidder wins the instant the second
+      bidder quits, paying just above $55$ — a payoff of about $70 - 55 = 15$. Run the identical
+      three values as second-price sealed-bid, everyone bidding true value: the highest bid,
+      $70$, wins and pays the second-highest bid, $55$, again a payoff of $15$. Both procedures
+      hand the same bidder the same object at the same price, even though English is a live
+      sequence of exits and second-price is one envelope each — exactly what outcome-equivalent
+      but not strategically equivalent means in practice.
+    interview: >
+      "Are Dutch and English auctions basically the same thing?" wants a flat no, followed
+      by the actual pairing — Dutch matches first-price as a game, English only matches second-price
+      in outcome, and only under private values — since conflating ascending-versus-descending
+      with sealed-versus-open is the wrong axis entirely.
+    pitfalls: >
+      Assuming English and second-price are the same game because they land on the same price
+      — their strategy spaces, a sequence of decisions versus one sealed number, are entirely
+      different, which matters the moment information can be inferred from the sequence. Applying
+      the English-second-price equivalence to a common-value setup, where it silently breaks.
+    recap: >
+      Dutch and first-price are the same game in the strict sense; English and second-price
+      merely land on the same price under private values, and that weaker link snaps under
+      common values.
+  - node: quant-games.auctions.vickrey
+    hook: >
+      The instant you see "highest bid wins, pays the second-highest," the entire strategy
+      question collapses to one line: bid your value, full stop, and the proof is worth being
+      able to say cold.
+    explanation: >
+      Fix your true value $v$ and let $p$ denote the highest bid among your rivals — a number
+      you never observe before deciding, but the argument works for every possible $p$ simultaneously,
+      which is what makes it a dominance argument rather than a best-response-to-a-guess argument.
+      The fact that makes the whole proof go through: your own bid decides only whether you
+      win, never what you pay, since the price is fixed by someone else's number.
+
+
+      Compare bidding $v$ itself against underbidding some $b < v$. The two strategies only
+      disagree when the rival bid $p$ lands between $b$ and $v$ — everywhere else you win
+      or lose identically either way. In that gap, bidding truthfully wins at profit $v -
+      p \ge 0$, while the underbid loses and earns $0$; shading down never buys a lower price,
+      it only risks forfeiting profitable wins.
+
+
+      Now compare $v$ against overbidding $b > v$. The two strategies disagree only when $p$
+      lands between $v$ and $b$ — again identical everywhere else. There, the inflated bid
+      wins at profit $v - p < 0$, a loss, while truthful bidding correctly walks away with
+      $0$. Since underbidding is weakly worse wherever it differs, and overbidding is weakly
+      worse wherever it differs, and neither ever wins by deviating, $v$ itself is a weakly
+      dominant strategy with no assumption at all about how rivals bid.
+    worked: >
+      Your true value for a storage unit's contents is $80$ dollars. Suppose the highest rival
+      bid happens to be $70$. Bidding truthfully at $80$ wins, paying $70$, for a profit of
+      $80 - 70 = 10$; underbidding at $60$ loses the auction outright, forfeiting that $10$-dollar
+      profit for nothing. Now suppose instead the highest rival bid happens to be $85$. Bidding
+      truthfully at $80$ loses, earning $0$, which is correct since the unit isn't worth $85$
+      to you; overbidding to $95$ instead wins at a price of $85$, for a profit of $80 - 85
+      = -5$ — a loss you'd never take by bidding truthfully. Both deviations are weakly worse
+      in the scenario where they actually change the outcome.
+    interview: >
+      "Why is truthful bidding optimal in a second-price auction?" wants the dominance argument
+      stated in one breath: your bid sets only whether you win, never the price, so shading
+      forfeits profitable wins and inflating buys unprofitable ones — not just the conclusion
+      "bid your value."
+    pitfalls: >
+      Carrying "bid your value" over to a first-price auction, where it is badly wrong — there
+      your own bid does set the price, so bidding true value collects zero profit on every
+      win. Assuming the result needs rivals to be rational or to bid sensibly; it needs neither,
+      which is the entire point of a dominance argument.
+    recap: >
+      In second-price sealed-bid, your bid never sets your price, only whether you win, so
+      bidding true value weakly dominates every shade or inflation regardless of what rivals
+      do.
+  - node: quant-games.auctions.uniform-order-stats
+    hook: >
+      Nearly every closed-form bid or revenue number in this unit boils down to one order-statistic
+      fact about uniforms, worth having memorized rather than re-derived under pressure.
+    explanation: >
+      Take $n$ iid uniform draws on $[0,1]$. Sorting them cuts the interval into $n+1$ gaps
+      — before the smallest, between consecutive order statistics, and after the largest —
+      and by symmetry each gap has the same expected length, $1/(n+1)$. Stacking $k$ of those
+      gaps end to end gives the mean of the $k$-th largest directly: $\mathbb{E}[U_{(k)}]
+      = (n+1-k)/(n+1)$. The largest averages $n/(n+1)$, one gap short of $1$; the runner-up
+      averages $(n-1)/(n+1)$.
+
+
+      Conditioning is just rescaling. If all $n$ values are known to lie below some $v$, they
+      behave like $n$ iid uniforms on $[0,v]$ rather than $[0,1]$ — nothing about independence
+      or uniformity is disturbed by truncating the support — so their maximum averages $vn/(n+1)$,
+      the same formula scaled by $v$.
+
+
+      The same equal-gaps logic on a symmetric interval $[-a,a]$ gives the $k$-th largest
+      of $n$ a mean of $a(n+1-2k)/(n+1)$; plugging $k=1$ recovers the maximum's mean $a(n-1)/(n+1)$.
+      Every closed-form bid and revenue number later in this unit is this one fact, evaluated
+      at a different $k$, $n$, or $a$.
+    worked: >
+      Take $n = 8$ bidders with values iid uniform on $[0,100]$ — a standard interview setup.
+      The largest averages $100 \cdot 8/9 \approx 88.9$, and the runner-up averages $100 \cdot
+      7/9 \approx 77.8$, using $(n+1-k)/(n+1)$ with $n=8$ and $k=1$ or $2$. Check the gap
+      logic directly: the largest sits $8/9$ of the way up the range, one gap of size $1/9$,
+      or about $11.1$ dollars, short of the top — exactly what the equal-gaps picture predicts.
+    interview: >
+      "What's the expected second-highest of $n$ uniforms on an interval?" is a standalone
+      set-piece computation; interviewers are listening for the one-line equal-gaps justification
+      — $n+1$ gaps, each averaging a $1/(n+1)$ share — rather than a memorized integral.
+    pitfalls: >
+      Using $n$ instead of $n+1$ in the denominator, an easy slip that produces values outside
+      the interval once $k$ gets large relative to $n$. Forgetting to rescale or re-center
+      when the support isn't $[0,1]$ — a distribution on $[-a,a]$ or $[0,v]$ needs the interval
+      width and midpoint folded back into the formula, not the bare $(n+1-k)/(n+1)$ fraction.
+    recap: >
+      The $k$-th largest of $n$ iid uniforms on an interval of width $w$ averages $w(n+1-k)/(n+1)$
+      from the top of the range — one fact behind every closed-form auction number in this
+      unit.
+  - node: quant-games.auctions.shading
+    hook: >
+      "How much below your value should you bid in a sealed first-price auction" is asked
+      almost verbatim, and "less than value, because you set your own price" is only half
+      the answer an interviewer wants — they want the actual fraction.
+    explanation: >
+      In first-price, your own bid sets your price, so the trade-off is explicit: bidding
+      higher raises your win probability but shrinks the margin $v - b$ on every win, and
+      bidding lower does the reverse. A Bayes-Nash equilibrium is a bid function $b(v)$ that's
+      a best response to every rival playing that same function, so solving for it means optimizing
+      your bid taking the rivals' strategy, not just their values, as given.
+
+
+      Under $n$ iid uniform-on-$[0,1]$ private values, guess a symmetric increasing equilibrium
+      and bid as if your value were some $z$: you win exactly when $z$ beats all $n-1$ rival
+      values, probability $z^{n-1}$, so you're maximizing $(v - b(z)) z^{n-1}$ over $z$. Setting
+      the derivative to zero at the truthful point $z = v$ and solving the resulting differential
+      equation with $b(0) = 0$ gives the closed form $b(v) = \frac{n-1}{n} v$.
+
+
+      The algebra matters less than what the fraction means: $(n-1)v/n$ is exactly the expected
+      value of the highest of $n-1$ rivals, conditional on all of them being below $v$ — the
+      order-statistics fact, rescaled to $[0,v]$. So the equilibrium rule in plain language
+      is: bid what you expect the best rival to be, given that you beat them, which is the
+      same as given that you win. Two bidders shade to half of value; ten bidders shade only
+      to $90$ percent, since a crowded room leaves less room for the top rival to fall short
+      of you.
+    worked: >
+      Four bidders draw private values iid uniform on $[0,100]$, and yours happens to be $80$
+      dollars. The equilibrium bid is $\frac{n-1}{n}v = \frac{3}{4}\cdot 80 = 60$ dollars.
+      Check the reading directly: conditional on your $80$ beating all three rivals, their
+      maximum is uniform on $[0,80]$ with $n-1=3$ draws, averaging $80 \cdot 3/4 = 60$ — the
+      same number, because the equilibrium bid is exactly that conditional expectation.
+    interview: >
+      "What do you bid in a first-price sealed auction with $n$ bidders and uniform values?"
+      wants the fraction $(n-1)/n \cdot v$ stated along with the one-line reason — you're
+      bidding the expected best rival conditional on winning — not just a memorized formula.
+    pitfalls: >
+      Treating $(n-1)/n$ as a universal shading rule; it's specific to iid uniform private
+      values, and a different value distribution gives a different equilibrium bid function
+      entirely. Shading by a fixed "safety margin" regardless of $n$, when the correct margin
+      shrinks mechanically as more bidders crowd the room.
+    recap: >
+      Pay-your-bid forces a margin-versus-win-probability trade-off, and under $n$ iid uniform
+      private values the equilibrium resolves it by bidding the fraction $(n-1)/n$ of your
+      value — exactly the best rival's expected value, given that you beat them.
+  - node: quant-games.auctions.revenue-equivalence
+    hook: >
+      "Should a seller run first-price or second-price?" sounds like it needs a fresh calculation
+      every time, and the honest opening line under the textbook assumptions is that it doesn't
+      matter at all.
+    explanation: >
+      Under symmetric independent private values drawn from one atomless distribution, risk-neutral
+      bidders, and any mechanism whose equilibrium hands the object to the highest value while
+      giving the lowest possible type zero expected surplus, expected seller revenue is identical
+      across mechanisms. Second-price and first-price both satisfy that description — Vickrey
+      by dominant-strategy truthfulness, first-price by the equilibrium just derived — so
+      despite charging completely different prices bidder by bidder, they average to the same
+      number.
+
+
+      Verifying this isn't hard given the order-statistics fact already in hand: second-price
+      revenue is just the expected runner-up value, and first-price revenue is the expected
+      value of $(n-1)/n$ times the winning value — two expressions that turn out numerically
+      equal once both are written in terms of the same order statistics.
+
+
+      The theorem's real use in an interview isn't the equality, it's naming which hypothesis
+      a follow-up question breaks. Risk-averse bidders shade less in first-price than the
+      risk-neutral formula predicts, since a first-price bid is a sure thing while a second-price
+      bid carries residual uncertainty, so risk aversion tips revenue toward first-price.
+      Common or correlated values tip revenue toward ascending formats instead, since drop-out
+      order reveals information a sealed bid can't use. The theorem is a benchmark to state
+      and then immediately break, not a law about real auction houses.
+    worked: >
+      Take $n=4$ bidders with values iid uniform on $[0,100]$. Second-price revenue is the
+      expected runner-up: $100 \cdot (n-1)/(n+1) = 100 \cdot 3/5 = 60$ dollars. First-price
+      revenue is $(n-1)/n$ times the expected winning value: $\frac{3}{4}\cdot\left[100 \cdot
+      n/(n+1)\right] = \frac{3}{4}\cdot 80 = 60$ dollars. Both formats hand the seller exactly
+      $60$ dollars in expectation, despite first-price collecting a shaded bid and second-price
+      collecting an unshaded runner-up number.
+    interview: >
+      "Which format makes the seller more money?" wants revenue equivalence named immediately
+      under its exact hypotheses, followed without prompting by the two standard breaks —
+      risk aversion favors first-price, common or correlated values favor ascending formats
+      — since stopping at "they're the same" misses what's actually being tested.
+    pitfalls: >
+      Quoting revenue equivalence without its hypotheses attached — symmetric IPV and risk
+      neutrality are load-bearing, and dropping either invalidates the conclusion. Treating
+      it as evidence that format choice never matters in practice, when real bidders are routinely
+      risk-averse or facing a common-value object.
+    recap: >
+      Under symmetric IPV and risk neutrality, every efficient auction format yields the same
+      expected revenue — a benchmark whose value is in knowing exactly which assumption a
+      harder question is about to break.
+  - node: quant-games.auctions.common-value-model
+    hook: >
+      The moment a problem says "nobody knows the true value, but everyone gets a hint," you're
+      being handed this exact model, and setting up its two conditional expectations correctly
+      is most of the battle.
+    explanation: >
+      Every bidder values the object at the same unknown amount $V$, and bidder $i$ observes
+      only a private signal $X_i$. The standard working model writes $X_i = V + \varepsilon_i$
+      with the errors iid, mean zero, and independent of $V$, so each individual signal is
+      unbiased: $\mathbb{E}[X_i \mid V] = V$. That equation is doing a specific job — it says
+      the room's opinions are honest on average, not that any one opinion is correct.
+
+
+      Two conditional expectations now have to be kept apart, and conflating them is the entire
+      subject of the winner's curse. The naive one, $\mathbb{E}[V \mid X_i = x]$, is your
+      best guess before you think about the auction at all — just your signal, processed against
+      the prior on $V$. The relevant one, $\mathbb{E}[V \mid X_i = x, \text{you win}]$, folds
+      in the extra fact that nobody outbid you, which is itself information about how your
+      signal compares to everyone else's.
+
+
+      Nothing about this model requires bad information or dishonest bidders — every signal
+      can be perfectly unbiased and every bidder perfectly rational, and the gap between those
+      two conditional expectations still opens up purely from the auction's own selection
+      mechanics.
+    worked: >
+      A gem's true value is $V = 500$ dollars, unknown to every bidder. Three signals happen
+      to be drawn as $X_1 = 480$, $X_2 = 505$, $X_3 = 530$ — each an unbiased draw in the
+      sense that $\mathbb{E}[X_i \mid V] = V$, even though this particular set doesn't average
+      to exactly $500$. The naive estimate for bidder $3$, before thinking about the auction
+      at all, is just their own signal: $\mathbb{E}[V \mid X_3 = 530] \approx 530$ under a
+      flat prior. That number treats the signal as the whole story; accounting for the extra
+      information in winning at all is what the winner's curse corrects.
+    interview: >
+      "What's the difference between your appraisal and your appraisal given that you won?"
+      is the standard verbal check that you can name the two conditional expectations distinctly
+      before any auction-specific arithmetic starts — interviewers want both spelled out,
+      not just the first one.
+    pitfalls: >
+      Treating an individually unbiased signal as though it settles the matter — unbiasedness
+      is a property of the population of signals, not a guarantee about any one realized draw.
+      Skipping straight to a bid without ever writing down which of the two conditional expectations
+      is actually being estimated.
+    recap: >
+      In a common-value auction every signal is an unbiased estimate of the same unknown $V$,
+      but the estimate that matters for bidding is the one conditioned on winning, not the
+      raw signal itself.
+  - node: quant-games.auctions.winners-curse
+    hook: >
+      "Why would a rational bidder with an honest estimate still lose money on average?" is
+      the single most-tested idea in this unit, and the one-line answer — winning is itself
+      bad news — has to come out instantly.
+    explanation: >
+      In a common-value auction where bids increase with the signal, the winner is whoever
+      holds the highest signal — winning literally is the event $X_i = \max_j X_j$. That event
+      carries information: conditional on being the maximum among $n$ unbiased draws, your
+      signal is systematically the one that happened to overshoot $V$ the most, so $\mathbb{E}[V
+      \mid X_i = x, X_i = \max_j X_j] < \mathbb{E}[V \mid X_i = x]$ for any $n \ge 2$.
+
+
+      The gap grows with both ingredients you'd expect: more bidders means more draws competing
+      to be the maximum, and $\mathbb{E}[\max_j \varepsilon_j]$ grows with $n$; more dispersed
+      signals mean each individual overshoot can be larger, so the same maximum-of-$n$ logic
+      scales up with the spread of the errors. Neither ingredient requires anyone to be irrational
+      — the errors stay unbiased throughout, only the conditional-on-winning draw is inflated.
+
+
+      A bidder who bids their raw, unconditional estimate wins precisely when that estimate
+      happened to be the most inflated one in the room, and loses money on average despite
+      every individual estimate being honest. This is selection, not bad luck, and it's the
+      same shape a market maker meets as adverse selection: an informed counterparty only
+      trades against a quote when the quote is mispriced in their favor, so being hit is itself
+      evidence the price was wrong.
+    worked: >
+      A painting's true value is $V = 1000$ dollars. Six bidders each see an unbiased signal
+      $X_i = 1000 + \varepsilon_i$ with $\varepsilon_i$ iid uniform on $[-100,100]$. Using
+      the order-statistics fact, the maximum of $6$ draws on $[-100,100]$ averages $100 \cdot
+      (6-1)/(6+1) = 100 \cdot 5/7 \approx 71.4$. So if every bidder simply bids their own
+      signal, the expected winning bid is about $1000 + 71.4 \approx 1071.4$ — the winner
+      overpays by roughly $71$ dollars relative to the painting's actual worth, purely from
+      being the bidder whose error happened to run highest.
+    interview: >
+      "You've got an honest, unbiased estimate — why would bidding it lose money?" wants "selection,
+      not bad luck" stated explicitly, followed by naming winning as the event of holding
+      the maximum signal, which is itself evidence the estimate ran high.
+    pitfalls: >
+      Concluding the room's estimates must be biased because the winner overpays — the population
+      of signals is fine; only the specific draw that wins is systematically inflated. Assuming
+      the curse requires some bidders to be careless or irrational; it hits a room of perfectly
+      unbiased, perfectly rational bidders with equal force.
+    recap: >
+      Winning a common-value auction means your signal beat every rival's, which is evidence
+      it overshot the truth — bidding your raw estimate loses money on average even though
+      every estimate in the room was honest.
+  - node: quant-games.auctions.bid-as-if-highest
+    hook: >
+      "What do you actually bid, then?" is the immediate follow-up to the winner's curse,
+      and the fix is one sentence: bid the value you'd assign if you already knew your estimate
+      was the highest in the room.
+    explanation: >
+      The correction is mechanical once you accept the diagnosis. Don't bid your signal $x$;
+      bid the conditional expectation of $V$ given that your signal turns out to be the maximum
+      of the $n$ in the room. With $X_i = V + \varepsilon_i$, that conditional expectation
+      is your raw signal minus the expected overshoot of the largest of $n$ errors, $\mathbb{E}[\max_j
+      \varepsilon_j]$ — the order-statistics quantity from earlier in this unit, evaluated
+      at $k=1$.
+
+
+      For errors uniform on $[-a,a]$, that expected overshoot is $a(n-1)/(n+1)$, the same
+      formula used to find the maximum of $n$ uniforms, now read as a correction rather than
+      a target. The correction climbs toward $a$ as more bidders join, which is the arithmetic
+      behind shading harder as the room fills up.
+
+
+      This correction is a break-even fix, not the full equilibrium — subtracting the expected
+      overshoot brings expected profit conditional on winning to roughly zero, so an actual
+      equilibrium bid shades a little further still to leave positive surplus. In a second-price
+      common-value auction the sharp version conditions on barely winning rather than winning
+      outright: $b(x) = \mathbb{E}[V \mid X_i = x, \max_{j \ne i} X_j = x]$, the value of
+      the object exactly at the moment you're tied for the top signal.
+    worked: >
+      Ten bidders see signals for an antique clock modeled as $X_i = V + \varepsilon_i$ with
+      $\varepsilon_i$ uniform on $[-50,50]$. The correction is $a(n-1)/(n+1) = 50 \cdot 9/11
+      \approx 40.9$. Suppose your own signal reads $620$ dollars; bidding as if you're the
+      highest means bidding about $620 - 40.9 \approx 579.1$ dollars rather than the raw $620$
+      — and a real equilibrium bid would shade a bit further below even that, since $579.1$
+      only zeroes out expected profit rather than leaving any margin.
+    interview: >
+      "You've got a signal — what do you bid?" in a common-value setup wants "not my signal
+      — my signal minus the expected overshoot of the highest of $n$ errors," with the specific
+      uniform-error correction $a(n-1)/(n+1)$ produced on the spot, not just the qualitative
+      direction of the adjustment.
+    pitfalls: >
+      Plugging in $n-1$ rivals instead of $n$, the total number of signals in the room including
+      your own, into the correction formula — the maximum being conditioned on runs over all
+      $n$ signals, not just the rivals'. Stopping at the break-even correction and calling
+      it the equilibrium bid, when a genuine equilibrium shades further still to secure positive
+      expected profit.
+    recap: >
+      Correct a common-value bid by subtracting the expected overshoot of the largest of $n$
+      signal errors from your raw estimate — $a(n-1)/(n+1)$ for uniform errors — and shade
+      a touch further still for actual equilibrium profit.
+  - node: quant-games.auctions.jar-of-coins
+    hook: >
+      "There's a jar of coins in the room — what do you bid for it?" is asked almost verbatim,
+      and the entire trick is recognizing it as a common-value auction with $n$ signals, not
+      a standalone estimation puzzle.
+    explanation: >
+      The jar-of-coins question is the winner's curse stripped to its purest form: a genuinely
+      unknown total, a room full of honest guesses, and a first-price or second-price sale
+      of the jar to the highest bidder. Framing it any other way — as "estimate the jar as
+      accurately as you can" — answers a different, easier question than the one actually
+      being asked.
+
+
+      The right structure to state out loud, in order: name the model (each guess is the true
+      total plus an unbiased error), name the mechanism (the winning bid is the maximum of
+      those $n$ guesses, not their average), compute the expected overshoot of that maximum,
+      and subtract it from your own guess before naming a number. Stating the model and the
+      mechanism before reaching for arithmetic is worth more in an interview than getting
+      to the right number by a shortcut, because it's the part that shows you recognize the
+      shape of the problem.
+
+
+      The generalizable lesson is that an auction never polls the room's opinion — it selects
+      the largest error in it, and the size of that selection effect scales directly with
+      how many people are guessing and how spread out their guesses are.
+    worked: >
+      A jar holds $250$ dollars in coins, unknown to a room of $15$ bidders, first-price sealed-bid.
+      Model each guess as $X_i = 250 + \varepsilon_i$ with $\varepsilon_i$ uniform on $[-60,60]$.
+      The expected overshoot of the maximum of $15$ draws is $60 \cdot (15-1)/(15+1) = 60
+      \cdot 14/16 = 52.5$. Suppose your own guess of the jar is $275$ dollars; bidding your
+      guess directly would put you right in the range that tends to win precisely when it's
+      most inflated, so the corrected bid is about $275 - 52.5 = 222.5$ dollars instead —
+      noticeably below your own honest estimate, which is exactly the point.
+    interview: >
+      The canonical phrasing is close to verbatim — "there's a jar of coins on the table,
+      how much would you bid for it" — and interviewers listen for three things in order:
+      naming it as common-value, stating that bidding your raw guess loses on average, and
+      producing an actual corrected number rather than stopping at "I'd bid less."
+    pitfalls: >
+      Answering with "my best guess" — precisely the naive answer this unit exists to correct,
+      since it wins exactly when it's the most inflated guess in the room. Forgetting that
+      the correction scales with room size and guess spread — a jar guessed by $5$ people
+      needs far less shading than one guessed by $50$.
+    recap: >
+      Treat "guess the jar" as a common-value auction: bid your estimate minus the expected
+      overshoot of the largest error among $n$ guessers, not the estimate itself.
+  - node: quant-games.auctions.acquire-a-company
+    hook: >
+      "You can make a takeover bid for a company you can't fully value, but you'd run it better
+      than the current owner" sounds like ordinary due diligence, and the fact that the answer
+      is often "bid nothing" is what makes it a favorite curveball.
+    explanation: >
+      The owner accepts your bid $b$ exactly when the firm's true value $T$ to them satisfies
+      $T \le b$ — a trade that only happens when the informed party agrees to it, precisely
+      the "you win only when your number was highest" structure from the winner's curse, wearing
+      a different costume: here winning means the offer gets accepted at all.
+
+
+      The tempting shortcut is using the unconditional expected value of $T$ and scaling it
+      by your multiplier — that's the standard wrong answer, because it ignores that acceptance
+      itself is informative: a firm only sells to you when its owner's true value sits at
+      or below your bid, systematically the lower half of the distribution, not a representative
+      draw from the whole thing.
+
+
+      Conditioning on acceptance fixes it. Given $T \le b$, $T$ is distributed only over $[0,b]$,
+      so its conditional mean is exactly half of what the unconditional mean would suggest
+      for that same cutoff, and the firm you actually buy is worth your multiplier times that
+      conditional mean, not the multiplier times the unconditional mean. Whenever that conditional
+      value comes out below the bid itself, every positive bid loses money, and the only bid
+      that doesn't lose is zero.
+    worked: >
+      A firm's value $T$ to its current owner is uniform on $[0,200]$, and under your management
+      it would be worth $1.8T$. The owner accepts a bid $b$ exactly when $T \le b$. Conditional
+      on acceptance, $T$ is uniform on $[0,b]$ with mean $b/2$, so the firm you actually acquire
+      is worth $1.8 \cdot (b/2) = 0.9b$ under your management, while you paid $b$ — expected
+      profit is $0.9b - b = -0.1b$, negative for every positive $b$. The correct bid is $0$
+      dollars. Notice the upper bound of $T$'s range, $200$, never entered the final answer
+      — only the multiplier did, since the $b/2$ conditional mean and the $b$ in the cost
+      cancel the scale of the distribution.
+    interview: >
+      "You can acquire a company whose value you don't know, but you'd run it better than
+      the current owner — how much do you bid?" wants the acceptance condition $T \le b$ written
+      down explicitly and the conditional mean $b/2$ computed, not the unconditional expected
+      value of $T$ multiplied by your synergy factor.
+    pitfalls: >
+      Computing the unconditional expected value of $T$ and scaling it by the multiplier —
+      exactly the winner's-curse mistake of ignoring that the trade only happens when the
+      counterparty agrees, which selects the lower half of the distribution. Assuming any
+      positive multiplier justifies a positive bid; under this uniform model the breakeven
+      multiplier is $2$, and anything below it makes every positive bid a loser.
+    recap: >
+      A takeover offer only executes when the seller accepts, so value the firm conditional
+      on acceptance, not unconditionally — under a uniform-value model with multiplier below
+      $2$, the only bid that doesn't lose money is zero.
+  - node: quant-games.auctions.more-bidders
+    hook: >
+      "There's more competition, so you should bid more aggressively" is true exactly half
+      the time in this unit, and knowing which half is the entire test.
+    explanation: >
+      Under independent private values, a bigger room leaves less room to shade: the uniform
+      equilibrium bid $(n-1)v/n$ climbs from $v/2$ at $n=2$ toward $v$ itself as $n$ grows,
+      since beating more rivals means the top rival is more likely to sit close to your own
+      value, and the seller's expected revenue $(n-1)/(n+1)$ climbs right along with it —
+      exactly why a seller benefits from attracting a crowd.
+
+
+      Under common values the same reasoning flips sign entirely. Winning against more rivals
+      means your signal beat a larger field, which makes "you were the maximum" stronger evidence
+      of overshoot, and the correction term — the expected overshoot of the largest of $n$
+      errors — grows with $n$. So the right response to a fuller room on a common-value object
+      is to shade further down, not to bid up.
+
+
+      The reflex "there's more competition, so raise your bid" is the private-values instinct
+      applied on autopilot, and it's exactly backwards the moment the object in front of you
+      is common-value — the two forces pull in opposite directions for the same superficial
+      reason, more rivals, and only the value model tells you which way to go.
+    worked: >
+      Compare the two models directly at $n=3$ versus $n=9$. Private values, uniform on $[0,100]$,
+      your value $v=70$: at $n=3$ the equilibrium bid is $\frac{2}{3}\cdot 70 \approx 46.7$,
+      and at $n=9$ it's $\frac{8}{9}\cdot 70 \approx 62.2$ — the bid climbs as the room fills.
+      Common values, errors uniform on $[-30,30]$, your raw signal $x=500$: the correction
+      at $n=3$ is $30 \cdot 2/4 = 15$, giving a corrected bid of $500 - 15 = 485$; at $n=9$
+      the correction is $30 \cdot 8/10 = 24$, giving a corrected bid of $500 - 24 = 476$ —
+      the bid falls as the room fills, the opposite direction from the private-values case
+      with the same jump in $n$.
+    interview: >
+      "If more bidders show up, should you bid more aggressively?" wants "it depends on the
+      value model" stated first, followed immediately by both directions with their mechanisms
+      — private values tighten the bid toward true value, common values widen the correction
+      — rather than a single reflexive answer.
+    pitfalls: >
+      Applying "more competition, bid closer to value" to a common-value object, which is
+      exactly backwards — the winner's-curse correction grows, not shrinks, as the room fills.
+      Forgetting the two effects run through different formulas, $(n-1)/n$ for private-value
+      shading and $a(n-1)/(n+1)$ for the common-value correction, so they don't cancel or
+      average against each other in a mixed setting without separate analysis.
+    recap: >
+      More bidders push a private-value equilibrium bid up toward true value, but push a common-value
+      bid down as the winner's-curse correction grows — the same "more competition" fact demands
+      opposite responses depending on the value model.

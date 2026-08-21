@@ -1,0 +1,651 @@
+unit: quant-mental.approximation
+opening: >
+  Every fast estimate on a trading desk is a Taylor series cut short, and this
+  unit builds the toolkit for cutting it short safely: truncation error as the
+  honest price of speed, the small-x expansions for logs and exponentials
+  that power compounding and rates, square roots by linearization, and the
+  rule of 72 for doubling times. A short table of memorized constants — logs,
+  roots, powers of two — turns those techniques into single-line arithmetic,
+  and a run of worked examples (digit counts, annualizing a rate, sizing a
+  market move in sigmas, the up-then-down percent trap) shows them combining
+  under real interview pressure. It closes on the one habit that makes all of
+  it trustworthy: always name the size of what you dropped.
+lessons:
+  - node: quant-mental.approximation.truncation-error
+    hook: >
+      Every fast approximation in this unit is a Taylor series cut short —
+      the gap between a defensible estimate and a wild guess is being able to
+      size, on the spot, the piece you just threw away.
+    explanation: >
+      Taylor's theorem already hands you an exact remainder:
+      $R_k(x) = f^{(k+1)}(\xi)/(k+1)!\,x^{k+1}$ for some unknown $\xi$
+      between $0$ and $x$. Since $\xi$ is unknown, the practical move is to
+      swap it for the nearest point you can evaluate — usually $0$ — and
+      treat $f^{(k+1)}(0)/(k+1)!\,x^{k+1}$ as a stand-in for the remainder.
+      That stand-in is not a proof of the error, only a fast reading of its
+      scale, and that reading is almost always enough at a desk.
+
+      The mental model: a Taylor series is a stack of ever-smaller
+      corrections, and any estimate you compute by hand only ever keeps
+      finitely many of them. The size of the first correction you didn't
+      keep is the honest error bar on everything above it, because for a
+      smooth function at small $x$ each successive term is smaller by
+      roughly another factor of $x$. You already computed most of what's
+      needed to state that term — it costs one more derivative and one more
+      power of $x$, not a new calculation.
+
+      The pattern to keep: decide how many terms you can afford, compute the
+      estimate, then glance at the next term before reporting a number.
+      Every technique later in this unit — logs, roots, powers, compounding
+      — is exactly this move applied to a specific function.
+    worked: >
+      Keep two terms of $\cos x \approx 1 - x^{2}/2$ at $x = 0.2$:
+      $1 - 0.02 = 0.98$. The next Taylor term is $x^{4}/24 = 0.0016/24
+      \approx 0.0000667$, so the estimate should be high by about that much.
+      Exact value: $\cos(0.2) = 0.980067$, an actual error of $0.0000667$ —
+      the dropped term predicted it almost to the digit.
+    interview: >
+      Interviewers who ask you to approximate anything will immediately
+      follow with "how far off is that, and which way" — answering before
+      being asked is the tell of someone who has internalized this. Expect
+      the follow-up to test whether you can name the error's order of
+      magnitude in one line, not derive a rigorous bound.
+    pitfalls: >
+      Treating "the next term" as a guarantee rather than a heuristic — it
+      can fail near a zero of the next derivative, though that's rare for
+      the smooth functions this unit uses. Forgetting the remainder scales
+      like $x^{k+1}$: doubling $x$ multiplies a first-order error by roughly
+      $4\times$, a cubic term's error by $8\times$ — not by $2\times$.
+    recap: >
+      An approximation's error bar is the size of the first Taylor term you
+      dropped, and it shrinks like a power of $x$, not linearly.
+
+  - node: quant-mental.approximation.log-linearization
+    hook: >
+      Rates, growth factors and log-returns in an interview are always
+      quoted as small percentages, and the two swaps here — $\ln(1+x)$ and
+      $e^{x}$ near $x=0$ — are what let you move between "percent change"
+      and "log change" without a calculator.
+    explanation: >
+      Both expansions are the same move as truncating a Taylor series,
+      applied to two functions that are inverses of each other near $0$:
+      $\ln(1+x) = x - x^{2}/2 + x^{3}/3 - \cdots$ alternates sign, while
+      $e^{x} = 1 + x + x^{2}/2 + \cdots$ is all positive. That sign pattern
+      is worth holding onto — it tells you which direction the linear guess
+      is biased: the linear pass on $\ln(1+x)$ overshoots (its first dropped
+      term is negative), while the linear pass on $e^{x}$ undershoots (its
+      first dropped term is positive).
+
+      Reach for $\ln(1+x)\approx x$ whenever a rate is quoted as a small
+      percentage and you need it in log terms — log-returns, continuously
+      compounded yields, small growth rates. Reach for $e^{x}\approx 1+x$
+      going the other way, turning a log or continuously-compounded rate
+      back into a plain percentage. Add the $x^{2}/2$ term whenever the
+      linear guess needs another digit of accuracy, which is most of the
+      time once $x$ exceeds a couple of percent.
+
+      The two together also check each other: since $e^{\ln(1+x)} = 1+x$
+      exactly, a computed pair should roughly undo one another, a free
+      consistency check on scratch work.
+    worked: >
+      A continuously compounded rate of $4\%$: $e^{0.04}$. Linear guess
+      $1+0.04=1.04$. Quadratic guess $1+0.04+0.0008=1.0408$. Exact value is
+      $e^{0.04}=1.040811$, so the linear guess misses by $0.000811$ (a
+      $0.078\%$ relative miss) while the quadratic guess misses by only
+      $0.000011$.
+    interview: >
+      Expect this dressed up as "what's the log-return" or "approximate this
+      continuously compounded rate" with a number under $10\%$, and a
+      near-instant expected answer to three or four significant figures. A
+      common follow-up is "which way are you off," testing the
+      sign-of-remainder reasoning above.
+    pitfalls: >
+      Mixing up the sign of the quadratic term — it's $-x^{2}/2$ for
+      $\ln(1+x)$ but $+x^{2}/2$ for $e^{x}$, and swapping them flips whether
+      you over- or under-shoot. Using the linear-only pass once $x$ is much
+      past $10\%$, where the quadratic term is no longer a rounding
+      correction — reach for the rule of 72 or full compounding instead.
+    recap: >
+      $\ln(1+x)\approx x-x^{2}/2$ and $e^{x}\approx1+x+x^{2}/2$ move you
+      between percentage and log-change, with known and opposite-signed
+      error.
+
+  - node: quant-mental.approximation.binomial-approx
+    hook: >
+      The moment a question compounds the same rate $n$ times, the naive
+      "just add up $n$ copies of the percentage" answer is exactly the
+      mistake that compounding percent changes multiplicatively already
+      warned against — this node turns that warning into an arithmetic tool
+      with a known correction.
+    explanation: >
+      $(1+x)^{n}$ is $n$ identical percent changes chained together, so
+      recall that chaining multiplies factors rather than adding
+      percentages. Expanding by the binomial theorem,
+      $(1+x)^{n} = \sum_{k} \binom{n}{k}x^{k}$, and the leading term $1+nx$
+      is precisely the additive guess — a genuine first approximation, not
+      the mistake itself, but only the first term of a longer sum.
+
+      The next term, $\binom{n}{2}x^{2} = n(n-1)x^{2}/2$, is always positive
+      when $x\ne0$ (it's a square), so it always pushes the true value
+      above the linear guess regardless of whether $x$ is a gain or a loss.
+      Add it once $nx$ itself is no longer tiny — as a rule of thumb, once
+      $nx$ exceeds a few tenths, the linear-only pass is visibly short.
+
+      Mental model: think of $nx$ as "how much drift accumulated" and
+      $\binom{n}{2}x^{2}$ as "how much of that drift compounded on itself."
+      The second effect is second-order in $x$ but first-order in $n^{2}$,
+      which is why it becomes dominant once either $n$ or $x$ grows.
+    worked: >
+      $(1.03)^{6}$: linear guess $1+6(0.03)=1.18$. Correction
+      $\binom{6}{2}(0.03)^{2}=15\times0.0009=0.0135$, giving $1.1935$. Exact
+      value is $1.03^{6}=1.194052$ — the linear guess misses by $1.4\%$, the
+      corrected guess by under $0.1\%$.
+    interview: >
+      Shows up as "compound $2\%$ eight times" or "what's your fund's
+      5-year return at $6\%$ annually" — expect the linear guess in one
+      breath and, if pushed for more precision, the correction term in the
+      next.
+    pitfalls: >
+      Adding $nx$ when $nx$ is not small — for $n=50$, $x=0.02$, $nx=1$, and
+      the linear guess ($2.00$) is nowhere near the true
+      $(1.02)^{50}\approx2.69$; reach for the rule of 72 or full
+      exponentiation instead. Forgetting the correction is always positive
+      regardless of the sign of $x$, since it depends on $x^{2}$.
+    recap: >
+      $(1+x)^{n}\approx1+nx$, and add $\binom{n}{2}x^{2}$ — always a
+      positive nudge upward — once $nx$ stops being tiny.
+
+  - node: quant-mental.approximation.sqrt-estimate
+    hook: >
+      Square roots of ugly numbers come up constantly as sub-steps in bigger
+      mental-math problems, and linearizing at the nearest perfect square
+      answers them in one line, with a known, predictable direction of
+      error.
+    explanation: >
+      Write $\sqrt{a^{2}+b} = a\sqrt{1+b/a^{2}}$ and apply the small-$x$
+      expansion $\sqrt{1+x}\approx1+x/2$ with $x=b/a^{2}$: that gives
+      $a(1+b/(2a^{2})) = a+b/(2a)$, dropping the next term of that same
+      series. It's the same truncation move as everywhere else in this
+      unit, just applied to the square-root function instead of $\ln$ or
+      $\exp$.
+
+      Because $\sqrt{\cdot}$ is concave, its tangent line at any point lies
+      above the curve, so the linear estimate is always a slight
+      overestimate whenever $b\ne0$ — you don't need to check the sign of
+      the next term each time, it's baked into concavity. The estimate is
+      only as good as $b/a^{2}$ is small: choosing the nearest perfect
+      square keeps $b$ small relative to $a^{2}$, which is the entire point
+      of anchoring there rather than at some arbitrary value.
+
+      This is also exactly one step of Newton's method for $\sqrt{N}$
+      starting from guess $a$: $x_{1}=a-(a^{2}-N)/(2a)=a+b/(2a)$ when
+      $N=a^{2}+b$. Knowing that connection means you can always take a
+      second Newton step from $x_1$ if one linearization isn't precise
+      enough.
+    worked: >
+      $\sqrt{50}=\sqrt{49+1}$, so $a=7$, $b=1$: estimate $7+1/14\approx
+      7.0714$. Exact value is $\sqrt{50}=7.07107$, so the estimate is high
+      by about $0.00036$ — matching the predicted $-b^{2}/(8a^{3})=
+      -1/2744\approx-0.00036$.
+    interview: >
+      Asked as a bare "estimate $\sqrt{N}$" with no calculator, or buried
+      inside a bigger problem such as a standard deviation. The fast tell of
+      a strong answer is naming the nearest perfect square out loud before
+      computing anything.
+    pitfalls: >
+      Picking an anchor $a$ that isn't actually close, so $b/a^{2}$ isn't
+      small — $\sqrt{90}=\sqrt{81+9}$ gives $9+9/18=9.5$ against an exact
+      $9.4868$, already off by over $1\%$ because $b/a^{2}=1/9$ isn't tiny.
+      Forgetting the estimate is always high for $b>0$: if a problem needs a
+      lower bound, round the estimate down, not up.
+    recap: >
+      Linearize at the nearest perfect square, $\sqrt{a^{2}+b}\approx
+      a+b/(2a)$ — always a slight overestimate, and one Newton step if you
+      need more.
+
+  - node: quant-mental.approximation.rule-72
+    hook: >
+      Doubling-time questions are the fastest mental-math check on a growth
+      or interest-rate number, and knowing why 72 beats the theoretically
+      "correct" 69.3 is worth as much as knowing the rule itself.
+    explanation: >
+      Doubling means $(1+r)^{t}=2$, i.e. $t\ln(1+r)=\ln2$. Swap $\ln(1+r)$
+      for its linear approximation $r$ and solve: $t\approx\ln2/r
+      \approx0.693/r$. That's the "rule of 69.3," the theoretically cleaner
+      constant — but $69.3$ has no convenient small divisors, while $72$
+      splits evenly by $2,3,4,6,8,9,12,18,24$, which is what makes the
+      division actually fast in your head.
+
+      The extra $2.7$ isn't just a rounding convenience: the linear swap for
+      $\ln(1+r)$ overshoots the true value of $r$ from below in the wrong
+      direction for this purpose — its first dropped term is $-r^{2}/2$, so
+      $\ln(1+r)$ is a bit smaller than $r$, meaning the true doubling time is
+      a bit shorter than $0.693/r$ predicts. Nudging the constant up to $72$
+      partly cancels that shortfall, which is why $72/r$ tracks the exact
+      value more closely than $69.3/r$ across the ordinary range of interest
+      rates, roughly $6\%$ to $10\%$, and is nearly exact right around $8\%$.
+
+      Outside that band the cancellation stops helping — at very low or very
+      high $r$, go back to $69.3/r$ or full compounding instead.
+    worked: >
+      At $r=6\%$: rule of 72 gives $72/6=12$ years. Exact is
+      $\ln2/\ln(1.06)=0.6931/0.05827=11.90$ years, so $72/6$ is high by
+      about $0.87\%$. The theoretically cleaner $69.3/6=11.55$ years is low
+      by about $2.9\%$ — worse, despite being the "exact" linear formula.
+    interview: >
+      Classic phrasing: "an investment grows $6\%$ a year, how long to
+      double" or "at what rate does GDP double in a decade" — expect an
+      instant division, no scratch work, and readiness to say which
+      direction the estimate is biased if asked.
+    pitfalls: >
+      Using $r$ as a decimal instead of a percent — the rule is $72/r$ with
+      $r$ in percent (e.g. $72/6$), not $72/0.06$. Applying it well outside
+      $6$–$10\%$ without a caveat: at $r=20\%$, $72/20=3.6$ years against an
+      exact $3.80$ years, a $5.6\%$ miss, well past "good enough."
+    recap: >
+      Doubling time is about $72/r$ years — a rule tuned for fast division
+      and error cancellation, not just $\ln2/r$ rounded.
+
+  - node: quant-mental.approximation.anchors
+    hook: >
+      A short table of logs, roots and $e$ is what turns most of the rest of
+      this unit from "reach for a calculator" into "one multiplication,"
+      because nearly every other constant you'll need is a cheap combination
+      of these.
+    explanation: >
+      Hold $\ln2\approx0.6931$, $\ln10\approx2.3026$, $\log_{10}2\approx
+      0.3010$, $e\approx2.71828$, $\sqrt2\approx1.41421$, $\sqrt3\approx
+      1.73205$, $\sqrt5\approx2.23607$, and $\pi^{2}\approx9.8696$ to four or
+      five significant figures — not three, because a three-figure constant
+      loses a digit the moment you multiply or divide two of them together,
+      and an interviewer checks the digit.
+
+      The payoff is combination, not just recall: because $10=2\times5$,
+      $\log_{10}5=1-\log_{10}2$; because $6=2\times3$,
+      $\sqrt6=\sqrt2\sqrt3$; because $\ln10=1/\log_{10}e$, you get
+      $\log_{10}e$ for free from $\ln10$. None of these need re-deriving
+      from a series — they're one arithmetic step away from the table.
+
+      Treat the table as a small, closed set you extend by multiplying,
+      dividing, and taking ratios, never by memorizing more entries. If a
+      constant isn't a short combination of these eight, it's not worth
+      holding in memory — derive it on the spot with the small-$x$ or
+      square-root techniques instead.
+    worked: >
+      $\log_{10}5$ isn't on the table, but $10=2\times5$ gives
+      $\log_{10}2+\log_{10}5=\log_{10}10=1$, so
+      $\log_{10}5=1-0.30103=0.69897$ — no new memorization, one subtraction.
+    interview: >
+      Expect these fired at you cold — "what's $\ln2$," "what's $\sqrt3$" —
+      with an answer expected in under a second, plus the occasional "now
+      get me $\log_{10}8$" that rewards knowing $8=2^{3}$ rather than
+      pausing to think.
+    pitfalls: >
+      Memorizing to only two or three significant figures, which silently
+      degrades every downstream product or quotient. Confusing $\ln$ and
+      $\log_{10}$ — $\ln2\approx0.693$ is not $\log_{10}2\approx0.301$, and
+      mixing them mid-calculation is a common, hard-to-catch slip.
+    recap: >
+      Hold eight constants to four-plus figures and build everything else by
+      multiplying, dividing, or subtracting them.
+
+  - node: quant-mental.approximation.powers-of-two
+    hook: >
+      Sizing a hash space, a memory footprint, or "how many possible n-bit
+      strings" questions all reduce to converting a bit count into a power
+      of ten, and $2^{10}\approx10^{3}$ does that conversion almost for
+      free.
+    explanation: >
+      Since $\log_{10}2\approx0.301$, $2^{n}=10^{n\log_{10}2}\approx
+      10^{0.301n}$ for any $n$. The anchor worth holding directly is
+      $2^{10}=1024\approx10^{3}$, which is high by a factor of $1.024$ — a
+      known, fixed $2.4\%$.
+
+      That $2.4\%$ compounds by block of ten bits, not by simple addition:
+      $2^{20}=(2^{10})^{2}\approx10^{6}\times1.024^{2}$,
+      $2^{30}\approx10^{9}\times1.024^{3}$, and so on — each extra block
+      multiplies in another factor of $1.024$, the same
+      compounding-not-adding discipline as everywhere else in mental math.
+      For a quick gut check, treat "number of ten-bit blocks" as roughly how
+      many $2.4\%$'s to stack.
+
+      This is the fast route to any "how many possible states" question
+      phrased in bits: count the bits, divide by ten to get blocks, apply
+      the compounding correction if precision matters, and read off the
+      power of ten.
+    worked: >
+      $2^{40}=(2^{10})^{4}=1024^{4}=(1.024\times10^{3})^{4}\approx
+      10^{12}\times1.024^{4}$. Since $1.024^{2}=1.048576$,
+      $1.024^{4}=1.048576^{2}\approx1.09951$, so
+      $2^{40}\approx1.09951\times10^{12}$. The exact value is
+      $1{,}099{,}511{,}627{,}776\approx1.099512\times10^{12}$ — matching to
+      six significant figures.
+    interview: >
+      Comes up as "roughly how many distinct 32-bit values are there" or
+      "how big is $2^{64}$ in bytes" (the classic int64-range check) —
+      expect scientific notation to three or four figures within a couple of
+      seconds, not an exact integer.
+    pitfalls: >
+      Forgetting the direction of the bias: $1024>1000$, so raw powers of
+      ten without the $1.024$ correction undercount the true value, and
+      skipping the correction across many blocks compounds the miss
+      multiplicatively, not by a flat $2.4\%$ total. Rounding $\log_{10}2$
+      to $0.3$ instead of $0.301$ — over $n=100$ bits that shortcut alone
+      shifts the exponent by a full $0.1$, a real error in the leading
+      digit.
+    recap: >
+      $2^{10}\approx10^{3}$, high by a known $2.4\%$ per ten-bit block —
+      count bits, divide by ten, read off the power of ten.
+
+  - node: quant-mental.approximation.digits-of-2-100
+    hook: >
+      How-many-digits questions are a favorite opener because they resolve
+      in one line once you trust $\lfloor\log_{10}N\rfloor+1$ — and the
+      interviewer is watching for the $+1$ and the floor, not just the log.
+    explanation: >
+      A positive integer $N$ has $\lfloor\log_{10}N\rfloor+1$ digits,
+      because $N$ has $d$ digits exactly when $10^{d-1}\le N<10^{d}$, i.e.
+      $d-1\le\log_{10}N<d$ — the floor recovers $d-1$, and the $+1$ is not
+      optional. For $N$ built from powers you already know how to log —
+      powers of two via the anchor table, or a product of primes — the
+      whole computation is "multiply the exponent by the right log
+      constant, floor, add one."
+
+      The technique generalizes past pure powers of two: any $N=a^{n}$
+      needs only $\log_{10}a$, which is either an anchor directly or one
+      combination away from one, as with $\log_{10}5=1-\log_{10}2$. The
+      arithmetic is identical either way — only the constant you multiply
+      by changes.
+
+      Watch the boundary case: if $n\log_{10}a$ lands extremely close to an
+      integer, the small error in your memorized constant can flip which
+      side of that integer the true value sits on, which flips the digit
+      count by one. That's the one place this technique needs a second look
+      before you commit to an answer.
+    worked: >
+      Digits of $5^{60}$: $\log_{10}5\approx0.69897$ (from
+      $1-\log_{10}2$), so $60\times0.69897=41.938$. Floor is $41$, plus one
+      is $42$ digits.
+    interview: >
+      Phrased as "how many digits does $2^{50}$ have" or "is $3^{40}$
+      bigger or smaller than $10^{19}$" — both resolve the same way, and a
+      strong answer states the log computation out loud before giving the
+      digit count.
+    pitfalls: >
+      Dropping the $+1$ — $\lfloor\log_{10}N\rfloor$ alone is one less than
+      the digit count, the most common slip on this technique. Near-integer
+      exponent values (an estimate of $30.999$ versus $31.000$) deserve an
+      extra digit of precision on the log constant before you commit, since
+      they sit right on a digit-count boundary.
+    recap: >
+      Digits of $N$ are $\lfloor\log_{10}N\rfloor+1$ — multiply the exponent
+      by the right log anchor, floor, and never forget the plus one.
+
+  - node: quant-mental.approximation.normal-quantiles
+    hook: >
+      Confidence intervals, VaR cutoffs, and "how many sigma was that move"
+      all bottom out in the same four numbers, and they need to come out
+      cold — there's no derivation to fall back on mid-interview.
+    explanation: >
+      Hold the two-sided cutoffs $1\sigma\approx68.27\%$, $1.645\sigma=90\%$,
+      $1.96\sigma\approx95\%$, $2.576\sigma\approx99\%$, plus the one-sided
+      versions $1.645\sigma=95\%$ and $2.33\sigma\approx99\%$. The one-sided
+      and two-sided tables are linked by symmetry: a two-sided level $p$
+      puts $(1-p)/2$ in each tail, so its cutoff is the one-sided
+      $(1+p)/2$ cutoff — that's why $1.96$ (two-sided $95\%$) and $1.645$
+      (one-sided $95\%$) are different numbers for what sounds like "the
+      same" $95\%$.
+
+      Rounding $1.96$ to $2$ is common and mostly harmless for a fast gut
+      check — it shifts the implied coverage from $95\%$ to about
+      $95.45\%$, a $0.45$-point move — but say so if the number you quote is
+      meant to be exact, since a quoted confidence interval that silently
+      used $2$ instead of $1.96$ is a different interval.
+
+      Use the table in both directions: given a probability, read off the
+      sigma cutoff (a confidence interval, a VaR level); given a move size
+      in sigmas, read off how rare it is (an outlier check).
+    worked: >
+      A desk's daily P&L has standard deviation $1.5\%$; the one-sided
+      $99\%$ VaR cutoff is $2.33\times1.5\%\approx3.5\%$ — losses beyond
+      about $3.5\%$ of notional should occur roughly one day in a hundred.
+    interview: >
+      Fired as "what's the z-score for a $95\%$ interval" or "how many
+      sigma is a one-in-a-thousand event" — expect instant recall to three
+      significant figures, and be ready to say whether the question means
+      one-sided or two-sided before answering, since the two tables
+      disagree.
+    pitfalls: >
+      Answering a one-sided question with the two-sided cutoff or vice
+      versa — $1.645$ and $1.96$ get swapped constantly under time pressure.
+      Quoting $1.96\to2$ as if it changed nothing: for a headline confidence
+      level you should state the rounding, not silently apply it.
+    recap: >
+      Two-sided $90/95/99\%$ sit at $1.645/1.96/2.576$ sigma, one-sided
+      $95/99\%$ at $1.645/2.33$ — and the two tables are not
+      interchangeable.
+
+  - node: quant-mental.approximation.annualizing
+    hook: >
+      Converting a rate across horizons — monthly to annual, annual to
+      daily — is the most common "quick, in your head" desk question, and
+      going the wrong direction (multiplying when you should take a root)
+      is the easiest way to blow the answer.
+    explanation: >
+      Annualizing $n$ periods of rate $r$ is literally $(1+r)^{n}-1$, so the
+      linear pass $nr$ and the correction $\binom{n}{2}r^{2}$ apply exactly
+      as before — no new machinery, just $n$ in the role of the exponent.
+      Going the other way — de-annualizing an annual rate $R$ into a
+      per-period rate — solves $(1+r)^{n}=1+R$ for $r$, giving
+      $r=(1+R)^{1/n}-1\approx R/n$ as the linear pass, with $1/n$ now
+      playing the role of the exponent in the same binomial correction,
+      $\binom{1/n}{2}R^{2}$.
+
+      That correction term is worth noticing when the exponent is a
+      fraction: $\binom{1/n}{2}$ is negative whenever $n>1$, so
+      de-annualizing pulls the linear guess $R/n$ down, the mirror image of
+      annualizing pulling $nr$ up. Same formula, opposite sign, because
+      taking a root curves the other way from taking a power.
+
+      One thing this rate machinery does not cover: volatility does not
+      annualize by $n$ or de-annualize by $1/n$ — it scales with the square
+      root of the horizon instead, a genuinely different rule developed
+      properly elsewhere in this program. Reaching for $nr$ on a volatility
+      number is a fast way to be badly wrong.
+    worked: >
+      An annual rate of $8\%$, de-annualized to monthly: linear guess
+      $8\%/12\approx0.6667\%$. Exact: $(1.08)^{1/12}-1$. Since
+      $\ln(1.08)\approx0.07696$, dividing by $12$ gives $0.006414$, and
+      $e^{0.006414}-1\approx0.006434$, so the monthly rate is about
+      $0.6434\%$ — the linear guess overshoots by roughly $3.6\%$ relative,
+      in the direction the negative correction predicts.
+    interview: >
+      Phrased as "your fund returned $2\%$ last month, what's that
+      annualized" or "given an $8\%$ annual yield, what's the daily rate" —
+      expect the linear pass first, and instant recall that volatility
+      needs $\sqrt{t}$, not $n$, if the question pivots to risk.
+    pitfalls: >
+      Applying $nr$ when $nr$ isn't small — annualizing a weekly $2\%$ over
+      $52$ weeks gives $nr=1.04$, nowhere near the true multiple; reach for
+      full compounding or the rule of 72. Reusing the rate-annualizing
+      formula on a volatility number out of habit, when the correct scaling
+      is $\sqrt{n}$.
+    recap: >
+      Annualizing and de-annualizing are both $(1+x)^{n}$ with $n$ or $1/n$
+      as the exponent — but volatility scales by $\sqrt{n}$, not by this
+      rule at all.
+
+  - node: quant-mental.approximation.compound-growth-example
+    hook: >
+      "Grow at rate $r$ for $t$ years, name the multiple" is the single most
+      common mental-math opener, and half the graded skill is picking the
+      right tool the moment you see $r$ and $t$.
+    explanation: >
+      The decision rule is the size of $rt$: while $rt$ stays small (well
+      under a few tenths), the linear-plus-correction pass from compounding
+      is fine and fast. Once $rt$ grows past roughly $0.5$, you're several
+      doublings deep and the compounding is essentially exponential rather
+      than a small perturbation, so lean on doubling time instead: divide
+      the horizon by $72/r$ to get a usually-fractional number of doublings,
+      then estimate $2^{\text{doublings}}$.
+
+      For the fractional part, either use a known root of two directly
+      (like $2^{1/2}=\sqrt2\approx1.414$, from the anchor table) or fall
+      back to $e^{x}\approx1+x+x^{2}/2$ with $x=(\text{fraction})\times
+      \ln2$. Either route gets you within a couple of percent, which is the
+      point — this is a sanity-check estimate, not a final quoted figure.
+
+      Always check $rt$ before picking a tool: reaching for the linear pass
+      when $rt$ is not small, or for the doubling estimate when a single
+      linear term would have done, both cost time without buying accuracy.
+    worked: >
+      Grow at $5\%$ for $30$ years: $rt=1.5$, far too large for a linear
+      pass ($1+30(0.05)=2.5$ is nowhere close). Doubling time is
+      $72/5=14.4$ years, so $30/14.4\approx2.083$ doublings.
+      $2^{2.083}=4\times2^{1/12}\approx4\times1.05946=4.2378$. Exact value
+      is $(1.05)^{30}\approx4.3219$, so the doubling estimate is low by
+      about $2\%$ — a fine sanity check, not a precise final answer.
+    interview: >
+      The canonical form is "grow at $r\%$ for $t$ years, roughly what
+      multiple" — expect you to state $rt$ out loud, declare which tool
+      you're using, and land within a couple of percent with no calculator.
+    pitfalls: >
+      Using the linear pass when $rt$ is large — here it misses by over
+      $40\%$ ($2.5$ vs. $4.32$). Rounding a fractional number of doublings
+      to the nearest integer instead of estimating the fractional power —
+      that rounding alone can be off by a factor of $\sqrt2$, about $41\%$.
+    recap: >
+      Check $rt$ first: small means linear-plus-correction, large means
+      doubling time and a fractional power of two.
+
+  - node: quant-mental.approximation.vol-quantile-example
+    hook: >
+      "How big a move in sigma over some horizon" chains two separate
+      mental-math skills into one question, and the two classic ways to
+      blow it — annualizing volatility like a rate, or grabbing the wrong
+      sigma cutoff — both show up right here.
+    explanation: >
+      Volatility does not annualize the way a mean return does: independent
+      period returns have variances that add, so $n$ periods of equal
+      per-period variance $\sigma^{2}$ sum to $n\sigma^{2}$, and a standard
+      deviation is a square root of variance — hence horizon scaling goes by
+      $\sqrt{n}$, not $n$. Converting an annual volatility down to a shorter
+      period runs that scaling backwards: divide by $\sqrt{n}$, where $n$ is
+      the number of those periods in a year.
+
+      Once you have the period's volatility, a "how big is a $k$-sigma
+      move" question is just multiplication: $k\times\sigma_{\text{period}}$.
+      Reading off how rare that move is then falls straight out of the
+      sigma-to-probability table — no new computation, just a lookup.
+
+      The two-step pattern is worth having as a single unit: horizon-scale
+      the volatility, then multiply by $k$ and look up the probability.
+      Every "is this move an outlier" question in an interview is this same
+      chain.
+    worked: >
+      A stock has $25\%$ annualized volatility; how big is a $1.645\sigma$
+      weekly move? Weekly volatility is $25\%/\sqrt{52}\approx
+      25\%/7.211\approx3.467\%$. A $1.645\sigma$ move is then about
+      $1.645\times3.467\%\approx5.70\%$, and by the one-sided reading of the
+      sigma table that threshold is crossed with probability near $5\%$ —
+      about one week in twenty, a notable move but not a genuine anomaly.
+    interview: >
+      Phrased as "given annual vol of $X\%$, how big a move in a
+      day/week/month is $N$ sigma" — a compound question testing both
+      skills at once. State the period volatility, the move size, and the
+      rough probability, all in one breath.
+    pitfalls: >
+      Reusing the mean-return annualizing rule ($\times n$ or $/ n$) on
+      volatility out of habit — the correct factor is $\sqrt{n}$, and mixing
+      this up right after an annualizing-a-rate question is the most common
+      way it happens. Dividing by $\sqrt{252}$ (trading days) when the
+      question is in weeks or months — matching the wrong period count to
+      the wrong horizon.
+    recap: >
+      Scale volatility by $\sqrt{n}$ across a horizon, multiply by $k$ for a
+      $k$-sigma move, then read the probability off the sigma table.
+
+  - node: quant-mental.approximation.percent-compounding-trap
+    hook: >
+      "Up $20\%$ then down $20\%$, back to even?" is a favorite opener
+      precisely because the wrong answer sounds obviously right, and
+      answering confidently and wrong is the most common outcome in the
+      room.
+    explanation: >
+      $(1+x)(1-x)=1-x^{2}$ is exact algebra — a difference of squares, not a
+      truncated series — so there is no approximation to worry about here,
+      only the discipline of not adding percentages. Treating a $+x$ move
+      and a $-x$ move as canceling is precisely the additive-percentage
+      mistake that compounding warns against: the correct multiplicative
+      view shows the net factor is always $1-x^{2}$, strictly below $1$
+      whenever $x\ne0$.
+
+      The loss scales with the square of the swing, not linearly: a $10\%$
+      round trip costs $1\%$, a $20\%$ round trip costs $4\%$, a $50\%$
+      round trip costs a full $25\%$. Doubling the swing quadruples the
+      damage — the same nonlinearity that shows up as the correction term
+      when compounding one rate $n$ times, except here it's the entire
+      exact answer rather than a small fix-up, because $x$ in these
+      examples is rarely small enough to call it a correction.
+
+      Not every round trip nets a loss: unequal moves can cancel exactly
+      when the factors are reciprocal ($+25\%$ then $-20\%$ is flat, since
+      $0.8=1/1.25$) — a different, genuinely even case, worth distinguishing
+      from the equal-and-opposite case here.
+    worked: >
+      $+30\%$ then $-30\%$: $(1.3)(0.7)=0.91$, a net loss of $9\%$ — exactly
+      $-(0.3)^{2}=-0.09$, matching the formula precisely, not approximately.
+    interview: >
+      "A stock drops $20\%$ then rises $20\%$ — even?" is close to a
+      certainty in a mental-math round; the strong answer is instant: "no,
+      down $4\%$, because it's $1.2\times0.8$," ideally naming $-x^{2}$
+      without being asked.
+    pitfalls: >
+      Assuming equal-and-opposite percent moves cancel — they never do,
+      except in the trivial $x=0$ case. Confusing this case with the
+      genuinely flat one: $+25\%$ then $-20\%$ nets exactly zero because
+      those factors are reciprocals, a different scenario from
+      equal-magnitude swings.
+    recap: >
+      A $+x$ then $-x$ swing always nets $-x^{2}$, never zero, and the loss
+      grows with the square of the swing.
+
+  - node: quant-mental.approximation.error-discipline
+    hook: >
+      An interviewer testing approximation skills is really testing whether
+      you know how far to trust your own number — the estimate alone,
+      without a stated error, is an unfinished answer.
+    explanation: >
+      Every technique in this toolkit works the same way: keep some terms of
+      an expansion, drop the rest, and the size of the first dropped term is
+      available the moment you decide how many terms to keep — it costs
+      nothing extra to state it, because computing it is part of deciding
+      where to stop. "$\sqrt{26}\approx5.1$" and "$\sqrt{26}\approx5.1$,
+      high by about $0.001$" take the same work to produce; only the second
+      is something an interviewer can act on, because it says whether the
+      estimate was controlled or accidental.
+
+      The habit generalizes past any single technique: when several
+      approximations chain together — annualize a rate, scale a volatility,
+      look up a sigma cutoff — each step carries its own dropped term, and
+      the honest thing to report is the largest single one in the chain,
+      not a painstaking sum of all of them. In practice one step usually
+      dominates, and naming it is enough.
+
+      This is also a signal about precision: an estimate quoted to more
+      decimal digits than its own dropped term justifies is false
+      precision, and a listener who catches it will trust every other
+      number you give less.
+    interview: >
+      After any mental estimate, expect the unprompted follow-up "how
+      confident are you, and which way is it biased" — volunteering that
+      before being asked is what separates a strong answer from a merely
+      correct one.
+    pitfalls: >
+      Quoting several decimal digits when the calculation itself dropped a
+      term two orders of magnitude larger than the last digit shown.
+      Rounding a constant mid-calculation (like $1.96\to2$) without flagging
+      it, so the final number silently carries an unstated bias.
+    recap: >
+      An estimate without a stated, signed error is unfinished — always
+      report the size and direction of what you dropped.
