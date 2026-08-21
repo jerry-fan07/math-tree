@@ -127,6 +127,15 @@
             // Without them the shot would show card 1 five times and pass.
             lessonPlayer(document: document, scores: scores, into: root)
 
+            // …and the same view over the *real* authored corpus, which is a
+            // different claim: the fixture proves the view draws, this proves the
+            // content does. `MATHTREE_PANEL_SHOT_QUANT=<node-id>` because the
+            // quant tree is a second scene with its own artifacts, and loading
+            // it unconditionally would make every shot run depend on them.
+            if let target = environment["MATHTREE_PANEL_SHOT_QUANT"], !target.isEmpty {
+                quantLesson(NodeID(target), into: root)
+            }
+
             assessment(document: document, scores: scores, into: root)
 
             if let target = environment["MATHTREE_PANEL_SHOT_REPORT"] {
@@ -294,6 +303,57 @@
                     to: root.appendingPathComponent("\(name).png"),
                     size: CGSize(width: 1100, height: 760))
             }
+        }
+
+        /// The player over the quant tree's *authored* corpus — the pilot unit's
+        /// real cards, real checks and real mastery set.
+        ///
+        /// Separate from `lessonPlayer` because it proves a different thing. That
+        /// one asks "does the view draw every state"; this one asks "does the
+        /// content an author wrote survive the renderer" — which is the question
+        /// the corpus self-check answers mechanically and a frame answers by
+        /// being looked at.
+        @MainActor
+        private static func quantLesson(_ id: NodeID, into root: URL) {
+            let store = SceneStore.quant
+            guard let scene = store.scene, let scores = store.scores else {
+                FileHandle.standardError.write(
+                    Data("panel-shot: quant tree — \(store.errorMessage ?? "no scene")\n".utf8))
+                exit(3)
+            }
+            let document = scene.document
+            guard let index = document.index(of: id),
+                let lesson = store.program.program.lesson(for: id)
+            else {
+                FileHandle.standardError.write(
+                    Data("panel-shot: quant tree has no lesson for \(id)\n".utf8))
+                exit(3)
+            }
+            let node = document[index]
+            let cards = lesson.cards
+            // Every check in the lesson, resolved — plus the first card and the
+            // ending. A single frame would show whichever card happened to be
+            // first and say nothing about the rest.
+            var frames: [(String, Int, Bool)] = [("quant-lesson-01", 0, false)]
+            for (position, card) in cards.enumerated() where card.isCheck {
+                frames.append(("quant-lesson-check-\(position + 1)", position, true))
+            }
+            frames.append(("quant-lesson-mastery", cards.count, false))
+
+            for (name, card, resolved) in frames {
+                write(
+                    AnyView(
+                        LessonPlayer(
+                            node: node, lesson: lesson,
+                            unitTitle: node.parent.flatMap { document.index(of: $0) }
+                                .map { document[$0].title },
+                            document: document, scores: scores,
+                            mastery: scores.bank.masterySet(for: id),
+                            onExit: {}, startCard: card, startResolved: resolved)),
+                    to: root.appendingPathComponent("\(name).png"),
+                    size: CGSize(width: 1100, height: 760))
+            }
+            print("panel-shot: quant lesson \(id) — \(frames.count) frames")
         }
 
         /// Phase 8's overlays. Every phase since Phase 4 has rendered its new
