@@ -33,11 +33,18 @@ struct MathTreeApp: App {
                 }
                 var additional: [GraphDocument] = []
                 var programs: [ProgramDocument] = [SceneStore.shared.program]
+                // Every *bank*, not just the primary tree's. Phase 13 gave the
+                // quant tree its first problems, and until this list grew a
+                // second entry those 36 problems' LaTeX was authored, shipped
+                // and rendered by nothing — the exact outcome D12.5 wrote this
+                // check to prevent, reached by a different route.
+                var banks: [ProblemDocument] = [SceneStore.shared.problems]
                 do {
                     let quantDirectories = GraphDocument.searchDirectories(
                         subdirectory: TreeSpec.quant.subdirectory)
                     additional.append(try GraphDocument.load(from: quantDirectories))
                     programs.append(ProgramDocument.load(from: quantDirectories))
+                    banks.append(ProblemDocument.load(from: quantDirectories))
                 } catch GraphDocumentError.artifactsNotFound {
                     print("note: quant artifacts not built — quant tree not checked")
                 } catch {
@@ -57,7 +64,7 @@ struct MathTreeApp: App {
                     }
                 }
                 MathText.Check.runIfRequested(
-                    document: scene.document, problems: SceneStore.shared.problems,
+                    document: scene.document, problems: banks,
                     additionalDocuments: additional, programs: programs)
             }
         #endif

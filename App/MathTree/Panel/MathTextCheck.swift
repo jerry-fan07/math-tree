@@ -269,18 +269,21 @@ extension MathText {
         /// into `NSUserDefaults` and the window silently never appears.
         @MainActor
         static func runIfRequested(
-            document: GraphDocument, problems: ProblemDocument,
+            document: GraphDocument, problems: [ProblemDocument],
             additionalDocuments: [GraphDocument] = [],
             programs: [ProgramDocument] = []
         ) {
             guard isRequested else { return }
             let all =
-                samples(for: document) + samples(for: problems.bank)
+                samples(for: document)
+                + problems.flatMap { Self.samples(for: $0.bank) }
                 + additionalDocuments.flatMap { Self.samples(for: $0) }
                 + programs.flatMap { Self.samples(for: $0.program) }
             print(report(for: all))
-            if let reason = problems.unavailable {
-                print("note: problem bank not checked — \(reason)")
+            for problems in problems {
+                if let reason = problems.unavailable {
+                    print("note: problem bank not checked — \(reason)")
+                }
             }
             for program in programs {
                 if let reason = program.unavailable {
