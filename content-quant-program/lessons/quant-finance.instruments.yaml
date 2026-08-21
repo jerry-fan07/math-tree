@@ -1,0 +1,610 @@
+unit: quant-finance.instruments
+opening: >
+  This unit is the vocabulary layer beneath everything else in quant finance:
+  the contracts and mechanics that no-arbitrage pricing, option theory and
+  Greeks all assume you already know cold. It opens with discounting, the
+  time-value-of-money tool that bond pricing immediately builds on, then
+  covers the two core asset classes — equity (with indices and ETFs as its
+  packaged form) and bonds (price, yield, duration) — before turning to the
+  two families of forward obligation and their operational reality (margin,
+  daily marking). It closes with options as the first payoff that isn't a
+  straight line, then short selling, leverage, and the linear-vs-optionality
+  lens that will classify every instrument priced for the rest of the
+  program.
+lessons:
+  - node: quant-finance.instruments.discounting
+    hook: >
+      Every price you will ever compute in this program is a present value,
+      and continuous compounding is the default convention behind almost all
+      of them — an interviewer who hears you hesitate on $e^{rT}$ has learned
+      most of what they need to know.
+    explanation: >
+      Recall the limit $(1+x/n)^{n} \to e^{x}$: discrete compounding at rate
+      $r$, $n$ times a year, is exactly that expression with $x = rT$ split
+      across $n$ periods, so letting $n \to \infty$ hands you continuous
+      compounding for free — it is not a separate assumption about how money
+      grows, it is the same growth process pushed to its limit.
+
+      Because more frequent compounding always compounds a positive rate to a
+      larger sum, continuous compounding is the ceiling: for fixed $r$ and
+      $T$, $FV = PVe^{rT}$ is at least as large as $PV(1+r/n)^{nT}$ for any
+      finite $n$. That ordering is worth holding as a sanity check — if a
+      computed continuous-compounding figure comes out below the
+      annual-compounding one, a sign or exponent slipped somewhere.
+
+      The reason pricing formulas default to continuous compounding isn't
+      elegance for its own sake — it's additivity. Taking logs turns
+      $FV = PVe^{rT}$ into $\ln FV = \ln PV + rT$, so chaining growth over
+      back-to-back horizons is adding exponents, not multiplying growth
+      factors; that additive structure is what makes rates over different
+      periods combine cleanly later in the program.
+    worked: >
+      200 dollars at $r = 6\%$ compounded continuously for 8 years grows to
+      $200e^{0.48} \approx 323.21$ dollars, versus $200(1.06)^{8} \approx
+      318.77$ dollars compounded annually — continuous compounding again
+      gives the larger figure, here by about $4.44$ dollars, a bigger gap
+      than a shorter horizon would show because the compounding-frequency
+      effect itself compounds over more years.
+    interview: >
+      Expect "grow $X$ dollars at rate $r$ continuously for $T$ years" or the
+      reverse, "what's the present value of $C$ dollars in $T$ years" —
+      either direction should come back instantly as $PVe^{rT}$ or $Ce^{-rT}$
+      with no hesitation over which exponent sign goes where.
+    pitfalls: >
+      Using $r$ as a whole percent instead of a decimal inside the exponent —
+      $e^{0.06 \times 8}$, not $e^{6 \times 8}$. Discounting with a positive
+      exponent or growing with a negative one — the sign is the only thing
+      that separates $PV = Ce^{-rT}$ from $FV = PVe^{rT}$, and flipping it
+      silently gives a number of the wrong order of magnitude.
+    recap: >
+      Continuous compounding is the $n \to \infty$ limit of ordinary
+      compounding, $FV = PVe^{rT}$, and it is always the largest figure for a
+      fixed nominal rate.
+
+  - node: quant-finance.instruments.equity
+    hook: >
+      "Did you make money on that stock?" is a trick question the moment a
+      dividend is involved, and the fix is knowing that total return is
+      always price return plus dividend yield, not price change alone.
+    explanation: >
+      A share carries no promise at all — no maturity date, no guaranteed
+      payment, and a dividend that the board can raise, cut, or skip outright
+      depending on the company's results and priorities. That is the whole
+      reason equity is riskier than a bond from the same issuer: a bondholder
+      has a contractual claim to specific cash flows, while a shareholder
+      only has a residual claim, paid after every creditor and preferred
+      holder is satisfied, on whatever is left.
+
+      Total return packages the two ways a share can pay you into one number,
+      $R = (P_1 - P_0 + D)/P_0$, and it always splits cleanly into a price
+      return $(P_1-P_0)/P_0$ and a dividend yield $D/P_0$. Reporting only the
+      price change silently drops half the picture — a stock that is flat or
+      even down in price can still be a winning position once the dividend
+      is counted.
+
+      Treat the split as diagnostic, not just arithmetic: a return dominated
+      by dividend yield behaves very differently from one dominated by price
+      appreciation, since one component is roughly known in advance and the
+      other is not.
+    worked: >
+      A stock bought at 80 dollars, paying a 2-dollar dividend, ending the
+      period at 79 dollars: $R = (79 - 80 + 2)/80 = 1/80 = 1.25\%$. The price
+      return alone is $-1.25\%$ — a loss — but the $2.5\%$ dividend yield
+      more than offsets it, for a net gain despite the falling price.
+    interview: >
+      A favorite trap: "the stock price didn't move all year, so you made
+      nothing" — the correct reflex is to ask about dividends before
+      answering, since a flat price with a dividend is a strictly positive
+      total return.
+    pitfalls: >
+      Computing return from price alone and ignoring declared dividends.
+      Treating a dividend as contractually owed like a bond coupon — it is
+      declared at the board's discretion each period and can be reduced or
+      omitted with no default involved.
+    recap: >
+      Total return is price return plus dividend yield, and because equity
+      promises neither payment, either piece can dominate or vanish
+      independently of the other.
+
+  - node: quant-finance.instruments.indices-etfs
+    hook: >
+      "If a stock is 1 percent of an index and it halves, what happens to the
+      index?" is a pure weight-times-return calculation, and it's the
+      fastest way an interviewer checks whether you actually understand
+      cap-weighting rather than just knowing the word.
+    explanation: >
+      An index is a fixed rule for turning a basket of prices into one
+      number, and market-cap weighting is the most common rule: each
+      constituent's pull on the index is proportional to its market value.
+      The direct consequence is that the index's return is a weighted average
+      of the constituents' returns, weighted by market cap share — a giant
+      constituent moving a little moves the index roughly as much as a tiny
+      constituent moving a lot.
+
+      Because the index is only a number, not a security, you cannot trade
+      it directly — you trade the constituents themselves or a fund built to
+      track it. An ETF is that tradable wrapper: it trades all day like a
+      share while holding a basket of underlying assets. What keeps its
+      market price from drifting away from the value of what it holds is
+      creation and redemption — authorized participants can hand the fund a
+      basket of the underlying assets in exchange for new ETF shares, or the
+      reverse, whenever a profitable gap opens between the ETF's price and
+      its net asset value, which closes the gap by arbitrage rather than by
+      any promise from the fund itself.
+
+      Read every index move as "sum of weight times return" and every ETF
+      price as "kept near net asset value by an arbitrage loop, not
+      guaranteed to equal it exactly at every instant."
+    worked: >
+      A two-stock cap-weighted index: X at 950 of market cap, Y at 50, total
+      1,000. If Y jumps $40\%$ while X is flat, the index moves by about
+      $(50/1000)\times40\% = 2\%$. If instead X alone rises just $3\%$ while
+      Y is flat, the index moves by about $(950/1000)\times3\% = 2.85\%$ — a
+      small move in the giant beats a huge move in the minnow.
+    interview: >
+      Expect "estimate the index's move given one constituent's move and its
+      weight" as a mental-math check, and "why doesn't the ETF's price ever
+      drift far from its NAV" as the conceptual follow-up — the answer is
+      creation/redemption arbitrage, not regulation.
+    pitfalls: >
+      Assuming you can buy "the index" itself — only the fund shares or the
+      underlying constituents are tradable. Treating ETF price and NAV as
+      always identical rather than kept close by an arbitrage mechanism that
+      needs capital and time to act, so a gap can persist briefly under
+      stress.
+    recap: >
+      An index's move is a cap-weighted average of its constituents' returns;
+      an ETF is the tradable wrapper, held near its net asset value by
+      creation/redemption arbitrage.
+
+  - node: quant-finance.instruments.bond-pricing
+    hook: >
+      A bond is nothing more than several PV calculations added together, and
+      an interviewer handing you a coupon schedule is really just checking
+      whether you'll reach for the discounting tool you already have instead
+      of a memorized "bond formula."
+    explanation: >
+      Recall that a single cash flow $C$ at time $T$ is worth $PV = Ce^{-rT}$
+      or, with the periodic discounting that matches a bond's coupon
+      schedule, $C/(1+y)^{t}$. A coupon bond is just a stack of such cash
+      flows — a coupon $cF$ at every period plus the face value $F$ back at
+      maturity — so its price is nothing but the sum of each piece's present
+      value at the market's required rate $y$: $P = \sum_t cF/(1+y)^t +
+      F/(1+y)^T$. There is no new machinery here beyond discounting applied
+      repeatedly.
+
+      The premium/discount/par language is just a comparison of two rates.
+      If the bond's coupon rate exceeds what the market currently demands
+      ($c > y$), those above-market coupons make the bond worth more than
+      face value — a premium. If the coupon falls short of what the market
+      demands ($c < y$), the bond is worth less than face value to
+      compensate — a discount. When $c = y$ exactly, discounting the coupons
+      at the same rate they're paid leaves the price at exactly $F$: par.
+
+      A zero-coupon bond is the special case $c = 0$: every coupon term
+      vanishes and only the single discounted face value survives,
+      $P = F/(1+y)^T$ — the simplest possible bond, and a useful check case
+      whenever the general formula feels opaque.
+    worked: >
+      A 3-year, $4\%$ annual-coupon, 100-dollar-face bond priced at $y=6\%$:
+      cash flows of 4, 4, and 104 at $t=1,2,3$ have present values
+      $4/1.06\approx3.77$, $4/1.1236\approx3.56$, and $104/1.191016\approx
+      87.32$. Summing gives $P \approx 94.65$ dollars — a discount to face,
+      exactly as expected since the $4\%$ coupon falls short of the $6\%$
+      the market demands.
+    interview: >
+      "Price this bond given its coupon, maturity, and yield" is asked cold,
+      with the expectation you set up the summation immediately rather than
+      recall a formula by name, and "why would this bond trade below par"
+      should come back instantly as coupon-versus-yield, not something about
+      credit risk.
+    pitfalls: >
+      Discounting with the coupon rate instead of the market yield — they
+      play completely different roles, one contractual and one market-set.
+      Forgetting the face value term at the final period, so only the
+      coupons get summed. Reaching for continuous discounting $e^{-rT}$
+      instead of the periodic $(1+y)^{-t}$ that matches the bond's actual
+      coupon frequency.
+    recap: >
+      A bond's price is the sum of every promised cash flow's present value
+      at the market yield — premium, par, or discount is just coupon rate
+      compared to that yield.
+
+  - node: quant-finance.instruments.bond-ytm
+    hook: >
+      Bonds with wildly different coupons and maturities get compared on one
+      number at every desk, and being able to say what that number actually
+      solves for — not just recite its name — is the real interview check.
+    explanation: >
+      Bond pricing runs forward: given a yield, sum the discounted cash flows
+      to get a price. Yield to maturity runs the same equation backward:
+      given the market's observed price, find the single flat rate $y$ that
+      makes the same sum equal to that price. It is an internal-rate-of-return
+      idea applied to a bond's specific cash flow schedule — a break-even
+      discount rate, not a separate quantity from the price you already know
+      how to compute.
+
+      Every term in the pricing sum shrinks as $y$ grows, since each is a
+      cash flow divided by a positive power of $(1+y)$, so the whole sum —
+      the price — is a strictly decreasing function of yield with no
+      exceptions or special cases. That single fact is the entire content of
+      "price and yield move in opposite directions," and it is also why the
+      price-yield relationship curves rather than sitting on a straight line:
+      the higher-power terms shrink faster than the linear ones as $y$ rises,
+      bending the curve rather than tilting it evenly.
+
+      Practically, yields let you compare a 2-year 3% coupon bond against a
+      10-year 7% coupon bond on equal footing, because the coupon and
+      maturity differences are already absorbed into one comparable rate —
+      which is why bonds are quoted by price but discussed and compared by
+      yield.
+    worked: >
+      A 2-year, $7\%$ annual-coupon, 100-dollar-face bond priced at 101:
+      solving $7/(1+y) + 107/(1+y)^2 = 101$ is a quadratic in $(1+y)$,
+      $101(1+y)^2 - 7(1+y) - 107 = 0$, giving $1+y \approx 1.0645$, so
+      $y \approx 6.45\%$ — below the $7\%$ coupon, consistent with the price
+      sitting above par.
+    interview: >
+      "How would you find YTM by hand, no calculator" tests whether you know
+      it's generally found by trial-and-error or interpolation, except for
+      the 1- and 2-period cases, which reduce to linear and quadratic
+      equations you can actually solve on paper.
+    pitfalls: >
+      Confusing YTM with current yield (coupon divided by price) — the two
+      coincide only near par and diverge meaningfully once price moves away
+      from face value. Treating the price-yield relationship as a straight
+      line for a large rate move, when it is convex — a linear guess is only
+      a local approximation, refined properly by duration.
+    recap: >
+      Yield to maturity is the single rate that reconciles a bond's market
+      price with its promised cash flows, and price and yield always move in
+      opposite directions.
+
+  - node: quant-finance.instruments.duration
+    hook: >
+      "Rates rise 1 percent — roughly how much does this bond's price fall?"
+      is answered by one number, and producing it cold, from the cash flows
+      up, is one of the most common fixed-income interview asks.
+    explanation: >
+      Yield to maturity establishes that price falls as yield rises; duration
+      puts a size on that fall. Macaulay duration, $D = \sum_t t\cdot PV_t/P$,
+      weights each cash flow's timing by the fraction of the bond's price it
+      represents — it is literally the center of mass of the bond's payment
+      schedule along the time axis. A bond with more of its value sitting in
+      distant payments has a higher Macaulay duration, because those distant
+      $t$'s get more weight.
+
+      Modified duration, $D_{mod} = D/(1+y)$, rescales that center-of-mass
+      number into something directly usable: it is the (negative) slope of
+      price against yield near the bond's current price, so
+      $\%\Delta P \approx -D_{mod}\,\Delta y$ turns a rate move straight into
+      a percentage price move with one multiplication. Because it is a
+      tangent-line approximation to a curved relationship, it is exact only
+      in the limit of an infinitesimal yield change — for any finite move it
+      is a first-order estimate, not the true answer.
+
+      The intuition to keep: longer maturities and lower coupons both push
+      more of a bond's value into the far future, raising Macaulay duration
+      and therefore rate sensitivity — a 30-year zero is far more
+      rate-sensitive than a 2-year high-coupon bond of the same price.
+    worked: >
+      A 3-year, $5\%$ annual-coupon, 100-dollar-face bond priced at par
+      ($y=5\%$) pays 5, 5, and 105 at $t=1,2,3$, with present values
+      $4.76$, $4.54$, and $90.70$. Macaulay duration is
+      $(1\times4.76+2\times4.54+3\times90.70)/100 \approx 2.86$ years, so
+      $D_{mod}\approx2.86/1.05\approx2.72$. A rise in yield to $6\%$ should
+      cut the price by about $2.72\%$, to roughly $97.28$; repricing directly
+      at $6\%$ gives about $97.33$ — the true price sits a touch above the
+      linear estimate, exactly the convexity gap duration always leaves on
+      the table.
+    interview: >
+      Expect "roughly what does this bond do if rates move 1 percent" as the
+      canonical ask, answered as $D_{mod}\times\Delta y$ in one breath, plus
+      "does duration go up or down with maturity/coupon" as an immediate
+      follow-up.
+    pitfalls: >
+      Quoting Macaulay duration when asked for price sensitivity — only
+      modified duration, divided by $(1+y)$, is the usable slope. Trusting
+      the linear estimate for a large yield move without flagging that the
+      true, convex price sits above the straight-line prediction in both
+      directions.
+    recap: >
+      Modified duration is the slope of price against yield, built from a
+      weighted-average cash-flow timing — accurate for small rate moves, and
+      always a slight underestimate of the true convex price.
+
+  - node: quant-finance.instruments.forward-future
+    hook: >
+      "List the differences between a forward and a future" is close to a
+      guaranteed opener in any derivatives interview, and the strong answer
+      is a short checklist, not a paragraph.
+    explanation: >
+      Both are obligations, not choices — a long forward or future commits
+      you to buy at the fixed price no matter where the market ends up, and a
+      short commits you to sell, with no walk-away option on either side.
+      That obligation is the defining property to hold onto, since the next
+      instrument in this unit breaks exactly that symmetry.
+
+      A forward is a private, over-the-counter agreement between two named
+      counterparties: customized to whatever size, date, and terms they
+      negotiate, carrying each side's exposure to the other's default, and
+      settling once, at expiry. A future is the identical obligation
+      standardized — fixed contract size, expiry, and deliverable grade — and
+      moved onto an exchange, where a clearinghouse interposes itself as
+      counterparty to every trade, removing bilateral default risk, and the
+      position is marked to market daily, with gains and losses paid in cash
+      each night instead of accumulating until expiry.
+
+      The total payoff over the life of the trade is the same either way —
+      standardization and daily settlement change when you receive the money
+      and who bears counterparty risk, not how much you ultimately make.
+    worked: >
+      A trader long a forward at 50, and separately long a future at 50, on
+      an asset that ends at 58: the forward pays $58-50=8$ once, at expiry.
+      The future instead credits the same total in pieces as it's marked
+      daily — say $+2$ on day 1 (price to 52), $+3$ on day 2 (price to 55),
+      $+3$ on day 3 at expiry (price to 58) — summing to the identical 8, just
+      received along the way instead of all at once.
+    interview: >
+      Expect the checklist answer — OTC versus exchange, bilateral default
+      risk versus a clearinghouse, single settlement versus daily
+      mark-to-market — and a follow-up on why a trader might still prefer a
+      forward (customization a standard contract can't match) over a future.
+    pitfalls: >
+      Describing a future as having no credit risk at all — the
+      clearinghouse and daily margining are the mitigation, not an absence of
+      risk. Treating "long" as any kind of choice — there is no optionality
+      here; the trade happens at the fixed price regardless of the market.
+    recap: >
+      A forward is a private, single-settlement obligation to trade later at
+      a fixed price; a future is the same obligation standardized, centrally
+      cleared, and settled in cash every day.
+
+  - node: quant-finance.instruments.futures-margin
+    hook: >
+      "Walk me through what happens to your account over three losing days"
+      is the standard way this gets tested, and the trap is topping the
+      account back up to maintenance instead of all the way to initial.
+    explanation: >
+      A future is marked to market daily, and margin is the collateral
+      buffer that absorbs those daily swings — initial margin is a small
+      percentage of contract value posted to open the position, not a
+      down payment toward owning the underlying. Each night the exchange
+      settles the day's price change in cash directly into or out of the
+      margin account, so the account balance drifts with the market every
+      single day the position stays open.
+
+      Maintenance margin is the floor: once the balance falls below it, a
+      margin call requires depositing enough to bring the account back up to
+      the initial margin level — not merely back above maintenance — or the
+      position gets closed out by the broker. Think of maintenance margin as
+      the trigger and initial margin as both the starting requirement and
+      the target every call restores to; conflating the two is the most
+      common slip.
+
+      Because losses are deducted continuously rather than saved up, futures
+      P&L is realized in real time, in contrast to a forward's single
+      settlement at expiry from the previous node — the margin mechanism is
+      precisely what daily marking requires to actually function.
+    worked: >
+      Initial margin 8,000 dollars, maintenance margin 6,000 dollars, on a
+      short position: the price rises 2,100 dollars over three days, so the
+      account loses 2,100, leaving 5,900 — below the 6,000 maintenance floor.
+      The margin call requires depositing $8{,}000-5{,}900=2{,}100$ dollars
+      to restore the account to the full 8,000 initial level, not just above
+      6,000.
+    interview: >
+      Given initial margin, maintenance margin, and a sequence of price
+      moves, expect to track the running balance, flag exactly when it
+      breaches maintenance, and compute the top-up back to initial without
+      being told to.
+    pitfalls: >
+      Topping up only to the maintenance level rather than all the way back
+      to initial. Treating initial margin as a cap on possible losses — it
+      isn't; losses can run through it many times over if calls go unmet, up
+      to the point of forced liquidation.
+    recap: >
+      Futures margin is collateral against daily marks, not a down payment —
+      a call restores the account to initial margin whenever daily losses
+      breach maintenance.
+
+  - node: quant-finance.instruments.option-vocab
+    hook: >
+      "Define a call and a put, then tell me the maximum loss for the buyer
+      versus the seller" is close to a guaranteed opener, and the buyer/
+      seller asymmetry is the part candidates rush past.
+    explanation: >
+      A forward or future is an obligation with no way out; an option is the
+      opposite — a right, never an obligation, to trade the underlying at a
+      fixed strike $K$ by expiry $T$. A call is the right to buy, a put the
+      right to sell; European exercise is allowed only at expiry, American
+      exercise at any time up to and including it. Think of an option as a
+      forward with a built-in walk-away clause: the holder simply declines to
+      exercise whenever it would be unfavorable, and the premium is exactly
+      what that one-sided choice costs to buy.
+
+      That walk-away clause is what makes the buyer's and seller's positions
+      fundamentally different, not just mirror images. The buyer (long)
+      pays the premium up front and can never owe more than that premium,
+      however badly the underlying moves — the loss is capped by
+      construction. The seller (short, or writer) collects the premium but
+      takes on the obligation to perform whenever the buyer chooses to
+      exercise, with no equivalent cap of their own.
+
+      Long and short here describe who holds the right versus who holds the
+      obligation — the same long/short language from forwards and futures,
+      but now attached to an asymmetric payoff instead of a symmetric one.
+    worked: >
+      A European put, strike 40, premium 3, 6 months to expiry. If the stock
+      settles at 32, the holder exercises: payoff $40-32=8$, minus the
+      3-dollar premium, nets 5. If instead it settles at 45, the holder lets
+      it expire worthless: payoff 0, net $-3$, the premium and nothing more.
+      The writer's outcomes mirror this exactly: $-5$ in the first case,
+      $+3$ in the second.
+    interview: >
+      Expect cold recall of call/put and European/American, immediately
+      followed by "what can the buyer lose, what can the seller lose" — the
+      strong answer names the premium cap for the buyer before being asked
+      about the seller's side.
+    pitfalls: >
+      Forgetting that only the holder (buyer) has a choice — the writer's
+      outcome is entirely determined by what the buyer decides. Assuming
+      American always trades meaningfully above European — the size of any
+      early-exercise premium depends on the underlying and is a pricing
+      question for later, not part of the definition itself.
+    recap: >
+      An option buyer pays a premium for the right, never the obligation, to
+      trade at the strike — capping the buyer's loss at that premium while
+      the writer carries the open-ended side.
+
+  - node: quant-finance.instruments.short-selling
+    hook: >
+      "What's the maximum loss on a short position?" has a one-word answer —
+      unbounded — and that single fact is why brokers treat shorting as
+      categorically riskier than owning stock.
+    explanation: >
+      Shorting starts with borrowing, not selling: a trader borrows shares
+      from a broker's inventory or another client's account, paying a borrow
+      fee for as long as the position is open, and sells them immediately at
+      the current price. What's owed back to the lender is shares, not cash —
+      profit comes from later buying identical shares back at a lower price
+      and returning them, the mirror image of buy-low-sell-high with the
+      order reversed in time.
+
+      Two costs run the entire time the position is open, independent of
+      whether the trade eventually works: the borrow fee itself, which
+      spikes for stock that's hard to borrow, and any dividends the
+      underlying stock pays, which the short seller owes back to the lender
+      since the lender is missing out on them. Neither cost depends on price
+      direction — they accrue regardless.
+
+      The risk asymmetry against owning stock is structural, not incidental:
+      a long position's price floor is zero, so the maximum loss is the
+      amount invested, while a short position's buy-back price has no
+      ceiling, so the maximum loss is unbounded. That asymmetry is exactly
+      why brokers demand margin against short positions and can force a
+      buy-in — a short squeeze — if posted collateral runs short.
+    worked: >
+      Short 100 shares at 30 dollars (proceeds 3,000), holding 6 months at a
+      borrow cost of about 30 dollars and owing a 0.50-dollar dividend per
+      share (50 dollars) paid during that time, then buying back at 22:
+      profit is $(30-22)\times100 - 30 - 50 = 720$ dollars. If instead the
+      stock is forced to be bought back at 55, the loss is already
+      $(30-55)\times100 = -2{,}500$ before fees — and keeps growing without
+      limit the higher the price runs.
+    interview: >
+      "What happens to a short if the stock triples" tests whether unbounded
+      loss comes back instantly, and "what does a short pay besides the
+      buy-back price" checks whether borrow fees and owed dividends get
+      named unprompted.
+    pitfalls: >
+      Computing short P&L from price difference alone, forgetting the
+      running borrow fee and any dividends owed. Assuming the maximum loss
+      is "100 percent," as with a long position — there is no price ceiling,
+      so there is no such cap.
+    recap: >
+      Shorting is renting and selling borrowed shares to buy them back
+      cheaper, paying fees and dividends the whole time — and unlike owning
+      stock, the loss has no ceiling.
+
+  - node: quant-finance.instruments.leverage
+    hook: >
+      "You're levered 5x and the position drops 8 percent — what's your
+      loss on capital?" is pure arithmetic once you see leverage as a
+      multiplier on your own capital, not on the position itself.
+    explanation: >
+      Buying on margin means funding part of a position with a broker's loan
+      instead of paying its full price in cash, and leverage is simply the
+      ratio of position size to the capital you actually committed. The
+      dollar profit or loss is earned on the full position size, but it's
+      measured as a percentage against your smaller equity base — that
+      mismatch between "size that moves" and "capital that's being tracked"
+      is exactly why percentage gains and losses scale up by roughly the
+      leverage ratio, in both directions equally.
+
+      That amplification is before financing costs: the borrowed portion of
+      the position accrues interest the entire time it's outstanding,
+      regardless of which way the trade goes, so the real return on capital
+      is always a bit worse than the raw leverage-ratio arithmetic suggests.
+
+      The other side of leverage is forced timing: if account equity falls
+      below the maintenance margin, the broker issues a margin call or
+      liquidates the position outright, the same mechanism as a futures
+      margin call applied to a stock account. A drawdown that would have
+      recovered given time can instead become a locked-in loss the moment it
+      breaches that threshold.
+    worked: >
+      4,000 dollars of own capital, borrowed up to 20,000 dollars of stock
+      (5x leverage, $20\%$ margin). An $8\%$ drop costs $20{,}000\times0.08=
+      1{,}600$ dollars on the position, which is $1{,}600/4{,}000=40\%$ of
+      capital — matching $5\times8\%=40\%$ before financing costs. An $8\%$
+      rise gains the same 40 percent on capital, before subtracting interest
+      on the borrowed 16,000.
+    interview: >
+      Expect "given leverage $N$ and a move of $k$ percent, what happens to
+      your equity" answered instantly as roughly $N\times k\%$, plus an
+      unprompted mention that financing costs and margin-call risk both cut
+      against the raw multiple.
+    pitfalls: >
+      Reporting the leverage-ratio arithmetic as the final answer while
+      ignoring financing costs on the borrowed capital, a real and continuous
+      drag. Forgetting that a loss well short of wiping out all capital can
+      still breach maintenance margin and force liquidation before any
+      recovery is possible.
+    recap: >
+      Leverage multiplies both gains and losses on your own capital by
+      roughly the leverage ratio, before financing costs — and a margin call
+      can force an exit at the worst possible moment regardless of your
+      long-run view.
+
+  - node: quant-finance.instruments.linear-vs-optional-payoff
+    hook: >
+      The fastest sanity check on any new instrument in an interview is one
+      question — does its payoff move in a straight line, or does it bend? —
+      and this node is the filing system that sorts everything covered so
+      far into exactly two bins.
+    explanation: >
+      Stocks, forwards, and futures all pay off linearly: profit or loss
+      moves one-for-one (or by a fixed multiplier) with the underlying, in
+      either direction, with no floor or ceiling built into the contract
+      itself. Options are the one instrument here that isn't linear — the
+      payoff bends at the strike, because the holder simply declines to
+      exercise whenever it would be unfavorable, which is the walk-away
+      clause from the option vocabulary node made geometric.
+
+      That single distinction drives how each is priced. A linear
+      instrument's payoff can be replicated exactly by holding the
+      underlying itself, so it's priced purely by directional no-arbitrage
+      replication — no view on how likely any particular outcome is needed.
+      An option's payoff cannot be replicated by a fixed position in the
+      underlying alone, since the kink means the right amount of exposure
+      changes as the price moves; pricing it has to additionally value that
+      one-sided choice, which is exactly where volatility becomes a priced
+      input rather than an afterthought.
+
+      Before reaching for any pricing tool on a new instrument, ask this
+      question first: is the payoff a straight line through the current
+      price, or does it bend somewhere? The answer decides which entire
+      toolkit — replication or option pricing — actually applies.
+    worked: >
+      A forward struck at 100 versus a call struck at 100, both long. At
+      $S=80$: the forward pays $80-100=-20$, the call pays $\max(80-100,0)
+      =0$. At $S=130$: the forward pays $30$, and so does the call. Below the
+      strike the forward keeps losing linearly while the call's payoff
+      floors flat at zero — the kink made numeric.
+    interview: >
+      "Is this payoff linear or does it have optionality" is often the first
+      classification question in a derivatives round — answer instantly and
+      name where the kink sits (the strike) and why (the right, not the
+      obligation, to exercise).
+    pitfalls: >
+      Assuming a short position in a linear instrument is somehow bounded —
+      shorting a stock or future only flips the sign of the same straight
+      line; the loss is still unbounded, just on the other side. Treating
+      "capped loss" as a property of the option contract itself rather than
+      of being long it — the writer of that same option sits on the
+      unbounded (or premium-collecting but still exposed) side of the kink.
+    recap: >
+      Linear instruments move dollar-for-dollar with the underlying in both
+      directions; options bend at the strike because the holder can decline
+      — check for that kink before reaching for a pricing tool.

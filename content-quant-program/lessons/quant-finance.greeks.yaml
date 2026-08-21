@@ -1,0 +1,870 @@
+unit: quant-finance.greeks
+opening: >
+  Every option risk report is a Taylor expansion in disguise — delta, gamma,
+  theta, vega and rho are just the partial derivatives of the Black–Scholes
+  value, and reading them fluently is the daily language of an options desk.
+  This unit builds each one in turn, its shape across moneyness and time, then
+  turns them into a discipline: delta hedging as a rebalancing process, and the
+  gamma-theta bargain that ties every unit of convexity a book owns to a fixed
+  rate of decay. It closes with the mental-math shortcuts — 0.4σS√T for an
+  at-the-money option and its straddle cousin — that a desk quotes cold.
+lessons:
+  - node: quant-finance.greeks.greeks-overview
+    hook: >
+      An interviewer who asks "what is delta, really" before ever mentioning a
+      formula is checking that you see it as one partial derivative of a single
+      pricing function, not as an isolated number to memorize — get that wrong
+      and every later question about hedging a book gets harder.
+    explanation: >
+      Black–Scholes value is one smooth function of five inputs, and a Greek is
+      what you get from freezing four of them and asking how the fifth moves the
+      price. That is the whole idea: there is no separate "delta model" or
+      "vega model", only one pricing function differentiated in different
+      directions. The Greeks you trade off of are computed by first calibrating
+      the model — solving for the implied volatility that reproduces the
+      market's price — and then reading its other partial derivatives at that
+      same point. A Greek is therefore only as trustworthy as the model it came
+      from, and it moves the instant the market re-quotes the price and the
+      calibration is redone.
+
+      Because differentiation is linear, the Greeks of a book are just the sum
+      of the Greeks of its legs — a call's delta plus a put's delta plus a
+      share position's delta is the portfolio's delta, no extra machinery
+      required. That additivity is what makes a Greek sheet useful at all: a
+      desk with a thousand line items reduces its entire spot risk to one
+      number.
+
+      Two quoting habits are worth internalizing now because every later Greek
+      inherits them: theta is reported per calendar day, so divide the raw
+      annual number by 365, and vega is reported per volatility point, so
+      divide the raw derivative by 100.
+    worked: >
+      A book holds three legs on the same underlying: 100 long calls at delta
+      0.52 each, 200 short puts at delta -0.30 each, and a bare short position
+      of 80 shares. The calls contribute $100(0.52) = 52$. Being short the puts
+      flips the sign of their per-option delta: $-200(-0.30) = 60$. The shares
+      contribute $-80$ directly, since a share's delta is $1$. Portfolio delta
+      is $52 + 60 - 80 = 32$ — the desk is net long the equivalent of 32
+      shares, read straight off three very different instruments.
+    interview: >
+      "Why can you just add deltas across different products" is really
+      asking whether you know they are all partial derivatives of the same
+      book value, so adding them is ordinary linearity of differentiation.
+      Expect a quick check on the quoting conventions too — get the per-day or
+      per-point divisor wrong and a stated Greek is off by a factor of 100 or
+      365.
+    pitfalls: >
+      Quoting a Greek without knowing which implied volatility it was computed
+      at is quoting a number attached to nothing — it is a model output, not a
+      market-observed fact. Forgetting the per-point vega convention overstates
+      a position's volatility exposure by a factor of 100 the moment someone
+      asks "what's your vega" expecting the per-point number.
+    recap: >
+      Each Greek is one partial derivative of Black–Scholes evaluated at the
+      market's implied volatility, and they sum linearly across a book because
+      differentiation itself is linear.
+
+  - node: quant-finance.greeks.delta
+    hook: >
+      Delta is the first number a market maker asks for after pricing a trade
+      because it is not an abstract sensitivity — it is literally the share
+      order that goes to the hedge desk next.
+    explanation: >
+      Think of delta as answering one operational question: how many shares,
+      right now, replicate the option's next small move. That reading is what
+      makes it tradeable rather than merely descriptive — a market maker who
+      sells a call does not sit exposed to spot, they immediately buy delta
+      shares and are flat to first order.
+
+      The bound between 0 and 1 for a call is not a coincidence of the formula;
+      an option can never be worth more, per unit of spot move, than the stock
+      itself, since a call is a capped, optional claim on the stock's upside. A
+      put's delta lives in the mirror range, negative because owning a put pays
+      off when spot falls.
+
+      The S-curve shape across moneyness reflects how "optional" the claim
+      still is: deep out of the money, a small move in spot barely changes the
+      odds of ever mattering, so delta sits near zero; deep in the money, the
+      option already behaves like owning the stock outright, so delta
+      approaches one. Near expiry that curve steepens into almost a step
+      function at the strike, because there is no time left for anything to
+      change the outcome; far from expiry it flattens, since a lot can still
+      happen before the option's fate is decided.
+    worked: >
+      Take a fresh instance: $S = K = 50$, $\sigma = 30\%$, $T = 1$, $r = 0$.
+      Then $d_1 = [\ln(S/K) + (\sigma^{2}/2)T]/(\sigma\sqrt{T}) = 0.15$, so
+      $\Delta_C = N(0.15) = 0.56$. On a 100-lot of these calls, the hedge is to
+      short $56$ shares — not a rounded guess, the exact number the formula
+      hands you.
+    interview: >
+      "What's your delta on this position" expects the number and the trade in
+      the same breath — value, then share count. A common follow-up asks how
+      delta behaves as expiry approaches for a fixed strike near spot, checking
+      whether you know the S-curve steepens into a step rather than staying
+      put.
+    pitfalls: >
+      Treating a computed delta as fixed until the next report is the fastest
+      way to end up mis-hedged, since it moves with every tick in spot.
+      Assuming at-the-money delta is always exactly one-half ignores the
+      $(r + \sigma^{2}/2)T$ term in $d_1$, which nudges it slightly above a
+      half for any positive rate or vol.
+    recap: >
+      Delta is the local hedge ratio — the share count that cancels an
+      option's first-order spot risk — bounded between 0 and 1 for a call and
+      shaped like an S-curve across moneyness.
+
+  - node: quant-finance.greeks.delta-n-d1
+    hook: >
+      "Isn't a 30-delta option 30% likely to expire in the money" is one of
+      the most reliably planted traps in an options interview, and the
+      interviewer is listening for exactly this distinction.
+    explanation: >
+      The confusion is easy to fall into because the second term of the
+      pricing formula genuinely is a probability-weighted payment: it is $K$
+      times the risk-neutral chance of exercise. It is tempting to assume the
+      first term's coefficient carries the same reading, but it does not — it
+      is a probability under a different accounting, one that weights outcomes
+      by the stock's own value rather than by a fixed unit of cash. Delta is
+      the exercise probability measured in "shares" rather than in dollars,
+      which is why it differs from the plain exercise probability by exactly
+      the same $\sigma\sqrt{T}$ shift that separates $d_1$ from $d_2$.
+
+      That gap is not a rounding artifact; it scales directly with total
+      variance over the option's life. Short-dated, low-volatility options have
+      it be small, so the desk shorthand is nearly harmless there — which is
+      exactly why the shorthand survives. The moment maturity or volatility
+      grows, the two numbers pull apart, and quoting one for the other stops
+      being a harmless simplification.
+    worked: >
+      With $S = K = 50$, $\sigma = 30\%$, $T = 1$, $r = 0$: $\Delta = N(0.15) =
+      0.56$, while the true exercise probability is $N(d_2) = N(-0.15) =
+      0.44$ — a gap of about $0.12$. Compare that to a short-dated, low-vol
+      case with $\sigma\sqrt{T} = 0.10$, where the gap is only about $0.04$: the
+      gap roughly triples here because $\sigma\sqrt{T} = 0.30$ is three times
+      as large.
+    interview: >
+      "Is a 30-delta call 30% likely to finish in the money" is answered "no —
+      that's $N(d_1)$, the exercise probability is $N(d_2)$, and the two differ
+      by $\sigma\sqrt{T}$." A sharper follow-up asks for which kind of option
+      the two are nearly interchangeable, and the answer is short-dated,
+      low-volatility, near the money.
+    pitfalls: >
+      Presenting delta as a probability to a risk committee overstates
+      precision it does not have twice over — it is the wrong probability
+      measure, and even the right measure, $N(d_2)$, is a pricing-model
+      probability, not the real-world odds an actual trader would bet on.
+    recap: >
+      Delta is exactly $N(d_1)$ and only resembles the exercise probability
+      $N(d_2)$ — a gap driven by $\sigma\sqrt{T}$ that widens with maturity and
+      volatility rather than staying fixed.
+
+  - node: quant-finance.greeks.put-call-delta
+    hook: >
+      Handed an inconsistent set of quoted Greeks, the fastest way to catch it
+      — faster than re-pricing anything — is to check these four relations,
+      which is exactly why interviewers ask for them cold.
+    explanation: >
+      Any identity that holds for every value of the inputs can be
+      differentiated in each input and still hold — that single fact is the
+      whole derivation, and it is a technique worth having beyond options.
+      Recall put–call parity: a long call and short put at the same strike and
+      expiry replicate a forward contract, long the stock and short the
+      discounted strike.
+
+      A forward has trivial Greeks of its own: delta one, and flat in every
+      other direction, since its value is linear in spot and does not depend
+      on volatility at all. That is the mental shortcut behind three of the
+      four relations. Because the call-minus-put position is exactly a
+      forward, whatever curvature or volatility sensitivity the call carries,
+      the put must carry identically, since the forward contributes none —
+      hence equal gamma and equal vega. Delta differs by exactly one, the
+      forward's own delta.
+
+      Rho and theta are the exceptions, and the reason is the same forward:
+      it still depends on the discounted strike $Ke^{-rT}$, which does move
+      with both rate and time, so those two Greeks differ by precisely the
+      derivative of that discount factor rather than lining up exactly.
+    worked: >
+      Using $S = K = 50$, $\sigma = 30\%$, $T = 1$, $r = 0$: $\Delta_C = 0.56$,
+      $\Delta_P = -0.44$, difference exactly $1$. $\Gamma_C = \Gamma_P = 0.026$
+      and $\operatorname{Vega}_C = \operatorname{Vega}_P = 19.72$, identical as
+      predicted. $\rho_C = 22.02$ and $\rho_P = -27.98$, a difference of
+      $50.00$, matching $KT = 50 \times 1$ exactly since $r = 0$. And
+      $\Theta_C = \Theta_P$ here, since the $r = 0$ special case removes the
+      gap entirely.
+    interview: >
+      "A call has delta 0.6 — what's the put's delta at the same strike and
+      expiry" wants "-0.4" instantly, from the parity relation, not a fresh
+      calculation. A related favorite: "why do a call and put share gamma" —
+      because their difference is a forward, which has none.
+    pitfalls: >
+      Adding instead of subtracting one when converting between call and put
+      delta flips the sign of the whole answer. Assuming vega also differs
+      between call and put, the way rho does, confuses the two — vega is
+      identical, rho is not, because only the discounted strike carries rate
+      sensitivity.
+    recap: >
+      Differentiate the parity identity $C - P = S - Ke^{-rT}$ in each input
+      and every call-put Greek relation falls out for free — the fastest
+      consistency check on a quoted Greek sheet.
+
+  - node: quant-finance.greeks.gamma
+    hook: >
+      Ask a market maker what a "gamma of 0.03" means to them, and the answer
+      is never the second-derivative definition — it is how fast their hedge
+      is about to go stale.
+    explanation: >
+      Gamma is delta's own rate of change, and reading it that way turns it
+      from a curvature abstraction into an operational fact: a big gamma means
+      your last hedge trade is already wrong and getting more wrong by the
+      tick. That is why gamma is a genuine cost center for a desk, not just a
+      risk number — it drives how often the hedge has to be touched.
+
+      The sign carries the entire economic content. A long option's value
+      curve sits above its own tangent line in spot, so any move away from the
+      hedge point — up or down, it does not matter which — leaves the position
+      ahead of what the linear delta hedge alone would predict. That is
+      convexity paying off in both directions at once, which is the single
+      most important fact about owning gamma. A short option has the mirror
+      shape, a curve sitting below its tangent, so any move costs money against
+      the hedge regardless of direction.
+
+      Because gamma measures how fast delta itself moves, it is the number
+      that tells you how aggressively to rebalance, not merely how risky the
+      position looks on a static snapshot.
+    worked: >
+      With $S = K = 50$, $\sigma = 30\%$, $T = 1$: $\Gamma =
+      \varphi(d_1)/(S\sigma\sqrt{T}) = 0.026$. If spot ticks to $51$, delta
+      should move by about $\Gamma \times 1 = 0.026$, from $0.56$ toward
+      $0.586$ — and the exact recomputed value is $0.5855$, matching the
+      linear estimate to three decimals. On a 100-lot, that one-point move
+      requires buying roughly $2.6$ more shares to stay flat.
+    interview: >
+      "What does a gamma of 0.03 actually mean for your hedge" wants the
+      translation into shares — delta moves 0.03 per point, so a 100-lot needs
+      3 shares traded per point just to stay flat. The interviewer is checking
+      you can turn the number into an action, not just recite the formula.
+    pitfalls: >
+      Thinking gamma only helps on moves in one direction misses the entire
+      point of convexity — a long position gains from either an up-move or a
+      down-move against its hedge. Comparing raw gamma across two differently
+      priced underlyings without any scaling compares numbers that are not on
+      the same footing.
+    recap: >
+      Gamma is the rate delta itself moves — positive for any long option,
+      meaning every rebalance edges the hedge back toward flat no matter which
+      way spot moved.
+
+  - node: quant-finance.greeks.gamma-profile
+    hook: >
+      "Where does your pin risk concentrate into expiry" is asking you to
+      locate exactly where gamma lives, and the answer is a specific shape, not
+      a vague "near the strike."
+    explanation: >
+      Gamma vanishes wherever delta has stopped moving. Deep in or out of the
+      money, delta is already pinned near one or zero, so there is no more
+      curvature left to have — the option has effectively resolved into either
+      "the stock" or "nothing," and small spot moves change neither view.
+      Gamma is only large where the outcome is still genuinely undecided, which
+      is precisely at the strike.
+
+      The $1/\sqrt{T}$ blow-up into expiry is the same undecidedness argument
+      run against a shrinking clock. As $T\to 0$, the remaining uncertainty
+      $\sigma\sqrt{T}$ collapses toward zero, so a fixed dollar move in spot
+      represents an ever-larger share of everything that can still happen
+      before expiry — delta has to swing from near zero to near one across an
+      increasingly narrow band of strikes, and that swing packed into less time
+      is exactly what a diverging gamma describes.
+
+      Because raw gamma is not comparable across different underlyings — a
+      fixed gamma means something different on a 20 stock than on a 500 stock —
+      the number that actually enters a P&L calculation is scaled by
+      $S^{2}$, so it can be compared, added, and risk-managed sensibly across
+      names.
+    worked: >
+      With $S = K = 50$, $\sigma = 30\%$: at $T = 1$, $\Gamma \approx 0.026$;
+      shrink to $T = 1/12$ (one month) and $\Gamma \approx 0.092$, a factor of
+      about $3.5\times$ — close to the $\sqrt{12} \approx 3.46$ scaling the
+      $1/\sqrt{T}$ rule predicts for a twelvefold shrink in time.
+    interview: >
+      "Why is the last week before expiry dangerous for a short options book"
+      is answered with the $1/\sqrt{T}$ blow-up concentrated at strikes near
+      spot. A common follow-up: "is gamma different for a call versus a put at
+      the same strike" — no, they are identical, from put-call parity.
+    pitfalls: >
+      Assuming gamma keeps rising into expiry at every strike is wrong — it
+      only rises where spot actually sits; strikes far from the money decay
+      toward zero even as expiry nears. Comparing unscaled gamma across two
+      underlyings priced very differently is comparing numbers with no common
+      unit.
+    recap: >
+      Gamma peaks at the strike and grows like $1/\sqrt{T}$ into expiry,
+      identical for call and put — which is why short-dated at-the-money risk
+      is where pin risk concentrates.
+
+  - node: quant-finance.greeks.theta
+    hook: >
+      Theta is the one Greek guaranteed negative for a long option almost
+      always, and an interviewer wants the no-arbitrage reason it must be that
+      way, not just the fact of it.
+    explanation: >
+      An option's value above its intrinsic worth is entirely a payment for
+      remaining uncertainty — the chance that spot still moves in your favor
+      before expiry. Time passing with everything else held fixed removes some
+      of that uncertainty and nothing replaces it, so the value has nowhere to
+      go but down. That is the mechanism, not merely the observation, behind a
+      negative theta.
+
+      The decay is not spread evenly across the option's life; it accelerates
+      as $T\to 0$ for the same reason gamma explodes there — the remaining
+      uncertainty $\sigma\sqrt{T}$ is shrinking fastest right before expiry, so
+      the largest single chunk of an at-the-money option's value evaporates in
+      its final stretch rather than smoothly throughout.
+
+      The one sign flip worth holding onto — a deep in-the-money European put
+      with $r > 0$ — makes sense once you stop thinking purely about
+      uncertainty: that holder is functionally waiting to receive a fixed cash
+      strike, and every extra day of waiting only delays interest on cash
+      already effectively owed to them. Time there is a cost to holding, not a
+      source of value.
+    worked: >
+      With $S = K = 50$, $\sigma = 30\%$, $T = 1$, $r = 0$: $\Theta = -S
+      \varphi(d_1)\sigma/(2\sqrt{T}) = -2.96$ per year, or about $-0.0081$ per
+      day. On a 100-lot, that is roughly $0.81$ given up every calendar day
+      just from time passing, with spot, vol and rates unchanged.
+    interview: >
+      "Why must theta be negative for a long option" wants the uncertainty
+      argument stated directly, not just "because time decay." A sharper
+      follow-up, "can theta ever be positive," is answered with the deep
+      in-the-money European put under a positive rate, and why: delayed
+      receipt of the strike.
+    pitfalls: >
+      Treating decay as roughly linear and "amortizing" the premium evenly
+      across the option's life misreads the shape entirely — it accelerates
+      like $1/\sqrt{T}$, so most of it is back-loaded into the final stretch.
+      Dividing the annual figure by 252 instead of 365 mixes up a trading-day
+      convention used elsewhere with theta's calendar-day convention.
+    recap: >
+      Theta is the price of remaining uncertainty running out — negative for a
+      long option except a rate-driven exception on deep in-the-money puts,
+      and it accelerates like $1/\sqrt{T}$ into expiry.
+
+  - node: quant-finance.greeks.theta-carry
+    hook: >
+      "Why would anyone sign up to lose money every single day" is the natural
+      objection to owning options, and this is the one-line answer a desk
+      gives back.
+    explanation: >
+      Selling premium looks, day to day, exactly like collecting steady income
+      — small, reliable, positive theta showing up on the P&L with nothing
+      obviously happening in return. That resemblance to income is precisely
+      what makes it dangerous: the position is short a rare, large loss rather
+      than genuinely riskless, a pattern that shows up throughout finance
+      wherever a frequent small gain is funded by an infrequent large one.
+
+      From the long side, the same asymmetry reads as a slow bleed with an
+      uncertain payoff date. Paying theta every day with no visible return
+      feels like a losing position right up until a real move arrives, at
+      which point the accumulated convexity that was quietly being paid for
+      shows up all at once. The P&L pattern of a long-gamma book is therefore
+      smoothly negative punctuated by occasional sharp gains — the mirror image
+      of the short side's smoothly positive, occasionally catastrophic pattern.
+
+      Neither side is "wrong" to hold its position; the trade is a bet on
+      whether the rate being charged for convexity will turn out to be more or
+      less than what the market actually delivers.
+    worked: >
+      A short-gamma book collects theta of about $5$ a day. Over $250$ quiet
+      trading days that is $+1{,}250$. A single sharp move then produces a
+      gamma loss of $3{,}000$ in one day. Net for the year: $1{,}250 - 3{,}000
+      = -1{,}750$, despite $250$ of the $251$ trading days showing a profit.
+    interview: >
+      "Would you rather be long or short gamma here" has no single right
+      answer, but the expected response states the trade-off precisely: a
+      fixed daily cost or credit against a convex or concave payoff, decided
+      by whether realized moves beat what was priced in.
+    pitfalls: >
+      Judging a short-gamma strategy by its win rate rather than its expected
+      value is the exact error the worked example is built to expose — a
+      strategy profitable on 250 of 251 days can still lose money overall.
+    recap: >
+      Long options pay theta to rent convexity; short options collect that
+      rent and are exposed to the rare large move it was pricing in.
+
+  - node: quant-finance.greeks.vega
+    hook: >
+      Vega is the one Greek about a belief rather than an observable market
+      fact — nobody can look up the model's own volatility input the way they
+      look up a spot price.
+    explanation: >
+      Every other Greek reacts to a quantity the market posts somewhere; vega
+      reacts to the one input a trader has to estimate. That is what makes it
+      the purest expression of a volatility view, separate from any opinion
+      about direction.
+
+      Vega is positive for both calls and puts, unlike delta, because more
+      uncertainty always helps a capped-downside, open-upside claim regardless
+      of which side of the strike it sits on — a call and a put are both long
+      optionality, so both are long vega. It grows like $\sqrt{T}$ rather than
+      exploding near expiry the way gamma does, because vega concerns the
+      level of accumulated uncertainty over the option's whole remaining life,
+      and more time simply means more of it, monotonically, with no singular
+      collapse at the end.
+
+      That different shape across maturity is why gamma and vega trade off
+      along the term structure: short-dated options carry large gamma and
+      small vega, long-dated options the reverse, so a desk that wants a clean
+      volatility view without much gamma exposure reaches for longer-dated,
+      at-the-money options rather than short-dated ones.
+    worked: >
+      With $S = K = 50$, $\sigma = 30\%$, $T = 1$: $\operatorname{Vega} =
+      S\varphi(d_1)\sqrt{T} = 19.72$ per unit of $\sigma$, about $0.20$ per
+      volatility point. On a 100-lot, that is about $20$ per point of implied
+      vol; if implied vol jumps two points on an earnings surprise, the
+      position gains roughly $40$ from that repricing alone, independent of
+      what spot does.
+    interview: >
+      "Your book is short a lot of vega into an earnings print — what's the
+      risk" wants the answer that an implied-vol move hits P&L directly
+      through this term, whether or not spot moves at all, and that the
+      exposure concentrates in longer-dated, at-the-money strikes.
+    pitfalls: >
+      Quoting the raw derivative instead of the per-point convention
+      overstates exposure by a factor of 100 the moment someone asks for a
+      per-point number. Assuming vega is negligible on short-dated names
+      forgets that an earnings-driven implied-vol jump can still be large
+      enough to matter even where the per-unit sensitivity is small.
+    recap: >
+      Vega is exposure to the market's own implied-vol quote, positive for any
+      vanilla option and growing like $\sqrt{T}$ — long-dated, at-the-money
+      options are where volatility risk really concentrates.
+
+  - node: quant-finance.greeks.rho
+    hook: >
+      Rho is the Greek most desks quietly ignore on a standard equity option,
+      and an interviewer wants to hear precisely why that's usually safe rather
+      than a shrug.
+    explanation: >
+      Rho enters through the discounted strike, and the sign follows from what
+      each side is owed. A call holder effectively defers paying the strike
+      until expiry, so a higher rate makes that future payment cheaper in
+      today's terms and the call more valuable — positive rho. A put holder is
+      on the receiving end of that same deferred cash, so a higher rate
+      discounts what they will eventually collect and makes the put less
+      valuable — negative rho.
+
+      Because this is a discounting effect, it only accumulates over the time
+      the cash flow is actually deferred, which is why rho scales directly
+      with maturity: a one-week option barely notices a rate move, while a
+      multi-year option genuinely does. That single scaling fact is the whole
+      reason rho gets deprioritized in most trading conversations — not
+      because the logic is unimportant, but because the standard interview
+      option is short-dated enough that the effect is small in absolute terms.
+
+      The practical rule is to check maturity before dismissing it: long-dated
+      contracts, or any instrument whose underlying is itself a rate, are
+      exactly where rho stops being an afterthought.
+    worked: >
+      With $S = K = 50$, $T = 1$, $\sigma = 30\%$, $r = 0$: $\rho_C = KT
+      N(d_2) = 50 \times 1 \times 0.44 = 22.02$ per unit of rate, about $0.22$
+      for a one-percentage-point move. Compare that to delta's $0.56$ on a
+      one-point spot move — even at a full year to expiry, a percentage-point
+      rate move still matters less than a single point of spot.
+    interview: >
+      "Rank the five Greeks by how much you'd worry about each on a 3-month
+      equity option" puts rho last, and the expected justification names the
+      maturity scaling directly. A quick follow-up, "does rho ever matter," is
+      answered with long-dated contracts or rate-linked underlyings.
+    pitfalls: >
+      Dismissing rho unconditionally, without checking maturity first, misses
+      the cases — multi-year options, rates products — where it stops being
+      negligible. Flipping the sign under pressure, forgetting calls are
+      positive and puts negative, is an easy slip.
+    recap: >
+      Rho scales with maturity, so it is negligible on the short-dated options
+      most interviews probe and material only for multi-year contracts.
+
+  - node: quant-finance.greeks.pnl-expansion
+    hook: >
+      This identity is the one line every risk report is secretly computing —
+      being able to write it from memory and plug in real numbers is what
+      separates "knows the Greeks" from "can attribute a day's P&L."
+    explanation: >
+      This is an ordinary multivariate Taylor expansion of the pricing
+      function, with one deliberate asymmetry: spot gets kept to second order
+      while time, volatility and rate are kept only to first. The reason is
+      practical rather than mathematical — over a realistic short interval, a
+      spot move is large enough relative to the option's curvature that the
+      linear term alone leaves real error on the table, while the analogous
+      curvature in time or volatility over that same short interval is small
+      enough to ignore.
+
+      Reading the four surviving terms as an attribution turns an abstract
+      formula into a trading report: delta explains the move you'd expect from
+      direction alone, gamma explains what convexity added on top of that,
+      theta explains what time passing cost you, and vega explains what a
+      repricing of the market's own volatility view was worth. Every later
+      hedging argument in this unit is this one identity with particular terms
+      set to zero or substituted for another.
+
+      The convexity term deserves special notice: since it is multiplied by a
+      squared spot move, its sign is fixed by the position alone before
+      anything happens — a long-gamma book knows in advance that this term
+      will help, and a short-gamma book knows it will hurt, regardless of which
+      way the market goes.
+    worked: >
+      Using $\Delta = 0.56$, $\Gamma = 0.026$, $\Theta = -2.96$ per year, and
+      $\operatorname{Vega} = 19.72$: over one day with $\delta S = 1$, $\delta
+      t = 1/365$, $\delta\sigma = 0.01$, $\delta V \approx 0.56(1) +
+      \tfrac{1}{2}(0.026)(1)^{2} + (-2.96)(1/365) + 19.72(0.01) = 0.56 +
+      0.013 - 0.008 + 0.197 = 0.762$ — the day's move, decay and one point of
+      vol combine to a gain of about $0.76$ per option.
+    interview: >
+      "Decompose today's P&L on this book" wants the four terms named and
+      plugged in, not "it went up because delta." A sharp follow-up, "what's
+      missing from this expansion," is answered with the cross terms vanna and
+      volga, which surface as unexplained residual whenever spot and vol move
+      together.
+    pitfalls: >
+      Dropping the one-half in the gamma term is the single most common slip
+      in this identity. Treating the expansion as exact rather than a
+      truncation overstates its reach on a genuinely large single-day move,
+      where third-order and cross terms leave a real residual.
+    recap: >
+      Over a short interval, option P&L is $\Delta\,\delta S +
+      \tfrac{1}{2}\Gamma(\delta S)^{2} + \Theta\,\delta t +
+      \operatorname{Vega}\,\delta\sigma$ — the whole language of risk
+      attribution collapsed into one Taylor expansion.
+
+  - node: quant-finance.greeks.delta-hedging
+    hook: >
+      "Walk me through delta hedging" is close to a guaranteed prompt on a
+      derivatives desk, and the answer that scores is the mechanics plus the
+      two frictions that keep it from being perfect — not just "buy or sell
+      shares to stay flat."
+    explanation: >
+      Delta hedging is the continuous-time version of an idea already familiar
+      from the one-step binomial: hold exactly the share count that replicates
+      the option's next move, and the combined position has no first-order
+      spot risk left. Running that computation over and over, rebalancing as
+      spot and time move, is what "continuous hedging" actually means — it is
+      the same replication argument, repeated.
+
+      Rebalancing is not optional bookkeeping; it is required precisely because
+      gamma exists. The moment spot moves, delta has already changed, so the
+      share count that was correct a moment ago is now stale, and the position
+      is quietly re-exposed until the next trade.
+
+      In practice two frictions decide how the theoretical ideal gets
+      compromised. Hedging at a finite number of times leaves a residual
+      tracking error that shrinks only like $1/\sqrt{n}$ as the number of
+      rebalances $n$ grows, so doubling trading frequency does not halve the
+      error. Meanwhile every rebalance crosses the bid-ask spread, so trading
+      more often to shrink that error also bleeds more into transaction costs
+      — which is why real desks hedge to a no-trade band around flat rather
+      than chase continuous perfection.
+    worked: >
+      A one-step binomial: $S = 50$ moves to $S_u = 55$ with call value $C_u =
+      8$, or to $S_d = 45$ with $C_d = 2$. The replicating hedge is $\Delta =
+      (C_u - C_d)/(S_u - S_d) = (8-2)/(55-45) = 0.6$ — holding $0.6$ shares
+      against a short call exactly matches its payoff at either outcome, the
+      same computation continuous delta hedging repeats at every instant.
+    interview: >
+      "How would you delta hedge this, and what's the biggest practical
+      headache" wants the discretization error's $1/\sqrt{n}$ shrinkage and
+      the transaction-cost drag both named, landing on a no-trade band as the
+      realistic answer rather than "trade continuously."
+    pitfalls: >
+      Describing delta hedging as a single trade rather than an ongoing
+      process skips the exact frictions the topic is about. Assuming finer
+      rebalancing is strictly better ignores that shrinking the tracking error
+      trades off directly against paying more spread.
+    recap: >
+      Delta hedging holds $-\Delta$ shares and rebalances as delta drifts — the
+      continuous-time echo of the binomial replicating portfolio, tuned in
+      practice by a frequency-versus-cost trade-off rather than run to
+      perfection.
+
+  - node: quant-finance.greeks.rebalance-example
+    hook: >
+      Reproducing this exact number on the spot — the dollar take from one
+      rebalance — is what separates having memorized the gamma formula from
+      having actually hedged a book.
+    explanation: >
+      The mechanics generalize past the specific numbers: whichever direction
+      spot moves, the linear piece of the option's value change is cancelled
+      exactly by the opposite move on the hedge shares, because that
+      cancellation is the entire point of being delta-hedged. What survives
+      after that cancellation is pure convexity, and because it comes from a
+      squared spot move, it carries the same sign — a gain for a long position
+      — no matter which way spot went.
+
+      That residual is not free money sitting on the table; it is the exact
+      quantity the earlier gamma-theta bargain says theta is charging for in
+      advance. A single rebalance's gamma gain can be compared directly to a
+      day's worth of decay to see whether that particular move "paid for
+      itself."
+
+      After the move, delta has shifted by roughly gamma times the move, so
+      the hedge itself needs a follow-up trade — and the direction of that
+      trade is informative on its own: a rally forces a sale, a drop forces a
+      purchase, the seed of the mechanical pattern that shows up again once
+      hedging is repeated many times.
+    worked: >
+      Take a 300-contract position in the $S = K = 50$, $\sigma = 30\%$, $T =
+      1$ calls ($\Delta = 0.56$, $\Gamma = 0.026$), initially hedged short about
+      $168$ shares. Spot drops $3$ points to $47$: the options lose about
+      $468$, the short shares gain about $504$, netting $+35.50$ — matching
+      $\tfrac{1}{2}(300)(0.026)(3)^{2} = 35.50$ exactly, the pure gamma term on
+      a down-move. Delta has fallen to about $0.48$, so about $24$ of the
+      shorted shares are bought back to re-flatten. That $35.50$ gain covers
+      roughly $14.6$ days of this lot's theta, which runs about $2.43$ per
+      day.
+    interview: >
+      "Spot moved X points and you're delta-hedged — what's your P&L, and
+      why" is answered by walking through the cancellation: the linear pieces
+      net out by construction, leaving $\tfrac{1}{2}\Gamma(\delta S)^{2}$ times
+      position size, regardless of direction.
+    pitfalls: >
+      Forgetting to scale the per-option Greeks by position size before
+      quoting a P&L number is a common arithmetic slip. Treating the gamma
+      gain as costless ignores that it was funded by the theta already paid
+      for owning that convexity in the first place.
+    recap: >
+      A delta-hedged move's P&L is pure gamma — the linear pieces cancel by
+      construction, leaving $\tfrac{1}{2}\Gamma(\delta S)^{2}$ regardless of
+      which way spot moved.
+
+  - node: quant-finance.greeks.gamma-theta
+    hook: >
+      Being able to reproduce $\Theta \approx -\tfrac{1}{2}\sigma^{2}S^{2}
+      \Gamma$ from Itô's lemma cold, rather than quoting it, is one of the
+      strongest signals an interviewer has that hedging is actually understood.
+    explanation: >
+      The mental model is a no-arbitrage constraint rather than a coincidence:
+      once a book is delta-hedged, its remaining drift is not free to be
+      anything — recall Itô's lemma applied to the pricing function shows that
+      drift is fixed, and no-arbitrage pins it to the riskless rate, no more
+      and no less. Any drift the quadratic, gamma-driven term would otherwise
+      contribute has to be exactly cancelled by something, and theta is that
+      something. Gamma and theta are therefore not two independent risk
+      numbers on a report — quoting a gamma without a matching theta, or vice
+      versa, is the same kind of inconsistency the put-call parity relations
+      catch, just for one option against itself.
+
+      This is the precise version of the earlier idea that theta is rent for
+      owning convexity: the rate of that rent is not set by desk convention,
+      it is set by Black–Scholes to be exactly $\tfrac{1}{2}\sigma^{2}S^{2}
+      \Gamma$ at the volatility the option was priced at.
+
+      Setting $r = 0$ isolates the core identity cleanly, but the more general
+      relation with rates carries an extra $rS\Delta$ term on the hedged side
+      and $rV$ on the riskless side — worth naming if asked, since dropping
+      rates silently is a modeling choice, not a law.
+    worked: >
+      With $\sigma = 30\%$, $S = 50$, $\Gamma = 0.026$: $\tfrac{1}{2}
+      \sigma^{2}S^{2}\Gamma = 0.5(0.09)(2500)(0.026) = 2.96$, matching the
+      $\Theta = -2.96$ computed directly from the theta formula to two decimal
+      places.
+    interview: >
+      "If I give you gamma, can you tell me theta" is answered yes, to leading
+      order, via $\Theta \approx -\tfrac{1}{2}\sigma^{2}S^{2}\Gamma$, stated
+      cold. The expected justification for why it must hold is no-arbitrage:
+      a delta-hedged portfolio's drift is fixed by the riskless rate, so
+      gamma's contribution to that drift has to be offset by theta.
+    pitfalls: >
+      Applying the $r = 0$ form when rates are not actually negligible drops
+      real terms from the identity. Assuming the relation holds instant to
+      instant for a book that is not perfectly, continuously hedged mistakes
+      an average-case identity for an exact one.
+    recap: >
+      For a delta-hedged option, theta is not independent — it equals minus
+      one half of $\sigma^{2}S^{2}\Gamma$ exactly, the price Black–Scholes
+      charges for every unit of convexity.
+
+  - node: quant-finance.greeks.vol-pnl
+    hook: >
+      "Is this hedged position a bet on direction or on volatility" has one
+      answer once you see this identity, and interviewers use it to check that
+      you can cleanly separate a delta bet from a vol bet.
+    explanation: >
+      Substituting the gamma-theta identity into the P&L expansion removes
+      theta as a free-standing term and replaces it with the volatility the
+      option was hedged at — recall implied volatility as exactly that number.
+      What is left is striking: once delta-hedged, the position's P&L no
+      longer depends on direction at all, only on how much spot actually moved
+      squared against how much the price assumed it would move squared. Every
+      instant, you are paid the realized variance that happened and charged
+      the implied variance that was priced in.
+
+      That framing makes the trade concrete: buy and hedge when you believe
+      realized volatility will beat implied, sell and hedge when you believe
+      the reverse, and the position's fate has nothing to do with whether spot
+      ends up higher or lower than where it started.
+
+      The dollar-gamma weighting is not a footnote — recall that gamma peaks
+      at the strike, so this bet is not a clean, uniform statement about
+      volatility everywhere; it is concentrated almost entirely in whatever
+      happens while spot is near the strike, and largely indifferent to
+      variance realized far away from it.
+    worked: >
+      With $\Gamma = 0.026$, $S = 50$ hedged at implied $\sigma = 30\%$:
+      suppose one trading day ($\delta t = 1/252$) realizes at an annualized
+      $45\%$. Expected hedging P&L for that day is $\tfrac{1}{2}\Gamma S^{2}
+      \delta t(\sigma_{\text{real}}^{2} - \sigma_{\text{imp}}^{2}) =
+      0.5(0.026)(2500)(1/252)(0.2025 - 0.09) \approx 0.0147$ per option — about
+      $7.34$ across a 500-lot book, positive because realized beat implied.
+    interview: >
+      "You bought and delta-hedged an option — under what condition do you
+      make money" wants "realized volatility exceeding the implied volatility
+      you hedged at," independent of which way spot ultimately moved.
+    pitfalls: >
+      Assuming a delta-hedged long option only pays off if the market "goes
+      your way" directionally ignores that direction has already been hedged
+      away — only the variance mismatch matters. Forgetting the dollar-gamma
+      weighting overstates how much a large move far from the strike, where
+      gamma has already decayed away, actually contributes.
+    recap: >
+      A delta-hedged option's P&L is entirely a bet on realized variance
+      against the implied variance it was hedged at, weighted continuously by
+      dollar gamma.
+
+  - node: quant-finance.greeks.gamma-scalping
+    hook: >
+      "Gamma scalping" is jargon interviewers use directly, and the expected
+      answer is the specific mechanical trading pattern it names, not a vague
+      restatement of "being long gamma."
+    explanation: >
+      The key realization is that the hedge trades themselves are the profit,
+      not a separate strategy layered on top of them. A long-gamma position's
+      delta rises on a rally and falls on a dip, so rebalancing to stay flat
+      mechanically means selling into the rally and buying into the dip — a
+      buy-low-sell-high discipline enforced automatically by the hedge, funded
+      by the theta already established as the cost of owning that convexity.
+
+      What decides the payoff is accumulated squared movement along the path,
+      not net displacement — recall that this hedged P&L is exactly the
+      realized-versus-implied variance bet. A market that oscillates
+      constantly but ends exactly where it started can still have generated a
+      month of scalping profit, while a market that drifts smoothly in one
+      direction with little oscillation generates comparatively little, even
+      if it travels further in net terms.
+
+      Short gamma runs the identical machinery in reverse: staying flat means
+      buying into strength and selling into weakness, chasing the market in
+      whatever direction it is already moving — which is exactly why a
+      short-gamma book's losses accelerate precisely when conditions get fast
+      and volatile, rather than staying proportional to the size of the move.
+    worked: >
+      A 100-lot with total $\Gamma = 2.63$: spot oscillates up 2, back down 2,
+      down 2, back up 2 over a week — two round trips of size $2$. Capture per
+      round trip is about $\Gamma_{\text{total}}(\delta S)^{2} = 2.63(4) =
+      10.52$, so about $21.04$ for the week. Weekly theta cost on the same lot
+      is about $5.69$. Net for the week: $21.04 - 5.69 \approx 15.35$ — a week
+      where realized oscillation beat the decay it was priced against.
+    interview: >
+      "Explain gamma scalping in one breath" wants: a long-gamma delta hedge
+      automatically sells rallies and buys dips, banking roughly
+      $\Gamma(\delta S)^{2}$ per round trip, funded by theta. A common
+      follow-up asks what happens to a short-gamma hedger in a fast market —
+      forced to chase the move, which is why their losses accelerate.
+    pitfalls: >
+      Assuming a large net directional move implies a large scalping profit
+      confuses accumulated oscillation with net displacement — a smooth trend
+      with little back-and-forth pays comparatively little. Assuming ever
+      finer rebalancing is strictly better ignores the same transaction-cost
+      cap that limits delta hedging generally.
+    recap: >
+      Long gamma turns delta hedging into an automatic buy-dips-sell-rallies
+      program funded by theta; short gamma runs the same mechanics backwards,
+      chasing the market in whichever direction it is already moving.
+
+  - node: quant-finance.greeks.atm-approx
+    hook: >
+      This is the number a desk carries in their head to sanity-check a quote
+      before any model even loads — quoting it live, and inverting it for
+      implied vol, is a genuine interview skill.
+    explanation: >
+      The approximation comes from linearizing the normal CDF right at the
+      center of its curve: near zero, $N(x)$ is well approximated by its
+      tangent line, $N(x) \approx \tfrac{1}{2} + \varphi(0)x$. At the money,
+      $d_1$ is small and proportional to $\sigma\sqrt{T}$, so plugging that
+      linearization into the call formula collapses everything to a single
+      product of $S$, $\sigma$ and $\sqrt{T}$.
+
+      Recognizing that this is really the vega formula in disguise makes the
+      rule easy to reconstruct rather than memorize: an at-the-money call's
+      value is, to leading order, proportional to the same $\varphi(d_1)$ that
+      defines vega, scaled by how far $d_1$ has moved off center — which is
+      itself proportional to $\sigma\sqrt{T}$.
+
+      The practical payoff is a mental-math round trip: given price, back out
+      implied volatility on the spot, without a model, whenever an at-the-money
+      quote crosses the desk and there is no time to run one.
+    worked: >
+      A fresh instance, $S = K = 80$, $\sigma = 25\%$, $T = 0.5$: the
+      approximation gives $0.4(0.25)(80)\sqrt{0.5} \approx 5.66$ against a
+      true Black–Scholes value of $5.63$ — under half a percent off. Running it
+      backward: a 6-month at-the-money call on that same 80 stock trading at
+      $5$ implies $\sigma \approx 5/(0.4 \times 80 \times \sqrt{0.5}) \approx
+      22.1\%$.
+    interview: >
+      "This 6-month at-the-money option is trading at X on an 80 stock —
+      roughly what implied vol is that" wants the inverted rule computed live
+      in your head. A related ask, deriving the constant $0.4$ on the spot, is
+      answered with $1/\sqrt{2\pi}$.
+    pitfalls: >
+      Applying the rule away from the money is a category error — it is
+      specifically an at-the-money-forward approximation and the error grows
+      quickly off it. Using it for $\sigma\sqrt{T}$ well above about $0.3$ pushes
+      past where the linear approximation of $N$ stays accurate.
+    recap: >
+      An at-the-money option costs about $0.4\sigma S\sqrt{T}$, the vega
+      formula linearized at the money — invertible in your head to read
+      implied vol straight off a quoted price.
+
+  - node: quant-finance.greeks.straddle-approx
+    hook: >
+      "Give me a rough one-sigma move" often gets answered by quoting this
+      exact rule, since the straddle price and the expected absolute move
+      share the same underlying constant.
+    explanation: >
+      A straddle pays $|S_T - K|$ at expiry, and since the terminal move is
+      roughly normal with standard deviation $\sigma S\sqrt{T}$, its expected
+      payoff is that standard deviation scaled by $\mathbb{E}|Z|$ for a
+      standard normal — which is where the different constant comes from.
+
+      Seeing why it is exactly double the call's constant, rather than some
+      unrelated number, is the useful check: the call rule's $0.4$ is
+      essentially half of $\sqrt{2/\pi} \approx 0.798$, because a call only
+      captures the upside half of the terminal move, its downside floored at
+      zero rather than contributing negatively the way a straddle's does.
+      Doubling the call rule to get the straddle rule is therefore not a
+      coincidence to memorize separately — it falls straight out of what a
+      straddle actually captures that a lone call does not.
+
+      The same inversion used for a single call applies here: a quoted
+      straddle price, divided by $0.8S\sqrt{T}$, is a direct read on implied
+      volatility, and the ratio of the straddle price to the true one-sigma
+      move tells you how much of that move the market is charging you to break
+      even on.
+    worked: >
+      A fresh instance, $S = K = 80$, $\sigma = 25\%$, $T = 0.5$:
+      $0.8(0.25)(80)\sqrt{0.5} \approx 11.31$, with breakevens at about $68.69$
+      and $91.31$. The one-sigma move itself is $\sigma S\sqrt{T} \approx
+      14.14$, so the straddle costs almost exactly $0.8$ of the move it needs
+      to break even — $11.31/14.14 = 0.8$.
+    interview: >
+      "What's a rough price for the 6-month at-the-money straddle on this 80
+      stock at 25 vol" wants about $11$ computed live. A related ask, "what
+      does the price tell you about the expected move," is answered with
+      roughly $80\%$ of the one-sigma move.
+    pitfalls: >
+      Memorizing $0.8$ as an unrelated constant rather than the call rule
+      doubled makes the number harder to reconstruct under pressure and easier
+      to misremember. Applying it off the money repeats the same error the
+      call version makes there.
+    recap: >
+      An at-the-money straddle costs about $0.8\sigma S\sqrt{T}$ — exactly
+      twice the call rule, since $\sqrt{2/\pi}$ is $\mathbb{E}|Z|$ for the full
+      two-sided payoff a straddle captures.
