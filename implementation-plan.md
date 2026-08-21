@@ -263,7 +263,7 @@ Not a numbered phase: an outside design pass over what Phases 4–8 built, impor
 - Content: `content-quant-program/` — `program.yaml` (the outline's §1–§58 made machine-readable) + `lessons/<unit-id>.yaml`, drafted per-unit in outline order (the §7.1 pipeline, lessons instead of nodes), validated per batch.
 
 **Deliverable**: "teach me everything, in order, starting from what I know" answered as a readable course over the quant tree.
-**Exit criterion**: the spine validates as a linear extension of cross-unit `requires`; for fixture states the plan's step order is a valid topological order per unit, the resume point is the first never-learned step in program order (and provably *not* moved by decay), and progress counts match `Subjects`'; every lesson section of every unit renders clean under `MATHTREE_MATH_CHECK`; the reader shows every lesson of a fully-covered unit and states (rather than hides) a missing one.
+**Exit criterion**: the spine validates as a linear extension of cross-unit `requires`; for fixture states the plan's step order is a valid topological order per unit, the resume point is the first never-learned step in program order (and provably *not* moved by decay), and unit progress agrees with §6.5's `Subjects` read-out up to exactly the cross-listed members D12.3 excludes; every lesson section of every unit renders clean under `MATHTREE_MATH_CHECK`; the reader shows every lesson of a fully-covered unit and states (rather than hides) a missing one.
 
 ---
 

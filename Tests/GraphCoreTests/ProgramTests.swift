@@ -274,6 +274,32 @@ struct ProgramTests {
         #expect(complete == true)
     }
 
+    /// The exit criterion's read-out clause, asserted at its true strength: a
+    /// unit's progress agrees with §6.5's `Subjects` summary except exactly on
+    /// cross-listed members — `Subjects` follows the `contains` DAG, the
+    /// program teaches primary children only (D12.3), and the two must never
+    /// disagree anywhere else. `g.two.u` is met and cross-listed into `a.one`,
+    /// so `a.one` is the deliberate divergence and every other unit is exact.
+    @Test func unitProgressAgreesWithTheSubjectsReadOutUpToCrossListings() {
+        let state = met("g.one.r", "g.one.s", "g.two.u")
+        for unit in plan(state).units {
+            let summary = Subjects.summarize(
+                [unit.id], graph: graph, state: state, at: Self.now
+            ).first!
+            let crossListed = graph.contentDescendants(of: unit.id)
+                .filter { graph[$0]?.parent != unit.id }
+            #expect(summary.total == unit.steps.count + crossListed.count)
+            let crossListedMet = crossListed.filter { state.isLearned($0) }.count
+            #expect(summary.met == unit.metCount + crossListedMet, "\(unit.id)")
+        }
+        // The fixture actually exercises the divergence: a.one differs by one.
+        let aOne = plan(state).unit("a.one")!
+        let aOneSummary = Subjects.summarize(
+            ["a.one"], graph: graph, state: state, at: Self.now
+        ).first!
+        #expect(aOneSummary.met == 1 && aOne.metCount == 0)
+    }
+
     @Test func stepLookupFindsContentAndRefusesStructure() {
         let plan = plan(ScoreState())
         #expect(plan.step(for: "g.two.u")?.unit == "g.two")
