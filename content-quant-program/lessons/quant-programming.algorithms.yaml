@@ -1,0 +1,832 @@
+unit: quant-programming.algorithms
+opening: >
+  Algorithmic Patterns is the toolbox for the "now make it faster" half of a
+  quant coding interview: a short list of shapes — binary search and its
+  search-on-the-answer generalization, the sorted-data sweep of two pointers
+  and its sliding-window and prefix-sum cousins, dynamic programming's
+  cache-the-subproblem discipline, greedy algorithms proved correct by an
+  exchange argument, and graph traversal by breadth or depth — that between
+  them answer nearly every optimization prompt you'll see. The unit builds in
+  that order: binary search and two worked examples of it, the
+  information-theoretic ceiling on comparison sorting that explains why some
+  "faster" asks are impossible, the two-pointer family from converging sums
+  through sliding windows to prefix sums, dynamic programming from its
+  four-step drill through three canonical tables, breadth- and depth-first
+  search with the shortest-path guarantee BFS buys, greedy correctness via the
+  exchange argument, and a closing reservoir mapping each "optimize this" cue
+  straight to the technique it wants. By the end you should be able to hear a
+  target complexity named out loud and answer with the one pattern that
+  reaches it, not a list of guesses.
+lessons:
+  - node: quant-programming.algorithms.binary-search
+    hook: >
+      Binary search is two lines of logic that turn into a five-minute
+      debugging session the moment the loop invariant isn't pinned down first
+      — nail the invariant and the code that follows is almost mechanical.
+    explanation: >
+      The technique needs nothing more than a monotone predicate: a way to
+      look at the midpoint and know, with certainty, which whole side of it
+      can be discarded. Sortedness is just the common way that monotonicity
+      arises, not the requirement itself — the real requirement is that
+      "probe here" partitions the space into a false side and a true side with
+      no false ever following a true.
+
+      State the invariant in one sentence before writing a line: everything
+      strictly below $\ell$ has already failed the predicate, everything at or
+      above $r$ is confirmed true or beyond the window, and the answer lives
+      somewhere in $[\ell, r)$. Every comparison then moves exactly one
+      boundary past the midpoint, so the window's width halves each step —
+      after $k$ probes at most $n/2^{k}$ candidates remain, which is why $20$
+      probes cover a million rows and $30$ cover a billion.
+
+      Two habits remove the fence-post bugs that sink this technique in
+      practice. Decide once whether $\ell$ moves to $m$ or $m+1$ (and
+      symmetrically for $r$) and apply it consistently — mixing the two
+      stalls the loop on a two-element window. Write the midpoint as
+      $\ell + (r-\ell)/2$, never $(\ell+r)/2$, so two large indices can't
+      overflow before the halving even happens.
+    worked: >
+      Find the leftmost index with value at least $47$ in the sorted array
+      $3,12,24,35,47,47,61,89$ (eight elements, indices $0$–$7$). Window
+      $[0,8)$: $m=4$, $a_4=47\ge 47$, so the answer is at or before $m$ and
+      $r\to 4$. Window $[0,4)$: $m=2$, $a_2=24<47$, so $\ell\to 3$. Window
+      $[3,4)$: $m=3$, $a_3=35<47$, so $\ell\to 4$. Window $[4,4)$ is empty, so
+      the search stops with $\ell=4$ — the answer is index $4$, found in three
+      probes for eight elements, matching $\log_{2}8=3$.
+    interview: >
+      Expect variants phrased as "find the first/last occurrence", "find the
+      insertion point", or "search a rotated sorted array" — the interviewer
+      is listening for the invariant stated in words before any code, and for
+      clean handling of duplicates (do you want the leftmost or rightmost
+      match).
+    pitfalls: >
+      Moving $\ell$ to $m$ instead of $m+1$ (or the symmetric mistake on $r$)
+      loops forever on a two-element window. Mixing strict and non-strict
+      comparisons mid-derivation quietly changes whether you're finding the
+      first true or the last true value. Computing the midpoint as
+      $(\ell+r)/2$ overflows in fixed-width integer arithmetic once both
+      indices are large.
+    recap: >
+      Halve a window bounded by one loop invariant stated in words — that
+      invariant, held exactly, is what makes binary search's $O(\log n)$ both
+      correct and bug-free.
+
+  - node: quant-programming.algorithms.binary-search-answer
+    hook: >
+      "Find the smallest $x$ that works" is the tell — the moment feasibility
+      only ever turns on and stays on as $x$ grows, the array you'd normally
+      sort doesn't need to exist at all.
+    explanation: >
+      Binary search only needs a monotone predicate, and a predicate over
+      candidate answers is just as searchable as one over array indices —
+      the "sorted data" of ordinary binary search is replaced here by the
+      sorted, if implicit, range of possible answers. The recipe has three
+      parts: write a checker $\mathrm{ok}(x)$ that decides feasibility, ideally
+      by an $O(n)$ greedy simulation; bracket the range with a value known to
+      fail and a value known to succeed; then binary search for the first $x$
+      where $\mathrm{ok}$ turns true, exactly as in ordinary binary search.
+
+      The cost is $O(n\log R)$ over an answer range of width $R$ — the search
+      itself contributes only the $\log R$ factor, so the checker is the
+      entire algorithm and usually the entire difficulty of the problem.
+
+      Verifying monotonicity is the part that actually requires thought:
+      binary search never checks it for you, so if feasibility can flicker
+      back off as $x$ grows, the method still runs and still returns an
+      answer — just the wrong one, with no error to catch it.
+    worked: >
+      Koko must eat banana piles $3,6,7,11$ within $h=8$ hours, eating from
+      one pile per hour at an integer speed $k$; find the minimum feasible
+      $k$. Checker: $\mathrm{ok}(k) = \sum_i \lceil p_i/k\rceil \le h$ — larger
+      $k$ only shortens each term, so $\mathrm{ok}$ is monotone. Bracket with
+      $\mathrm{low}=1$ and $\mathrm{high}=11$, the largest pile, which finishes
+      in one hour at that speed. $\mathrm{ok}(3) = 1+2+3+4=10>8$, infeasible;
+      $\mathrm{ok}(4)=1+2+2+3=8\le 8$, feasible. Binary search over $[1,11]$
+      converges on $k=4$ in about $\log_{2}11\approx 4$ probes — the answer is
+      $4$.
+    interview: >
+      Ship-in-D-days, split-array-to-minimize-largest-sum, and minimum
+      eating speed are the same prompt wearing different nouns — the
+      interviewer listens for you separating the checker from the search out
+      loud and stating why feasibility is monotone before coding either half.
+    pitfalls: >
+      Coding the search without ever arguing monotonicity produces code that
+      runs and returns a number silently wrong on inputs where feasibility
+      isn't actually monotone. The bracket bounds need to be genuinely
+      trivial cases (obviously infeasible, obviously feasible), not
+      approximations — a bracket that excludes the true answer breaks the
+      search before it starts. A checker that costs more than $O(n)$ erases
+      the whole point, since the search itself is already nearly free.
+    recap: >
+      When feasibility is monotone in $x$, binary search the answer space
+      itself with an $O(n)$ checker — total cost $O(n\log R)$, all of it spent
+      in the checker.
+
+  - node: quant-programming.algorithms.ship-capacity
+    hook: >
+      This is search-on-the-answer's home turf — a bin-packing question where
+      "in order, contiguous prefix" is the giveaway that a greedy day-counter
+      is both the checker and the whole algorithm.
+    explanation: >
+      Capacity feasibility is monotone for a structural reason worth stating
+      out loud: giving the ship more room can only let a greedy loader merge
+      more packages into the same day, never fewer, so the number of days
+      needed is non-increasing in capacity $C$. That's the license to binary
+      search $C$ instead of simulating every capacity in turn.
+
+      The two bracket ends generalize past this one problem: the lower end is
+      whatever value makes the checker trivially fail (here, one package
+      exceeding capacity), and the upper end is whatever value makes it
+      trivially pass (here, everything loaded in a single day). Finding both
+      bounds is usually a one-line observation once you've named the
+      checker.
+
+      The checker itself stays a simple $O(n)$ greedy scan: walk the packages
+      in order, keep adding to the current day while they fit, and open a new
+      day the moment one doesn't — no lookahead, no backtracking, just a
+      running total compared against $C$.
+    worked: >
+      Weights $7,2,5,10,8$ must ship within $D=2$ days; find the minimum
+      capacity. Bracket: $\mathrm{low}=10$ (the largest single weight),
+      $\mathrm{high}=32$ (the total). Checker at $C=17$: day $1$ loads $7,2,5$
+      (sum $14$, adding $10$ would exceed $17$), day $2$ loads $10$ (sum
+      $10$, adding $8$ would exceed $17$), day $3$ loads $8$ — three days,
+      infeasible. Checker at $C=18$: day $1$ loads $7,2,5$ (sum $14$, adding
+      $10$ exceeds $18$), day $2$ loads $10,8$ (sum $18\le 18$) — two days,
+      feasible. So the answer is $18$.
+    interview: >
+      The dressing changes — truck capacity over delivery routes, machine
+      throughput over job batches — but the setup is identical; the
+      interviewer listens for "feasibility is monotone in capacity because a
+      bigger ship never needs more days" stated before any code, plus the
+      correct floor of $\max_i w_i$.
+    pitfalls: >
+      Forgetting the floor $\max_i w_i$ lets the checker be run on a capacity
+      too small for even one package to fit, which never terminates cleanly.
+      Off-by-one on day counting — failing to count the final partial day, or
+      opening an extra empty one at the end — silently shifts every feasibility
+      answer. Confusing "at most $D$ days" with "exactly $D$ days" changes
+      what the checker should even be testing.
+    recap: >
+      A bigger ship never needs more days, so capacity is searchable; on
+      weights $7,2,5,10,8$ over $2$ days the greedy day-counter finds the
+      answer $18$.
+
+  - node: quant-programming.algorithms.sorting-lower-bound
+    hook: >
+      "Can you sort faster than $n\log n$" is asked to see whether you can
+      justify a limit, not just recite it — and the honest answer changes the
+      instant the keys stop being arbitrary and start being bounded integers.
+    explanation: >
+      Frame any comparison-based sort as a walk down a binary decision tree:
+      each internal node is one comparison with two outcomes, and the
+      algorithm's execution on a given input is the root-to-leaf path that
+      comparisons trace out. Two different orderings of the input must end at
+      two different leaves, or the algorithm couldn't have told them apart —
+      so the tree needs at least $n!$ leaves to correctly sort every
+      permutation of $n$ distinct items.
+
+      A binary tree with $L$ leaves has depth at least $\log_{2}L$, so the
+      worst-case path — and therefore the worst-case comparison count — is at
+      least $\log_{2}(n!)$. Stirling's approximation turns that into
+      $n\log_{2}n - n\log_{2}e + O(\log n)$, which grows like $n\log_{2}n$,
+      giving the $\Omega(n\log n)$ bound. This is exactly the counting
+      argument behind information-theoretic lower bounds in general, just
+      specialized to comparisons with two outcomes instead of a balance with
+      three.
+
+      Merge sort and heapsort both achieve $O(n\log n)$, so the bound is
+      tight — but it is a bound on comparisons specifically. The moment the
+      keys carry extra structure, such as living in a small known integer
+      range, an algorithm can tally occurrences instead of comparing pairs,
+      and the bound simply doesn't apply to it.
+    worked: >
+      For $n=8$, $8!=40320$, so any comparison sort needs at least
+      $\lceil\log_{2}40320\rceil = 16$ comparisons in the worst case — a real
+      algorithm like merge sort uses on the order of $n\log_{2}n\approx 24$,
+      the right ballpark once constants are restored. Now suppose those $8$
+      keys are drawn from $\{0,\dots,9\}$: counting sort tallies each of the
+      $10$ buckets in one $O(n)$ pass and reads the sorted output back out,
+      making zero comparisons between keys and finishing in $O(n+k)=O(18)$
+      steps — the lower bound doesn't apply because the algorithm never
+      compares two keys against each other.
+    interview: >
+      "Can this be sorted faster than $n\log n$" is answered with the
+      decision-tree counting argument stated cold, not just the conclusion; a
+      near-automatic follow-up is "when would you use counting or radix sort
+      instead", testing whether you recognize bounded-range keys as the
+      escape hatch.
+    pitfalls: >
+      Claiming a clever comparison-based sort can beat $O(n\log n)$ contradicts
+      the counting argument outright — no such algorithm exists. Applying the
+      $\Omega(n\log n)$ bound to counting or radix sort as if it still governed
+      them misreads what the bound is actually about; it only constrains
+      algorithms that decide order purely by comparisons.
+    recap: >
+      Comparison sorting needs $\Omega(n\log n)$ because $n!$ possible
+      orderings force that many yes/no comparisons to tell them apart —
+      counting and radix sorts escape only by never comparing.
+
+  - node: quant-programming.algorithms.two-pointers
+    hook: >
+      Whenever you're about to nest two loops over sorted data, ask whether
+      one of them can walk forward only and never back up — that single
+      question is what turns $O(n^{2})$ into $O(n)$.
+    explanation: >
+      The converging variant puts one index at the front and one at the back
+      and moves them toward each other, tracking a quantity — a sum, a
+      product, a distance — that's monotone in each index separately. Each
+      move then discards an entire block of candidate pairs at once, using
+      exactly the same discard argument that makes binary search correct;
+      the difference is that two pointers give up only one candidate block
+      per step instead of halving the space, trading logarithmic for linear.
+
+      The same-direction variant instead sends both pointers forward at
+      independent speeds — merging two sorted lists, deduplicating in place,
+      or partitioning around a pivot are all this shape, one pointer reading
+      and the other writing.
+
+      Before reaching for either variant, ask two questions: is the data
+      actually ordered along the quantity being compared (if not, sorting
+      first costs $O(n\log n)$ and may not be worth paying), and does moving
+      a pointer provably rule out every pair or position it steps over. If
+      the second answer is "maybe", the discard argument is broken and the
+      sweep is no longer correct.
+    worked: >
+      Heights $1,8,6,2,5,4,8,3,7$ at indices $0$–$8$; maximize
+      $(j-i)\cdot\min(h_i,h_j)$ over two indices. Start $i=0,j=8$:
+      $\min(1,7)\cdot 8=8$. Since $h_i<h_j$, pairing index $0$ with anything
+      further can never beat its own cap of $1$, so advance $i$. Now $i=1,
+      j=8$: $\min(8,7)\cdot 7=49$, the best found so far. Since $h_j<h_i$ this
+      time, advance $j$ instead: $i=1,j=7$ gives $\min(8,3)\cdot 6=18$,
+      smaller. Continuing to convergence never beats it, so the answer is
+      $49$.
+    interview: >
+      Beyond two-sum, expect "container with most water", "trapping rain
+      water", or "valid palindrome ignoring punctuation" — the interviewer
+      listens for you naming the monotone quantity and giving a one-line
+      justification for why the pointer move discards candidates, not just
+      producing working code.
+    pitfalls: >
+      Running the converging sweep on unsorted data breaks the discard
+      argument silently — the code still terminates, it just may skip the
+      real answer. Moving the wrong pointer (always advancing the same one
+      regardless of the comparison) doesn't guarantee eliminating only
+      non-optimal pairs. Treating the converging and same-direction variants
+      as interchangeable ignores that they solve differently shaped problems.
+    recap: >
+      Two indices that only ever move forward, each move provably discarding
+      a block of candidates, turn a sorted-data scan into $O(n)$ — the
+      container-with-water example lands at $49$.
+
+  - node: quant-programming.algorithms.pair-sum
+    hook: >
+      Two-sum is the hello-world of the two-pointer family, and whether the
+      input is sorted decides whether you pay for a sort or reach for a hash
+      set instead.
+    explanation: >
+      On sorted data, the converging scan is correct for the same reason any
+      converging pair is: when $a_i+a_j<T$, index $i$ paired with anything at
+      or below the current $a_j$ still falls short, so no surviving pair uses
+      $i$ and advancing past it costs nothing; the symmetric argument handles
+      $a_i+a_j>T$. That gives $O(n)$ time and $O(1)$ extra space once the data
+      is already sorted.
+
+      If the input isn't sorted, sorting first costs $\Theta(n\log n)$ and no
+      comparison sort beats that — so the right move isn't to sort at all: a
+      hash set of values seen so far, queried for $T-a_i$ on each new
+      element, answers the same question in $O(n)$ expected time, trading
+      $O(n)$ space for dropping the sort entirely.
+
+      The choice between the two isn't about which is "better" in the
+      abstract — it's about which cost you're already paying. Data that
+      arrives sorted, or gets sorted for other reasons in the same problem,
+      should use the pointer scan; data that's genuinely unordered, or needs
+      to stay unordered, should use the hash set.
+    worked: >
+      Sorted array $-4,-1,0,3,7,9$, target $T=6$. Start $i=0,j=5$:
+      $-4+9=5<6$, so advance $i$. Now $i=1,j=5$: $-1+9=8>6$, so retreat $j$.
+      Now $i=1,j=4$: $-1+7=6=T$ — found. Three probes locate the pair
+      $(-1,7)$.
+    interview: >
+      "Find two numbers summing to a target" is almost always followed by
+      "what if the array isn't sorted" — the interviewer wants the immediate
+      trade-off named: sort-then-scan pays $\Theta(n\log n)$ up front by the
+      comparison-sort floor, or skip sorting entirely with a hash set at
+      $O(n)$ expected time and $O(n)$ space.
+    pitfalls: >
+      Sorting data that's already sorted wastes an unnecessary
+      $\Theta(n\log n)$ pass; running the pointer scan on data that isn't
+      actually sorted is worse, since it can silently miss a valid pair
+      instead of erroring. When counting all pairs rather than checking
+      existence, duplicate values need explicit skip logic or the scan
+      double-counts or stalls.
+    recap: >
+      Converging pointers settle sorted two-sum in one $O(n)$ pass with no
+      extra memory; on unsorted input, a hash set beats paying for the sort.
+
+  - node: quant-programming.algorithms.sliding-window
+    hook: >
+      The nested loop looks like $O(n^{2})$ at a glance, and that's exactly
+      the trap — the inner loop's total work across the whole run is bounded
+      by $n$, not by $n$ per outer step.
+    explanation: >
+      Keep a window $[\ell,r]$ and an aggregate that updates in $O(1)$ as an
+      element enters at $r$ or leaves at $\ell$. The variable-width recipe is
+      one line: advance $r$ by one, then while the window violates the
+      constraint, advance $\ell$. Nothing about that description bounds the
+      inner while loop on its own — the bound comes from a different
+      argument entirely.
+
+      The argument is amortized, not local: $\ell$ only ever increases over
+      the life of the algorithm, and it can increase at most $n$ times total
+      across every iteration of the outer loop combined, exactly as $r$ can.
+      Summing both pointers' total movement, not the worst case of any single
+      step, is what makes the whole sweep $O(n)$ despite the apparent nesting.
+
+      The method is only legal when the constraint stays monotone under
+      shrinking — dropping an element from the left can only help satisfy it,
+      never hurt. "Sum $\le S$" with nonnegative entries qualifies for exactly
+      this reason. The instant entries can be negative, removing one from the
+      left can make the sum worse instead of better, and the shrink loop's
+      correctness collapses — that case needs prefix sums instead.
+    worked: >
+      Smallest contiguous window of $2,3,1,2,4,3$ summing to at least $7$:
+      extend $r$ while accumulating the running sum, and each time it reaches
+      or clears $7$, shrink from $\ell$ while it still does, recording the
+      window length at every valid state. The sum first clears $7$ at $r=3$
+      with the length-$4$ window $2,3,1,2$; continuing to extend and shrink
+      finds a length-$3$ window at $1,2,4$ (sum $7$) and finally a length-$2$
+      window $4,3$ (sum $7$) once $r=5$ — no shorter window exists, so the
+      answer is $2$.
+    interview: >
+      "Smallest subarray with sum at least $S$", "longest substring without
+      repeating characters", and "longest substring with at most $k$ distinct
+      characters" are the standard three — the interviewer listens for the
+      amortized argument stated explicitly (each index enters and leaves
+      once) rather than the loop being waved off as obviously linear.
+    pitfalls: >
+      Applying sliding window when the constraint isn't monotone under
+      shrinking — most commonly, negative entries in a sum — silently
+      produces a wrong answer, since shrinking no longer guarantees restoring
+      legality. Updating the aggregate incorrectly at the boundary (forgetting
+      to remove a key from a frequency map once its count hits zero) corrupts
+      every window that follows. Treating the inner while loop as its own
+      $O(n)$ cost and multiplying it by the outer loop overstates the true
+      complexity.
+    recap: >
+      Extend the right edge, then pull the left edge in while the window is
+      illegal — each pointer moves at most $n$ times total, giving amortized
+      $O(n)$, valid only when shrinking always restores legality.
+
+  - node: quant-programming.algorithms.prefix-sums
+    hook: >
+      "Answer $q$ range-sum queries fast" is the tell — one $O(n)$ pass buys
+      every range sum afterward in $O(1)$, and the same trick extended with a
+      hash map counts target-sum subarrays in a single sweep.
+    explanation: >
+      Precompute $P_0=0$ and $P_k=a_1+\dots+a_k$ once, in $O(n)$; any range
+      sum is then $P_r-P_{\ell-1}$, a subtraction instead of a scan. The trade
+      is $O(n)$ extra space to turn $q$ queries from $O(qn)$ total into
+      $O(n+q)$.
+
+      The counting variant is the sharpest use of the idea: since
+      $P_r-P_{\ell-1}=T$ rearranges to $P_{\ell-1}=P_r-T$, counting subarrays
+      summing to $T$ becomes, at each $r$, a lookup of how many earlier
+      prefixes equal $P_r-T$ — a hash map of prefix values seen so far turns
+      an $O(n^{2})$ double loop over all subarrays into one $O(n)$ pass.
+
+      Two more variants are worth carrying: a difference array absorbs $q$
+      range updates at $O(1)$ each, rebuilding the true array in one final
+      $O(n)$ pass, and a two-dimensional prefix table answers rectangle sums
+      by inclusion–exclusion over four corners. Watch magnitude regardless of
+      variant — prefixes grow like $n\cdot\max_i|a_i|$ even when every
+      individual entry is small, which is an easy silent overflow.
+    worked: >
+      Count subarrays of $1,2,3,-2,5$ summing to $T=5$. Prefixes: $P_0=0$,
+      $P_1=1$, $P_2=3$, $P_3=6$, $P_4=4$, $P_5=9$. Seed a map with $\{0:1\}$.
+      At $P_1=1$: look up $1-5=-4$, absent; store $1$. At $P_2=3$: look up
+      $-2$, absent; store $3$. At $P_3=6$: look up $1$, present once — count
+      becomes $1$ (this is the subarray $2,3$); store $6$. At $P_4=4$: look up
+      $-1$, absent; store $4$. At $P_5=9$: look up $4$, present once — count
+      becomes $2$ (this is the subarray $5$ alone); store $9$. The answer is
+      $2$.
+    interview: >
+      "Range sum queries" and "subarray sum equals $k$" are the two canonical
+      phrasings — the interviewer listens for $P_r-P_{\ell-1}$ recognized as
+      a direct lookup rather than a re-scan, and for the hash-map variant
+      offered unprompted once "count" or "how many" appears in the ask.
+    pitfalls: >
+      Forgetting to seed the hash map with $P_0=0$ before scanning silently
+      undercounts every subarray that starts at index $0$. Confusing which
+      prefix bounds a range — it's $P_r-P_{\ell-1}$, not $P_r-P_{\ell}$ — shifts
+      every range by one element. Ignoring magnitude growth invites overflow
+      well before any individual array entry looks dangerous.
+    recap: >
+      One cumulative pass buys $O(1)$ range sums forever, and paired with a
+      hash map of seen prefixes it counts target-sum subarrays like
+      $1,2,3,-2,5$ (target $5$) in one linear sweep — here, $2$ of them.
+
+  - node: quant-programming.algorithms.dp
+    hook: >
+      "Can you do better than exponential" is almost always fished for one
+      answer — and the four-step drill that gets you there is the same drill
+      every single time, regardless of what the problem is about.
+    explanation: >
+      Dynamic programming applies exactly when two properties hold together:
+      optimal substructure, so the answer assembles from answers to smaller
+      instances, and overlapping subproblems, so naive recursion revisits the
+      same instance many times. Optimal substructure alone, without
+      overlap, is divide and conquer instead — no cache is needed because
+      nothing repeats.
+
+      The drill never changes: name the state precisely, write the transition
+      as a recurrence in terms of smaller states, fix the base cases, then
+      fill the table — top-down with memoization, mirroring the brute-force
+      recursion directly with a cache added, or bottom-up with tabulation,
+      filling in an order where every dependency is already resolved. The
+      cost is (number of states) $\times$ (work per transition), and that
+      product is the complexity an interviewer is actually listening for.
+
+      A DP whose state is a single integer index with a fixed-width window of
+      dependencies, and whose transition coefficients are constants, is
+      literally a linear recurrence — the characteristic-root machinery
+      applies directly. Most interview DPs go beyond that (a min or max
+      instead of a fixed linear combination, or more than one dimension of
+      state), which is exactly why table-filling, not a closed form, is the
+      general tool.
+    worked: >
+      Ways to climb $6$ stairs taking $1$ or $2$ steps at a time. State:
+      $f(n)$, the number of ways to reach step $n$. Transition: the last step
+      taken was either a single step from $n-1$ or a double from $n-2$, so
+      $f(n)=f(n-1)+f(n-2)$ — a linear recurrence, now filled as a table.
+      Base cases $f(0)=1$, $f(1)=1$. Tabulating: $f(2)=2$, $f(3)=3$, $f(4)=5$,
+      $f(5)=8$, $f(6)=13$ — six states, $O(1)$ work each, so $13$ ways in
+      $O(n)$ time and, with a rolling pair of variables, $O(1)$ space.
+    interview: >
+      Any "how many ways" or "what's the minimum/maximum" question with an
+      obvious recursive structure is DP — the interviewer listens for the
+      four steps named out loud, in order, before any code, and for the
+      complexity stated as states times transition rather than guessed.
+    pitfalls: >
+      Writing code before naming the state precisely usually produces a
+      recurrence that double-counts or silently drops cases. Memoizing on an
+      incomplete key — missing a dimension of the true state — collides
+      distinct subproblems in the cache and returns a stale wrong value.
+      Filling a bottom-up table in an order where a dependency isn't computed
+      yet reads garbage instead of the intended subresult.
+    recap: >
+      Name a state, write its recurrence, cache the results — cost is states
+      times transition, and memoization and tabulation are the same table
+      read in opposite directions.
+
+  - node: quant-programming.algorithms.kadane
+    hook: >
+      Restated as "best contiguous run of daily P&L", this is the single-pass
+      trick behind every "best window" question that doesn't need a second
+      pointer at all.
+    explanation: >
+      The state is deliberately "best sum of a subarray ending exactly at
+      $k$", not "best sum found so far" — that precision is what keeps the
+      recursion honest about contiguity. $b_k=\max(a_k, b_{k-1}+a_k)$ says:
+      either this element starts a fresh run, or it extends the run that was
+      already winning, and starting fresh is correct exactly when the running
+      best has gone negative, since anything negative dragged forward can
+      only hurt.
+
+      The prefix-sum reading is the same fact from a different angle: the
+      best subarray ending at $r$ is $P_r-\min_{\ell<r}P_\ell$, so one running
+      minimum of prefixes recovers the identical answer — extending the
+      running best is the same move as tracking the lowest prefix seen.
+
+      Because the recursion never resets to zero, only to $a_k$ itself, it
+      handles an all-negative array correctly on its own: the answer becomes
+      the single least-negative entry, not an empty subarray reported as
+      sum $0$ — a case worth checking explicitly, since it's the first thing
+      a rushed implementation gets wrong.
+    worked: >
+      Array $3,-1,-1,6,-2,4,-9,2$. Tracking $b_k$: $3,2,1,7,5,9,0,2$ — every
+      value through index $6$ chains onto the previous best, since none of
+      the dips are deep enough to justify restarting. The maximum is
+      $b_6=9$, from the subarray $3,-1,-1,6,-2,4$; the $-9$ at index $7$
+      finally forces a reset ($b_7=\max(-9,9-9)=0$), but by then the answer
+      is already locked in. So the answer is $9$.
+    interview: >
+      "Maximum subarray sum" and its cousin "best single buy-sell window" get
+      asked almost verbatim — the interviewer listens for the one-line
+      recurrence stated cold and for the reset condition given correctly:
+      reset when the running best goes negative, not when the current
+      element does.
+    pitfalls: >
+      Resetting whenever $a_k$ itself is negative, instead of when $b_{k-1}$
+      is negative, is a different and wrong rule. Returning $0$ for an
+      all-negative array ignores the "nonempty subarray" requirement — the
+      correct answer is the largest single element. Confusing this with
+      maximum non-contiguous subsequence, which is a different and, for
+      arbitrary sign patterns, much easier problem.
+    recap: >
+      Best-ending-here in one line, $b_k=\max(a_k,b_{k-1}+a_k)$, gives the
+      maximum subarray sum in a single $O(n)$ pass — $9$ on
+      $3,-1,-1,6,-2,4,-9,2$.
+
+  - node: quant-programming.algorithms.coin-change
+    hook: >
+      This is the problem interviewers use to catch a candidate who reaches
+      for greedy on reflex — "largest coin first" only works for specific
+      denomination sets, and this one is chosen so it doesn't.
+    explanation: >
+      The recurrence $f(t)=1+\min\{f(t-c_j)\mid c_j\le t\}$ with $f(0)=0$ and
+      unreachable amounts pinned at infinity fills in $O(mT)$ time and
+      $O(T)$ space — every amount up to $T$ gets computed once, from smaller
+      amounts already known.
+
+      Greedy fails here for a structural reason, not bad luck: it commits to
+      the largest coin without ever checking whether that commitment forces a
+      worse total later. It's correct only for "canonical" denomination
+      systems (most real currencies included) where every denomination is
+      built to make greedy safe — general denominations, exactly what this
+      problem hands you, offer no such guarantee.
+
+      Counting the number of ways to make $T$, instead of the fewest coins,
+      reuses the same table but flips the loop nesting: coins on the outside,
+      amounts on the inside. Nesting them the other way around treats $1+3$
+      and $3+1$ as different combinations and double-counts every ordering
+      of the same multiset.
+    worked: >
+      Coins $1,4,5$, target $T=8$. Table $f(0..8) = 0,1,2,3,1,1,2,3,2$ —
+      $f(8)=2$ dominates because $f(4)=1$ already found the single coin $4$,
+      and reusing it once more reaches $8$ in two coins total ($4+4$). Greedy
+      instead grabs the largest coin first: $5$, leaving $3$, which forces
+      three more $1$-coins for a total of $4$ — worse than the DP's $2$. So
+      the answer is $2$ coins.
+    interview: >
+      "Fewest coins to make change" is usually followed immediately by "does
+      greedy work here" — the expected answer is no in general, with this
+      exact kind of counterexample ready, plus a note that greedy is fine only
+      for the canonical denomination sets real currencies use.
+    pitfalls: >
+      Assuming greedy is always optimal skips the one check that actually
+      matters — whether the denominations are canonical. When counting ways
+      rather than minimum coins, looping amounts on the outside and coins on
+      the inside double-counts every ordering as a separate combination.
+      Leaving unreachable amounts uninitialized, rather than set to infinity,
+      lets a stale table entry silently masquerade as a valid answer.
+    recap: >
+      $f(t)=1+\min_j f(t-c_j)$ fills an $O(mT)$ table; with coins $1,4,5$ it
+      makes $8$ from two coins ($4+4$) where greedy needs four.
+
+  - node: quant-programming.algorithms.grid-paths
+    hook: >
+      The closed form is fast but brittle — the instant one cell of the grid
+      is blocked, the binomial count is simply wrong, and only the table
+      still gives the right answer.
+    explanation: >
+      The recurrence $f(i,j)=f(i-1,j)+f(i,j-1)$ with $f(i,0)=f(0,j)=1$ counts
+      monotone paths by summing the ways to arrive from below and from the
+      left — it's an $O(mn)$ table, more expensive than the closed form
+      $\binom{m+n}{m}$ when the grid is clear, but it has a capability the
+      closed form lacks entirely.
+
+      A blocked cell is handled by directly setting $f=0$ there, overriding
+      the recurrence — no path can pass through it, and every downstream
+      cell that depends on it inherits that zero automatically as the table
+      fills. There's no equivalent surgery available on a binomial
+      coefficient; obstacles are exactly the reason this DP earns its keep
+      over the faster clear-grid formula.
+
+      Restricting the same right-and-up paths to never cross above the
+      diagonal is a different kind of constraint — not a blocked cell but a
+      global shape condition — and it turns the plain binomial count into the
+      Catalan number instead, a separate closed form rather than something
+      the obstacle-handling table trick applies to.
+    worked: >
+      Same $3\times 3$ grid as the clear case, but cell $(1,2)$ is blocked.
+      Set $f(1,2)=0$ regardless of its neighbours and fill the rest by the
+      same recurrence: $f(1,1)=2$, $f(1,2)=0$, $f(1,3)=0+1=1$; propagating
+      forward, $f(2,2)=0+3=3$, $f(2,3)=1+3=4$, $f(3,2)=3+4=7$, and finally
+      $f(3,3)=4+7=11$ — down from the clear grid's $\binom{6}{3}=20$, and no
+      closed form reaches that number directly, only the table does.
+    interview: >
+      "Unique paths" with an added "now some cells are blocked" is the
+      standard escalation — the interviewer listens for you dropping the
+      binomial immediately once obstacles appear, rather than trying to patch
+      the closed form.
+    pitfalls: >
+      Reaching for $\binom{m+n}{m}$ the moment obstacles are mentioned gives a
+      confidently wrong number. An obstacle that severs every path to the
+      target forces every downstream cell to $0$ — that has to propagate
+      through the table, not be special-cased only at the blocked cell
+      itself. Mixing up an $m\times n$ grid of cells with an
+      $(m{+}1)\times(n{+}1)$ grid of lattice points shifts every index by
+      one.
+    recap: >
+      $f(i,j)=f(i-1,j)+f(i,j-1)$ gives $\binom{m+n}{m}$ on a clear grid and,
+      by forcing $f=0$ at blocked cells, the right count — $11$ here — the
+      moment obstacles appear.
+
+  - node: quant-programming.algorithms.bfs-dfs
+    hook: >
+      "Is this BFS or DFS" comes up constantly, and the answer never depends
+      on the graph — it depends only on which property of the traversal the
+      problem actually needs.
+    explanation: >
+      Both explore every reachable vertex in $O(V+E)$ on an adjacency list;
+      the entire difference is the container holding the frontier. A
+      first-in-first-out queue visits vertices in order of edge distance,
+      which is exactly what buys the shortest-path guarantee in an
+      unweighted graph and layer-by-layer component discovery — at the cost
+      of up to $O(V)$ queue memory at any one time. A stack, usually just the
+      call stack, dives instead — the right shape for cycle detection,
+      topological order, and connectivity, using memory proportional only to
+      the current depth.
+
+      Both need a visited set — the natural home for the hash-map
+      prerequisite here — and the mark has to be written the moment a vertex
+      is pushed, not when it's later popped; marking on pop lets the same
+      vertex get pushed multiple times before it's ever processed, flooding
+      the frontier with duplicates.
+
+      Weights break the BFS guarantee outright: a longer path with fewer
+      edges can beat a shorter path with more, so edge count alone stops
+      meaning distance. Swap the plain queue for a heap — the other
+      prerequisite here — that always pops the frontier vertex of least
+      tentative distance, and the same traversal skeleton becomes Dijkstra's
+      algorithm at $O((V+E)\log V)$.
+    worked: >
+      Vertices $A$ through $F$, edges A-B, A-C, B-D, C-D, C-F, D-E, exploring
+      from $A$ with each vertex's neighbours visited left to right. BFS's
+      queue processes $A$, then $B,C$ (both distance $1$), then $D,F$ (both
+      distance $2$, discovered off $B$ and $C$), then $E$ (distance $3$, off
+      $D$) — visit order $A,B,C,D,F,E$. A depth-first traversal from the same
+      source and neighbour order instead dives: $A,B,D,C,F,E$ — it only
+      reaches $F$ after fully descending through $D$ and $C$, one path at a
+      time, rather than layer by layer.
+    interview: >
+      "Find the shortest path in an unweighted graph" wants BFS; "detect a
+      cycle" or "produce a topological order" wants DFS — the interviewer
+      listens for the container named first (queue versus stack) and the
+      $O(V+E)$ cost stated unprompted.
+    pitfalls: >
+      Marking visited on pop instead of on push lets duplicates flood the
+      frontier and inflates both time and memory. Recursive DFS on a very
+      deep or densely cyclic graph without a visited check risks stack
+      overflow or an infinite loop. Trusting BFS's shortest-path guarantee on
+      a weighted graph gives a wrong answer the instant a longer, cheaper
+      path exists — that case needs the heap upgrade.
+    recap: >
+      One $O(V+E)$ sweep, two frontiers: a queue orders vertices by distance,
+      a stack dives deep, and a heap upgrades the same loop into Dijkstra.
+
+  - node: quant-programming.algorithms.bfs-shortest-path
+    hook: >
+      Knight moves, word ladders, and water jugs are graphs wearing a
+      costume — the whole insight is recognizing what a vertex and an edge
+      even are, since the BFS itself is unchanged once you do.
+    explanation: >
+      BFS's layer structure is the entire proof: the queue only ever holds
+      vertices at distance $k$ followed by vertices at distance $k+1$, so
+      the first time any vertex is reached, it's reached along a shortest
+      path — later discoveries of the same vertex, at greater or equal
+      distance, are simply skipped by the visited check.
+
+      Recording $\mathrm{parent}(w)=u$ the moment $w$ is first discovered
+      turns the traversal into more than a distance calculator: walking
+      parent pointers backward from any target reconstructs an actual
+      shortest path, not just its length, at no extra asymptotic cost.
+
+      The real skill this node tests is translation. A word ladder's
+      vertices are words and its edges are single-letter edits; a knight's
+      vertices are board squares and its edges are the eight $L$-shaped
+      moves; a water-jug puzzle's vertices are (amount in jug one, amount in
+      jug two) pairs and its edges are the legal pours. None of these look
+      like a graph until you name the state space explicitly — once you do,
+      it's the same BFS every time.
+    worked: >
+      Fewest knight moves from $(0,0)$ to $(3,3)$: treat each square as a
+      vertex and each of the eight knight offsets as an edge, then BFS from
+      $(0,0)$. Layer $1$ reaches $(1,2)$ and $(2,1)$, the only squares one
+      offset away. From $(1,2)$, the offset $(+2,+1)$ lands on $(3,3)$, so it
+      enters layer $2$ before any square past distance $2$ is even
+      discovered. So $d(3,3)=2$, realized by $(0,0)\to(1,2)\to(3,3)$, with
+      parent pointers recovering that exact path.
+    interview: >
+      "Fewest knight moves", "minimum word transformations", and "fewest
+      pours to measure a target volume" are the same question — the
+      interviewer listens for you defining the vertex and edge of the hidden
+      graph before running BFS, since that translation is the actual thing
+      being graded.
+    pitfalls: >
+      Running DFS on a state-space puzzle and reporting the first path found
+      as shortest is wrong — DFS finds a path, not the shortest one.
+      Leaving the state space unbounded (an "infinite" board, or water-jug
+      states that aren't deduplicated) lets BFS explore without limit.
+      Re-deriving the path by search after the fact, instead of storing
+      parent pointers during the traversal, wastes work and risks getting it
+      wrong.
+    recap: >
+      BFS's layers are exactly the distance classes, so one $O(V+E)$ sweep
+      plus parent pointers finds every shortest path — $2$ knight moves from
+      $(0,0)$ to $(3,3)$.
+
+  - node: quant-programming.algorithms.greedy-exchange
+    hook: >
+      "Sort by X and take greedily" is only half an answer — the exchange
+      argument is the other half, and different objectives need genuinely
+      different sort keys, not just a plausible-sounding one.
+    explanation: >
+      The proof template is fixed regardless of the problem: take any
+      optimal solution $O$ and the greedy solution $G$, find the first
+      position where they disagree, and show $O$ can be edited at that one
+      position to match $G$ without becoming worse. Iterating the argument
+      across every disagreement shows $G$ is optimal — the greedy choice was
+      never actually risky, it just looked that way before the edit was
+      exhibited.
+
+      What the argument does not do is tell you which sort key to use — that
+      still has to be discovered per problem, and different objectives
+      demand different keys even on similar-looking inputs. Interval
+      scheduling to maximize the count of non-overlapping intervals wants
+      earliest finish time; a different objective on the same kind of input
+      can want an entirely different order.
+
+      A clean instance of that difference: scheduling jobs on one machine to
+      minimize the sum of completion times wants shortest processing time
+      first, not earliest anything — and the exchange argument for it swaps
+      two adjacent jobs whenever a longer one precedes a shorter one, showing
+      the swap strictly helps.
+    worked: >
+      Four jobs, processing times $4,2,5,1$, one machine, minimize the sum of
+      completion times. Greedy: shortest processing time first, order
+      $1,2,4,5$, giving completion times $1,3,7,12$, total $23$. Exchange
+      check: if adjacent jobs with $p_i>p_j$ appear with the longer one
+      first, swapping leaves every other job's completion time unchanged and
+      reduces the swapped pair's contribution from $p_i+(p_i+p_j)$ to
+      $p_j+(p_i+p_j)$ — strictly better whenever $p_i>p_j$, so any unsorted
+      schedule can be improved. Running the original order $4,2,5,1$ instead
+      gives completions $4,6,11,12$, totalling $33$ — confirming shortest-
+      processing-time's $23$ is strictly better.
+    interview: >
+      "Schedule jobs to minimize average wait time" wants shortest processing
+      time; "schedule to maximize the count of intervals kept" wants earliest
+      finish time — the interviewer listens for the sort key stated with a
+      one-line exchange justification, not "sort it and it'll work out".
+    pitfalls: >
+      Offering a plausible-sounding sort order with no exchange argument at
+      all invites the interviewer to ask for a counterexample, and a
+      real one usually exists. Reusing earliest-finish-time (right for
+      maximizing count) when the actual objective is minimizing total
+      completion time (which wants shortest-processing-time) produces a
+      confidently wrong schedule. Skipping the check for whether one local
+      swap can strictly improve any given non-greedy solution leaves the
+      "proof" as an unverified guess.
+    recap: >
+      Greedy needs a proof: exchange the optimum's first disagreement for the
+      greedy choice — shortest-processing-time beats the naive order $33$ to
+      $23$ on jobs $4,2,5,1$.
+
+  - node: quant-programming.algorithms.pattern-catalog
+    hook: >
+      "Now make it faster" is its own short multiple-choice test, and naming
+      the target complexity before touching the keyboard is what's actually
+      being graded.
+    explanation: >
+      Treat every "optimize this" prompt as two lookups chained together:
+      first, what complexity is the interviewer pushing you toward, and
+      second, what structural fact about this specific input licenses the
+      technique that reaches it. Neither lookup works without the other — the
+      complexity target narrows the menu, and the structural cue picks the
+      one item on it that actually applies here.
+
+      From $O(n^{2})$ to $O(n\log n)$: sort the data, or run a binary search
+      inside an outer loop. From $O(n^{2})$ to $O(n)$: two pointers when the
+      data is already ordered on the compared quantity, a sliding window when
+      the constraint survives shrinking, prefix sums when the queries are
+      over ranges, a hash map the instant the question is "have I seen this
+      value before". From exponential to polynomial: dynamic programming
+      when subproblems repeat, greedy with an exchange argument when one
+      local rule provably suffices and no repeated subproblem structure is
+      even present. From polynomial down to $O(\log R)$ over a range of
+      width $R$: binary search the answer itself.
+
+      Say the pattern and the one-sentence reason it applies before writing
+      any code — that sentence is the part an interviewer is actually
+      scoring, and stating it first is what catches a wrong pattern before
+      it costs you a rewrite.
+    interview: >
+      "Can you make this faster" is asked as a near-automatic follow-up on
+      almost every problem — the interviewer is grading whether you name a
+      target complexity and the matching structural cue before typing, not
+      whether the resulting code happens to be fast.
+    pitfalls: >
+      Reaching for a technique because it sounds advanced — dynamic
+      programming on a problem a sorted-array two-pointer already solves in
+      $O(n)$ — wastes time solving the wrong-shaped problem well. Naming the
+      right target complexity but the wrong technique for it (defaulting to
+      sorting for every $O(n\log n)$ ask, even when a heap is the structure
+      actually available at that cost) still misses. Saying "use dynamic
+      programming" without naming the state answers with the word instead of
+      the mapping the interviewer is listening for.
+    recap: >
+      Every "now optimize" has a short menu keyed by the complexity you're
+      being pushed toward — naming the technique and the reason out loud is
+      the graded step, not the code that follows it.

@@ -1,0 +1,695 @@
+unit: quant-programming.complexity
+opening: >
+  Complexity is the currency of every interview algorithm question: before
+  writing a line of code you size the solution against the input bound, and
+  every design choice afterward is priced in this vocabulary. This unit
+  builds that vocabulary in order: Big-O/Ω/Θ as the formal grammar, the
+  growth ladder that turns an input size into a go/no-go verdict, why
+  logarithms are practically free and where they come from, the
+  recursion-tree argument behind n log n, amortized analysis and the
+  doubling array that is its canonical proof, the space-time tradeoff that
+  motivates caching and hashing, hashing's expected O(1) and the
+  birthday-shaped caveat behind it, and finally the two silent failure modes
+  — floating-point representation error and integer overflow — that
+  correct-looking code can still fall into. By the end you should be able to
+  look at an input bound and immediately name the complexity class it
+  demands, and to spot the line of code where a float comparison or a
+  32-bit sum is about to lie to you.
+lessons:
+  - node: quant-programming.complexity.big-o
+    hook: >
+      "What's the complexity of this loop" is graded on whether you state
+      the tight bound or just any valid upper bound — conflating $O$ with
+      $\Theta$ is the fastest way to look like you're pattern-matching
+      syntax rather than reasoning about growth.
+    explanation: >
+      Asymptotic notation exists because counting exact instructions is both
+      intractable and beside the point — what matters for sizing a solution
+      is how cost scales as the input grows, not the constant overhead of
+      one particular machine or language. $O$, $\Omega$, and $\Theta$
+      formalize "scales like" at three different strengths: $f=O(g)$ only
+      claims $f$ never grows faster than $g$ past some point, $f=\Omega(g)$
+      only claims $f$ never grows slower, and $f=\Theta(g)$ pins the growth
+      rate exactly by requiring both bounds to hold with possibly different
+      constants.
+
+      This is why $O$ alone can be a loose claim: linear search is
+      truthfully $O(n^{2})$, since $n \le c\cdot n^{2}$ for $c=1$ and all
+      $n\ge1$, even though that bound wastes information. Interviewers
+      asking for "the complexity" almost always want the tight $\Theta$
+      bound, and a good habit is to state both — an algorithm doing
+      $\Theta(n)$ work is trivially also $O(n)$, $O(n^{2})$, and so on.
+
+      Reducing a formula to its complexity class means dropping every
+      additive lower-order term and every multiplicative constant, keeping
+      only the fastest-growing piece — constants and lower-order terms shift
+      the crossover point $n_{0}$ and the witnesses $c_{1}, c_{2}$, but never
+      the growth class itself. And unless stated otherwise, "the complexity"
+      defaults to worst case: quicksort is loosely called $O(n\log n)$, but
+      its honest worst-case bound is $\Theta(n^{2})$.
+    worked: >
+      Take $f(n) = n^{2} + 10n$. For a lower bound, $f(n) \ge n^{2}$ for
+      every $n\ge1$, so $c_{1}=1$ works. For an upper bound, once $n\ge1$,
+      $10n \le 10n^{2}$, so $f(n) \le 11n^{2}$, giving $c_{2}=11$. Both hold
+      from $n_{0}=1$ onward, so $f(n)=\Theta(n^{2})$ with witnesses
+      $c_{1}=1$, $c_{2}=11$, $n_{0}=1$. Checking at $n=10$: $f(10)=200$,
+      which sits between $n^{2}=100$ and $11n^{2}=1100$ exactly as the
+      bounds predict.
+    interview: >
+      Expect "what's the time complexity of this function" over actual
+      code, with a follow-up "is that tight, or just an upper bound" to
+      check whether you know $O$ and $\Theta$ are different claims. State
+      the answer as a $\Theta$ bound with the dominant term named, and be
+      ready to justify dropping the lower-order terms and constants.
+    pitfalls: >
+      Reporting an $O$ bound as if it were automatically tight — $O(n^{2})$
+      means "quadratic or better," not "quadratic." Quoting an average-case
+      bound (quicksort's $O(n\log n)$) as *the* complexity without noting
+      the worst case is $\Theta(n^{2})$ is the other common slip.
+    recap: >
+      $O$, $\Omega$, and $\Theta$ are upper, lower, and tight growth bounds
+      up to a constant factor, found by dropping constants and lower-order
+      terms and keeping only the fastest-growing piece.
+
+  - node: quant-programming.complexity.growth-ranking
+    hook: >
+      Reading the constraint "$n \le 10^{5}$" should instantly rule out
+      $O(n^{2})$ and point you at $O(n\log n)$ — sizing a solution is a
+      five-second mental calculation, not a guess made after coding
+      something slow.
+    explanation: >
+      The ladder only becomes useful once anchored to real hardware: a
+      processor executes on the order of $10^{8}$ to $10^{9}$ simple
+      operations per second, and a typical interview or contest time budget
+      is around a second, so the total operation count you can afford is
+      bounded by roughly that same $10^{8}$–$10^{9}$. Reading the input
+      bound $n$ off the problem and asking "how many operations does each
+      candidate complexity actually produce at this $n$" turns the abstract
+      ladder into a concrete yes/no filter before any code gets written.
+
+      The rule of thumb worth memorizing: $n$ up to about $10^{8}$ tolerates
+      $O(n)$ or $O(n\log n)$, $n$ up to about $10^{4}$ tolerates $O(n^{2})$,
+      and $n$ up to about $20$–$25$ tolerates $O(2^{n})$. These thresholds
+      come directly from plugging $n$ into each growth function and
+      comparing against the operation budget — $O(n^{2})$ at $n=10^{4}$ is
+      $10^{8}$ operations, right at the edge, while at $n=10^{6}$ it is
+      $10^{12}$, hours too slow.
+
+      Treat this as a first filter, not a certificate: constants matter at
+      the boundary (an $O(n\log n)$ algorithm with a heavy constant can
+      still miss a tight limit), and the count has to reflect total work
+      across the whole algorithm, not just the innermost loop in isolation.
+    worked: >
+      A problem allows $n$ up to $10^{5}$ and a roughly one-second limit. An
+      $O(n^{2})$ approach does about $(10^{5})^{2}=10^{10}$ operations — at
+      $10^{8}$ operations per second that's on the order of $100$ seconds,
+      far too slow. An $O(n\log n)$ approach does about
+      $10^{5}\times\log_{2}(10^{5}) \approx 10^{5}\times17 = 1.7\times10^{6}$
+      operations, comfortably under $0.1$ seconds — the sizing alone points
+      you at a sort-based or divide-and-conquer method before writing a line
+      of nested loops.
+    interview: >
+      "The input can be up to $n=10^{5}$ — what complexity do you need" is
+      asked directly to see whether you reason from the constraint to the
+      algorithm class before coding, rather than coding first and
+      discovering a timeout. Naming the operation-count arithmetic out loud
+      is the expected answer, not a memorized table.
+    pitfalls: >
+      Estimating from the innermost loop alone instead of the total
+      operation count across the whole run understates the true cost.
+      Trusting the rule of thumb exactly at the boundary without accounting
+      for constant factors — an $O(n\log n)$ algorithm with a large hidden
+      constant can still fail a tight limit even when the class looks safe.
+    recap: >
+      Convert the input bound $n$ into an actual operation count for each
+      candidate complexity and compare it against the roughly $10^{8}$–
+      $10^{9}$ operations a second budget affords — that comparison, not the
+      input size alone, tells you which algorithm is worth coding.
+
+  - node: quant-programming.complexity.log-halving
+    hook: >
+      "How many comparisons does binary search need on a billion records"
+      should be answered from memory of $2^{10}\approx10^{3}$, not a
+      calculator — this is the one growth rate an interview expects you to
+      estimate instantly.
+    explanation: >
+      $\log_{2} n$ counts how many times $n$ can be halved before reaching
+      $1$ — concretely, the number of rounds a binary search needs to
+      narrow a list of $n$ items down to one, and equivalently the depth of
+      a balanced binary tree holding $n$ items. Both are the same halving
+      process viewed two ways: each round, or each level down the tree,
+      discards half of what's left.
+
+      The mental shortcut worth memorizing is $2^{10}=1024\approx10^{3}$, so
+      $\log_{2}(10^{3})\approx10$. Scaling by powers of $10^{3}$ then just
+      adds $10$ each time: $\log_{2}(10^{6})\approx20$,
+      $\log_{2}(10^{9})\approx30$, $\log_{2}(10^{12})\approx40$. The true
+      values are slightly smaller ($19.9$, $29.9$, $39.9$) since $10^{3}$ is
+      a touch more than $2^{10}$, but the estimate is accurate enough to
+      size an algorithm live.
+
+      This slow growth is why $\log n$ is treated as "practically constant"
+      next to any polynomial term: multiplying the input by a thousand only
+      adds about ten more halvings, so a $\log n$ factor sitting next to an
+      $n$ or $n^{2}$ term almost never changes which algorithm is fast
+      enough — it is the one growth rate an interview will rarely ask you to
+      tighten further.
+    worked: >
+      How many comparisons does binary search need on a trillion sorted
+      records ($n=10^{12}$)? Using $\log_{2}(10^{3})\approx10$ four times,
+      $\log_{2}(10^{12})\approx4\times10=40$ comparisons — a data set a
+      million times larger than a million-item list
+      ($\log_{2}(10^{6})\approx20$) only costs twice as many comparisons,
+      $40$ versus $20$, not a million times more.
+    interview: >
+      "If I have a billion sorted records, how many comparisons does binary
+      search take" is meant to be answered in seconds using the
+      $2^{10}\approx10^{3}$ shortcut, landing near $30$ — the interviewer is
+      checking mental-math fluency with logarithms, not asking for the
+      exact value $29.9$.
+    pitfalls: >
+      Confusing $\log_{2}$ with $\log_{10}$ changes the answer by a factor
+      of about $3.32$ — always confirm which base a stated bound uses.
+      Treating every logarithm as automatically negligible is also wrong
+      when its argument is itself exponential, such as $\log(2^{n})=n$,
+      which is linear, not small.
+    recap: >
+      $\log_{2} n$ is the halving count, estimated fast via
+      $2^{10}\approx10^{3}$, and it grows so slowly that a thousand-fold
+      larger input costs only about ten more comparisons.
+
+  - node: quant-programming.complexity.divide-conquer-recurrence
+    hook: >
+      Recognizing $T(n)=aT(n/b)+f(n)$ inside recursive code you're handed
+      live, and summing the recursion tree instead of guessing the answer,
+      is what separates knowing merge sort is $n\log n$ from actually being
+      able to analyze new recursive code.
+    explanation: >
+      The general move is the recursion tree: draw the levels of recursive
+      calls, work out how many subproblems and what size sit at each level,
+      add up the work done at that level, then sum across all
+      $\log_{2} n$ levels — halving $n$ down to $1$ takes exactly that many
+      rounds. Whether the total ends up dominated by the top level, the
+      bottom level, or split evenly across all of them depends entirely on
+      how the per-level work changes as the subproblems shrink.
+
+      For merge sort's recurrence, $T(n)=2T(n/2)+O(n)$, every level does the
+      same $O(n)$ total work — twice as many subproblems, each half the
+      size, so the linear combine cost per level stays constant — and there
+      are $\log_{2} n$ such levels, giving $O(n\log n)$ overall: work per
+      level times number of levels, with no single level dominating.
+
+      The same tree with a different combine cost tells a different story:
+      cut the combine step to $O(1)$ per subproblem instead of $O(n)$ total,
+      and the bottom level — the $n$ base cases, each doing $O(1)$ work —
+      now dominates every level above it, collapsing the sum to $O(n)$
+      rather than $O(n\log n)$. The branching and the halving fix the shape
+      of the tree; the combine cost decides which part of it the total gets
+      charged to.
+    worked: >
+      Binary search recurses as $T(n)=T(n/2)+O(1)$: one subproblem of half
+      the size, constant work to decide which half to keep. At $n=1024$,
+      the tree has $\log_{2}(1024)=10$ levels, and every level does $O(1)$
+      work — a single comparison — rather than work proportional to the
+      subproblem size, so the total is $10$ constant-time steps, giving
+      $T(1024)=O(10)=O(\log_{2} n)$, the classic $O(\log n)$ bound rather
+      than merge sort's $O(n\log n)$.
+    interview: >
+      "Solve this recurrence using the recursion tree, not the master
+      theorem formula" is a common framing, since interviewers want the
+      level-by-level counting argument, not a memorized name. Expect a
+      follow-up that changes the combine cost or branching factor and asks
+      how the total changes.
+    pitfalls: >
+      Applying $O(n\log n)$ to every divide-and-conquer recurrence
+      regardless of the combine cost is the most common error — the combine
+      cost decides whether the top, bottom, or every level dominates.
+      Miscounting the number of levels, using $\log_{2} n$ when the split
+      isn't exactly in half or being off by one at the base case, throws off
+      the final constant.
+    recap: >
+      Sum the work level by level across the $\log_{2} n$ levels of the
+      recursion tree; the combine cost per level, not the branching alone,
+      decides whether the total lands on $O(n)$, $O(n\log n)$, or elsewhere.
+
+  - node: quant-programming.complexity.amortized
+    hook: >
+      "Is push_back $O(1)$?" is a trick question until you say the word
+      "amortized" — a single call can cost $O(n)$, and the honest answer
+      prices the whole sequence of calls, not any one of them.
+    explanation: >
+      The amortized cost of an operation is the total cost of some sequence
+      of $n$ operations divided by $n$ — a statement about the whole
+      sequence, not a promise about any individual call within it. This
+      differs from "worst-case per operation," which bounds every single
+      call separately, and from "average case," which is a claim about a
+      probability distribution over random inputs. Amortized analysis needs
+      no randomness at all: the guarantee is proved for every possible
+      sequence, including one an adversary designs specifically to be
+      expensive.
+
+      The intuition is that occasional expensive operations are rare enough,
+      relative to how many cheap operations preceded them, that spreading
+      the expensive cost across the whole sequence still yields a small
+      number per operation. A structure can have individual calls that cost
+      $O(n)$ and still be $O(1)$ amortized, provided an expensive call is
+      always preceded by enough cheap calls to absorb it — the total, not
+      any single term, is what's bounded.
+
+      The practical payoff is that "amortized $O(1)$" is a stronger and more
+      useful claim than it sounds: it survives being called in a loop $n$
+      times in a row, or in any order at all, because the bound was proved
+      for the total across every sequence, not for a friendly one.
+    worked: >
+      A stack supports push ($O(1)$) and a multipop$(k)$ that removes up to
+      $k$ elements in $O(\min(k,\text{size}))$ time. Do $1000$ pushes, then
+      one multipop$(1000)$ that empties the whole stack: the multipop alone
+      costs $1000$, an $O(n)$ single call. But across all $1001$ operations,
+      total work is $1000$ pushes plus $1000$ pops inside the multipop,
+      $=2000$, since no element is ever popped more than once no matter how
+      the pops are distributed across calls. Dividing by $1001$ operations
+      gives an amortized cost of about $2$ per operation — $O(1)$ — even
+      though that one multipop call was far from cheap.
+    interview: >
+      "What's the amortized complexity of $n$ pushes and pops mixed
+      together" is answered by bounding the *total* work across the
+      sequence — here, each element is pushed once and popped at most once —
+      and dividing by $n$, not by analyzing the worst single call. Naming
+      this the "aggregate method" signals fluency.
+    pitfalls: >
+      Reporting the amortized bound as if it were also the worst-case-per-
+      call bound erases real information — a single multipop or resize can
+      still spike to $O(n)$. Treating "amortized" as a synonym for "average
+      case" is the other common confusion; amortized holds for every
+      sequence, deterministically, with no assumption about how the
+      sequence is generated.
+    recap: >
+      Amortized cost totals the work across an entire sequence of
+      operations and divides by the count, a guarantee that holds for every
+      sequence — including adversarial ones — not just typical ones.
+
+  - node: quant-programming.complexity.doubling-worked
+    hook: >
+      This is the proof, not just the claim, that a dynamic array's push is
+      $O(1)$ amortized — reproducing the geometric-series argument live is
+      what the interviewer is actually checking for.
+    explanation: >
+      The proof is nothing more than summing a geometric series. Resizes
+      happen at capacities $1,2,4,\dots,2^{k-1}$, and the resize at capacity
+      $2^{i}$ copies exactly $2^{i}$ elements, so after $n$ pushes the total
+      copying work is $1+2+4+\cdots+2^{k-1}$, a geometric series bounded
+      above by $2\cdot2^{k-1}\le2n$. Total work across all $n$ pushes is
+      then at most the $n$ pushes themselves plus $2n$ copies, both $O(n)$,
+      so the amortized cost per push — total work divided by $n$ — is
+      $O(1)$.
+
+      The multiplicative growth is not incidental — it's what makes the
+      series geometric rather than arithmetic. Growing the capacity by a
+      fixed additive amount $c$ each time instead of doubling forces about
+      $n/c$ resizes, and the copy cost at each resize grows linearly with
+      the current size, so total copying becomes $\Theta(n^{2}/c)$ —
+      quadratic in $n$ for fixed $c$ — giving $\Theta(n/c)$ amortized per
+      push, not $O(1)$. Doubling keeps the resize count logarithmic while
+      the copy sizes form a geometric series summing to $O(n)$; additive
+      growth keeps the resize count linear and loses the bound entirely.
+
+      The growth factor doesn't have to be exactly $2$ — any fixed factor
+      greater than $1$ (a common choice is $1.5$) yields the same
+      geometric-series argument and the same $O(1)$ amortized bound, just
+      with a different constant baked into the $O$.
+    worked: >
+      Push $100$ elements onto an array that starts at capacity $1$ and
+      doubles on overflow. Resizes trigger when capacity $1,2,4,8,16,32,64$
+      each fill up, copying $1,2,4,8,16,32,64$ elements respectively — a
+      total of $127$ copies across $7$ resizes, safely under the $2n=200$
+      bound the geometric series guarantees, even though $n=100$ isn't a
+      clean power of $2$. Total work including the $100$ pushes themselves
+      is $227$, giving an amortized cost per push of $227/100\approx2.27$.
+    interview: >
+      "Prove push_back is amortized $O(1)$, don't just state it" wants the
+      geometric-series sum reproduced, ending in an explicit bound like
+      $\le2n$ total copies — citing "it's a well-known fact" without the sum
+      reads as not knowing it.
+    pitfalls: >
+      Growing capacity by a fixed additive amount instead of a
+      multiplicative factor breaks the bound entirely, turning $O(1)$
+      amortized into $\Theta(n)$ amortized — this is the most common wrong
+      "optimization." Adding a shrink-on-underflow rule that halves capacity
+      as soon as the array is half empty can also break the bound:
+      alternating one push and one pop right at that threshold forces a
+      resize on every operation, so any shrink policy needs a wider
+      hysteresis band, such as shrinking only at one-quarter full, to stay
+      $O(1)$ amortized.
+    recap: >
+      Summing the geometric series of resize costs bounds total copying by
+      roughly $2n$ over $n$ pushes — proof, not assertion, that doubling
+      gives $O(1)$ amortized inserts, and only multiplicative growth earns
+      that bound.
+
+  - node: quant-programming.complexity.space-time-tradeoff
+    hook: >
+      "Can you do better?" after you've stated an $O(n)$-per-query solution
+      is almost always answered by spending memory to precompute — naming
+      the trade explicitly is faster than reinventing it live.
+    explanation: >
+      Many "can we go faster" answers are not new algorithmic insight so
+      much as a decision to remember something instead of recomputing it —
+      memory spent now to buy time back later. The question that decides
+      whether the trade pays off is how many times the precomputed
+      information will actually be used: build a structure once at $O(n)$
+      or $O(n\log n)$ cost and query it once, and the setup cost never
+      amortizes; build it once and query it many times, and the one-time
+      cost is paid back many times over.
+
+      The recurring instances share this shape. A hash table spends $O(n)$
+      memory to turn repeated $O(n)$ scans into $O(1)$ expected lookups.
+      Memoization spends memory to turn repeated recomputation of the same
+      subproblem into a single computation plus free lookups thereafter. A
+      prefix-sum array spends $O(n)$ memory and $O(n)$ one-time
+      preprocessing to turn every future range-sum query into $O(1)$
+      instead of $O(n)$ per query. None of these change what's computable —
+      they change who pays for the computation and when.
+
+      When an interviewer follows a working solution with "what if memory
+      isn't a constraint," that's usually the cue to reach for exactly this
+      trade rather than a cleverer algorithm — the honest answer is often
+      that no free lunch exists, only a choice about which resource to
+      spend.
+    worked: >
+      An array of $n=10^{6}$ elements needs to answer $q=1000$ range-sum
+      queries. Naive per-query summing costs $O(n)$ each, about
+      $1000\times10^{6}=10^{9}$ total operations — on the order of several
+      seconds, likely too slow. Building a prefix-sum array first costs
+      $O(n)$ once, about $10^{6}$ operations, and each query then costs
+      $O(1)$, about $1000$ operations total — roughly $1.001\times10^{6}$
+      operations overall, close to a thousand times fewer than the naive
+      total, at the cost of one extra array of size $n$.
+    interview: >
+      "I need to answer many range-sum queries against a fixed array — can
+      you speed this up?" is the canonical prompt; the interviewer listens
+      for "precompute prefix sums" named immediately, along with the $O(n)$
+      preprocessing plus $O(1)$-per-query cost stated explicitly, not just
+      "yes, use extra memory."
+    pitfalls: >
+      Reaching for precomputation when there's only one or two queries
+      wastes the setup cost for no payoff — the trade only wins when the
+      number of reuses is large enough to amortize it. Assuming the
+      underlying data stays static is the other trap: if updates interleave
+      with range queries, a plain prefix-sum array needs a full $O(n)$
+      rebuild per update, and a Fenwick tree or segment tree is the
+      structure that actually handles both operations in $O(\log n)$.
+    recap: >
+      Precomputing or caching turns repeated $O(n)$ work into $O(1)$
+      lookups at the cost of memory, and the trade only pays off once the
+      precomputed answer is reused enough times to amortize the setup.
+
+  - node: quant-programming.complexity.hashing-cost
+    hook: >
+      Answering "hash map lookup is $O(1)$" without the word "expected"
+      invites the obvious follow-up — "what if every key hashes to the same
+      bucket" — and losing that exchange is a common way to lose the round.
+    explanation: >
+      Expected $O(1)$ is a direct application of linearity of expectation.
+      With $m$ buckets and $n$ keys hashed uniformly at random, the expected
+      number of other keys landing in any one fixed bucket is $n/m$, the
+      load factor $\alpha$ — sum an indicator for "key $j$ collides with key
+      $i$'s bucket" over all other keys, and
+      $\mathbb{E}[\text{work per operation}]$ is $O(1+\alpha)$: one step to
+      compute the hash, plus an expected $\alpha$ steps scanning whatever
+      else landed in that bucket.
+
+      Keeping $\alpha$ itself bounded is what keeps this $O(1)$ rather than
+      growing with $n$: rehashing into a larger table once the load factor
+      crosses a threshold, the same doubling idea behind dynamic arrays,
+      caps $\alpha$ at a constant, so expected work per insert, lookup, or
+      delete stays $O(1)$ regardless of how large the table eventually
+      grows.
+
+      This is also exactly the birthday problem in different clothes: a
+      collision — two keys landing in the same bucket — is the same event
+      as two people sharing a birthday, with buckets playing the role of
+      days, so a collision becomes likely far earlier than "the table is
+      nearly full" suggests, roughly once $\sqrt{m}$ keys are inserted.
+      And the expectation itself is over a random or well-distributed hash
+      function; an adversary who chooses keys that collide under a known,
+      weak hash forces every operation into a real $\Theta(n)$, since the
+      guarantee never claimed anything about a specific worst-case input.
+    worked: >
+      A table has $m=1000$ buckets and $n=700$ keys inserted, load factor
+      $\alpha=0.7$. The expected number of other keys sharing any given
+      bucket is $\alpha=0.7$, so an unsuccessful lookup, scanning the whole
+      bucket, costs an expected $1+\alpha=1.7$ comparisons, and a
+      successful lookup costs an expected $1+\alpha/2=1.35$ comparisons —
+      both $O(1)$ constants, nowhere near the $700$ comparisons a
+      worst-case single bucket could in principle force.
+    interview: >
+      "What's the time complexity of a hash map lookup, and when does it
+      break" wants "expected $O(1)$, assuming a reasonable hash function and
+      a bounded load factor via rehashing" stated cold, followed immediately
+      by "worst case is $O(n)$, under an adversarial hash or a
+      hash-flooding attack" without being prompted for it.
+    pitfalls: >
+      Saying plain "$O(1)$" without the word "expected" or "average"
+      answers a different, false claim. Assuming a language's default hash
+      function is collision-resistant against a deliberately crafted input
+      is also wrong — many built-in hashes are fast but not adversarially
+      safe, which is exactly how hash-flooding denial-of-service attacks
+      work.
+    recap: >
+      Hash table operations are expected $O(1)$ because the expected bucket
+      occupancy is the load factor, a constant kept bounded by rehashing —
+      not a worst-case guarantee, and collisions stay common well before
+      the table fills.
+
+  - node: quant-programming.complexity.hash-collision-scale
+    hook: >
+      "There are four billion buckets, so collisions won't happen" is
+      exactly the wrong intuition this node corrects — the safe insertion
+      count scales with the square root of the bucket count, not the
+      bucket count itself.
+    explanation: >
+      The birthday approximation says the probability of at least one
+      collision among $k$ items hashed uniformly into $m$ buckets crosses
+      $50\%$ once $k\approx1.2\sqrt{m}$ — the safe insertion count scales
+      with the square root of the bucket count, not linearly with it. This
+      is the same identity behind "$23$ people for even odds of a shared
+      birthday" ($m=365$, $\sqrt{365}\approx19$, times $1.2$ gives about
+      $23$), just applied to hash buckets instead of calendar days.
+
+      The square-root scaling has a sharp practical consequence: doubling
+      the number of bits in a hash squares the bucket count $m$, which
+      squares the safe insertion count along with it. Going from a $32$-bit
+      hash to a $64$-bit hash multiplies the safe count by
+      $2^{16}=65{,}536$, since
+      $\sqrt{2^{64}}/\sqrt{2^{32}}=2^{32}/2^{16}=2^{16}$ — not merely
+      doubling how many items you can hash safely.
+
+      This is why content hashes, UUID schemes, and deduplication systems at
+      real scale reach for $64$- or $128$-bit outputs rather than $32$: at
+      $128$ bits, the safe insertion count is on the order of
+      $\sqrt{2^{128}}=2^{64}\approx1.8\times10^{19}$, a number no realistic
+      system will ever insert that many items to reach, while at $32$ bits
+      it's only in the tens of thousands — five orders of magnitude below
+      the bucket count itself.
+    worked: >
+      A $64$-bit hash has $m=2^{64}\approx1.8\times10^{19}$ buckets. Using
+      $k\approx1.2\sqrt{m}$, $\sqrt{2^{64}}=2^{32}\approx4.3\times10^{9}$, so
+      $k\approx1.2\times4.3\times10^{9}\approx5.2\times10^{9}$ — about
+      $5.2$ billion insertions before a $50\%$ chance of collision, versus
+      the $32$-bit case's roughly $77{,}000$. Doubling the hash width from
+      $32$ to $64$ bits multiplied the safe insertion count by
+      $2^{16}=65{,}536$, close to the ratio
+      $5.2\times10^{9}/77{,}000\approx67{,}500$ predicted, up to the
+      rounding baked into the $1.2$ constant.
+    interview: >
+      "If I switch from a $32$-bit to a $64$-bit hash for deduplication,
+      how many more items can I safely hash?" wants the $\sqrt{m}$
+      reasoning reproduced live, landing on "roughly $2^{16}$ times more,"
+      not a memorized number pulled from nowhere.
+    pitfalls: >
+      Reasoning linearly — "$m$ is huge, so collisions are essentially
+      impossible" — ignores that the safe count only grows as $\sqrt{m}$.
+      Treating the $50\%$ threshold as a hard floor is also wrong: a
+      collision can occur far earlier than $1.2\sqrt{m}$ insertions, just
+      with lower probability, and the approximation itself assumes a
+      genuinely uniform hash, which a weak or clustering hash function does
+      not provide.
+    recap: >
+      Safe insertion count before a coin-flip chance of collision scales as
+      $\sqrt{m}$, so doubling a hash's bit width squares the bucket count
+      and multiplies the safe count by $2^{16}$ — the reason real
+      deduplication systems use $64$- or $128$-bit hashes, not $32$.
+
+  - node: quant-programming.complexity.floating-point
+    hook: >
+      "Why doesn't $0.1+0.2$ equal $0.3$ in code" is asked to separate
+      candidates who know this is a structural fact about binary
+      representation from those who've only memorized it as a language
+      quirk to work around.
+    explanation: >
+      A double stores a number as sign times mantissa times a power of two
+      — a binary fraction, not a decimal one. Numbers that are exact finite
+      sums of powers of two, like $0.5=2^{-1}$, store exactly. Almost every
+      decimal fraction is not such a sum: $1/10$ in binary is an infinitely
+      repeating fraction, exactly the way $1/3$ repeats forever in decimal,
+      so it gets truncated once the mantissa's $52$ bits run out — a small
+      representation error baked in before any arithmetic even runs.
+
+      $52$ mantissa bits give roughly $15$–$17$ significant decimal digits
+      of precision, not infinite precision, and that small per-number error
+      can compound across repeated operations into something visibly wrong,
+      which is the entire content of $0.1+0.2$ evaluating to
+      $0.30000000000000004$: each operand was already slightly off before
+      the addition, and the addition simply reveals it in the digits that
+      print.
+
+      None of this is a bug specific to one language or a fixable rounding
+      mistake — it is a structural fact about representing base-$10$
+      fractions in base $2$, true of every system built on IEEE 754 doubles.
+      No floating-point computation should be trusted to land on an exact
+      decimal value, ever, regardless of which language or library produced
+      it.
+    worked: >
+      How large can an integer get before a double can no longer represent
+      it exactly? The $52$-bit mantissa plus an implicit leading bit gives
+      $53$ bits of integer precision, so every integer up to
+      $2^{53}=9{,}007{,}199{,}254{,}740{,}992$ is exact, but
+      $2^{53}+1=9{,}007{,}199{,}254{,}740{,}993$ has no exact double
+      representation and silently rounds down to $2^{53}$ itself — the
+      mantissa has run out of bits to encode the odd final digit.
+    interview: >
+      "Why doesn't $0.1+0.2$ equal $0.3$" is the canonical opener; a
+      sharper follow-up, "can a double represent every integer exactly, and
+      up to what value," tests whether you know the $2^{53}$ boundary
+      rather than only the decimal-fraction symptom.
+    pitfalls: >
+      Treating this as a bug in one particular language misses that it's
+      IEEE 754, universal across virtually every mainstream language.
+      Assuming more printed decimal digits "fixes" the problem is also
+      wrong — the stored binary value itself is what's imprecise,
+      formatting only changes how many of the wrong digits get displayed.
+    recap: >
+      Doubles store binary fractions with about $15$–$17$ significant
+      decimal digits, so most decimal fractions, and every integer above
+      $2^{53}$, have no exact representation — a structural fact, not a
+      rounding bug.
+
+  - node: quant-programming.complexity.cancellation-tolerance
+    hook: >
+      "What's wrong with this comparison, or this running total" is a
+      recurring live-review prompt, and the answer is almost always one of
+      three linked floating-point traps — spotting which one fast is the
+      actual skill.
+    explanation: >
+      Catastrophic cancellation happens when two nearly equal floats are
+      subtracted: their matching leading digits cancel exactly, leaving
+      only the trailing, least-reliable digits to make up the entire
+      result. The absolute error in each operand stays roughly the same
+      size, but now that fixed error sits on top of a much smaller answer,
+      so the *relative* error explodes. The fix is algebraic, not
+      numerical: rewrite the expression into an equivalent form that never
+      subtracts two near-equal quantities, the way $\sqrt{x+1}-\sqrt{x}$
+      becomes $1/(\sqrt{x+1}+\sqrt{x})$ by multiplying by the conjugate.
+
+      Testing floats for exact equality is a related failure: roundoff
+      means even a mathematically true identity typically differs by around
+      $10^{-16}$ relative error once computed, so `a == b` is almost never
+      the right check. Test $|a-b|<\varepsilon$ instead, with $\varepsilon$
+      scaled to the magnitude of $a$ and $b$ — a fixed absolute tolerance is
+      too loose for tiny numbers and too tight for huge ones.
+
+      Summation order is the third trap: floating-point addition rounds to
+      the precision of the larger operand, so adding a tiny value into an
+      already-large running sum can discard it completely rather than just
+      losing a few digits of it. Summing in ascending order, smallest
+      first, lets small values accumulate with each other before meeting
+      the large ones; Kahan summation achieves the same protection for a
+      true one-pass stream by tracking the low-order bits an addition drops
+      in a separate compensating accumulator.
+    worked: >
+      Sum one hundred copies of $10^{-8}$ into a running total starting at
+      $10^{8}$. Adding each $10^{-8}$ individually, largest-first: near
+      $10^{8}$, a double's smallest representable increment is around
+      $3\times10^{-8}$, so each addition of $10^{-8}$ rounds away
+      completely and the running total stays exactly
+      $100{,}000{,}000.0$, losing all $100\times10^{-8}=10^{-6}$ of the true
+      sum. Summing the hundred small values first gives exactly $10^{-6}$,
+      above that representable increment, and adding it once to $10^{8}$
+      gives $100{,}000{,}000.000001$ — the correct answer, recovered purely
+      by reordering.
+    interview: >
+      "What's wrong with this loop that sums an array" is standard; the
+      interviewer listens for whichever of the three traps applies —
+      cancellation, exact-equality, or summation order — named specifically,
+      not a general "floating point is imprecise" answer.
+    pitfalls: >
+      Rewriting a cancellation-prone expression without checking that the
+      new form doesn't introduce cancellation somewhere else. Choosing a
+      fixed absolute epsilon for equality tests regardless of the numbers'
+      scale, rather than a relative tolerance. Assuming a full sort before
+      summing is free — it costs $O(n\log n)$ and isn't possible on a true
+      single-pass stream, which is exactly when Kahan summation earns its
+      extra bookkeeping.
+    recap: >
+      Nearly-equal subtraction, exact equality tests, and large-before-
+      small summation are the three ways floating point quietly discards
+      precision, each fixed by a different, specific technique rather than
+      "being careful."
+
+  - node: quant-programming.complexity.integer-overflow
+    hook: >
+      "Find the bug in this binary search" is a recurring live-coding
+      prompt, and the bug is almost always the midpoint line — spotting it
+      before running the code is what the exercise is actually testing.
+    explanation: >
+      A signed $32$-bit integer holds $-2^{31}$ to $2^{31}-1$, roughly
+      $\pm2.1\times10^{9}$. Exceeding that range overflows, and unlike an
+      arbitrary-precision type, most fixed-width $32$-bit types don't raise
+      an error at the moment it happens — the value silently wraps, or in
+      some languages invokes undefined behavior, so the bug surfaces later
+      as a quietly wrong answer rather than a crash at the source.
+
+      The classic instance is binary search's midpoint: computing
+      $(\text{low}+\text{high})/2$ can overflow even when neither
+      $\text{low}$ nor $\text{high}$ individually exceeds the $32$-bit
+      range, because their *sum* can still cross it. The fix,
+      $\text{low}+(\text{high}-\text{low})/2$, never adds two large values
+      together — it only ever adds a small difference to $\text{low}$, so
+      the intermediate quantity stays small regardless of how large
+      $\text{low}$ and $\text{high}$ are individually.
+
+      The general habit this teaches is checking every intermediate
+      computation, not just the final return value, for whether it could
+      plausibly cross about two billion — a running sum of counts, a sum of
+      squares, or a product of two moderately large inputs are the
+      recurring culprits, and a wrapped value is not obviously wrong on
+      inspection; it's still a valid-looking number, just the wrong one.
+    worked: >
+      Counting all ordered pairs among $n=100{,}000$ items as $n\times n$ in
+      a $32$-bit int: the true value is $n^{2}=10^{10}$, exceeding
+      $2^{31}-1\approx2.147\times10^{9}$ by roughly $4.7\times$. Reducing
+      modulo $2^{32}=4{,}294{,}967{,}296$, the wraparound point,
+      $10^{10}-2\times4{,}294{,}967{,}296=1{,}410{,}065{,}408$ — the
+      computation would silently return $1{,}410{,}065{,}408$ instead of
+      $10{,}000{,}000{,}000$, a perfectly plausible-looking positive number
+      that's off by nearly an order of magnitude, with no error raised
+      anywhere.
+    interview: >
+      "Count all pairs among $n=100{,}000$ items — what's the complexity,
+      and is there an implementation trap" wants both the $O(n^{2})$ sizing
+      and the overflow trap named unprompted, with "accumulate in a 64-bit
+      type" offered as the fix.
+    pitfalls: >
+      Assuming the language raises an error on overflow — most compiled,
+      statically typed languages wrap or invoke undefined behavior silently
+      instead. Checking only the final return value for plausibility while
+      an earlier intermediate expression, like $\text{low}+\text{high}$ or
+      $n\times n$, is what actually overflowed. Declaring only the final
+      result variable as a wider $64$-bit type while the expression that
+      computes it is still evaluated in $32$-bit arithmetic before being
+      widened.
+    recap: >
+      Signed $32$-bit integers overflow past about $2.1$ billion silently,
+      not with an error, which is exactly why binary search's midpoint is
+      written as $\text{low}+(\text{high}-\text{low})/2$ instead of
+      $(\text{low}+\text{high})/2$.

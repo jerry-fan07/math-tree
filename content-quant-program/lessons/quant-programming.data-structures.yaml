@@ -1,0 +1,567 @@
+unit: quant-programming.data-structures
+opening: >
+  Data structures are the vocabulary the rest of the programming units are
+  written in: which container you reach for decides whether a solution is
+  $O(n)$ or $O(n^{2})$, long before any algorithm gets clever. This unit works
+  outward from the two basic access patterns — arrays and linked lists —
+  through hash maps and heaps, then stacks, queues and balanced trees,
+  building toward the structures interviewers name directly: top-k over a
+  stream, the running median, and the LRU cache, each a composition of pieces
+  taught earlier in the unit. It closes by turning "which structure" into a
+  habit — asking what minimal state answers the running query — since that
+  question, not a memorized list, is what a streaming problem is actually
+  testing.
+lessons:
+  - node: quant-programming.data-structures.array-linked-list
+    hook: >
+      Whether an interviewer expects an array or a linked list for a given
+      operation is rarely stated outright — it's read off which operation the
+      problem repeats, and getting that read backwards costs an order of
+      magnitude.
+    explanation: >
+      Contiguity is the whole story for arrays: index $i$ sits at a fixed
+      offset from the start, so reading or writing $a[i]$ is $O(1)$, and
+      every element sits next to its neighbors in memory, which is why
+      scanning an array is fast in practice and not just in Big-O. Inserting
+      or deleting in the middle breaks that contiguity — every element after
+      the gap has to shift one slot to keep the array packed, an $O(n)$ pass.
+
+      A singly linked list buys the opposite trade: each node is its own
+      allocation holding a value and a pointer to the next node, so splicing
+      a node in or out beside a node you already hold is $O(1)$ — two pointer
+      writes, no shifting. The catch is getting there: without random
+      access, reaching the $k$-th node means walking $k$ pointers from the
+      head, $O(n)$, and scattered allocations make even a full scan slower
+      in practice than an array scan of the same size.
+
+      Dynamic arrays (Python's list, C++'s vector, Java's ArrayList) soften
+      the array's weak spot at one end: doubling the backing array on
+      overflow makes a single resize $O(n)$, but spreading that cost over
+      every push since the last resize makes appending $O(1)$ amortized, not
+      the $O(n)$ per push a fixed-size array would force. Default to an
+      array whenever the job is scanning, indexing, or appending at the end;
+      reach for a linked list only when the problem hands you a held
+      position and asks you to splice there repeatedly.
+    worked: >
+      Insert a new item at index 2 of a 6-element array
+      [10, 20, 30, 40, 50, 60]: the four elements at indices 2 through 5 each
+      shift one slot right before the new value lands, four moves total. If
+      those same six items were a singly linked list and you already held a
+      pointer to the node before index 2, the same insertion is two pointer
+      writes — no shifting — and that cost stays two pointer writes whether
+      the list holds 6 elements or 6 million; the array's cost scales with
+      how much sits after the gap.
+    interview: >
+      Comes up as "array or linked list here" attached to a specific access
+      pattern — random access into the middle, or repeated insertion at a
+      held position — and the interviewer listens for you naming which
+      operation dominates, not stating a memorized preference. A common
+      follow-up asks about a dynamic array's resize cost, testing whether you
+      defend $O(1)$ amortized append rather than treating one $O(n)$ resize
+      as disqualifying.
+    pitfalls: >
+      Claiming a linked list is faster to insert into without accounting for
+      how you got to that position — if you don't already hold a pointer to
+      the splice point, finding it is $O(n)$, erasing the entire advantage.
+      Citing "resize is $O(n)$" as a reason to avoid dynamic arrays for
+      appends, without the amortized argument that spreads that cost over
+      every push since the last resize.
+    recap: >
+      Arrays win on access, indexing, and locality; a linked list only wins
+      at a splice point you already hold a reference to.
+
+  - node: quant-programming.data-structures.doubly-linked-list
+    hook: >
+      A singly linked list makes splicing right after a held node cheap —
+      removing that same node is the case that breaks it, and it's exactly
+      the gap that shows up wherever a cache needs to evict something.
+    explanation: >
+      A singly linked list's next-pointer is enough to insert right after a
+      held node, but removing that node needs its predecessor — the node's
+      own pointer only reaches forward, so finding the one behind it means
+      walking from the head, $O(n)$. A doubly linked list closes that gap by
+      giving every node a second pointer, back to its predecessor, so a held
+      reference alone is enough to unlink or relink it in either direction,
+      no walk required.
+
+      Removing node $C$ from the chain A, B, C, D (each pair linked both
+      ways) is two pointer writes regardless of where $C$ sits or how long
+      the chain is: $B$'s next becomes $D$, and $D$'s previous becomes $B$.
+      That $O(1)$ cost is bought at a fixed price per node — two pointers of
+      bookkeeping instead of one — paid on every node whether or not it's
+      ever removed from the middle.
+
+      This is the piece that makes $O(1)$ eviction possible in a structure
+      like an LRU cache: a companion index, typically a hash map, supplies
+      the node reference in $O(1)$, and the doubly linked list then does the
+      unlink-and-relink in $O(1)$ without scanning for a predecessor. Neither
+      piece alone gets there — the index finds the node, the list moves it.
+    worked: >
+      Removing a middle order from a processing queue held as the doubly
+      linked chain A, B, C, D, E, given a held reference to $C$: read $C$'s
+      previous ($B$) and next ($D$), set $B$'s next to $D$ and $D$'s
+      previous to $B$, then discard $C$ — two pointer writes, whether the
+      chain holds 5 nodes or 5 million. In a singly linked version of the
+      same chain, finding $B$ from $C$ alone is impossible without a second
+      pass from the head, an $O(n)$ walk.
+    interview: >
+      Comes up directly inside "design an LRU cache" and any "remove this
+      node given a pointer to it" phrasing — the interviewer checks whether
+      you reach for a doubly linked list unprompted once removal, not just
+      insertion, is on the table, and whether you can say in one sentence
+      why a singly linked list forces an $O(n)$ walk for the same removal.
+    pitfalls: >
+      Updating only one of the two neighbor pointers when unlinking a node —
+      a stale prev or next corrupts the list even though the visible half
+      looks fine. Assuming the doubly linked list gives $O(1)$ search — it
+      doesn't; you still need something else, usually a hash map, to find
+      the node before you can remove it in $O(1)$.
+    recap: >
+      Two pointers per node, one back and one forward, turn removal at a
+      held node from an $O(n)$ walk into two $O(1)$ writes.
+
+  - node: quant-programming.data-structures.hash-map
+    hook: >
+      "Have I seen this before" or "look up by key" is the most common
+      instinct-check in an interview, and reaching for anything other than a
+      hash map first should need a specific reason.
+    explanation: >
+      A hash map applies a hash function to each key to get a bucket index
+      into a backing array, so a good hash spread and a load factor kept
+      bounded by resizing hold insert, lookup and delete at expected $O(1)$
+      — a hash map is that guarantee, packaged as a container. When two keys
+      land in the same bucket, the bucket typically holds them as a small
+      linked list chained off that slot — the array vs. linked list trade
+      playing out inside each bucket.
+
+      The map earns its status as the default answer because "have I seen
+      this key" and "look up by key" are two of the most common questions a
+      problem can ask, and a hash map answers both in expected $O(1)$ with
+      no setup cost beyond building the map itself. Reach for it first, then
+      switch only when the problem needs something it structurally cannot
+      give.
+
+      It fails in three specific ways: no ordering, so iterating a hash map
+      yields keys in neither sorted nor insertion order without a
+      specialized variant; a bad or adversarial key distribution collapses
+      every bucket onto one slot, degrading operations to $O(n)$; and it
+      cannot answer a range or nearest-neighbor query without a full scan,
+      since there is no notion of "the next key" to walk toward. Any of
+      those three phrases in a problem statement — sorted order, closest to,
+      adversarial input — is the signal to look past a hash map.
+    worked: >
+      Two-sum on nums = [2, 11, 7, 15] with target 9: scanning left to
+      right, see 2, complement $9-2=7$ isn't in the map yet, record
+      {2: index 0}; see 11, complement $-2$ isn't in the map, record
+      {11: index 1}; see 7, complement $9-7=2$ is in the map at index 0 —
+      done. One pass, one hash lookup per element, answer is the index pair
+      (0, 2), against a brute-force $O(n^{2})$ scan that compares every pair.
+    interview: >
+      Classic openers: two sum, first non-repeating character, group
+      anagrams by signature — the interviewer listens for you naming a hash
+      map before writing code, then for whether you notice when the problem
+      actually wants order or range instead, since that's the tell they're
+      testing the map's limits, not just its use.
+    pitfalls: >
+      Assuming iteration order matches insertion order — true for some
+      languages' default map but not a general guarantee, and relying on it
+      silently breaks elsewhere. Reaching for a hash map when the question
+      asks for order, rank, or range — closest, kth smallest, between $a$
+      and $b$ — no hash map answers these without scanning everything.
+    recap: >
+      A hash map is the default $O(1)$-expected key lookup, but it buys no
+      ordering and can degrade to $O(n)$ under adversarial or clustered
+      keys.
+
+  - node: quant-programming.data-structures.heap
+    hook: >
+      Any "give me the max or min, repeatedly, as things arrive" question is
+      a heap in disguise, and the tell is needing the extreme element fast
+      without ever needing a full sort.
+    explanation: >
+      Store the heap as a plain array and let position encode structure:
+      the children of index $i$ live at $2i+1$ and $2i+2$, and the parent of
+      index $i$ lives at $\lfloor (i-1)/2 \rfloor$ — no pointers, just
+      arithmetic on indices. The heap property, parent $\le$ both children
+      for a min-heap ($\ge$ for a max-heap), constrains only parent-child
+      pairs, not siblings or the whole array, so the extreme element sits at
+      the root but nothing else is sorted.
+
+      Peeking the root is $O(1)$. Insert appends the new value at the
+      array's end, then sifts it up, swapping with its parent while the
+      property is violated — at most the tree's height, $O(\log n)$, swaps.
+      Extract-min or extract-max swaps the root with the last leaf, removes
+      the old root, then sifts the new root down toward the smaller (or
+      larger) child, again at most $O(\log n)$ swaps.
+
+      Building a heap from $n$ elements is $O(n)$, not the $O(n \log n)$ you
+      would get inserting one at a time: sift down starting from the last
+      internal node and work back to the root, so most nodes, the bottom
+      half of the tree, sift a distance of $0$ or $1$, and only a few near
+      the root pay the full $O(\log n)$ — summed across all nodes that's a
+      geometric series totaling $O(n)$. A heap does not give fast access to
+      an arbitrary element: finding or deleting a non-root value is $O(n)$
+      unless you keep a separate index into the array.
+    worked: >
+      Build a min-heap from [9, 4, 7, 1, 3] by heapifying in place. With
+      $n=5$ the last internal node is index 1 (value 4, children 1 and 3 at
+      indices 3 and 4): since $4>1$, swap to get [9, 1, 7, 4, 3]. Move to
+      index 0 (value 9, children 1 and 7): swap with the smaller child, 1,
+      giving [1, 9, 7, 4, 3]; the displaced 9 now sits at index 1 with
+      children 4 and 3, so it sifts down again, swapping with 3: final array
+      [1, 3, 7, 4, 9]. Two sift-downs, not five inserts, and the array's
+      minimum, 1, sits at the root.
+    interview: >
+      Canonical phrasings: kth largest element, merge k sorted lists,
+      schedule tasks by priority — the interviewer listens for immediate
+      index arithmetic and $O(\log n)$ per operation, not a claim that the
+      heap is sorted.
+    pitfalls: >
+      Treating a heap array as fully sorted — only root-to-child
+      inequalities hold, so two arbitrary indices can compare either way.
+      Expecting $O(\log n)$ deletion of an arbitrary value — it's $O(n)$
+      without an auxiliary index. Forgetting a min-heap library needs
+      negated values to act as a max-heap.
+    recap: >
+      An array-backed tree keeping the min or max at the root: $O(1)$ peek,
+      $O(\log n)$ insert and extract, $O(n)$ to build from scratch.
+
+  - node: quant-programming.data-structures.top-k
+    hook: >
+      "Kth largest in a stream" tempts a full sort every time; the graded
+      skill is stopping yourself and reaching for a heap capped at size $k$
+      instead.
+    explanation: >
+      Cap a min-heap at size $k$ and push every new element; once the heap
+      holds $k+1$ elements, pop the minimum. The choice of a min-heap for
+      finding the $k$ largest is the part worth pausing on: the heap's root
+      is the smallest of your current top-$k$, the weakest member you'd
+      evict first, and that's exactly the number a new candidate needs to
+      beat. A max-heap capped at $k$ would hand you the largest of your kept
+      set, which tells you nothing about whether a new, smaller candidate
+      still deserves a spot.
+
+      Because the heap never grows past $k$, every push and pop costs
+      $O(\log k)$, not $O(\log n)$, and the whole stream costs
+      $O(n \log k)$ — far better than sorting everything in $O(n \log n)$
+      once $k$ is much smaller than $n$. Memory stays $O(k)$ throughout,
+      which is what lets this run on a stream that never fits in memory at
+      once.
+
+      One more fact worth keeping: once the heap has seen the whole stream
+      and holds exactly $k$ elements, its root is not just "close to" the
+      answer to "what's the kth largest" — it is that answer, read off in
+      $O(1)$ with nothing left to sort.
+    worked: >
+      Stream [3, 1, 5, 9, 2, 6], find the 3 largest ($k=3$). Push 3, 1, 5:
+      heap {1, 3, 5}. Push 9: heap {1, 3, 5, 9}, size 4 exceeds $k$, pop the
+      minimum 1: heap {3, 5, 9}. Push 2: heap {2, 3, 5, 9}, pop minimum 2:
+      back to {3, 5, 9}. Push 6: heap {3, 5, 6, 9}, pop minimum 3: heap
+      {5, 6, 9}. The heap ends holding {5, 6, 9} — the three largest values
+      in the stream, with root 5 the smallest of them.
+    interview: >
+      Canonical phrasings: kth largest element in a stream, k closest points
+      to the origin — the interviewer listens for you justifying the
+      min-heap choice unprompted, then stating the $O(n \log k)$ time and
+      $O(k)$ space bounds.
+    pitfalls: >
+      Keeping a max-heap of the full stream and popping down to size $k$ at
+      the end — that's sorting with extra steps, $O(n \log n)$ time and
+      $O(n)$ memory, defeating the whole point. Forgetting that once the
+      heap is full, a candidate no bigger than the root can be discarded
+      without ever pushing it, which is what keeps the constant factor low.
+    recap: >
+      A min-heap capped at size $k$ finds the $k$ largest of a stream in
+      $O(n \log k)$ time and $O(k)$ memory, root included.
+
+  - node: quant-programming.data-structures.running-median
+    hook: >
+      "Median of a data stream" is the harder cousin of top-k, and the
+      two-heap trick it wants is really about keeping a cut point balanced
+      between two ordered halves, not a single sorted list.
+    explanation: >
+      Split what you've seen into two heaps: a max-heap "lo" for the smaller
+      half, a min-heap "hi" for the larger half, kept within one element of
+      each other in size. The invariant that makes this work is that lo's
+      root and hi's root always sit on either side of the cut between the
+      lower and upper half of the data, so the median is always one root, or
+      the average of both, with no scan needed.
+
+      On each new value $x$: push onto lo if $x \le$ lo's max (or lo is
+      empty), otherwise onto hi; then, if the size gap between the two heaps
+      now exceeds one, move the root of the larger heap over to the other.
+      Reading the median afterward is a three-way check on sizes: lo's max
+      when lo is bigger, the average of both roots when they're equal, hi's
+      min when hi is bigger.
+
+      Every insert costs one heap push plus at most one rebalancing move,
+      each $O(\log n)$, so insert is $O(\log n)$ total; reading the median
+      touches only root pointers, $O(1)$. That split is what makes this
+      cheaper than resorting the whole stream on every new value, which
+      would cost $O(n \log n)$ per insert instead.
+    worked: >
+      Insert 5, 2, 8, 1 in order. Insert 5: lo empty, so push to lo; lo={5},
+      hi={}; median = lo's max = 5. Insert 2: $2 \le 5$, push to lo; lo={5,
+      2}, sizes 2 and 0 differ by more than one, so move lo's root 5 to hi;
+      lo={2}, hi={5}; median = avg(2, 5) = 3.5. Insert 8: $8 > 2$, push to
+      hi; hi={5, 8}; median = hi's min = 5. Insert 1: $1 \le 2$, push to lo;
+      lo={2, 1}, hi={5, 8}, sizes equal; median = avg(2, 5) = 3.5 — matching
+      the sorted list [1, 2, 5, 8] exactly.
+    interview: >
+      Canonical phrasing: median of a data stream, or its harder cousin,
+      sliding-window median — the interviewer listens for the two-heap
+      balance idea named up front, then for a clean statement of the
+      rebalancing rule and the $O(\log n)$ insert, $O(1)$ read costs.
+    pitfalls: >
+      Sending a value that ties lo's max to hi instead of lo, or vice versa
+      — the $\le$ convention has to be applied consistently or the balance
+      invariant silently breaks. Skipping a rebalance because the size gap
+      "looks small" after one insert — rebalancing after every insert, not
+      occasionally, is what keeps the invariant true for the next one.
+    recap: >
+      A max-heap of the lower half and a min-heap of the upper half,
+      rebalanced to within one element, give $O(\log n)$ insert and $O(1)$
+      median reads.
+
+  - node: quant-programming.data-structures.stack-queue
+    hook: >
+      Bracket matching and shortest-path-by-layers both look like new
+      problems the first time, but they're just a stack and a queue enforcing
+      an order guarantee the naive approach pays extra for.
+    explanation: >
+      A stack restricts every push and pop to the same end, LIFO, both
+      $O(1)$ whether it's backed by an array or a linked list — the model
+      for a call stack, undo history, and matching nested delimiters. A
+      queue restricts enqueue to the tail and dequeue to the head, FIFO,
+      $O(1)$ with a linked list or a circular array buffer; a plain array
+      without either trick forces an $O(n)$ shift on every dequeue, the same
+      shifting cost that makes a plain array slow for middle insertion.
+
+      The restriction to fixed ends in both structures is not a limitation
+      to work around — it's the entire point. Forbidding access to interior
+      elements is exactly what makes "process things in this order" cheap to
+      guarantee: there's no way to violate the order by accident, because
+      there's no operation that reaches past the front or back.
+
+      A deque generalizes both, supporting $O(1)$ push and pop at either
+      end, so it can play the role of a stack, a queue, or both at once —
+      useful whenever a problem needs to add or remove from either side
+      without committing up front to which discipline it will need.
+    worked: >
+      Evaluate the postfix expression "3 4 + 2 *" with a stack: push 3, push
+      4; see "+", pop 4 and 3, compute $3+4=7$, push 7; see 2, push 2; see
+      "*", pop 2 and 7, compute $7 \times 2 = 14$, push 14. The stack ends
+      holding a single value, 14 — the expression's answer, produced with
+      one pass and no parsing of operator precedence.
+    interview: >
+      Canonical phrasings: valid parentheses, evaluate reverse Polish
+      notation, implement a queue using two stacks — the interviewer listens
+      for you naming LIFO or FIFO before coding, and for the two-stack queue
+      variant, for the amortized $O(1)$ argument behind it.
+    pitfalls: >
+      Backing a queue with a plain array and no circular buffer or two-index
+      trick, so dequeue silently costs $O(n)$ from shifting every remaining
+      element forward. Backing a queue with a linked list that has no tail
+      pointer, forcing an $O(n)$ walk to find the end on every enqueue.
+    recap: >
+      LIFO stack and FIFO queue give $O(1)$ push and pop at their fixed
+      ends, and the restriction to those ends is what makes the ordering
+      guarantee cheap.
+
+  - node: quant-programming.data-structures.monotonic-stack
+    hook: >
+      "Next greater element" looks like it needs a comparison against every
+      later element for every position — the monotonic stack trick answers
+      all of them in one pass by never re-examining a settled element.
+    explanation: >
+      Keep the stack's elements monotonic — increasing or decreasing,
+      depending on the question — by popping any element that the new value
+      would violate the order for, before pushing the new value. Scanning
+      left to right, each popped element's "next greater to the right" (or
+      "next smaller") is exactly the element that popped it, since that's
+      the first later element breaking its position in the order.
+
+      The cost argument is the same amortized-analysis move used for a
+      dynamic array's resize: any single step can pop many elements, so
+      per-step cost is not a fixed bound, but every element is pushed
+      exactly once and popped at most once across the entire scan, so total
+      pops across all $n$ steps never exceed $n$. Summed over the whole
+      run, that's $O(n)$ total work, $O(1)$ amortized per element, even
+      though one step's pop count can spike.
+
+      Typical use: scanning prices or heights left to right, popping
+      everything on the stack smaller than the current value before pushing
+      it, so each popped bar's answer is set the moment it's popped, not at
+      the end of the scan.
+    worked: >
+      Heights [2, 1, 5, 3, 4], next greater to the right for each index,
+      using a stack of indices kept value-decreasing. Push 0 (val 2). Val 1
+      at index 1 doesn't beat 2, push 1. Val 5 at index 2: pop index 1
+      (val 1 < 5, next[1]=5), pop index 0 (val 2 < 5, next[0]=5), push 2.
+      Val 3 at index 3 doesn't beat 5, push 3. Val 4 at index 4: pop index 3
+      (val 3 < 4, next[3]=4), val 5 at index 2 beats 4, stop, push 4. End of
+      scan: indices 2 and 4 never got popped, so next[2]=next[4]=-1. Result:
+      [5, 5, -1, 4, -1], computed with 5 pushes and 3 pops total.
+    interview: >
+      Canonical phrasings: next greater element, daily temperatures,
+      largest rectangle in a histogram — the interviewer listens for you
+      defending the $O(n)$ bound despite a loop that looks nested, via the
+      total-pushes-equals-total-pops argument.
+    pitfalls: >
+      Writing a loop that re-scans from the current position instead of
+      truly popping settled elements off a stack — that's $O(n^{2})$
+      wearing a monotonic-stack costume. Mixing strict and non-strict
+      comparisons inconsistently, which mishandles duplicate values.
+      Pushing values instead of indices when the answer needs to be written
+      back at a specific position in a results array.
+    recap: >
+      Pop violators before pushing to keep a stack monotonic — every
+      element is pushed once and popped once, so a loop that looks nested
+      is $O(n)$ amortized.
+
+  - node: quant-programming.data-structures.bst
+    hook: >
+      The moment a question asks for the kth smallest, a range, or "closest
+      value," a hash map is the wrong container — that phrasing is asking
+      for a sorted structure by name, even when it doesn't say so.
+    explanation: >
+      A binary search tree keeps every left-subtree key smaller and every
+      right-subtree key larger than its own root, recursively, so a search
+      compares against one node per level and discards half the remaining
+      tree each time — $O(\log n)$ when the tree's height stays
+      logarithmic. Nothing in the plain definition enforces that height:
+      inserting already-sorted input one key at a time builds a tree that's
+      really a chain, degrading every operation to $O(n)$, the same failure
+      mode a linked list has for indexed access. Self-balancing variants —
+      red-black trees, treaps — add rebalancing on every insert or delete
+      specifically to guarantee logarithmic height regardless of input
+      order.
+
+      What a balanced BST buys that a hash map cannot is order: predecessor
+      and successor queries, counting keys in a range, and finding the kth
+      smallest all resolve in $O(\log n)$ by walking the tree's shape, none
+      of them answerable by a hash map without scanning every key. That
+      trade runs the other way too — a hash map's $O(1)$ expected lookup
+      beats a BST's $O(\log n)$ whenever all the problem needs is plain
+      membership.
+
+      The interview signal is the question's vocabulary: "order," "rank,"
+      "range," or "closest" call for a sorted structure; "have I seen this"
+      or "look up by key" call for a hash map instead.
+    worked: >
+      Insert 5, 3, 8, 1, 4 into an empty BST in that order: 5 becomes the
+      root; 3 goes left of 5; 8 goes right of 5; 1 goes left of 3; 4 goes
+      right of 3. To find the predecessor of 5 (the largest key smaller than
+      5): step left to 3's subtree, then take the rightmost node in that
+      subtree, which is 4. Predecessor of 5 is 4, found in two steps down
+      the tree rather than scanning all five keys.
+    interview: >
+      Canonical phrasings: find the kth smallest element in a BST, validate
+      a BST, design a sorted map with range queries — the interviewer
+      listens for you naming order or range as the specific reason a hash
+      map won't do, not just reciting BST operations.
+    pitfalls: >
+      Assuming any BST insert or search is $O(\log n)$ — inserting
+      already-sorted data with no rebalancing produces a degenerate,
+      linked-list-shaped tree, $O(n)$ per operation. Treating "balanced" as
+      automatic — a plain BST with no red-black or treap discipline does not
+      self-balance; you get $O(\log n)$ only by adding that machinery or by
+      luck of the input order.
+    recap: >
+      Balanced BSTs trade the hash map's $O(1)$ lookup for $O(\log n)$
+      lookup that also answers order, range, and rank queries.
+
+  - node: quant-programming.data-structures.lru
+    hook: >
+      "Design an LRU cache" is asked precisely because neither a hash map
+      nor a linked list alone can give $O(1)$ get, put, and eviction — the
+      interview is testing whether you compose them, not whether you know
+      either one.
+    explanation: >
+      A hash map alone gives $O(1)$ key lookup but no notion of which key
+      was touched least recently, so finding the eviction victim would mean
+      scanning every entry. A doubly linked list alone gives $O(1)$
+      reordering and removal once you're at the right node, but finding that
+      node by key is an $O(n)$ walk. Neither gap closes on its own; the fix
+      is to hold both structures at once and let each supply exactly what
+      the other lacks.
+
+      The hash map stores key $\to$ node pointer into a doubly linked list
+      ordered from most- to least-recently used. On get, the map finds the
+      node in $O(1)$; the list then unlinks that node from wherever it sits
+      and relinks it at the front, both $O(1)$ list operations, since the
+      node already knows its own predecessor and successor. On put, a new
+      key gets a new node inserted at the front and added to the map; an
+      existing key gets its value updated and is moved to the front the same
+      way.
+
+      Eviction on overflow reads straight off the list's tail: it's the
+      least-recently-used node by construction, removed from the list in
+      $O(1)$ with no scan, and its key deleted from the map in $O(1)$. Every
+      one of get, put, and evict costs exactly one map operation plus one
+      $O(1)$ list splice.
+    worked: >
+      Capacity-2 cache. put(1, 'a'): map{1}, list [1]. put(2, 'b'): map{1,
+      2}, list [2, 1] (front is most-recent). get(1): found, move to front:
+      list [1, 2]. put(3, 'c'): cache full, evict the tail, key 2: map{1,
+      3}, list [3, 1]. get(2): key 2 isn't in the map — a miss, because
+      put(3, 'c') evicted it right after get(1) had refreshed key 1 instead.
+    interview: >
+      The canonical system-design-flavored coding question, "implement an
+      LRU cache" — the interviewer listens for both structures named
+      unprompted with the reason neither alone works, then for get also
+      updating recency, not just put, and often for sentinel head/tail nodes
+      that avoid null-pointer edge cases at size 0 or 1.
+    pitfalls: >
+      Moving a node to the front only on put and forgetting to do it on a
+      cache hit too — LRU tracks recency of access, not just of insertion.
+      Using a singly linked list to save a pointer's worth of memory, which
+      then forces an $O(n)$ walk to find a node's predecessor at eviction
+      time, destroying the $O(1)$ guarantee the whole design exists for.
+    recap: >
+      A hash map for $O(1)$ key lookup plus a doubly linked list for $O(1)$
+      recency reordering together give $O(1)$ get, put, and evict — neither
+      alone can.
+
+  - node: quant-programming.data-structures.streaming-choice
+    hook: >
+      Every structure in this unit gets reused here as the answer to one
+      recurring question — not "which structure do I know" but "what's the
+      smallest state that answers this query after one more element."
+    explanation: >
+      Streaming problems forbid storing the whole input, so the container
+      that fits is whichever one answers the running query in bounded memory
+      and sublinear-per-item time. The pattern from this unit maps cleanly
+      onto specific queries: running max, min, or the $k$ largest wants a
+      size-bounded heap; a running median wants two balanced heaps; "have I
+      seen this key, is this a duplicate" wants a hash set, capped with an
+      eviction policy once memory is tight. A running sum or average needs
+      no container at all — a handful of scalars, updated in place, answer
+      the query completely.
+
+      That last case is the one worth sitting with: the "right" data
+      structure is sometimes no data structure, and reaching for a heap or a
+      hash set out of habit when two running totals would do is its own kind
+      of mistake, not a safe default.
+
+      The question to ask before coding anything is not which structure
+      you've memorized for this problem shape, but what minimal state lets
+      you answer the query correctly after one more element arrives — that
+      state, once named, usually points straight at the container that
+      holds it cheaply.
+    interview: >
+      Framed as "you're given a live stream of events, how do you answer $X$
+      after every new one, in bounded memory" — the interviewer is testing
+      whether you separate "what structure do I know" from "what does the
+      query need," and whether you can state the memory and time bound for
+      your choice, not just implement it.
+    pitfalls: >
+      Reaching for a heap or hash set reflexively before asking what the
+      query needs — a running average needs only a running sum and a count,
+      not a sorted structure of any kind. Proposing a capped hash set
+      without naming an eviction policy — which key gets dropped once memory
+      is tight is part of the design, not a detail to leave unspecified.
+    recap: >
+      Before reaching for a structure, name the minimal state that answers
+      the query after one more streamed element — sometimes a heap,
+      sometimes a hash set, sometimes just a couple of scalars.

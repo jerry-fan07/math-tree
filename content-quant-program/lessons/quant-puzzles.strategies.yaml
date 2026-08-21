@@ -1,0 +1,312 @@
+unit: quant-puzzles.strategies
+opening: >
+  Brainteaser rounds reward one thing above cleverness: a short list of moves you reach for automatically the moment you recognize the shape of a problem. This unit builds that list from the ground up — start by tabulating small cases, then use what the table reveals to find an invariant, and specialize that invariant to the cheap cases of parity, residues mod m, and board coloring. From there it turns to processes that must stop (monovariants), games that reward copying the opponent (symmetry) or seizing the extreme element, and existence proofs that need no construction at all (averaging). It closes with the search-and-inversion moves — working backwards, framing a puzzle as a graph — and the two adversarial tools, worst-case guarantees and information counting, that quantify exactly how hard a puzzle must be.
+
+lessons:
+  - node: quant-puzzles.strategies.small-cases
+    hook: >
+      A problem with a size parameter $n$ and no other handle is an invitation to spend thirty seconds building a table before you spend thirty minutes stuck — most interview puzzles surrender their pattern by $n=4$.
+
+    explanation: >
+      The move is mechanical: fix $n=1$, solve it by hand, then $n=2,3,4$, and write the answers in a row. Look at the row two ways — the raw values, for a closed form, and the successive differences or ratios, for a recurrence. Either one, once guessed, is a conjecture, not an answer; the guess still owes you a proof, usually by induction using the recurrence you just spotted, or by a direct combinatorial argument once the pattern makes the mechanism visible.
+
+      Small cases are also where invariants and losing positions first show themselves — a quantity that happens to equal $3$ at every one of $n=1,\dots,4$ is a candidate for something a move can never change, which is exactly what Invariants formalizes. The table does not just guess the destination; it often exposes the machinery that gets you there.
+
+      The discipline that keeps this technique from misleading you is knowing how many terms are enough. A handful of terms fit any number of different formulas — three points fit infinitely many curves — so trust the pattern only once you can explain, structurally, why each new case adds what it adds, not merely because the digits lined up.
+
+    worked: >
+      How many regions do $n$ lines in general position (no two parallel, no three through a point) cut the plane into? At $n=1,2,3,4$: a single line gives $2$ regions; a second line crosses the first once, adding $2$ new regions, giving $4$; a third line crosses both previous lines at two new points, adding $3$ regions, giving $7$; a fourth adds $4$, giving $11$. The differences $2,3,4$ climb by exactly $1$ each time because the $k$-th line crosses all $k-1$ earlier lines at $k-1$ distinct points, which splits it into $k$ pieces, each piece cutting one existing region into two — so line $k$ always adds exactly $k$ regions. Summing, $n$ lines give $1+\sum_{i=1}^{n} i = 1+n(n+1)/2$ regions, so the answer at $n=4$ is $1+10=11$, matching the table, and the mechanism — each new line crosses everything before it at distinct points — is exactly why this pattern never breaks the way the circle-chord count does.
+
+    interview: >
+      "What's the pattern for $n$ lines / $n$ cuts / $n$ moves" wants you to build the table out loud, state the guessed recurrence in words before the formula, and name the mechanism that would let you prove it — silence on the mechanism reads as a guess, not a derivation.
+
+    pitfalls: >
+      Stopping at three terms and declaring victory: many low-degree-looking sequences agree on their first three or four values and diverge afterward, which is exactly the trap the circle-chord count sets. Guessing a formula from the raw values while ignoring the differences, which is usually where the actual recurrence — and the mechanism that proves it — is sitting in plain sight.
+
+    recap: >
+      Tabulate $n=1,\dots,4$, read the differences for a recurrence, and treat the result as a conjecture to be proved, not an answer to be reported.
+
+  - node: quant-puzzles.strategies.invariant
+    hook: >
+      Any question phrased "can you reach..." or "is it possible to end with..." under repeatable local moves is asking you to find the one quantity those moves can never touch.
+
+    explanation: >
+      An invariant is a quantity, or a property, that every legal move leaves unchanged. Finding one is algebra, not insight: write down a generic move — erase this, write that — and evaluate your candidate quantity before and after; if the two values always agree, the quantity is fixed on everything reachable from the start, and any target with a different value is provably unreachable, no matter how many moves you allow.
+
+      Two directions of the argument are not symmetric. An invariant only ever proves impossibility — start and target with different invariant values can never be connected. Concluding that a target with the *same* value as the start is actually reachable is a separate claim that needs an explicit sequence of moves, since agreement of one quantity says nothing about every other obstruction that might exist.
+
+      Invariants need not be sums; anything that transforms predictably under the move works, including quantities built multiplicatively. The habit worth building is to try the move on two symbolic numbers $a,b$ first and see what combination of them survives untouched — that combination, not the numbers themselves, is the invariant.
+
+    worked: >
+      Write $1,2,3,4$ on a board. A move erases two numbers $a,b$ and writes $ab+a+b$ in their place. Does the final single number depend on the order of moves? Notice $ab+a+b+1=(a+1)(b+1)$, so replacing $a,b$ by $ab+a+b$ replaces the two factors $(a+1)$ and $(b+1)$ in the product $\prod (x_i+1)$ by their product $(a+1)(b+1)$ — the product itself is invariant. Starting value: $(1+1)(2+1)(3+1)(4+1)=2\cdot3\cdot4\cdot5=120$. So whatever single number $x$ remains at the end satisfies $x+1=120$, giving $x=119$ regardless of merge order. Checking one path: merge $1,2\to 5$; merge $3,4\to 19$; merge $5,19\to 6\cdot20-1=119$ — confirmed.
+
+    interview: >
+      "Show the answer doesn't depend on the order of moves" is the standard phrasing; interviewers want the candidate quantity evaluated symbolically on one generic move before any claim about the final answer, since testing on the given numbers alone can pass by coincidence.
+
+    pitfalls: >
+      Testing a candidate invariant only on the specific numbers given, then generalizing — a quantity that happens to survive one particular merge can still change on a different pair; verify it algebraically on symbolic $a,b$. Treating "the invariant matches" as proof that a target is reachable, when it only ever rules impossible targets out.
+
+    recap: >
+      Test a candidate quantity symbolically against one generic move: if it never changes, it is fixed on everything reachable, and a mismatched target is provably out of reach.
+
+  - node: quant-puzzles.strategies.parity
+    hook: >
+      Parity is the invariant to try first on any reachability question, because checking it costs one line of arithmetic: count something mod $2$ and see if the move can touch it.
+
+    explanation: >
+      The instinct that makes parity worth trying before any other invariant is that it's free — you don't need to find a clever quantity, only to count something and reduce mod $2$. The candidates worth trying, in order, are: the count of some feature of the state, a coordinate sum, and the sign of a permutation, which flips with every single swap. Whichever you pick, the check is the same one line used for any invariant: does one generic move change the count by an odd amount or an even one? Even means parity survives; odd means it flips every time, which is just as useful — you then track parity as a function of the move count instead of a constant.
+
+      Once parity is pinned to a candidate, the argument writes itself: compute the starting parity, compute the target parity, and if they disagree, no sequence of moves — however long, however clever — can connect them. This is the same "algebra on a generic move" habit from the invariant idea, specialized to the cheapest modulus there is.
+
+    worked: >
+      Fifteen people are at a party; can each person shake hands with exactly $3$ others? Every handshake involves two people, so it adds exactly $1$ to each of two people's handshake counts, meaning it adds exactly $2$ to the sum of everyone's handshake counts — that sum is always even, for any graph of handshakes at all. If each of the $15$ people shook exactly $3$ hands, the sum would be $15\times3=45$, which is odd. An odd sum is impossible for a quantity that only ever increases by $2$, so no such handshake arrangement exists — the answer is no, and the reason is a one-line parity check on the total.
+
+    interview: >
+      "Is this achievable" questions about degrees, counts, or repeated swaps are fished for the parity check first; interviewers listen for you to name the quantity being counted mod $2$ before attempting any construction, since a five-second parity check can close the question outright.
+
+    pitfalls: >
+      Checking parity of the wrong quantity — the handshake sum, not the number of people, is what's forced even; miscounting which object the invariant lives on gives a false "possible." Assuming a move that swaps two elements always preserves parity of a count; it depends entirely on what's being counted, not on the word "swap" alone.
+
+    recap: >
+      Count something mod $2$ and compare start to target before trying anything else — a mismatched parity settles the question in one line.
+
+  - node: quant-puzzles.strategies.mod-invariant
+    hook: >
+      When start and target agree mod $2$, don't give up on invariants — try the modulus the move's own numbers are hinting at, usually visible directly in how much each quantity shifts per move.
+
+    explanation: >
+      The generalization is direct: instead of reducing a count mod $2$, reduce mod whatever integer $m$ the move sizes suggest — often the gcd of the amounts a move can add or subtract. If a move always changes some tracked quantity by a multiple of $m$, that quantity's residue mod $m$ is invariant, exactly as in the parity case, just with a different divisor.
+
+      The pattern to look for is a move that shifts a state variable by a fixed amount whose factors don't include $2$, or a linear combination of several state variables that happens to always change by a multiple of $m$ even though no single variable does. Once you spot that combination, the argument is identical to parity: compute its residue at the start, compute the residue a target would need, and a mismatch rules the target out completely.
+
+    worked: >
+      A counter starts at $0$. Each move adds $8$, with all arithmetic taken mod $12$ (so the counter is really a position on a $12$-hour clock, and a step is really $+8$ or, after wrapping past $12$, $+8-12=-4$). Can the counter ever show $6$? Since $8$, $-4$, and the wraparound $12$ are all multiples of $4$, every step changes the counter's value by a multiple of $4$, so its value mod $4$ stays $0$ forever. The target $6$ satisfies $6\equiv 2\pmod 4$, which never matches $0$, so $6$ is unreachable no matter how many moves are taken — only $0,4,8\pmod{12}$ are ever visited.
+
+    interview: >
+      "Can you reach this configuration" with move sizes that are not $\pm1$ is testing whether you generalize parity on your own; naming the modulus as the gcd of the move amounts, out loud, before computing residues, is what separates a memorized trick from an understood one.
+
+    pitfalls: >
+      Trying mod $2$ out of habit when the move sizes share a larger common factor — a coarser modulus like mod $4$ can forbid targets that mod $2$ alone would miss entirely. Forgetting to check that the *same* modulus actually applies to every move available, not just the one you happened to compute first.
+
+    recap: >
+      Reduce mod the gcd of the move sizes, not just mod $2$: a target whose residue disagrees with the start's is unreachable under that modulus.
+
+  - node: quant-puzzles.strategies.coloring
+    hook: >
+      Any tiling, covering, or piece-count question about a grid is asking you to paint the cells so that every legal piece covers a fixed color mix, then simply count colors on both sides.
+
+    explanation: >
+      Coloring is parity's cousin for two-dimensional pieces: instead of tracking one number mod $2$, assign each cell a color so that every allowed piece, in every orientation, covers a fixed, predictable pattern of colors. If the target region's actual color counts don't match what the pieces are structurally forced to produce, no tiling exists — the argument needs no attempted construction at all.
+
+      Two colors, checkerboard-style, handle the simplest pieces, where the covering pattern per piece is just "one of each" or a fixed split. When two colors give no information — every piece covers the same split of both colors regardless of placement — a finer coloring is needed: stripes, four colors, or coloring by a coordinate sum modulo something larger than $2$, chosen so that the pieces finally show an asymmetry the plain checkerboard couldn't see.
+
+      The proof pattern is always: compute what the total color count of the target region actually is, compute what any tiling by the given pieces would necessarily produce, and compare. A mismatch is decisive; a match is only necessary, not sufficient, so a genuine construction is still owed before claiming a tiling exists.
+
+    worked: >
+      Can a $6\times6$ board be tiled entirely by T-tetrominoes (four squares in a T shape)? The board has $36$ squares, so exactly $9$ pieces are needed. Color the board in the usual checkerboard pattern: $18$ black squares, $18$ white. Every T-tetromino, in any of its four rotations, covers either $3$ black and $1$ white, or $1$ black and $3$ white — never $2$ and $2$ — so each piece contributes either $+2$ or $-2$ to the running total (black count minus white count). For $9$ pieces to sum to the required $18-18=0$, exactly half must contribute $+2$ and half $-2$ — impossible, since $9$ is odd and can't be split into two equal groups. No tiling by T-tetrominoes exists.
+
+    interview: >
+      "Can these pieces tile this board" wants a coloring named explicitly — which colors, what pattern — followed by the count on both sides; "why can't you just try harder" is the cue that the interviewer wants the impossibility argument, not a failed construction attempt.
+
+    pitfalls: >
+      Assuming a checkerboard coloring will always distinguish a bad tiling from a good one; some pieces cover an equal color split in every orientation, and the checkerboard gives zero information — a different coloring is needed. Confirming the color counts match and concluding a tiling therefore exists — a match rules nothing out, and only an explicit construction proves possibility.
+
+    recap: >
+      Color the board so every piece covers a fixed color pattern, then count: a target whose color totals don't match what the pieces can produce admits no tiling at all.
+
+  - node: quant-puzzles.strategies.monovariant
+    hook: >
+      "Show this process terminates" or "show it stabilizes" is answered by naming one nonnegative integer that the process can only ever push in a single direction.
+
+    explanation: >
+      A monovariant moves strictly one way, unlike an invariant, which doesn't move at all. If you can name a nonnegative integer quantity that strictly decreases at every legal move, the process must stop — a strictly decreasing sequence of nonnegative integers cannot run forever, since it would eventually have to go below $0$. No cleverness about the specific process is required beyond finding that one quantity; well-ordering of the integers does the rest.
+
+      The same argument runs in reverse for a quantity that strictly increases but is bounded above: it must also stop, once it hits the ceiling. Either direction gives you something stronger than "it terminates" for free — the starting value of the monovariant (or the gap to its bound) is an explicit upper bound on the number of moves, since each move consumes at least one unit of it.
+
+      The habit to build is the same as with any invariant: write the move generically, evaluate the candidate quantity before and after, and check that the change always has the same sign, not merely on the specific instance in front of you.
+
+    worked: >
+      A rectangular chocolate bar with $6$ rows and $8$ columns, $48$ unit squares total, is broken along the grid lines one straight break at a time; each break takes one existing piece and splits it into exactly two smaller pieces, and pieces are never stacked before breaking. How many breaks does it take to reduce the whole bar to $48$ separate unit squares? The piece count is a monovariant: it starts at $1$ and strictly increases by exactly $1$ at every break, regardless of which piece is chosen or where it's split. Reaching $48$ pieces from $1$ therefore takes exactly $48-1=47$ breaks — not "at most," but exactly, no matter what order the breaks happen in.
+
+    interview: >
+      "How many moves does this process take, at most" or "show this loop ends" wants a monovariant named explicitly — the quantity, the direction it moves, and the bound — rather than an appeal to intuition that it "obviously" stops.
+
+    pitfalls: >
+      Confusing a quantity that usually decreases with one that always does — a single exception breaks the entire termination argument, since well-ordering needs strict, unconditional movement every move. Reporting only "it terminates" when the same monovariant, tracked exactly rather than as an inequality, often hands you the precise number of moves for free, as with the chocolate bar.
+
+    recap: >
+      A nonnegative integer that strictly moves one way at every step forces termination, and its starting value bounds — sometimes pins down exactly — how many moves the process takes.
+
+  - node: quant-puzzles.strategies.symmetry-strategy
+    hook: >
+      In a two-player game that starts symmetric, the tell is a move set that's also symmetric — the winning idea is almost never to build a clever position, only to keep restoring the symmetry your opponent just broke.
+
+    explanation: >
+      The logic is an invariant argument turned into a strategy: if you can always respond to your opponent's move with its mirror image, the position is symmetric again immediately after your turn, and a symmetric position with a symmetric move set guarantees that whatever move was legal for your opponent, its mirror image is legal for you too, and it was still unused since they hadn't taken it. That guarantee is what never breaks — you are never the player who runs out of moves, because a legal reply always exists by construction.
+
+      Which player this favors depends entirely on whether the starting position is symmetric already. If it is not, the first player can often manufacture symmetry with one opening move — placing something exactly at the center of a symmetric board, for instance — and then mirror everything the opponent does from then on. If the position starts symmetric, mirroring instead becomes available to the second player from move one, since they get to respond to (and mirror) the first player's opening move directly.
+
+    worked: >
+      Two piles of matches start with $7$ matches each. On each turn a player removes any positive number of matches, but only from one pile. The player who takes the last match wins. Since the piles start equal — already symmetric — the second player mirrors: whenever the first player removes $k$ matches from one pile, the second player removes the same $k$ matches from the other pile, restoring equality after every one of their turns. The piles are equal after each of the second player's moves and strictly smaller each round, so they hit $0,0$ together right after a move by the second player — meaning the first player is the one who faces two empty piles and cannot move. The second player wins for any starting size, not only $7$.
+
+    interview: >
+      "Two players alternate on a symmetric setup — who wins?" wants the symmetry check stated first — is the start already symmetric, or does it need one move to create it — before any talk of specific optimal moves.
+
+    pitfalls: >
+      Trying to mirror on a starting position that is not symmetric without first spending a move to create the symmetry — an unmirrored opening move by the wrong player breaks the whole argument. Assuming mirroring always favors the second player; on an asymmetric board the first player can seize the mirroring role by moving to the center first.
+
+    recap: >
+      Restore the symmetry after every opponent move and a legal reply is always guaranteed to exist; whether that favors you or your opponent depends only on who can make the position symmetric first.
+
+  - node: quant-puzzles.strategies.extremal
+    hook: >
+      An existence or impossibility claim about a finite configuration with no obvious starting point is solved by naming the most extreme object in it — the biggest, closest, or first — and interrogating that one object specifically.
+
+    explanation: >
+      The move is to pick out whichever element of a finite configuration is largest, smallest, closest, or otherwise extreme by some natural measure, and argue about it directly, because an extreme object is constrained in a way a generic one is not: by definition, nothing beats it on that measure, and that single fact is often enough to force a contradiction or complete a construction.
+
+      What makes this different from picking an arbitrary element is that the extremal choice comes with a built-in guarantee — for the largest element of a finite set, every other element is $\le$ it; for the closest pair, every other pair is farther apart. That guarantee is exactly the extra leverage a generic element wouldn't supply, and it's usually the entire content of the proof once you've correctly identified which "extreme" to look at.
+
+    worked: >
+      A round-robin tournament has $n$ players, every pair plays exactly one game, and every game has a winner (no ties). Show there is always a player who either beat every other player directly, or beat someone who beat them. Let $A$ be a player with the maximum number of wins in the tournament. Suppose some player $B$ beat $A$ directly and also beat every single player that $A$ beat. Then $B$'s win total is at least $A$'s win total plus one (everyone $A$ beat, plus $A$ itself), contradicting that $A$ has the maximum. So any player $B$ who beat $A$ must have lost to at least one player $C$ that $A$ also beat — and $A$ beats $C$, who beats $B$, giving $A$ a two-step path to $B$. Since $A$ reaches every player in at most two steps, such a player always exists — the extremal choice was "most wins."
+
+    interview: >
+      "Prove that a leader always exists" or "show there's a configuration achieving..." with no obvious place to start a construction is the tell; naming which extreme object to examine — and why that specific extreme, not just any element — is the answer the interviewer is listening for.
+
+    pitfalls: >
+      Picking an extreme quantity that doesn't actually interact with the constraint being proved — the leverage only appears when the "extreme" property is the one doing the work in the argument, not an arbitrary superlative. Stopping at "consider the largest element" without following through on what its extremality actually forces, which is where the real proof lives.
+
+    recap: >
+      Name the largest, smallest, or closest object in a finite configuration and argue about it specifically — its extremality supplies a guarantee no generic element has.
+
+  - node: quant-puzzles.strategies.averaging
+    hook: >
+      "Show that one of these must be at least..." with no way to identify which one is answered by computing the average — a sum divided by a count proves existence without ever pointing at the winner.
+
+    explanation: >
+      If $n$ quantities sum to $S$, at least one of them is $\ge S/n$ and at least one is $\le S/n$ — otherwise every single one would be strictly on one side of $S/n$, and summing $n$ numbers all strictly above (or all strictly below) their own average could never actually equal $S$. This is pure arithmetic, but it proves existence with zero construction: you never learn *which* quantity clears the bound, only that one must.
+
+      The probabilistic form is the identical statement wearing different notation: build a random object, compute its expectation $\mathbb{E}[X]$ by linearity over whatever pieces $X$ decomposes into, and conclude that some realization of the object achieves $X\ge \mathbb{E}[X]$ and some achieves $X\le \mathbb{E}[X]$ — because the expectation is itself an average over the possible outcomes, exactly as $S/n$ is an average over $n$ terms.
+
+      The bound is tight only when every term is equal; any actual spread in the underlying data means the extreme term clears the average strictly, not merely matches it — worth checking, since interviewers often follow up by asking how much slack the bound leaves.
+
+    worked: >
+      Twelve market-making desks report a combined monthly PnL of $180$ (in some fixed unit). By the averaging argument, some desk cleared at least $180/12=15$, and some desk cleared at most $15$ — true regardless of how the $180$ is actually split among the twelve. The bound is achieved with equality only if every desk cleared exactly $15$; if the desks' results differ at all, the best desk strictly beat $15$ and the worst strictly missed it. No further information about the split is needed to state the guarantee — only the total and the count.
+
+    interview: >
+      "Show that at least one of these $n$ things is at least..." wants the sum-over-count computation stated immediately, with an explicit acknowledgment that the argument names no specific winner — just existence.
+
+    pitfalls: >
+      Treating the averaging bound as an equality claim, or assuming the bound is achieved, when any unequal spread in the underlying data means it's cleared strictly. Trying to identify which specific element achieves the bound — the argument structurally cannot tell you that; it only guarantees that one does.
+
+    recap: >
+      A sum divided by a count bounds some element from above and some from below, with zero construction needed — the same statement in expectation form once a random object is on the table.
+
+  - node: quant-puzzles.strategies.working-backwards
+    hook: >
+      When the goal is tightly pinned down and the start is wide open, don't search forward from a huge starting space — assume the ending and ask what state had to precede it, one step at a time.
+
+    explanation: >
+      Invert the problem whenever the target is much more constrained than the start, or whenever a single step is easier to undo than to perform going forward. Concretely: assume you are already at the goal, ask what the immediately preceding state must have been for that final move to make sense, and repeat, walking backward one step at a time until you reach a state you already understand — often the actual start, which then certifies the whole chain forward.
+
+      This works because the backward branching factor — how many states could have led to a given one — is often far smaller than the forward branching factor, sometimes exactly one. Searching forward from a huge or unconstrained start can explode; searching backward from a single, tightly specified goal usually collapses to a short, deterministic chain.
+
+      In games, the identical move relabels terminal positions as wins or losses and propagates those labels one move at a time back toward the start — this is the same inversion, applied to labels instead of numeric states. And when both the start and the goal are constrained, meeting in the middle — searching forward from the start and backward from the goal simultaneously, then checking where the two searches meet — beats running either search the full distance alone.
+
+    worked: >
+      A trader crosses three toll checkpoints; at each one he pays half of whatever cash he's carrying, plus one additional unit, and after the third checkpoint he has exactly $0$ left. How much did he start with? Work backward from the end. Let $x$ be the amount entering a checkpoint; after paying $x/2+1$, he's left with $x/2-1$. At checkpoint $3$, the amount leaving is $0$, so $x_3/2-1=0$ gives $x_3=2$ — that's also the amount he had entering checkpoint $3$, which equals what he had leaving checkpoint $2$. So $x_2/2-1=2$ gives $x_2=6$, the amount leaving checkpoint $1$. Then $x_1/2-1=6$ gives $x_1=14$. Working forward to check: $14\to 14/2-1=6\to 6/2-1=2\to 2/2-1=0$ — confirmed. He started with $14$.
+
+    interview: >
+      "Work out how much he started with" or "what was the state one step before the end" phrasings, and any "show this process must end in a win/loss" game question, are asking for the backward chain explicitly, one undone step at a time, not a forward guess-and-check.
+
+    pitfalls: >
+      Guessing a starting value and simulating forward to check it, instead of deriving it — guess-and-check can miss the answer entirely when the forward branching factor is large, exactly the case working backwards is meant to avoid. Undoing a step incorrectly by inverting the wrong operation — check that the backward formula, applied forward, actually reproduces the given rule before trusting the chain.
+
+    recap: >
+      Assume the goal and ask what state had to come immediately before it, repeating backward — the goal usually has far fewer predecessors than the start has successors.
+
+  - node: quant-puzzles.strategies.state-space
+    hook: >
+      Any puzzle described by a small, discrete configuration — jug contents, token positions, a permutation of tiles — is secretly a graph, and "can you reach..." is really asking whether two vertices sit in the same connected component.
+
+    explanation: >
+      Recast the puzzle explicitly: let every distinct configuration be a vertex, and let every legal move be an edge connecting the configuration it starts from to the one it produces. Under this framing, reachability becomes graph connectivity, and "fewest moves to reach a target" becomes a shortest-path question on that same graph — the puzzle's actual content doesn't change, only the vocabulary for reasoning about it.
+
+      This framing explains why invariants work at all: an invariant is exactly a function that takes the same value on every vertex of a connected component, and parity is the special case where that function is "value mod $2$." A target with a different value therefore sits in a different component by definition — restating, in graph language, the same conclusion the parity check already reaches directly.
+
+      "Fewest moves" is a shortest-path question, and shortest paths are often cheaper to find by working backward from the goal state, exactly the working-backwards move: if the goal is tightly constrained — many source states could reach it, but it has few actual predecessors under the move rule — searching backward from it can reach a small, well-understood frontier far faster than searching forward from a start whose reachable set explodes.
+
+    worked: >
+      Two jugs hold $5$ and $3$ liters with no markings; you may fill either jug from a tap, empty either jug, or pour one jug into the other until the source empties or the target fills. Treat each pair $(a,b)$ of current contents as a vertex, with edges for each of those operations. Starting at $(0,0)$, one path through this graph reaches a state with $4$ liters in the $5$-liter jug: fill the $5$ to get $(5,0)$; pour into the $3$ to get $(2,3)$; empty the $3$ to get $(2,0)$; pour the $5$ into the $3$ to get $(0,2)$; fill the $5$ again to get $(5,2)$; pour into the $3$, which has room for $1$ more, to get $(4,3)$. That's $6$ moves to reach $4$ liters — a breadth-first search of this same graph confirms $6$ is in fact the fewest moves possible.
+
+    interview: >
+      "How would you solve this systematically, not just by trial and error" is the cue to name the graph explicitly — what a vertex is, what an edge is — since interviewers are listening for the reduction to a standard search problem, not another round of guessing.
+
+    pitfalls: >
+      Describing the graph informally without pinning down exactly what a vertex is — an ambiguous state description makes it impossible to say whether two configurations are actually the same vertex or two different ones. Searching forward from a large or unconstrained start when the goal is the tightly constrained side of the problem, when working backward from the goal would shrink the search dramatically.
+
+    recap: >
+      Configurations are vertices and moves are edges: reachability is connectivity, fewest-moves is shortest path, and an invariant is just a function constant on one connected component.
+
+  - node: quant-puzzles.strategies.adversary
+    hook: >
+      The words "guarantee," "worst case," "must," or "at least how many" are asking for a specific number: the cost against an opponent who sees everything you've drawn so far and is actively trying to make you work as long as possible.
+
+    explanation: >
+      The move is to imagine the hidden data — which card is drawn, which box holds the prize — as chosen not randomly but by an adversary who answers adaptively, consistent with everything already revealed, and whose only goal is to delay you as long as possible. Your answer is whatever cost you can still guarantee against that adversary, which is a fundamentally different number from the cost against a typical or random instance.
+
+      This produces a two-part proof structure worth remembering as a pair: the adversary argument gives you a *lower* bound — a number of draws or tests the adversary can force you to spend no matter what you do — while an actual matching procedure that always succeeds within that many draws supplies the *upper* bound. Only when the two numbers meet is the guarantee proven tight; a lower bound alone tells you the guarantee can't be smaller, not that your specific number is achievable.
+
+    worked: >
+      A standard deck has $13$ ranks, four cards of each. How many cards must you draw, in the worst case, to guarantee three cards of the same rank? An adversary handing you cards one at a time, trying to delay a triple as long as possible, gives you exactly two cards of every rank first — $2\times13=26$ cards with no rank appearing three times, which is achievable since each rank has four cards available. The next card, the $27$th, must belong to some rank, and since that rank already has two cards among the first $26$, it becomes a third — forced, regardless of which rank the adversary picks. So $27$ cards guarantee three of a kind, and $26$ do not, since the adversary's exact stalling arrangement is a legal deal.
+
+    interview: >
+      "How many do you need to guarantee..." is always this technique; interviewers are listening for the adversary's stalling construction stated explicitly (not just the final count), since the construction is what proves $26$ isn't enough and the pigeonhole step on the next card is what proves $27$ is.
+
+    pitfalls: >
+      Computing only the pigeonhole lower bound and forgetting to check that the adversary's stalling arrangement is actually achievable given the real constraints — here, that four cards of each rank genuinely exist to hand out. Answering with the *average*-case number instead of the worst case when the question explicitly said "guarantee" — the two numbers are rarely close.
+
+    recap: >
+      Let a worst-case adversary pick the hidden data adaptively against you: the largest stall it can force, plus one more draw, is the guaranteed answer — and it needs both a stalling construction and a forcing step to be proven tight.
+
+  - node: quant-puzzles.strategies.guarantee-vs-expectation
+    hook: >
+      "How many draws does it take" is genuinely two different questions wearing one sentence, and answering the wrong one — average when they asked for worst case, or vice versa — is one of the fastest ways to lose credibility in a puzzle round.
+
+    explanation: >
+      A guarantee is the adversarial worst case: the number that holds no matter how the hidden data is arranged. An expectation is an average over a *stated* random model — uniform shuffle, independent draws, whatever the problem specifies — and the two numbers answer genuinely different questions, so there is no reason to expect them to be close, let alone equal.
+
+      The guarantee typically depends only on the coarse structure of the problem — how many categories exist — while the expectation depends on the actual underlying counts, which is why changing the numbers in a problem can leave the guarantee untouched while shifting the expected value noticeably. The practical discipline: when a question says "guarantee," answer with the adversarial number; when it says "on average" or specifies a random model, switch to expectation and say out loud that you're switching models — never answer "on average" to a question that asked for a guarantee, and never answer with the worst case when a random model was explicitly given.
+
+    worked: >
+      A drawer holds $6$ red socks and $4$ blue socks, drawn in a uniformly random order. The guarantee for a matching pair is still $3$: with only two colors present, an adversary can hand you one red and one blue first, but the third sock must repeat one of the two colors — this holds regardless of the $6$-versus-$4$ split. The expectation is different: a match occurs on the second draw only if it shares the first draw's color, with probability $(6/10)(5/9)+(4/10)(3/9)=7/15$; otherwise, since only two colors exist, the third draw is forced to match. So the expected number of draws is $2\cdot(7/15)+3\cdot(8/15)=38/15\approx2.533$ — close to, but not equal to, the $10$-red-$10$-blue value of $48/19\approx2.526$, because the expectation, unlike the guarantee, is sensitive to the actual counts.
+
+    interview: >
+      "What's the expected number of draws" versus "how many do you need to guarantee" are two different follow-ups interviewers ask back to back specifically to see whether you flag the model switch — naming which one you're computing, before computing it, is the actual skill being tested.
+
+    pitfalls: >
+      Assuming the guarantee changes when the color counts change — it usually doesn't, since it depends on the number of categories, not their sizes. Quoting an expectation as though it were a guarantee, or vice versa, without stating the random model the expectation assumes — an interviewer who didn't specify one will ask what you assumed.
+
+    recap: >
+      A guarantee is the adversarial worst case and depends on category count; an expectation needs a stated random model and depends on the actual counts — state which one you're answering before you compute it.
+
+  - node: quant-puzzles.strategies.info-lower-bound
+    hook: >
+      "What's the fewest tests you could possibly need" is answered before any scheme is designed at all — just count how many distinguishable outcomes exist and how many outcomes each test can tell apart.
+
+    explanation: >
+      Each test with $b$ possible outcomes can at best multiply the number of histories you're able to distinguish by $b$, so a sequence of $k$ tests distinguishes at most $b^{k}$ total cases. If a procedure has to correctly identify one of $N$ genuinely different possibilities, it needs $k\ge\log_b N$ tests just to have enough distinguishable outcomes to name the answer — rounded up, since $k$ is an integer, $k\ge\lceil\log_b N\rceil$.
+
+      This gives necessity, not sufficiency: the count proves that fewer tests cannot possibly work, since there aren't enough distinguishable outcomes to go around, but it says nothing about whether a scheme achieving that many tests actually exists. A matching construction is still owed separately, exactly as with the adversary argument's lower and upper bounds.
+
+    worked: >
+      One bulb is defective among $100$ identical bulbs, and each test is a yes/no question — "is the defective bulb in this specific subset?" With $N=100$ possibilities and $b=2$ outcomes per test, the bound gives $k\ge\log_2 100\approx6.64$, so $k\ge7$. Binary search achieves exactly $7$: split the $100$ into two groups, test one, keep the group containing the defect, and repeat — $100\to50\to25\to13\to7\to4\to2\to1$ is $7$ halvings to isolate a single bulb, matching the bound exactly, since $2^{6}=64<100\le128=2^{7}$.
+
+    interview: >
+      "What's the theoretical minimum number of tests" wants $\lceil\log_b N\rceil$ computed explicitly, with $N$ and $b$ both named — how many possibilities the answer must distinguish, and how many outcomes one test produces — before any scheme is proposed.
+
+    pitfalls: >
+      Forgetting to count every piece of information the answer must convey — for a defective coin that could be heavy or light, $N$ counts both the coin's identity and its direction, not just the coin. Treating the counting bound as proof that a scheme achieving it exists — it only proves fewer tests are impossible; a working construction is a separate, additional argument.
+
+    recap: >
+      Count outcomes: $k$ tests with $b$ results each distinguish at most $b^{k}$ cases, so identifying one of $N$ possibilities needs $k\ge\lceil\log_b N\rceil$ tests — necessity only, a scheme is still owed.
