@@ -299,26 +299,24 @@ struct LessonPlayer: View {
                         .textSelection(.enabled)
                 }
             } else {
-                HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
                     TextField("your answer", text: $draft)
                         .textFieldStyle(.plain)
                         .font(Typeface.mono(14))
                         .foregroundStyle(theme.inkStrong.color)
                         .focused($isTypingFocused)
-                        .frame(maxWidth: 220)
                         .onSubmit { commit(check) }
                         .accessibilityLabel("Your answer")
                     Rectangle()
-                        .fill(theme.hairline.color)
+                        .fill(theme.rule.color)
                         .frame(height: 1)
                 }
-                .overlay(alignment: .bottomLeading) {
-                    Rectangle()
-                        .fill(theme.rule.color)
-                        .frame(width: 220, height: 1)
-                        .offset(y: 6)
-                }
-                Text("A fraction, a decimal or a percentage — $7/15$, $0.4667$ and $46.67\\%$ all read the same.")
+                .frame(width: 240)
+                // Plain prose, no `$…$`: this line is set with `Text` rather than
+                // `MathTextView`, so a math span here would reach the reader as
+                // literal dollar signs — which the corpus check would never catch,
+                // because the string is in the app rather than in the corpus.
+                Text("A fraction, a decimal or a percentage — 7/15, 0.4667 and 46.67% all read alike.")
                     .font(Typeface.mono(9.5))
                     .foregroundStyle(theme.inkFaint.fading(0.7).color)
                     .padding(.top, 6)
