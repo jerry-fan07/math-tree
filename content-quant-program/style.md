@@ -38,7 +38,7 @@ that restates the statement says nothing. Teach.
   no fewer. The validator rejects a file that misses one, invents one, or
   teaches a node that lives elsewhere.
 - Field order is fixed: `node, hook, explanation, worked, interview, pitfalls,
-  recap`. Omit an optional section entirely rather than leaving it empty.
+  recap, steps`. Omit an optional section entirely rather than leaving it empty.
 - Every section is a folded block scalar (`>`) with a **uniform 2-space
   continuation indent**. A blank line inside `explanation` becomes a paragraph
   break in the reader — use 2–5 paragraphs. Never double-quote a string
@@ -96,6 +96,76 @@ corpus check — write "$10$ dollars" or a bare number), and **never nest `$`
 inside `\text{...}`** (it splits the enclosing span — write digits in the
 `\text` directly). The corpus self-check renders every section of every lesson
 and CI fails on any deviation.
+
+## `steps` — the lesson as cards (§6.7)
+
+Optional, and worth authoring wherever you can. A lesson with no `steps` still
+plays: the app derives one card per prose section, so the reader gets the lesson
+in pieces but is never *asked* anything. Authoring `steps` is what upgrades a
+node from paged prose to a checked lesson.
+
+```yaml
+      recap: >
+        ...
+      steps:
+        - teach: >
+            One beat — a single idea, two or three sentences.
+        - ask: >
+            A question with a numeric answer.
+          expects: "7/15"
+          tolerance: 0.0005
+          hint: >
+            Offered on request, before the answer. Never shown unasked.
+          feedback: >
+            Why that is the answer. Shown however the check resolves.
+        - ask: >
+            A question whose answer is a judgement, not a number.
+          choices:
+            - text: >
+                A wrong option worth naming.
+              feedback: >
+                The specific mistake this option corresponds to.
+            - text: >
+                The right one.
+              correct: true
+              feedback: >
+                Why it is right.
+          feedback: >
+            The canonical explanation, shown whatever was picked.
+```
+
+- **A card is `teach` xor `ask`** — one beat or one question, never both, and
+  never neither. A `teach` card carrying `choices`/`expects`/`feedback` is an
+  error, not a shorthand.
+- **Aim for 5–7 cards and at least two checks per lesson.** Below four cards the
+  lint says so; zero checks makes it a slideshow, which the lint also says.
+  Alternate: teach, teach, check, teach, check.
+- **`expects` must be quoted and must be a number.** It decodes as a `String`,
+  so an unquoted `expects: 1` fails the build as an integer. And the parser
+  reads decimals, fractions `a/b`, percentages and `\frac{a}{b}` — nothing else.
+  A **symbolic** answer (`1/n`, `1/i`, "the median") is not a typed check: make
+  it `choices`. `check-unparsable-answer` fails the build rather than telling a
+  correct reader they are wrong.
+- **Write `expects` in plain form** (`7/15`, not `\frac{7}{15}`): it is shown
+  back on a wrong answer, and the plain form is what the reader typed.
+- **State `tolerance` whenever the honest answer is rounded.** With none, the
+  match is effectively exact, so `0.4914` for $1 - (35/36)^{24}$ needs
+  `tolerance: 0.0005`. Tolerance is absolute.
+- **Exactly one choice carries `correct: true`**, and there must be at least
+  two. Give each wrong option a `feedback` naming the *specific* mistake it
+  corresponds to — a distractor nobody would pick teaches nothing, and
+  "incorrect" teaches less.
+- **`feedback` is required on every check**, including choice checks that also
+  have per-row feedback: a reader who guessed right still needs the reason.
+- Checks are formative and record nothing (D13.2). Do not write a card that
+  claims otherwise, and do not narrate the app ("click continue").
+
+## No markdown, anywhere
+
+`*emphasis*`, `**bold**`, `_underscores_` and backticks are **not** rendered —
+`MathText` is LaTeX-lite, and asterisks reach the reader as asterisks. Carry
+emphasis with word order instead. (Some older lesson files still contain these;
+they are a known defect, not a precedent.)
 
 ## Before you finish
 
