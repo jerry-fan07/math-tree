@@ -1,0 +1,748 @@
+unit: quant-statistics.descriptive
+opening: >
+  Descriptive statistics turns a pile of numbers into a handful of
+  summaries, and the arc of this unit is really about the gap between
+  them: the sample mean, variance, and correlation you compute directly,
+  and the fact that every one of them is secretly a population formula
+  evaluated on the empirical distribution the data itself defines. The
+  first stretch builds the standard toolkit — the mean and its standard
+  error, the n-1 sample variance, and quantiles read straight off sorted
+  data — before turning to the question interviewers actually probe: how
+  much can a single bad print move each one. Breakdown point formalizes
+  that question, and a worked fat-finger example, the median absolute
+  deviation, and light trimming and winsorizing all follow as the
+  practical response, closing with how to decide which center a given use
+  case actually needs. The unit ends with shape beyond the first two
+  moments — skewness and kurtosis — and with correlation: its definition,
+  how badly one leveraged point can distort it, and the rank-based
+  alternative built to resist that exact failure, before a last warning
+  about naively averaging group averages.
+lessons:
+  - node: quant-statistics.descriptive.sample-mean
+    hook: >
+      "Is this a real edge or noise" is answered by comparing a measured
+      mean against its own standard error — get that ratio wrong and
+      you'll trade on noise or dismiss a genuine signal.
+    explanation: >
+      Model the $n$ observations as iid draws from a law with mean $\mu$
+      and variance $\sigma^{2}$. Linearity alone gives
+      $\mathbb{E}[\bar{x}] = \mu$: averaging preserves the mean whether or
+      not the draws are independent, since expectation always distributes
+      over a sum. The variance formula needs more:
+      $\operatorname{Var}(\bar{x}) = \sigma^{2}/n$ only holds because the
+      draws are uncorrelated, so the variance of the sum is the sum of the
+      variances, $n\sigma^{2}$, and dividing by $n$ before squaring (the
+      affine scaling rule) turns that into $\sigma^{2}/n^{2}\cdot n
+      = \sigma^{2}/n$.
+
+      The mental model worth keeping is that averaging $n$ independent
+      noisy numbers shrinks their combined noise by $\sqrt{n}$, not by
+      $n$ — the standard error $\sigma/\sqrt{n}$ is the honest report of
+      how much $\bar{x}$ itself would wobble if you reran the whole
+      sample. In practice $\sigma$ is unknown, so you plug in $s$:
+      $s/\sqrt{n}$ is what actually appears in every "is this
+      significant" calculation.
+
+      Reading a measured mean without its standard error is reading half
+      a number: a mean of $3$ with $\operatorname{SE} = 2$ is
+      unremarkable, the same mean with $\operatorname{SE} = 0.1$ is a
+      strong signal.
+    worked: >
+      A desk logs $400$ trades with sample standard deviation $s = 8$ (in
+      dollars of slippage per trade). The standard error is
+      $\operatorname{SE} = 8/\sqrt{400} = 8/20 = 0.4$. If the measured
+      mean slippage comes out to $1.2$, that's $1.2/0.4 = 3$ standard
+      errors from zero — evidence of a real, systematic cost, not a
+      number that could plausibly be noise around zero.
+    interview: >
+      "How do you know this average is real and not noise" wants
+      $s/\sqrt{n}$ computed and compared against the measured mean,
+      stated as a number of standard errors — not a vague "it looks big
+      enough." Interviewers listen for whether you reach for the standard
+      error automatically or need it prompted.
+    pitfalls: >
+      Quoting $s$ itself as if it were the uncertainty in the mean — $s$
+      is the spread of individual observations, $s/\sqrt{n}$ is the
+      spread of the average. Treating financial time series as iid when
+      they're autocorrelated overstates how much the noise actually
+      shrinks, since $\operatorname{Var}(\bar{x}) = \sigma^{2}/n$ assumed
+      uncorrelated draws.
+    recap: >
+      The sample mean carries its own noise, $\sigma/\sqrt{n}$ in theory
+      and $s/\sqrt{n}$ in practice, and quadrupling the data only halves
+      it.
+
+  - node: quant-statistics.descriptive.empirical-distribution
+    hook: >
+      Every formula in this unit that has a hat on it — $\bar{x}$,
+      $s^{2}$, sample quantiles — is the same population formula, just
+      evaluated on one particular distribution: the data itself.
+    explanation: >
+      $\hat{F}_n$ is the distribution that places probability mass $1/n$
+      on each observation, and its CDF is a staircase rising by $1/n$ at
+      every data point. The plug-in principle names the pattern behind
+      every statistic in this unit: whatever functional of the true law
+      $F$ you'd like to know, replace $F$ by $\hat{F}_n$ and evaluate —
+      the sample mean is $\hat{F}_n$'s mean, the sample variance is
+      $\hat{F}_n$'s variance, sample quantiles are $\hat{F}_n$'s
+      quantiles. There is no separate formula to memorize for each one;
+      you already know the population formula from probability, and this
+      is just that formula run on the distribution that puts equal weight
+      on what you actually saw.
+
+      This estimate carries its own sampling error, and the mechanism is
+      countable: for iid draws from $F$ and a fixed point $t$,
+      $n\hat{F}_n(t)$ counts how many of the $n$ draws landed at or below
+      $t$, so it is exactly Binomial$(n, F(t))$. That single fact gives
+      both $\mathbb{E}[\hat{F}_n(t)] = F(t)$ (unbiased) and
+      $\operatorname{Var}(\hat{F}_n(t)) = F(t)(1-F(t))/n$ — the empirical
+      CDF fluctuates around the truth exactly like a sample proportion,
+      because that is precisely what it is at each fixed point.
+    worked: >
+      Eight order-fill times give data $3, 7, 7, 7, 8, 10, 12, 15$.
+      Reading $\hat{F}_8(7)$ directly: $4$ of the $8$ values are at or
+      below $7$, so $\hat{F}_8(7) = 0.5$. If these were iid draws from a
+      law whose true $F(7)$ happened to be $0.5$, the binomial fact gives
+      $\operatorname{Var}(\hat{F}_8(7)) = 0.5(0.5)/8 = 0.03125$, a
+      standard deviation of about $0.18$ — so with only $8$ points, an
+      observed value anywhere from roughly $0.3$ to $0.7$ would be
+      unremarkable even though the true value is fixed.
+    interview: >
+      "Why is it reasonable to just treat the sample as the
+      distribution" is answered by naming the plug-in principle
+      directly — every summary you'd compute on a known law has a sample
+      twin computed the same way on $\hat{F}_n$, and that twin inherits
+      sampling noise from the binomial fact at each point.
+    pitfalls: >
+      Treating $\hat{F}_n$ as if it carried no uncertainty of its own —
+      every value read off it, including sample quantiles, wobbles with
+      sample size exactly like a proportion does. $\hat{F}_n$ is always
+      discrete even when the true law is continuous, so quantities that
+      need smoothness, like a density, don't plug in this directly.
+    recap: >
+      The sample is itself a probability law putting mass $1/n$ on each
+      observation, and every descriptive statistic ahead is that same
+      population quantity evaluated on it.
+
+  - node: quant-statistics.descriptive.sample-variance
+    hook: >
+      "Why divide by $n-1$" is asked precisely to see whether you have
+      the degrees-of-freedom argument on reflex, not just the formula
+      memorized.
+    explanation: >
+      The deviations $x_i - \bar{x}$ always sum to exactly $0$ — that's
+      a single linear constraint tying them together, so once you know
+      any $n-1$ of the deviations, the last one is forced. Only $n-1$ of
+      the $n$ terms in $\sum(x_i-\bar{x})^{2}$ carry independent
+      information, because $\bar{x}$ itself was already estimated from
+      this same data — you spent one degree of freedom finding the
+      center before you ever started measuring spread around it.
+      Dividing by that reduced count, $n-1$ rather than $n$, is exactly
+      what makes $\mathbb{E}[s^{2}] = \sigma^{2}$ for iid data.
+
+      The computational shortcut $s^{2} = \frac{1}{n-1}(\sum x_i^{2} -
+      n\bar{x}^{2})$ is algebraically identical but numerically dangerous
+      when $\bar{x}$ is large relative to the spread: $\sum x_i^{2}$ and
+      $n\bar{x}^{2}$ are both huge and nearly equal, and subtracting two
+      large near-equal floating-point numbers destroys precision in the
+      small difference that remains. Centering the data first, or using
+      a running two-pass computation, avoids this.
+    worked: >
+      Five position sizes: $10, 12, 14, 16, 18$. $\bar{x} = 14$, and the
+      deviations are $-4, -2, 0, 2, 4$, with squares $16, 4, 0, 4, 16$
+      summing to $40$. So $s^{2} = 40/4 = 10$ and $s = \sqrt{10}
+      \approx 3.16$ — dividing by $4$, not $5$, since one degree of
+      freedom was already used to fix $\bar{x} = 14$.
+    interview: >
+      "Why $n-1$" should trigger the degrees-of-freedom answer
+      immediately: the deviations sum to zero, so only $n-1$ are free,
+      and that's exactly the divisor that makes $s^{2}$ unbiased. A sharp
+      follow-up asks how much this matters at $n = 1000$ — essentially
+      nothing, the correction matters only for small samples.
+    pitfalls: >
+      Dividing by $n$ out of habit systematically underestimates
+      $\sigma^{2}$, a small effect at large $n$ but material at small
+      $n$. Using the computational (sum-of-squares) formula on data with
+      a mean far larger than its spread invites catastrophic
+      cancellation — center the data first if precision matters.
+    recap: >
+      $s^{2}$ divides by $n-1$, the number of deviations still free once
+      $\bar{x}$ has already been estimated from the same data.
+
+  - node: quant-statistics.descriptive.quantiles-iqr
+    hook: >
+      "What's a typical trade size" wants the median, not the mean — and
+      naming which quantile convention you used is what separates a
+      careful answer from a number nobody else can reproduce.
+    explanation: >
+      A sample quantile is the population quantile function, inverting
+      $F^{-1}(p)$, evaluated at $\hat{F}_n$ instead of the true law.
+      Because $\hat{F}_n$ jumps in increments of $1/n$ rather than rising
+      smoothly, "inverting" it at a $p$ that falls between jumps needs a
+      convention — interpolate between the neighboring order statistics,
+      or just take one of them — and different software packages pick
+      different conventions, so a quoted quantile is ambiguous unless you
+      say which rule produced it.
+
+      The median is the $p=0.5$ case: the middle order statistic for odd
+      $n$, the average of the two middle ones for even $n$. Quartiles cut
+      at $p = 0.25, 0.5, 0.75$, and the interquartile range
+      $\operatorname{IQR} = Q_3 - Q_1$ measures spread using only the
+      middle half of the sorted data — a fundamentally different mental
+      model from variance, which averages squared distances over every
+      point. Quantiles use only the data's order, never its arithmetic.
+
+      For normal data $\operatorname{IQR} \approx 1.349\sigma$, so
+      $\operatorname{IQR}/1.349$ gives a scale estimate directly
+      comparable to $s$.
+    worked: >
+      Six response times, already sorted: $4, 8, 15, 16, 23, 42$. The
+      median is $(15+16)/2 = 15.5$. Using the median-of-halves
+      convention, the lower half $\{4, 8, 15\}$ has median $8 = Q_1$ and
+      the upper half $\{16, 23, 42\}$ has median $23 = Q_3$, so
+      $\operatorname{IQR} = 23 - 8 = 15$.
+    interview: >
+      "Give me a typical value and how spread out the data is" wants
+      median and IQR by default when outliers are a live concern. A
+      precise candidate states the interpolation convention used for
+      $Q_1, Q_3$ rather than treating the numbers as unambiguous.
+    pitfalls: >
+      Forgetting the even-$n$ averaging rule for the median. Quoting an
+      IQR from one tool and comparing it to another tool's IQR on the
+      same data without checking they use the same interpolation
+      convention — the numbers can genuinely differ.
+    recap: >
+      Quantiles read location and spread off the sorted data's ranks;
+      median and IQR are their location/spread pair, calibrated to $s$
+      by $\operatorname{IQR} \approx 1.349\sigma$ on normal data.
+
+  - node: quant-statistics.descriptive.robustness
+    hook: >
+      "How many bad prints can silently wreck your reported average" has
+      an exact answer, and for the mean it's one — however large your
+      sample is.
+    explanation: >
+      The breakdown point is the smallest corrupted fraction of a sample
+      that can be set to push a statistic arbitrarily far. Pushing a
+      single observation out to some huge value $\Delta$ moves $\bar{x}$
+      by $\Delta/n$, which grows without bound as $\Delta \to \infty$ for
+      any fixed $n$ — so the mean's breakdown point is $1/n$, and the
+      same is true of $s$, which grows like $\Delta/\sqrt{n}$. The median
+      and IQR use only rank information, so a corrupted point that lands
+      at the extreme doesn't change which value sits in the middle unless
+      enough points are corrupted to actually shift the ranking — a
+      quarter of the sample for the IQR, half for the median.
+
+      This is a genuine trade-off, not a strict ordering: on clean normal
+      data the mean is the more efficient estimate of center — the
+      median's variance runs about $\pi/2$ times larger — while under
+      heavy tails that ranking flips completely, and the mean can be the
+      worse estimator even before any corruption enters the picture.
+
+      The fraction $1/n \to 0$ is easy to misread as "large samples are
+      safe" — it means the opposite. However large $n$ gets, it still
+      takes exactly one bad point to break the mean; the fraction only
+      shrinks because the denominator is growing, not because the mean is
+      getting more resistant.
+    worked: >
+      Five trade sizes: $3, 5, 6, 8, 9$ — mean $6.2$, median $6$. Corrupt
+      the largest entry to $1000$ (a decimal-point error): the data
+      becomes $3, 5, 6, 8, 1000$. The new mean is
+      $(3+5+6+8+1000)/5 = 1022/5 = 204.4$, more than thirty times the
+      original. The new median is still $6$, the middle value of
+      $3, 5, 6, 8, 1000$ once sorted — completely unmoved by a single
+      corrupted entry.
+    interview: >
+      "What happens to your reported average if one ticket has a
+      decimal-point error" is really asking for the breakdown point by
+      name. A strong answer states the mean and $s$ break at one bad
+      point regardless of $n$, and names the efficiency cost of switching
+      to median and IQR on clean data.
+    pitfalls: >
+      Assuming more data makes the mean safer from a single bad print —
+      the breakdown fraction shrinks, but the absolute count needed to
+      break it is always exactly one. Treating "robust" as strictly
+      "better" ignores the real efficiency loss median and IQR pay on
+      clean, well-behaved data.
+    recap: >
+      Breakdown point measures how much corruption a statistic
+      tolerates: mean and $s$ need only one bad point out of any $n$,
+      median and IQR need a quarter to half the sample.
+
+  - node: quant-statistics.descriptive.outlier-example
+    hook: >
+      This is the number to have ready when someone asks whether one bad
+      tick really matters: a tenfold blowup in the volatility estimate
+      against zero movement in the robust summary.
+    explanation: >
+      The mechanism behind the size of the damage is worth separating
+      from the fact of it. Corrupting one point to a value $\Delta$ away
+      from the rest moves the mean by $\Delta/n$ — linear in the size of
+      the error. The sum of squared deviations picks up roughly
+      $\Delta^{2}/n$ extra, because $s^{2}$ sums squared deviations, so
+      the same error that shifts the mean by some amount shifts $s^{2}$
+      by approximately the square of that shift — recall that $s$ grows
+      like $\Delta/\sqrt{n}$ under a single corrupted point, since
+      squaring the error before averaging amplifies it far more than the
+      mean's plain linear sum does.
+
+      The median and IQR, built entirely from ranks, don't feel any of
+      this: the corrupted point simply becomes "the new maximum," and
+      unless it displaces which value sits in the middle or which values
+      bound the middle half, nothing about the reported number changes
+      at all.
+
+      A large gap between mean and median on the same data is therefore
+      not, by itself, proof of contamination — genuinely skewed data
+      produces the same signature. What it does tell you is that the two
+      summaries disagree sharply, which is exactly when you should go
+      look at the raw data rather than trust either number blindly.
+    worked: >
+      Seven response times: $10, 12, 14, 16, 18, 20, 22$ — mean $16$,
+      median $16$. A typo turns the last entry into $2200$. The new mean
+      is $(10+12+14+16+18+20+2200)/7 = 2290/7 \approx 327.1$, a
+      twentyfold jump from a single entry. The new median is still $16$,
+      the fourth of seven sorted values $10, 12, 14, 16, 18, 20, 2200$ —
+      completely unchanged.
+    interview: >
+      "You're handed summary statistics without the raw data — how do
+      you tell if the mean is contaminated" is answered by comparing
+      mean and median: a sharp, unexplained gap between them is the
+      flag, though it takes the raw data (or domain knowledge) to
+      distinguish contamination from genuine skew.
+    pitfalls: >
+      Assuming any large mean/median gap means bad data — real, heavily
+      skewed populations produce the identical signature without a
+      single corrupted point. Checking only the mean and missing that
+      $s$ moved by roughly the square of what the mean did understates
+      how much the reported volatility, specifically, has been
+      contaminated.
+    recap: >
+      One corrupted entry out of seven sends the mean from $16$ to about
+      $327$ while the median never leaves $16$ — mean and median
+      sharply disagreeing is the signal to go look at the raw data.
+
+  - node: quant-statistics.descriptive.mad
+    hook: >
+      When you need a robust stand-in for $s$, not just for the center,
+      MAD applies the median's trick twice and stays immune to the exact
+      fat-finger print that inflates $s$ tenfold.
+    explanation: >
+      The median absolute deviation runs the same idea used to find a
+      robust center — take the median — a second time to measure spread:
+      find the median $m$, then take the median of $|x_i - m|$. Because
+      it's built entirely from medians, it inherits their breakdown
+      point of $1/2$, and it never involves squaring a deviation, so a
+      single wild point can move it only as far as the ranking of the
+      absolute deviations allows.
+
+      Raw MAD isn't on the same scale as $s$ — taking a median of
+      absolute deviations compresses the number relative to an average
+      of squared ones — but for normal data
+      $\operatorname{MAD} \approx 0.6745\sigma$, so
+      $\hat{\sigma} = 1.4826\operatorname{MAD}$ recovers a number
+      comparable to $\sigma$.
+
+      Its sharpest use is outlier flagging: the modified score
+      $|x_i - m|/(1.4826\operatorname{MAD})$ avoids a real failure of the
+      naive score $|x_i - \bar{x}|/s$, called masking — a single huge
+      outlier inflates $s$ itself, so the very yardstick used to judge
+      that point as extreme has already been stretched by the point it's
+      supposed to catch. MAD never inflates this way, since it stays
+      fixed unless enough points move to shift the middle of the
+      absolute deviations.
+    worked: >
+      Seven trade sizes: $5, 7, 7, 8, 9, 10, 50$. The median is $m = 8$.
+      Absolute deviations from $m$ are $3, 1, 1, 0, 1, 2, 42$; their
+      median is $\operatorname{MAD} = 1$, giving robust scale
+      $1.4826(1) \approx 1.48$. The modified score for the last trade is
+      $42/1.48 \approx 28.4$ — instantly flagged. By contrast
+      $s \approx 16.1$ here (dominated by that same $50$), so the naive
+      score is only $(50-13.7)/16.1 \approx 2.26$ — a value many
+      pipelines wouldn't flag, precisely because the outlier had already
+      inflated the tool meant to catch it.
+    interview: >
+      "How do you flag outliers without the detector being fooled by the
+      outlier itself" wants MAD-based scoring by name, with masking
+      stated as the specific reason the naive $z$-score fails.
+    pitfalls: >
+      Using raw MAD as if it were directly on $s$'s scale — the
+      $1.4826$ factor is not optional if you want a number comparable to
+      $\sigma$. With very small or lumpy samples, the median of the
+      absolute deviations can itself be unstable, since it's a median of
+      only a handful of values.
+    recap: >
+      MAD is a median of absolute deviations from the median; scaled by
+      $1.4826$ it estimates $\sigma$ on normal data and, unlike $s$,
+      isn't inflated by the outliers it's asked to detect.
+
+  - node: quant-statistics.descriptive.winsorize-trim
+    hook: >
+      When you need an average, not a rank-based summary, but a handful
+      of prints are obviously bad, trimming or winsorizing is the
+      compromise that buys robustness while staying a mean.
+    explanation: >
+      Both techniques touch only the extremes. The $\alpha$-trimmed mean
+      drops the lowest and highest $\alpha n$ observations and averages
+      what remains; the $\alpha$-winsorized mean instead caps them at the
+      most extreme surviving value, keeping all $n$ terms. Both inherit
+      breakdown point $\alpha$ by construction — moving the statistic
+      without bound needs corrupting more than the fraction $\alpha$ on
+      one side.
+
+      At a small $\alpha$ like $5\%$, almost nothing is touched on clean
+      normal data, so the efficiency cost is negligible, while a handful
+      of genuinely bad ticks get neutralized entirely. This makes the
+      choice of $\alpha$ a statement about how much contamination you
+      expect, not a free parameter to tune after seeing the answer.
+
+      The honesty check that matters most: on a population that is truly
+      skewed rather than merely contaminated, the trimmed mean estimates
+      something other than $\mu$ — you've deliberately deleted the tail
+      that was part of the real distribution, not an error. In trading
+      the tail often is the P&L you're trying to measure, which is why
+      the practical advice is to winsorize inputs — signals, quoted
+      spreads, features — and leave the returns you're actually scored on
+      untouched.
+    worked: >
+      Ten daily returns in basis points: $-20, -5, -3, -1, 0, 1, 2, 4, 6,
+      500$, with the first and last both clearly fat-fingered. The
+      untrimmed mean is $484/10 = 48.4$. At $\alpha = 10\%$, trimming
+      drops one point from each end, leaving $-5, -3, -1, 0, 1, 2, 4, 6$,
+      mean $4/8 = 0.5$. Winsorizing instead replaces $-20$ with the
+      next-smallest surviving value $-5$ and $500$ with the next-largest
+      surviving value $6$, giving mean $5/10 = 0.5$ as well — both cut
+      the reported average from $48.4$ down to $0.5$.
+    interview: >
+      "You have return data with a couple of clearly bad prints — how do
+      you clean it without throwing away too much" wants trimming or
+      winsorizing at a small $\alpha$, and a candidate who volunteers
+      what it's silently estimating instead of $\mu$ when the data is
+      genuinely skewed shows real understanding.
+    pitfalls: >
+      Applying trimming to data that's fat-tailed rather than
+      contaminated quietly changes what you're estimating — real tail
+      events, not just bad ticks, get deleted. Choosing $\alpha$ after
+      looking at the data, specifically to make an inconvenient point
+      disappear, defeats the point of a pre-committed rule.
+    recap: >
+      A small $\alpha$ trims or caps the extremes at near-zero cost on
+      clean data and neutralizes a handful of bad ticks, but quietly
+      stops estimating $\mu$ once the tail is real rather than
+      corrupted.
+
+  - node: quant-statistics.descriptive.mean-or-median
+    hook: >
+      "Should I report the average or the median" isn't a robustness
+      question at all — it's an accounting question about which number
+      the use case actually needs.
+    explanation: >
+      Two questions settle it. First: what will the number be used for?
+      A total — aggregate P&L over the year, total headcount cost — is
+      exactly $n\bar{x}$, and only the mean answers that; a trimmed or
+      median-based summary no longer scales up to the real total, so
+      reporting it as if it did misstates the actual aggregate. Second:
+      how heavy is the tail? When a handful of observations dominate,
+      the mean's textbook efficiency advantage over the median is
+      illusory, since a single point can move it far from anything
+      representative.
+
+      Both questions are really the same fact in disguise: the mean
+      minimizes squared error and the median minimizes absolute error,
+      so choosing between them is choosing which loss actually describes
+      your use case, not a matter of taste.
+
+      Standard practice is to report both families together — $\bar{x}$
+      with $s$, median with $\operatorname{IQR}$ — precisely because a
+      widening gap between mean and median over time is itself
+      informative: it says the shape of the underlying distribution is
+      changing, a signal neither number alone would surface.
+    worked: >
+      A fund's $250$ trading days have mean daily P&L $400$ and median
+      daily P&L $150$. Reporting the median as "typical" is accurate, but
+      the year's actual total is $250 \times 400 = 100{,}000$;
+      multiplying the median by the day count instead gives
+      $250 \times 150 = 37{,}500$, less than half the real total. Only
+      the mean, not the median, answers "what did the fund actually
+      make."
+    interview: >
+      "Should we report the mean or the median of X" is answered by
+      asking what the number feeds into: does it need to sum to a known
+      total, or score against absolute error? A strong candidate also
+      flags a widening mean-median gap as worth investigating on its
+      own.
+    pitfalls: >
+      Multiplying a median by a count to approximate a total — only the
+      mean does that exactly. Defaulting to the mean as "typical" on
+      heavily skewed data, like position sizes or income, when most
+      observations sit well below it.
+    recap: >
+      The use of the number decides mean versus median: totals need the
+      mean exactly, typical-case and absolute-error framing need the
+      median, and a widening gap between the two is itself a signal.
+
+  - node: quant-statistics.descriptive.skew-kurtosis
+    hook: >
+      "This return series has kurtosis of $7$ — what does that tell
+      you" is a standard prompt, and the honest answer starts with a
+      caveat almost nobody volunteers: how much room a small sample even
+      has to show it.
+    explanation: >
+      Skewness and kurtosis are the third and fourth central moments,
+      $m_3 = \frac{1}{n}\sum(x_i-\bar{x})^{3}$ and $m_4$ likewise,
+      normalized by $\sigma^{3}$ and $\sigma^{4}$ so shifting or
+      rescaling the data leaves $g_1$ and $g_2$ unchanged — the same
+      scale-invariance already established for $s$, applied one and two
+      powers higher. Positive $g_1$ usually pairs with a longer right
+      tail and mean above median, but that's a rule of thumb, not a
+      theorem, and either can fail on a genuinely odd distribution.
+
+      Kurtosis compares against the normal benchmark of $3$: large $g_2$
+      says the variance is being produced by a few big moves rather than
+      many ordinary ones, the signature of fat-tailed return data.
+
+      Read both numbers with real suspicion on modest samples. $g_2$ can
+      never exceed $n-2+1/(n-1)$, a hard ceiling that shrinks fast as $n$
+      shrinks — a small sample literally cannot display a heavy tail, no
+      matter how heavy the true population tail is. And because $m_4$
+      raises deviations to the fourth power, it is dominated by the
+      largest one or two observations in the sample, so a quoted
+      kurtosis is often really a statement about your single worst
+      print.
+    worked: >
+      Five values: $-2, -1, 0, 1, 8$. $\bar{x} = 1.2$, deviations
+      $-3.2, -2.2, -1.2, -0.2, 6.8$. $m_2 = 62.8/5 = 12.56$,
+      $m_3 = 269.28/5 = 53.856$, giving
+      $g_1 = 53.856/12.56^{1.5} \approx 1.21$ — right-skewed, as the one
+      large positive value suggests. $m_4 = 2268.5/5 = 453.7$, giving
+      $g_2 = 453.7/12.56^{2} \approx 2.88$. The ceiling here is
+      $n-2+1/(n-1) = 3+0.25 = 3.25$: with only $5$ points, $2.88$ is
+      already close to the most kurtosis this sample could possibly
+      show.
+    interview: >
+      "Kurtosis is $7$ — what does that mean" wants the normal benchmark
+      of $3$ stated immediately, followed by the tail-concentration
+      reading — and a strong candidate volunteers the sample-size
+      ceiling before being asked, especially if $n$ is small.
+    pitfalls: >
+      Quoting excess kurtosis ($g_2 - 3$) but calling it just
+      "kurtosis," or the reverse — always state whether $3$ has been
+      subtracted. Trusting a kurtosis estimate from a short sample as
+      strong evidence of heavy tails, when the theoretical ceiling
+      itself may sit barely above $3$.
+    recap: >
+      Skewness and kurtosis are dimensionless third and fourth
+      standardized moments reporting asymmetry and tail weight, but both
+      are dominated by a few extreme points and capped from showing much
+      in a small sample.
+
+  - node: quant-statistics.descriptive.sample-correlation
+    hook: >
+      "These two signals move together with $r$ equal to $0.85$ —
+      should I combine them" is a question about linear strength, not
+      causation,
+      and the interview answer should show exactly what $r$ does and
+      doesn't certify.
+    explanation: >
+      With sample covariance $s_{xy}$, $r = s_{xy}/(s_x s_y)$, and the
+      two $n-1$ divisors cancel algebraically, so $r$ can be computed
+      straight from raw sums without ever forming $s_{xy}, s_x, s_y$
+      separately. The bound $-1 \le r \le 1$ is Cauchy–Schwarz applied to
+      the two vectors of centered deviations, $(x_i - \bar{x})$ and
+      $(y_i - \bar{y})$ — the same bound that already held for the
+      population correlation, now applied to the sample's own deviation
+      vectors. Picturing $r$ as the cosine of the angle between those two
+      vectors makes the shift/scale invariance obvious: shifting a
+      variable doesn't move its centered vector at all, and rescaling one
+      only changes its length, never the angle between the two.
+
+      $r^{2}$ reports the fraction of one variable's sample variance a
+      straight-line fit of the other explains — a number that will
+      matter again once regression is on the table.
+
+      $r$ has its own sampling noise: when the true correlation is
+      exactly zero, $r$'s standard deviation is about $1/\sqrt{n-1}$, so
+      a small sample needs a substantial $|r|$ before it means anything
+      at all.
+    worked: >
+      Five pairs: $(1,3), (2,5), (3,4), (4,8), (5,6)$. $\bar{x} = 3$,
+      $\bar{y} = 5.2$. The deviation products sum to $9.0$, the
+      $x$-deviation squares sum to $10$, the $y$-deviation squares sum to
+      $14.8$, giving $r = 9.0/\sqrt{10 \times 14.8} \approx 0.74$. But at
+      $n=5$ the noise floor is about $1/\sqrt{4} = 0.5$ — so even $0.74$
+      is only modestly clear of what pure chance could produce with this
+      few points.
+    interview: >
+      "What does an $r$ of $0.3$ actually tell you" wants the noise
+      floor named for the sample size in question, not treated as
+      automatically meaningful, plus the reminder that $r$ measures only
+      linear strength, never causation or curvature.
+    pitfalls: >
+      Quoting $r$ without $n$ — identical values of $r$ carry very
+      different weight at $n=10$ versus $n=10{,}000$. Reading a high $r$
+      as proof of a fully linear relationship rather than just its
+      linear component.
+    recap: >
+      Sample correlation is a unit-free, cosine-like measure of linear
+      association in $[-1,1]$, with its own sampling noise of about
+      $1/\sqrt{n-1}$ under zero true correlation that small samples must
+      clear before $r$ means anything.
+
+  - node: quant-statistics.descriptive.correlation-pitfalls
+    hook: >
+      This is the desk demonstration for why plotting the data beats
+      computing $r$ as your first move: identical points give $r=0$
+      exactly, and one added point on the same underlying curve takes it
+      to nearly $0.9$.
+    explanation: >
+      Take $y = x^{2}$ with $x$ symmetric about $0$. The deviation-product
+      sum collapses to $\sum x_i^{3}$, which vanishes by the odd-power
+      symmetry — positive and negative $x$ values cancel in cubes exactly
+      as they do in the first power — so $r=0$ exactly, even though $y$
+      is a perfectly deterministic function of $x$. Correlation only ever
+      sees the straight-line component of a relationship, and a
+      symmetric parabola has none by construction.
+
+      Appending one far-out point on that same curve breaks the symmetry
+      that was making the linear part cancel, and because it sits so far
+      from the centroid, it dominates both the deviation-product sum in
+      the numerator and the squared-deviation sums in the denominator — a
+      single distant point can contribute far more to each sum than every
+      other point combined, the same way one huge value dominates a sum
+      of squared deviations when computing a variance. A handful of
+      points, or even one, is therefore enough to swing $r$ from near $0$
+      to near $1$.
+
+      The lesson generalizes past this specific curve: any relationship
+      with a real nonlinear or non-monotone structure can show $r$ near
+      $0$ while being anything but unrelated, and any single leveraged
+      point can make $r$ look strong when the bulk of the data says
+      otherwise.
+    worked: >
+      Take $x = -2,-1,0,1,2$ with $y=x^{2}$: $\bar{x}=0$ and the
+      deviation products sum to $\sum x_i^{3}=0$, so $r=0$ exactly.
+      Append the point $(6,36)$, also on the curve. Now $\bar{x}=1$,
+      $\bar{y}\approx7.67$, the deviation-product sum is about $170.0$,
+      the $x$-deviation squares sum to $40$, and the $y$-deviation
+      squares sum to about $977.3$, giving
+      $r = 170.0/\sqrt{40 \times 977.3} \approx 0.86$. One point out of
+      six carried $r$ from $0$ to $0.86$ on data whose true relationship
+      never changed.
+    interview: >
+      "You see a strong correlation in mostly-noise data with one
+      striking point — do you trust it" wants leverage named directly,
+      plus the habit of plotting before quoting any correlation number.
+    pitfalls: >
+      Reporting $r \approx 0$ as "no relationship" without checking for
+      a deterministic nonlinear pattern hiding behind it. Trusting a
+      computed $r$ from a small sample without visualizing it — a single
+      leveraged point can manufacture a strong correlation out of
+      nothing.
+    recap: >
+      Correlation captures only the linear part of a relationship and
+      inherits the same single-point fragility as the mean and $s$ it's
+      built from — plot the data before trusting the number.
+
+  - node: quant-statistics.descriptive.rank-correlation
+    hook: >
+      A single leveraged point can manufacture a correlation from
+      nothing; converting to ranks first is the fix that keeps the
+      answer honest, because a rank can only move so far no matter how
+      extreme the underlying value gets.
+    explanation: >
+      Spearman's $\rho_s$ replaces every value by its rank within its own
+      sample, using midranks when values tie, and takes the ordinary
+      correlation of the two rank sequences; with no ties this reduces to
+      $1 - 6\sum d_i^{2}/(n(n^{2}-1))$ for rank differences $d_i$.
+      Kendall's $\tau$ instead counts pairs directly: (concordant
+      $-$ discordant)$/\binom{n}{2}$.
+
+      The robustness mechanism is precise, not just qualitative: however
+      extreme a raw value becomes, its rank can move by at most $n-1$
+      places — leverage is capped at the scale of the sample size, never
+      the scale of the data itself. That is exactly what breaks Pearson's
+      $r$'s fragility, since $r$'s leverage from an outlier grows with
+      the actual magnitude of that value, unboundedly.
+
+      Both rank measures hit $\pm1$ for any monotone relationship, not
+      just a linear one, which is precisely the structure the six-point
+      parabola example has once restricted to increasing $x$. For
+      bivariate normal data, $\tau = (2/\pi)\arcsin\rho$ lets a rank
+      measure be translated back onto familiar Pearson-scale intuition.
+    worked: >
+      Return to the six-point parabola example that showed Pearson's $r$
+      moving from $0$ to about $0.86$: $x=-2,-1,0,1,2,6$ with $y=x^{2}$.
+      Ranking $x$ is trivial ($1$ through $6$). Ranking $y$ needs
+      midranks, since $y=1$ occurs twice (rank $2.5$ each) and $y=4$
+      occurs twice (rank $4.5$ each), with $y=0$ at rank $1$ and $y=36$
+      at rank $6$. Correlating the two rank sequences gives
+      $\rho_s \approx 0.44$ — far more conservative than the raw
+      $r \approx 0.86$ on the same data, since the outlier's rank can
+      only outrank its neighbors by a few places, not by the ninefold
+      jump in raw $y$-value that drove Pearson's $r$.
+    interview: >
+      "You found an outlier-driven correlation and want a robust check"
+      is answered by converting to ranks and naming why it works: a rank
+      moves at most $n-1$ places regardless of how extreme the
+      underlying value is.
+    pitfalls: >
+      Ranking ties arbitrarily (like $1, 2$) instead of averaging to
+      midranks biases the result. Comparing $\rho_s$ and Pearson's $r$
+      numerically as if they were on the same scale — they can differ
+      substantially even when both correctly signal a monotone
+      relationship.
+    recap: >
+      Correlating ranks caps any single point's influence at a shift of
+      a few ranks, holding up under exactly the leverage that breaks
+      Pearson's $r$, while still scoring $\pm1$ for any monotone
+      relationship.
+
+  - node: quant-statistics.descriptive.averages-of-averages
+    hook: >
+      "Just average the daily numbers" silently drops a weighting factor
+      the moment the underlying groups have different counts — and it
+      alone explains a lot of "why doesn't my aggregate match the desk
+      total" confusion.
+    explanation: >
+      The pooled mean is nothing more than (total sum)/(total count), and
+      substituting each group's sum as $n_g\bar{x}_g$ makes the weighting
+      explicit: $\bar{x} = \sum_g n_g\bar{x}_g / \sum_g n_g$, a
+      size-weighted average of the group means. Averaging the group means
+      themselves with equal weight, $\frac{1}{G}\sum_g\bar{x}_g$, throws
+      away exactly the count information that determines how much each
+      group should actually contribute.
+
+      The trap is easy to miss because a table of pre-aggregated group
+      means looks complete on its own — nothing about the numbers
+      themselves signals that a small group and a large group are
+      sitting side by side with equal visual weight. The same error hides
+      under averaged ratios too: averaging daily fill rates across days
+      of very different volume gives a different number than the true
+      overall fill rate.
+
+      The fix is a habit, not a formula: ask for the counts $n_g$ next to
+      any set of reported means before combining them, and only use
+      equal weighting when you've actually confirmed the groups are the
+      same size.
+    worked: >
+      Three desks: desk X does $40$ trades averaging $200$ each, desk Y
+      does $10$ trades averaging $-300$ each, desk Z does $50$ trades
+      averaging $20$ each. The naive average of the three desk means is
+      $(200-300+20)/3 \approx -26.67$ — apparently losing money. The true
+      pooled mean is $(40 \cdot 200 + 10 \cdot (-300) + 50 \cdot 20)/100
+      = 6000/100 = 60$ — genuinely profitable. Equal weighting didn't
+      just misstate the number, it flipped the sign.
+    interview: >
+      "I have the average for each group — what's the overall average"
+      should trigger "what are the group sizes" before any arithmetic.
+      Naming the size-weighted formula unprompted is the tell of real
+      fluency here.
+    pitfalls: >
+      Averaging reported rates (fill rates, hit rates, win rates) across
+      periods of different volume without weighting — the same trap in
+      ratio form. Assuming a table's groups are equal-sized when the
+      sizes simply weren't stated.
+    recap: >
+      The pooled mean is the count-weighted average of group means, not
+      their plain average, and the two can even disagree in sign, as in
+      a naive $-26.67$ papering over a true $60$.

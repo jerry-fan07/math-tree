@@ -1,0 +1,855 @@
+unit: quant-probability.continuous
+opening: >
+  Continuous distributions swap the pmf's point masses for a density, but the
+  interview toolkit is really just a short list of named laws and the moves
+  that connect them. The unit opens with the uniform and its Beta relative —
+  the exact law behind order statistics and random spacings — then spends
+  its center of gravity on the exponential, where memorylessness and
+  additive rates power races between competing clocks and waiting-time
+  puzzles. It turns next to the normal, where standardization and the
+  68–95–99.7 table do the daily work, and closes with three laws built from
+  the normal by one simple operation each — exponentiating (lognormal),
+  squaring and summing (chi-square), and dividing (Cauchy) — each showing
+  what survives and what breaks when you transform a bell curve.
+lessons:
+  - node: quant-probability.continuous.uniform
+    hook: >
+      "Pick a point at random on this interval" questions are uniform
+      problems in disguise, and the whole point of this law is that you
+      measure lengths instead of integrating.
+    explanation: >
+      Because a continuous variable assigns probability zero to any single
+      point, "no value favored" has to mean something about intervals
+      instead: every subinterval's probability should be proportional to its
+      length. Demanding that forces a constant density, and normalizing so
+      the total is $1$ over $[a,b]$ pins it at $f(x)=1/(b-a)$ — the one flat
+      function on that interval that integrates to $1$.
+
+      Integrating the constant density gives the CDF $F(x)=(x-a)/(b-a)$, but
+      you rarely need to integrate at all: since the density never changes,
+      $\Pr(c\le X\le d)$ is just $(d-c)/(b-a)$, a ratio of lengths read off
+      directly. Symmetry places the mean and median at the midpoint
+      $(a+b)/2$ with no computation.
+
+      For the variance, standardize first: on $U(0,1)$,
+      $\mathbb{E}[X^{2}]=\int_0^1 x^2\,dx=1/3$, so
+      $\operatorname{Var}(X)=1/3-1/4=1/12$. Since every uniform is an affine
+      image of $U(0,1)$, $X=a+(b-a)U$, and variance scales by the square of
+      the coefficient, $\operatorname{Var}(X)=(b-a)^{2}/12$ in general.
+    worked: >
+      Let $X\sim U(2,14)$. Then $\Pr(5\le X\le 9)=(9-5)/(14-2)=4/12=1/3$. The
+      mean is $(2+14)/2=8$, and $\operatorname{Var}(X)=(14-2)^{2}/12
+      =144/12=12$, so the standard deviation is $\sqrt{12}=2\sqrt{3}
+      \approx 3.464$.
+    interview: >
+      "A point is dropped uniformly on $[0,L]$" or "you arrive at a random
+      time" both signal a uniform law; the interviewer wants probability
+      treated as a length ratio, not a fresh integral each time.
+    pitfalls: >
+      Writing $f(x)=1$ by default only holds for $U(0,1)$ — on a general
+      interval the density is $1/(b-a)$, not $1$. Confusing the standard
+      variance $1/12$ with the second moment $1/3$ is the other common slip.
+    recap: >
+      Under a uniform law probability is pure length — $(d-c)/(b-a)$ for any
+      subinterval — the mean sits at the midpoint, and the variance is
+      $(b-a)^{2}/12$.
+
+  - node: quant-probability.continuous.uniform-sum
+    hook: >
+      Deriving the sum-of-two-uniforms density by computing an area in the
+      unit square, rather than convolving densities, is the reusable trick —
+      the same picture answers "$\Pr(U_1+\dots+U_n\le 1)=1/n!$" instantly.
+    explanation: >
+      $S=U_1+U_2$ with both draws in $(0,1)$: rather than convolving
+      densities, picture $(U_1,U_2)$ as a uniform point in the unit square.
+      The event $\{S\le t\}$ for $t\le 1$ is a corner right triangle with
+      both legs $t$, so its area — and hence its probability, since area
+      equals probability on a uniform square — is $t^{2}/2$. Differentiating
+      gives the density $f(t)=t$ on that range.
+
+      Past $t=1$, don't re-derive: the square is symmetric under
+      $(u_1,u_2)\mapsto(1-u_1,1-u_2)$, which sends $S\mapsto 2-S$, so the
+      density mirrors to $f(s)=2-s$ on $[1,2]$ — a triangle peaking at $1$.
+
+      The same area idea scales: $\Pr(U_1+\dots+U_n\le 1)$ is the volume of
+      the simplex cut off by that hyperplane inside the unit cube, which is
+      exactly $1/n!$ — so the expected number of uniforms you must add
+      before the running total passes $1$ is $\sum_{n\ge 0}1/n!=e$.
+    worked: >
+      Using $\Pr(S\le 1/2)=1/8$ from the corner-triangle formula and the
+      reflection $s\mapsto 2-s$, $\Pr(S\ge 3/2)=\Pr(S\le 1/2)=1/8$ too, so
+      $\Pr(1/2\le S\le 3/2)=1-1/8-1/8=3/4$ — three quarters of the mass sits
+      in the middle third of the triangle's support.
+    interview: >
+      "What's the distribution of the sum of two uniforms" tests whether you
+      reach for the area-in-the-square argument instead of grinding a
+      convolution integral; naming the triangle shape and its peak at $1$ is
+      the fast, correct answer.
+    pitfalls: >
+      Using the formula $t^{2}/2$ past $t=1$ forgets the density is
+      piecewise — the triangle folds back down after its peak. Reporting
+      the mode ($1$) as if it were also the mean confuses the peak of a
+      triangle with its balance point, though here they coincide by symmetry.
+    recap: >
+      Two uniforms convolve into a triangle density found by measuring
+      corner areas in the unit square, the same picture that gives
+      $\Pr(\text{sum of }n\le 1)=1/n!$.
+
+  - node: quant-probability.continuous.beta
+    hook: >
+      "What's the distribution of the median of $n$ uniform draws" looks
+      like it needs fresh calculus every time — it doesn't, because the
+      answer is always some Beta$(a,b)$ read off by matching exponents.
+    explanation: >
+      $\operatorname{Beta}(a,b)$ is the flexible law on $(0,1)$ with density
+      $x^{a-1}(1-x)^{b-1}/B(a,b)$; at integer arguments the normalizer is a
+      factorial ratio, $B(a,b)=(a-1)!(b-1)!/(a+b-1)!$, the same
+      combinatorial shape that shows up as a continuous binomial
+      coefficient. A sanity check worth keeping: $\operatorname{Beta}(1,1)$
+      has density $1$ on $(0,1)$, exactly $U(0,1)$, and its mean formula
+      $a/(a+b)=1/2$ agrees.
+
+      The interview signature is order statistics. The $k$-th smallest of
+      $n$ iid uniforms has density $\frac{n!}{(k-1)!(n-k)!}
+      x^{k-1}(1-x)^{n-k}$ — and that exponent pattern $x^{k-1}(1-x)^{n-k}$ is
+      exactly the Beta shape with $a=k$, $b=n-k+1$. No separate derivation
+      is needed: pattern-match the exponents and read off
+      $\operatorname{Beta}(k,n-k+1)$, whose mean is immediately $k/(n+1)$.
+
+      That single fact answers a whole family of questions at once — the
+      median of three uniforms is $\operatorname{Beta}(2,2)$, mean $1/2$;
+      the maximum of $n$ uniforms is $\operatorname{Beta}(n,1)$, mean
+      $n/(n+1)$ — all without touching an order-statistic density directly.
+    worked: >
+      The second smallest of $5$ iid uniform draws is
+      $\operatorname{Beta}(2,4)$: mean $2/6=1/3\approx 0.333$, and variance
+      $ab/((a+b)^{2}(a+b+1))=(2\cdot 4)/(36\cdot 7)=8/252=2/63\approx0.0317$.
+    interview: >
+      "What's the mean of the $k$-th of $n$ uniform draws" should be
+      answered with $k/(n+1)$ immediately via
+      $\operatorname{Beta}(k,n-k+1)$; the framing also appears as "the
+      conjugate prior for a coin's bias."
+    pitfalls: >
+      Swapping the parameters — writing $\operatorname{Beta}(n-k+1,k)$
+      instead of $\operatorname{Beta}(k,n-k+1)$ — flips which tail carries
+      more mass. Skipping the $\operatorname{Beta}(1,1)=U(0,1)$ check means
+      missing an easy way to catch a sign or index error.
+    recap: >
+      The $k$-th smallest of $n$ uniform draws is exactly
+      $\operatorname{Beta}(k,n-k+1)$ with mean $k/(n+1)$, found by matching
+      exponents against the general Beta density.
+
+  - node: quant-probability.continuous.uniform-spacings
+    hook: >
+      "What's the expected size of the biggest gap between $n$ random
+      points" is a size-bias trap — the naive answer $1/(n+1)$ is wrong, and
+      knowing why separates genuine understanding from pattern matching.
+    explanation: >
+      Drop $n$ uniform points on $(0,1)$; they cut it into $n+1$ spacings
+      that sum to exactly $1$ and are exchangeable — no position is
+      structurally distinguished — so every spacing shares the same mean
+      $1/(n+1)$. The first spacing is literally the minimum of the $n$
+      points, which by the order-statistics match is
+      $\operatorname{Beta}(1,n)$ with density $n(1-x)^{n-1}$; exchangeability
+      then hands that same marginal law to every other spacing too, even
+      though the spacings are far from independent.
+
+      Summing spacings recovers $\mathbb{E}[X_{(k)}]=k/(n+1)$, consistent
+      with the Beta mean already known for order statistics.
+
+      The largest gap is where intuition breaks: it is not just "one of the
+      $n+1$ exchangeable pieces," because *which* spacing gets picked is
+      itself biased toward the larger ones. Its mean works out to
+      $H_{n+1}/(n+1)$, strictly above the naive guess $1/(n+1)$, since the
+      harmonic number $H_{n+1}$ exceeds $1$.
+    worked: >
+      With $n=2$ points, there are $3$ spacings of mean $1/3$ each. The
+      largest gap has mean $H_3/3=(1+1/2+1/3)/3=(11/6)/3=11/18\approx0.611$
+      — nearly double the naive guess of $1/3\approx0.333$.
+    interview: >
+      "Drop $n$ points on a segment — how big is the largest gap, on
+      average" is answered with $H_{n+1}/(n+1)$, and the interviewer is
+      listening for the size-bias reasoning, not just the memorized formula.
+    pitfalls: >
+      Assuming the maximum spacing shares the ordinary spacing mean
+      $1/(n+1)$ ignores that selecting the largest is a biased choice.
+      Treating the spacings as independent (rather than merely exchangeable
+      and summing to $1$) leads to wrong higher-moment computations.
+    recap: >
+      $n$ uniform points cut $(0,1)$ into $n+1$ exchangeable
+      $\operatorname{Beta}(1,n)$ gaps averaging $1/(n+1)$ each, but the
+      largest one runs bigger, averaging $H_{n+1}/(n+1)$.
+
+  - node: quant-probability.continuous.exponential
+    hook: >
+      Every "how long until the next arrival" question is fitting an
+      exponential whether or not the interviewer says so, and the fact that
+      its mean equals its standard deviation is the fingerprint worth
+      recognizing on sight.
+    explanation: >
+      Think of $\lambda$ as arrivals per unit time: in a tiny window $dt$,
+      the chance of an arrival is about $\lambda\,dt$, independent of how
+      long you've already waited. Chaining that constant hazard over many
+      small windows gives the survival probability
+      $\Pr(X>x)=(1-\lambda\,dt)^{x/dt}\to e^{-\lambda x}$ — the continuous
+      limit of a geometric waiting time, which is exactly why $X\sim
+      \operatorname{Exp}(\lambda)$ has density $f(x)=\lambda e^{-\lambda x}$
+      and CDF $1-e^{-\lambda x}$.
+
+      Integrating $x f(x)$ by parts gives $\mathbb{E}[X]=1/\lambda$, and a
+      second integration by parts gives $\mathbb{E}[X^{2}]=2/\lambda^{2}$,
+      so $\operatorname{Var}(X)=2/\lambda^{2}-1/\lambda^{2}=1/\lambda^{2}$ —
+      mean and standard deviation are both exactly $1/\lambda$, a signature
+      no other common continuous law shares.
+
+      The median, $\ln 2/\lambda$, sits well below the mean because the law
+      is right-skewed: most of the probability mass sits near $0$, with a
+      long thin tail carrying the rest. Rescaling stays in the family,
+      $cX\sim\operatorname{Exp}(\lambda/c)$ for $c>0$.
+    worked: >
+      Calls arrive at a help desk at rate $\lambda=5$ per hour. The mean
+      wait for the next call is $1/5$ hour $=12$ minutes. The probability
+      the wait exceeds $20$ minutes ($1/3$ hour) is
+      $e^{-5/3}\approx0.1889$, and the median wait is $\ln2/5\approx0.1386$
+      hour $\approx8.3$ minutes, well under the $12$-minute mean.
+    interview: >
+      "How long until the next trade / arrival / failure" triggers $1/\lambda$
+      immediately; a sharp candidate volunteers that mean equals standard
+      deviation here, a fact worth stating unprompted as a check.
+    pitfalls: >
+      Mixing up the CDF $1-e^{-\lambda x}$ with the survival function
+      $e^{-\lambda x}$ under time pressure is the classic sign error.
+      Plugging $\lambda$ directly in as if it were the mean, instead of
+      $1/\lambda$, is the other common slip.
+    recap: >
+      $\operatorname{Exp}(\lambda)$ has density $\lambda e^{-\lambda x}$,
+      survival $e^{-\lambda x}$, and mean and standard deviation both
+      $1/\lambda$ — the continuous waiting-time law.
+
+  - node: quant-probability.continuous.memoryless-exponential
+    hook: >
+      "This bulb has burned for $3$ hours — how much longer will it last"
+      is the single most common trap in probability interviews, and
+      memorylessness is exactly what forces the answer to stay $1/\lambda$.
+    explanation: >
+      Condition directly: $\Pr(X>s+t\mid X>s)
+      =\Pr(X>s+t)/\Pr(X>s)=e^{-\lambda(s+t)}/e^{-\lambda s}=e^{-\lambda t}$.
+      The $s$ cancels because exponential decay is multiplicative —
+      $e^{-\lambda(s+t)}=e^{-\lambda s}e^{-\lambda t}$ — so conditioning on
+      survival to $s$ rescales the whole future by exactly the same factor
+      that got you there. The remaining life given survival to $s$ has
+      literally the same law as a fresh draw, so
+      $\mathbb{E}[X\mid X>s]=s+1/\lambda$.
+
+      This isn't a coincidence of the exponential's particular shape — it's
+      forced. The survival function must satisfy the functional equation
+      $G(s+t)=G(s)G(t)$, and the only right-continuous solutions are
+      $G(t)=e^{-\lambda t}$, so the exponential is the unique continuous law
+      on $[0,\infty)$ with this property.
+
+      Read backward, the "head start" a partially-used item appears to have
+      is worth nothing under this law — a used exponential component is
+      exactly as good as new, never better or worse.
+    worked: >
+      A lightbulb's lifetime is $\operatorname{Exp}(\lambda)$ with mean
+      $2000$ hours ($\lambda=1/2000$). Given it has already burned for $500$
+      hours, its expected remaining life is still $1/\lambda=2000$ hours,
+      not $1500$. The probability it lasts at least $1000$ more hours given
+      that survival is $e^{-1000/2000}=e^{-0.5}\approx0.6065$.
+    interview: >
+      "Bulb burning $3$ hours — how much longer" is answered with $1/\lambda$
+      regardless of the $3$ hours; the interviewer wants the functional
+      equation reasoning stated, not just the memorized conclusion.
+    pitfalls: >
+      Adding the elapsed time to the answer, reasoning the item is "used up"
+      and has less time left, is backwards for the exponential — that
+      intuition is correct only for wearing-out laws with rising hazard.
+      The property is unique to the exponential; don't apply it to a
+      uniform or normal lifetime.
+    recap: >
+      Given survival past $s$, an exponential's remaining life is again
+      $\operatorname{Exp}(\lambda)$ — the exponential is the only continuous
+      law where elapsed waiting carries zero information.
+
+  - node: quant-probability.continuous.hazard-rate
+    hook: >
+      Hazard rate is how an interviewer asks "does this thing wear out or
+      age like new" without using the word memoryless — reading off flat
+      versus rising versus falling hazard is the entire question.
+    explanation: >
+      The hazard rate $h(x)=f(x)/(1-F(x))$ is a conditional density: since
+      $\Pr(x<X\le x+\varepsilon)\approx f(x)\varepsilon$, dividing by
+      $\Pr(X>x)$ converts that into the conditional statement
+      $\Pr(x<X\le x+\varepsilon\mid X>x)\approx h(x)\varepsilon$ — the
+      instantaneous failure rate given survival so far. Solving the implied
+      differential equation $dS/dx=-h(x)S(x)$ recovers the survival
+      function as $\Pr(X>x)=\exp(-\int_0^x h(u)\,du)$, so the hazard alone
+      determines the entire law.
+
+      Check it against what you already know: constant hazard $h\equiv
+      \lambda$ integrates to $e^{-\lambda x}$ — exactly the exponential
+      survival function, and exactly memorylessness restated in different
+      vocabulary. Flat hazard and "no memory" are the same fact.
+
+      Away from that flat case, the shape tells the story: rising hazard
+      means genuine aging — a used item is more likely to fail soon than a
+      fresh one — while falling hazard means infant mortality, where
+      survival so far is good news and a used item is actually safer.
+    worked: >
+      Let $X$ have density $f(x)=2x$ on $(0,1)$, so $F(x)=x^{2}$. Then
+      $h(x)=2x/(1-x^{2})$; at $x=0.5$, $h(0.5)=1/(1-0.25)=1/0.75
+      \approx1.333$, and $h(x)\to\infty$ as $x\to1$, since failure by $x=1$
+      is certain — a clear picture of rising hazard.
+    interview: >
+      "What does rising hazard mean in plain terms" is answered with
+      "used items are more likely to fail soon" — aging — and flat hazard
+      should connect back to the exponential without hesitation.
+    pitfalls: >
+      Confusing hazard rate with the density itself — $h(x)\ge f(x)$ always,
+      since dividing by the survival probability (at most $1$) can only
+      increase it. Hazard determines the whole law only through integration;
+      it is not a single summary number like the mean.
+    recap: >
+      Hazard rate is density divided by survival — the instantaneous risk
+      of failure given survival so far — and it is exactly constant when
+      the law is exponential.
+
+  - node: quant-probability.continuous.min-exponentials
+    hook: >
+      "Which of two competing processes finishes first" — two traders'
+      fills, two servers, two failure clocks — collapses to a rate-sharing
+      ratio whenever both clocks are independent exponentials.
+    explanation: >
+      Independence turns the event $\{\min(X,Y)>t\}$ into $\{X>t\}\cap
+      \{Y>t\}$, so survival functions multiply:
+      $\Pr(\min(X,Y)>t)=e^{-\lambda_X t}e^{-\lambda_Y t}
+      =e^{-(\lambda_X+\lambda_Y)t}$ — the minimum is exponential with the
+      summed rate, mean $1/(\lambda_X+\lambda_Y)$, faster than either clock
+      alone, exactly as competing clocks should finish sooner.
+
+      "Who wins" comes from integrating over when $X$ fires:
+      $\Pr(X<Y)=\int_0^\infty \lambda_X e^{-\lambda_X t}e^{-\lambda_Y
+      t}\,dt$; factor the integrand as $\lambda_X/(\lambda_X+\lambda_Y)$
+      times the density of an $\operatorname{Exp}(\lambda_X+\lambda_Y)$
+      variable, whose integral is $1$, leaving exactly
+      $\Pr(X<Y)=\lambda_X/(\lambda_X+\lambda_Y)$ — a share of the combined
+      rate.
+
+      Both facts extend to $n$ clocks without new work: the minimum is
+      exponential with the summed rate, and each competitor wins in exact
+      proportion to its own rate, with the identity of the winner
+      independent of when the race finishes.
+    worked: >
+      Server $A$ completes tasks at rate $4$ per hour, server $B$ at rate
+      $6$ per hour, independently. $\Pr(A\text{ finishes first})
+      =4/(4+6)=0.4$, and the time until the first completion is
+      $\operatorname{Exp}(10)$, with mean $1/10$ hour $=6$ minutes.
+    interview: >
+      "Two processes racing, both exponential — who wins, and how long" is
+      the canonical phrasing; state $\Pr(X<Y)=\lambda_X/(\lambda_X
+      +\lambda_Y)$ and $\min\sim\operatorname{Exp}(\lambda_X+\lambda_Y)$
+      immediately, without re-deriving.
+    pitfalls: >
+      Using $\lambda_Y/(\lambda_X+\lambda_Y)$ for $\Pr(X<Y)$ swaps the
+      numerator — a faster clock (higher $\lambda_X$) should win more
+      often, so the numerator must match the variable in question.
+      Independence is a real hypothesis; correlated clocks break both
+      formulas.
+    recap: >
+      The minimum of independent exponentials is exponential with the
+      summed rate, and each competitor wins in exact proportion to its own
+      rate.
+
+  - node: quant-probability.continuous.bank-teller
+    hook: >
+      This is the classic "surprise, it's exactly $1/2$" showcase — testing
+      whether you trust memorylessness enough to ignore the head start the
+      customer ahead of you appears to have.
+    explanation: >
+      Two tellers serve $A$ and $B$; you're third, all services iid
+      $\operatorname{Exp}(\lambda)$. The moment the first teller frees up,
+      memorylessness erases the elapsed service time of whichever customer
+      is still being served — their remaining time is a completely fresh
+      $\operatorname{Exp}(\lambda)$, indistinguishable from your own
+      about-to-start, independent $\operatorname{Exp}(\lambda)$ service. So
+      the race you actually join is symmetric between two freshly started
+      identical clocks, and you lose it — leave last — with probability
+      exactly $1/2$, however long the original two services already ran.
+
+      The apparent head start is worth nothing once conditioned correctly;
+      that is the entire content of the puzzle.
+
+      Your expected time in the bank adds two separate pieces: the wait
+      until a teller frees up, which is $\min$ of two
+      $\operatorname{Exp}(\lambda)$'s with mean $1/(2\lambda)$, plus your
+      own service, mean $1/\lambda$, giving $1/(2\lambda)+1/\lambda
+      =3/(2\lambda)$.
+    worked: >
+      With mean service time $10$ minutes ($\lambda=1/10$ per minute),
+      $\Pr(\text{you leave last})=1/2$ regardless, and your expected total
+      time in the bank is $3/(2\lambda)=3(10)/2=15$ minutes. With unequal
+      rates $\lambda_1=1$, $\lambda_2=2$ per hour, the same race argument
+      gives $\Pr(\text{you leave last})=2\lambda_1\lambda_2/(\lambda_1
+      +\lambda_2)^{2}=2(1)(2)/9=4/9\approx0.444$, below $1/2$.
+    interview: >
+      The two-teller puzzle wants instant recognition that once the race
+      begins, memorylessness makes the surviving customer's apparent head
+      start irrelevant, giving $1/2$ with almost no calculation.
+    pitfalls: >
+      Trying to track the exact elapsed service times of the first two
+      customers is unnecessary work memorylessness makes irrelevant.
+      Confusing "$\Pr(\text{leave last})=1/2$" with "expected total time
+      $=3/(2\lambda)$" treats two different questions as one.
+    recap: >
+      Memorylessness makes the race you eventually join always fair, so you
+      leave last with probability exactly $1/2$, and your expected total
+      time in the bank is $3/(2\lambda)$.
+
+  - node: quant-probability.continuous.geometric-limit
+    hook: >
+      Interviewers use this correspondence to test whether you see the
+      exponential and the geometric as the same memoryless law told on two
+      different clocks, not two formulas memorized separately.
+    explanation: >
+      Round an exponential up: for integer $k$, $\{\lceil X\rceil>k\}$ is
+      the same event as $\{X>k\}$, so $\Pr(\lceil X\rceil>k)
+      =e^{-\lambda k}$ exactly — which is the survival function of a
+      geometric on $\{1,2,\dots\}$ with success probability
+      $p=1-e^{-\lambda}$, since a geometric's survival is $(1-p)^{k}$ and
+      matching gives $1-p=e^{-\lambda}$. This is an exact correspondence, no
+      approximation involved.
+
+      The reverse direction is genuinely a limit: if $G_p$ is geometric with
+      parameter $p$, $\Pr(pG_p>t)=(1-p)^{\lfloor t/p\rfloor}\to e^{-t}$ as
+      $p\to0$, using $(1-p)^{1/p}\to e^{-1}$ — so a rescaled geometric with
+      vanishing success probability looks exponential, useful for
+      approximating "many trials, rare success" waiting times.
+
+      Both directions rest on the same fact: each law is the unique
+      memoryless one in its setting, discrete or continuous, and each has
+      mean equal to one over its rate parameter.
+    worked: >
+      Take $\lambda=\ln(4/3)\approx0.2877$, so $e^{-\lambda}=3/4$ and
+      $p=1/4$. Then $\Pr(\lceil X\rceil>3)=e^{-3\lambda}=(3/4)^{3}=27/64
+      \approx0.4219$, matching the geometric survival check
+      $(1-1/4)^{3}=27/64$ exactly.
+    interview: >
+      "How are the geometric and exponential related" wants both directions
+      named: rounding an exponential up gives an exact geometric, and
+      shrinking a geometric's step size recovers the exponential in the
+      limit.
+    pitfalls: >
+      Treating the correspondence as approximate in both directions is
+      wrong — the round-up direction is exact, only the rescaling direction
+      is asymptotic. Setting $p=\lambda$ directly ignores that they're
+      linked by $p=1-e^{-\lambda}$, which only reduces to $p\approx\lambda$
+      when $\lambda$ is small.
+    recap: >
+      Rounding an exponential up gives an exact geometric with
+      $p=1-e^{-\lambda}$, and shrinking a geometric's step size recovers the
+      exponential in the limit — the same memoryless law on two clocks.
+
+  - node: quant-probability.continuous.gamma
+    hook: >
+      "Expected time until the $n$-th arrival, not the first" is answered
+      instantly by recognizing a sum of iid exponentials — no new integral
+      needed beyond what a sum already gives you.
+    explanation: >
+      Waiting for the $n$-th event in a stream with iid
+      $\operatorname{Exp}(\lambda)$ inter-arrival times is literally summing
+      $n$ of them, $T_n=X_1+\dots+X_n$. Because means always add and
+      variances of independent summands always add, regardless of shape,
+      $\mathbb{E}[T_n]=n/\lambda$ and $\operatorname{Var}(T_n)=n/\lambda^{2}$
+      follow immediately from the sum, with no fresh derivation.
+
+      The density of that sum works out to the Erlang form
+      $\lambda^{n}x^{n-1}e^{-\lambda x}/(n-1)!$, and since you already know
+      $\Gamma(n)=(n-1)!$, replacing $(n-1)!$ with $\Gamma(\alpha)$ is exactly
+      how the Gamma function extends the integer factorial — so
+      $\operatorname{Gamma}(\alpha,\lambda)$ is the natural real-valued
+      generalization of "sum of $n$ exponentials" to non-integer shape.
+
+      Summing more exponentials just adds more terms, so shapes at a common
+      rate add too: $\operatorname{Gamma}(\alpha_1,\lambda)$ plus an
+      independent $\operatorname{Gamma}(\alpha_2,\lambda)$ is
+      $\operatorname{Gamma}(\alpha_1+\alpha_2,\lambda)$ — the same
+      additivity fact restated.
+    worked: >
+      At rate $\lambda=4$ per hour, waiting for the $5$th arrival has mean
+      $5/4=1.25$ hours, variance $5/16=0.3125$, and standard deviation
+      $\sqrt{0.3125}\approx0.559$ hours.
+    interview: >
+      "Expected time until the $k$-th event" is answered with $k/\lambda$
+      immediately, naming the sum-of-exponentials fact and the Gamma/Erlang
+      name; the variance $k/\lambda^{2}$ is the natural follow-up.
+    pitfalls: >
+      Assuming the distribution is just "$n$ copies" of the exponential
+      scaled up misses that it's a genuinely new, more concentrated shape,
+      even though the mean scales linearly. Some references parameterize
+      by scale $1/\lambda$ instead of rate $\lambda$ — always confirm which
+      convention is in play.
+    recap: >
+      The wait for the $n$-th arrival is a sum of $n$ iid
+      $\operatorname{Exp}(\lambda)$'s, hence $\operatorname{Gamma}(n,
+      \lambda)$ with mean $n/\lambda$ and variance $n/\lambda^{2}$.
+
+  - node: quant-probability.continuous.normal
+    hook: >
+      "Assume returns are normally distributed" tests are rarely about the
+      density formula itself — the real test is converting a probability
+      question into a $\Phi$ lookup without a calculator.
+    explanation: >
+      The density $f(x)=\frac{1}{\sigma\sqrt{2\pi}}
+      \exp(-(x-\mu)^{2}/(2\sigma^{2}))$ is symmetric about $\mu$, since
+      $f(\mu+x)=f(\mu-x)$ term by term, so mean, median and mode coincide
+      there with no separate computation. The inflection points at
+      $\mu\pm\sigma$ mark where the curve switches from convex to concave —
+      the "shoulders" of the bell.
+
+      What matters most in practice is the tail: it decays like
+      $e^{-x^{2}/2}$, far faster than an exponential tail, which is exactly
+      why the normal badly underweights the extreme moves real markets
+      actually produce. That gap between assumed and true tail weight is
+      the standard critique of normal-return models.
+
+      The standard case $\mu=0,\sigma=1$ has density $\varphi$ and CDF
+      $\Phi$, and $\Phi$ has no elementary closed form — which is why
+      interviews run entirely on memorized landmarks rather than live
+      integration.
+    worked: >
+      Let $X\sim\mathcal{N}(50,100)$, so $\sigma=10$. The density at $x=60$
+      is $f(60)=\frac{1}{10\sqrt{2\pi}}e^{-100/200}
+      =0.03989\times e^{-0.5}\approx0.03989\times0.6065\approx0.0242$.
+    interview: >
+      "Why is $68$–$95$–$99.7$ memorized rather than computed" tests
+      knowing $\Phi$ has no closed form; a strong answer also states, from
+      the formula, why the normal underestimates tail risk relative to
+      fatter-tailed alternatives.
+    pitfalls: >
+      Dropping the $1/\sigma$ normalizing factor and writing
+      $\exp(-(x-\mu)^{2}/2)$ as if already normalized silently breaks the
+      density for any $\sigma\ne1$. Defaulting to the normal for extreme
+      events is precisely what its fast tail decay warns against.
+    recap: >
+      The normal is the symmetric bell parameterized directly by mean
+      $\mu$ and variance $\sigma^{2}$, with a CDF $\Phi$ you look up rather
+      than integrate.
+
+  - node: quant-probability.continuous.normal-normalization
+    hook: >
+      Knowing where $1/(\sigma\sqrt{2\pi})$ actually comes from — rather
+      than trusting it by convention — is what lets you rebuild the whole
+      density, and its mean and variance, from a blank page.
+    explanation: >
+      Substitute $z=(x-\mu)/\sigma$, so $dx=\sigma\,dz$: the normalizing
+      integral $\int f(x)\,dx$ becomes
+      $\frac{1}{\sqrt{2\pi}}\int_{-\infty}^{\infty}e^{-z^{2}/2}\,dz$, and
+      since the Gaussian integral equals $\sqrt{2\pi}$, this ratio collapses
+      to exactly $1$ — the constant is forced by normalization, not chosen
+      for convenience.
+
+      The same substitution shows $\mu$ and $\sigma^{2}$ are genuinely the
+      mean and variance, not arbitrary shape labels. $\mathbb{E}[X]=\mu$
+      because $ze^{-z^{2}/2}$ is an odd function, so its integral over all
+      of $\mathbb{R}$ vanishes by symmetry — positive and negative $z$
+      cancel exactly, no computation needed beyond recognizing oddness.
+
+      Every other named continuous law needs a formula to convert its
+      parameters into a mean and variance; the normal is unusual in that
+      $\mu,\sigma^{2}$ already are those quantities directly.
+    worked: >
+      Integrate $z^{2}\varphi(z)$ by parts with $u=z$,
+      $dv=ze^{-z^{2}/2}\,dz$, $v=-e^{-z^{2}/2}$: the boundary term vanishes,
+      leaving $\int z^{2}e^{-z^{2}/2}\,dz=\int e^{-z^{2}/2}\,dz$, exactly the
+      Gaussian integral itself. Dividing by $\sqrt{2\pi}$,
+      $\int z^{2}\varphi(z)\,dz=1$, so $\operatorname{Var}(X)=\sigma^{2}$
+      falls out with no new integral beyond the one already used to
+      normalize.
+    interview: >
+      "Prove the normal density integrates to $1$" or "why do we call
+      $\sigma^{2}$ the variance" both want the $z$-substitution named
+      explicitly alongside the Gaussian integral, not a hand-wave.
+    pitfalls: >
+      Trying to integrate $e^{-x^{2}/2}$ directly in one variable dead-ends
+      — it has no elementary antiderivative, which is exactly why the
+      Gaussian-integral trick exists. Assuming any two-parameter density is
+      automatically parameterized by its mean and variance is false in
+      general.
+    recap: >
+      Substituting $z=(x-\mu)/\sigma$ reduces normalization to the Gaussian
+      integral itself, and the same move confirms $\mu$ and $\sigma^{2}$
+      really are the mean and variance.
+
+  - node: quant-probability.continuous.standardization
+    hook: >
+      This single manipulation turns every normal-probability question into
+      a $\Phi$ lookup, and it is the exact reflex an interviewer is testing
+      when they ask for $\Pr(X>\text{threshold})$.
+    explanation: >
+      Affine images of a normal stay normal: $aX+b\sim\mathcal{N}(a\mu+b,
+      a^{2}\sigma^{2})$, since the exponent $(x-\mu)^{2}/\sigma^{2}$ stays
+      quadratic under any affine change of variable, just re-centered and
+      re-scaled. In particular $Z=(X-\mu)/\sigma$ subtracts the mean to
+      center at $0$ and divides by $\sigma$ to force standard deviation $1$
+      — the mental model is "measure distance from the mean in units of
+      $\sigma$."
+
+      Once $Z$ is standard, every probability becomes a lookup:
+      $\Pr(X\le x)=\Phi((x-\mu)/\sigma)$, and symmetry of $\varphi$ about
+      $0$ gives $\Phi(-z)=1-\Phi(z)$, essential when only positive-$z$
+      values are memorized.
+
+      This is the single move to reach for the instant a normal probability
+      is asked — convert to $\sigma$-units first, resolve everything else
+      as arithmetic on $\Phi$.
+    worked: >
+      Exam scores are $X\sim\mathcal{N}(75,100)$, so $\sigma=10$. For
+      $\Pr(X>90)$: $z=(90-75)/10=1.5$, $\Phi(1.5)\approx0.9332$, so
+      $\Pr(X>90)\approx0.0668$. For $\Pr(60<X<80)$: $z_1=-1.5$, $z_2=0.5$,
+      $\Phi(0.5)\approx0.6915$ and $\Phi(-1.5)=1-0.9332=0.0668$, so
+      $\Pr(60<X<80)\approx0.6915-0.0668=0.6247$.
+    interview: >
+      Any "what fraction of $X$ exceeds/falls between" question is answered
+      by standardizing first, always; the interviewer watches for a correct
+      $(x-\mu)/\sigma$ conversion and correct use of $\Phi(-z)=1-\Phi(z)$.
+    pitfalls: >
+      Dividing by $\sigma^{2}$ instead of $\sigma$ when standardizing is the
+      single most common slip. Getting the direction of
+      $\Phi(-z)=1-\Phi(z)$ backwards under time pressure is the other.
+    recap: >
+      Standardize to $Z=(X-\mu)/\sigma$ and every normal probability
+      collapses to a $\Phi$ lookup — the most-used manipulation in this
+      chapter.
+
+  - node: quant-probability.continuous.empirical-rule
+    hook: >
+      This table is expected cold, with no reference sheet, the instant an
+      interviewer says "how many standard deviations away" — hesitating here
+      reads as not having internalized standardization at all.
+    explanation: >
+      The three central landmarks — $68\%$, $95\%$, $99.7\%$ within one,
+      two, three $\sigma$ — are just $\Pr(|X-\mu|\le k\sigma)
+      =\Pr(|Z|\le k)=2\Phi(k)-1$ evaluated at $\Phi(1),\Phi(2),\Phi(3)$; the
+      whole table is one formula plugged in three times.
+
+      The inverted direction — "which $z$ gives this probability" — is the
+      second table interviewers actually quiz: two-sided cutoffs $1.645$
+      for $90\%$, $1.96$ for $95\%$, $2.576$ for $99\%$; one-tailed,
+      $\Pr(Z>1.645)=5\%$, $\Pr(Z>1.96)=2.5\%$, $\Pr(Z>2.33)=1\%$.
+
+      Far into the tail, where no exact number is memorized, use the
+      asymptotic $\Pr(Z>z)\approx\varphi(z)/z$ — it overstates the true tail
+      probability slightly, a useful estimate rather than an exact value.
+    worked: >
+      A stock's daily return is modeled as $\mathcal{N}(0,(2\%)^{2})$. A
+      $6\%$ move is exactly $3\sigma$, so
+      $\Pr(|\text{return}|>6\%)=1-0.9973=0.0027$, about $1$ day in $370$.
+      Using the tail approximation for the one-sided version,
+      $\Pr(Z>3)\approx\varphi(3)/3$: $\varphi(3)=e^{-4.5}/\sqrt{2\pi}
+      \approx0.00443$, giving $\Pr(Z>3)\approx0.00148$, close to but above
+      the true one-tailed value $0.00135$.
+    interview: >
+      "How many sigma is a $1$-in-$1000$ event" or "probability of a move
+      beyond two standard deviations" are answered straight from this
+      table with zero computation — recall speed is the whole test.
+    pitfalls: >
+      Confusing the two-sided $95\%$ cutoff ($1.96$) with the one-tailed
+      $95\%$ cutoff ($1.645$) is the most common mix-up. Using the
+      asymptotic tail approximation where an exact landmark value is
+      already memorized wastes the more accurate number you already have.
+    recap: >
+      $68\%/95\%/99.7\%$ within one/two/three sigma, with $1.96$ the
+      two-sided $95\%$ cutoff and $1.645$ the one-tailed version —
+      memorized, not derived, under time pressure.
+
+  - node: quant-probability.continuous.normal-sums
+    hook: >
+      A portfolio's total return or a sample mean only stays tractable in
+      closed form because independent normals add to a normal — lose
+      independence and that closure vanishes entirely.
+    explanation: >
+      For independent $X\sim\mathcal{N}(\mu_1,\sigma_1^{2})$ and
+      $Y\sim\mathcal{N}(\mu_2,\sigma_2^{2})$, $aX+bY\sim\mathcal{N}(a\mu_1
+      +b\mu_2,\;a^{2}\sigma_1^{2}+b^{2}\sigma_2^{2})$. Separate what's
+      genuinely new here: means always add, by linearity alone, needing no
+      independence at all. Variances add only because
+      $\operatorname{Var}(aX+bY)=a^{2}\operatorname{Var}(X)
+      +b^{2}\operatorname{Var}(Y)+2ab\operatorname{Cov}(X,Y)$, and
+      independence is exactly what kills the cross term. Staying normal —
+      closure — is the one fact that needs the convolution (or
+      moment-generating-function) argument, not derivable from moments
+      alone.
+
+      Independence is a real hypothesis, not decoration: $Z+SZ$ with
+      $S=\pm1$ a fair independent sign equals $0$ half the time, a point
+      mass no normal has, even though $Z$ and $SZ$ are each individually
+      normal.
+
+      One clean consequence: the average of $n$ iid
+      $\mathcal{N}(\mu,\sigma^{2})$ draws is exactly
+      $\mathcal{N}(\mu,\sigma^{2}/n)$ for every $n$ — a stronger, exact
+      statement than the Central Limit Theorem's guarantee for non-normal
+      data.
+    worked: >
+      Let $X\sim\mathcal{N}(20,9)$ and $Y\sim\mathcal{N}(30,16)$,
+      independent. For $R=2X-Y$: mean $=2(20)-30=10$, variance
+      $=4(9)+1(16)=52$, so $\sigma_R=\sqrt{52}\approx7.21$. Then
+      $\Pr(R>20)$: $z=(20-10)/7.21\approx1.39$, $\Phi(1.39)\approx0.918$, so
+      $\Pr(R>20)\approx0.082$.
+    interview: >
+      "Sum or difference of two independent normal quantities" wants means
+      added and variances added — never subtracted, even for a
+      difference — plus the closure fact, ideally with the independence
+      caveat volunteered.
+    pitfalls: >
+      Subtracting variances for a difference $X-Y$ instead of adding them
+      is the classic sign error; the minus sign never reaches the variance
+      term. Assuming any two normal-looking variables sum to a normal even
+      when dependence is unstated skips the one genuine hypothesis this
+      result needs.
+    recap: >
+      Independent normals add to a normal with summed means and summed
+      variances, so a normal sample mean is exactly $\mathcal{N}(\mu,
+      \sigma^{2}/n)$ with no limit theorem required.
+
+  - node: quant-probability.continuous.lognormal
+    hook: >
+      Whenever a quantity compounds multiplicatively — prices, portfolio
+      value over many periods — its logarithm is modeled as normal, and the
+      interview test is knowing the mean sits strictly above the median.
+    explanation: >
+      $Y=e^{X}$ for $X\sim\mathcal{N}(\mu,\sigma^{2})$ lives on
+      $(0,\infty)$, matching quantities that can never go negative.
+      Computing $\mathbb{E}[Y]=\int e^{x}f(x)\,dx$ means completing the
+      square inside the normal's exponent: combining the $+x$ from $e^{x}$
+      with the quadratic term shifts the center by $\sigma^{2}$ and peels
+      off a multiplicative factor $e^{\mu+\sigma^{2}/2}$, after which the
+      remaining integral collapses back to $1$ by the normalization already
+      established — that factor is the entire mean.
+
+      The median is $e^{\mu}$ directly, since exponentiation is monotonic
+      and so commutes with quantiles, even though it does not commute with
+      expectation. The gap between mean and median is exactly
+      $e^{\sigma^{2}/2}$, driven purely by variance — the same convexity
+      idea as Jensen's inequality, since $e^{x}$ is convex, so
+      $\mathbb{E}[e^{X}]>e^{\mathbb{E}[X]}$ strictly whenever $X$ has any
+      spread at all.
+
+      Independent lognormals multiply to a lognormal because their logs
+      add, and sums of independent normals stay normal — which is why
+      compounding returns, where log-returns add across periods, is the
+      natural home for this law rather than the normal itself.
+    worked: >
+      Let $X\sim\mathcal{N}(0.05,0.04)$ model a year's log-return
+      ($\sigma=0.2$). The median growth multiplier is $e^{0.05}
+      \approx1.0513$ ($5.13\%$), while the mean is
+      $e^{0.05+0.02}=e^{0.07}\approx1.0725$ ($7.25\%$) — the mean overstates
+      typical growth by about $2.1$ percentage points, purely from the
+      variance term.
+    interview: >
+      "Why is quoted average return misleading for a compounding asset" is
+      testing $\mathbb{E}[Y]=e^{\mu+\sigma^{2}/2}>e^{\mu}=\text{median}$;
+      the strong answer cites convexity, not just the formula.
+    pitfalls: >
+      Reporting $e^{\mu}$ as "the mean price" when it is the median is a
+      common and consequential mix-up in return reporting. Assuming a sum
+      of lognormals is lognormal is false — only products are, since it's
+      the underlying normal logs that add.
+    recap: >
+      A lognormal is $e^{X}$ for normal $X$, with mean
+      $e^{\mu+\sigma^{2}/2}$ strictly above the median $e^{\mu}$ by
+      convexity — the standard model wherever quantities compound
+      multiplicatively.
+
+  - node: quant-probability.continuous.chi-square
+    hook: >
+      This is the law behind every sample-variance and variance-test
+      formula, and the fact worth having cold is that squared distance from
+      the origin under a standard bivariate normal is exactly exponential.
+    explanation: >
+      $Q=Z_1^{2}+\dots+Z_k^{2}$ for iid standard normal $Z_i$ needs no new
+      machinery: each squared normal individually turns out to have a
+      $\operatorname{Gamma}(1/2,1/2)$ shape, and independent Gammas at a
+      common rate add shapes, so summing $k$ of them gives directly
+      $\operatorname{Gamma}(k/2,1/2)$.
+
+      Moments follow the same way. Since $\mathbb{E}[Z^{2}]=1$ (that's just
+      $\operatorname{Var}(Z)$) and $\mathbb{E}[Z^{4}]=3$,
+      $\operatorname{Var}(Z^{2})=3-1=2$: each squared term contributes mean
+      $1$, variance $2$, and additivity across the $k$ independent terms
+      gives $\mathbb{E}[Q]=k$, $\operatorname{Var}(Q)=2k$ directly.
+
+      The $k=2$ case is worth carrying on its own: $\chi^{2}_2
+      =\operatorname{Gamma}(1,1/2)=\operatorname{Exp}(1/2)$ exactly — so if
+      $(Z_1,Z_2)$ is a standard bivariate normal, the squared Euclidean
+      distance from the origin, $Z_1^{2}+Z_2^{2}$, is genuinely
+      memoryless, a fact with no obvious reason to be true until you see
+      the Gamma-additivity argument.
+    worked: >
+      For $k=4$: $\mathbb{E}[Q]=4$, $\operatorname{Var}(Q)=8$, so
+      $\sigma_Q=\sqrt{8}\approx2.828$. As a cross-check, $\chi^{2}_4
+      =\operatorname{Gamma}(2,1/2)$ is the sum of two independent
+      $\chi^{2}_2$'s, each $\operatorname{Exp}(1/2)$ with mean $2$, and
+      $2+2=4$ matches $\mathbb{E}[Q]$ exactly.
+    interview: >
+      "Distribution of a sum of squared normals" wants
+      $\operatorname{Gamma}(k/2,1/2)$ named with mean $k$; volunteering the
+      $k=2\Rightarrow$ exponential fact is what separates fluency from
+      recall.
+    pitfalls: >
+      Forgetting the $Z_i$ must be standardized first — squaring
+      non-standard normals breaks the mean-$k$ correspondence entirely.
+      Misremembering $\mathbb{E}[Z^{4}]=1$ instead of $3$ silently corrupts
+      the variance calculation.
+    recap: >
+      A sum of $k$ squared standard normals is $\operatorname{Gamma}(k/2,
+      1/2)$ with mean $k$ and variance $2k$, collapsing at $k=2$ to exactly
+      $\operatorname{Exp}(1/2)$.
+
+  - node: quant-probability.continuous.cauchy
+    hook: >
+      This is the standard counterexample for whether you actually
+      understand what "the mean exists" requires, rather than assuming
+      every symmetric distribution automatically has one.
+    explanation: >
+      The density $1/(\pi(1+x^{2}))$ is symmetric about $0$ with quartiles
+      $\pm1$, so $\Pr(|X|>1)=1/2$ — half the mass sits beyond distance $1$
+      from center, a far more spread-out picture than the normal's tails.
+      Two constructions produce it directly: the ratio $Z_1/Z_2$ of
+      independent standard normals is Cauchy, and $\tan\Theta$ for $\Theta$
+      uniform on $(-\pi/2,\pi/2)$ is Cauchy — a spinning pointer's crossing
+      point on a distant wall, where angles near $\pm\pi/2$ map to enormous
+      distances, is literally why the tails are so heavy.
+
+      Since $|x|f(x)\sim1/(\pi|x|)$ for large $|x|$, $\int|x|f(x)\,dx$
+      diverges logarithmically, so $\mathbb{E}|X|=\infty$: both tails
+      separately fail, the same two-sided nonexistence pattern from
+      general moment theory, so the mean is undefined, not just infinite.
+      The median $0$ stays perfectly well-defined regardless, since it only
+      needs the CDF, not any moment, to converge.
+
+      The consequence for estimation is severe: averaging $n$ iid Cauchy
+      draws produces another standard Cauchy exactly, not approximately, so
+      the law of large numbers — which needs a finite mean to converge
+      to — fails outright, and more samples buy zero extra precision.
+    worked: >
+      A lighthouse beam spins to a uniformly random angle
+      $\Theta\sim U(-\pi/2,\pi/2)$ and hits a wall $1$ km away at
+      $X=\tan\Theta$. The event $|X|\le1$ is equivalent to $|\Theta|\le
+      \pi/4$, an interval of length $\pi/2$ inside the total range $\pi$, so
+      $\Pr(|X|\le1)=(\pi/2)/\pi=1/2$ — matching the quartiles-at-$\pm1$ fact
+      through a purely geometric computation, no calculus required.
+    interview: >
+      "Does this ratio of normals (or this symmetric law) have a mean" is
+      testing whether you'll say "no, it doesn't exist" with confidence,
+      rather than the classic wrong answer "$0$, by symmetry."
+    pitfalls: >
+      Answering "mean is $0$ by symmetry" skips the existence check —
+      symmetry only pins down the mean once you've confirmed it exists,
+      and here it provably doesn't. Assuming Gaussian intuition still
+      applies (more samples average out noise) fails completely for a
+      Cauchy-distributed quantity.
+    recap: >
+      The Cauchy — a ratio of independent normals, or $\tan$ of a uniform
+      angle — has tails so heavy its mean doesn't exist, and averaging more
+      samples never converges to anything.

@@ -1,0 +1,1017 @@
+unit: quant-tools.linear-algebra
+opening: >
+  Linear algebra is the language quant desks use for portfolios, factor
+  models and risk: a covariance matrix, a regression, a Markov transition
+  matrix are all just matrices, and most interview questions about them
+  reduce to matrix algebra, eigenstructure, or projection. This unit builds
+  the toolkit in the order it compounds: matrix multiplication, rank and the
+  solvability of $Ax=b$, determinant and trace, the equivalent faces of
+  invertibility, eigenvalues and eigenvectors with the trace/determinant
+  shortcut for finding them, orthogonality and the spectral theorem for
+  symmetric matrices, quadratic forms and positive (semi)definiteness — the
+  property that makes covariance matrices well-behaved — orthogonal
+  projection and least squares, PCA as an eigendecomposition, and matrix
+  powers via diagonalization. By the end you should be able to read
+  eigenvalues off trace and determinant in your head, recognize a PSD matrix
+  on sight, and see a regression, a Markov chain, and PCA as the same
+  computation wearing different clothes.
+lessons:
+  - node: quant-tools.linear-algebra.matrix-algebra
+    hook: >
+      Every later result in this unit — determinants, eigenvalues,
+      projections — is built out of multiplying, transposing and inverting
+      matrices, so having "order reverses" automatic for both $(AB)^{T}$ and
+      $(AB)^{-1}$ is worth owning before anything else starts.
+    explanation: >
+      $Ax$ is a linear combination of the columns of $A$, weighted by the
+      entries of $x$ — so $A$ is completely determined by where it sends the
+      coordinate vectors, and $AB$ means "first apply $B$, then apply $A$":
+      composition of functions, read right to left. That composition view is
+      why $AB \ne BA$ in general is not a technicality to memorize but a fact
+      about function composition — doing $B$ then $A$ is a different map from
+      doing $A$ then $B$.
+
+      Transpose and inverse both "undo" a composition, and both reverse
+      order for the same reason: to undo "first $B$, then $A$" you must undo
+      $A$ first, then $B$. That symmetry is why $(AB)^{T}=B^{T}A^{T}$ and
+      $(AB)^{-1}=B^{-1}A^{-1}$ have identical shape, and it is the cheapest
+      sanity check available on any algebraic manipulation involving a
+      product — if you didn't reverse the order, check again.
+
+      Invertibility is reversibility: $A^{-1}$ exists exactly when the map
+      $x \mapsto Ax$ can be undone by some other linear map. The $2\times2$
+      formula is the one closed form worth having memorized cold, since the
+      rest of the unit either uses it directly or generalizes it.
+    worked: >
+      Let $A$ have rows $(2,3)$ and $(1,4)$, and $B$ have rows $(0,1)$ and
+      $(1,0)$. Then $AB$ has rows $(2\cdot0+3\cdot1,\,2\cdot1+3\cdot0) =
+      (3,2)$ and $(1\cdot0+4\cdot1,\,1\cdot1+4\cdot0) = (4,1)$. For the
+      inverse of $A$: $\det A = 2\cdot4-3\cdot1 = 5$, so $A^{-1}$ is
+      $\tfrac{1}{5}$ times the matrix with rows $(4,-3)$ and $(-1,2)$, i.e.
+      $A^{-1}$ has rows $(4/5,-3/5)$ and $(-1/5,2/5)$.
+    interview: >
+      Expect to multiply small matrices mentally and to be asked why
+      $(AB)^{T} \ne A^{T}B^{T}$ in general — the interviewer wants the
+      composition-reversal reasoning, not just the rule recited. A classic
+      trap question is "does $AB=BA$ here" for a specific pair chosen to
+      fail.
+    pitfalls: >
+      Assuming two matrices commute because their product looks "symmetric"
+      by eye. Forgetting to reverse order when transposing or inverting a
+      product — writing $(AB)^{-1}=A^{-1}B^{-1}$. Applying the $2\times2$
+      inverse formula without first checking $\det A \ne 0$.
+    recap: >
+      Multiplying composes linear maps; transposing and inverting each undo
+      that composition and so each reverse its order.
+
+  - node: quant-tools.linear-algebra.rank-solvability
+    hook: >
+      "How many solutions does this system have" is answered before any
+      elimination — it's always none, one, or infinitely many, and knowing
+      why two solutions is impossible is a fast, free interview point.
+    explanation: >
+      Since $Ax$ is always a combination of $A$'s columns, the column space
+      is nothing but the set of every possible output $Ax$, and rank counts
+      how many of those columns point in genuinely new directions rather
+      than repeating ones already covered. Solvability of $Ax=b$ is then
+      just membership: $b$ must lie in that column space, or no combination
+      of columns can produce it.
+
+      The three-case classification follows from the shape of the solution
+      set, not from casework. If a solution exists, the full solution set is
+      one particular solution shifted by the null space — a subspace, which
+      is either just $\{0\}$ (unique solution) or infinite (a line, plane,
+      ...; never a finite set bigger than one point). That structural fact,
+      not luck, is why "exactly two solutions" never happens for a real
+      linear system.
+
+      Rank-nullity is the bookkeeping behind the dimension count:
+      $n - \operatorname{rank}(A)$ free parameters remain once
+      $\operatorname{rank}(A)$ independent constraints have been used up.
+    worked: >
+      Take $A$ with rows $(1,2,1)$ and $(2,4,2)$ — row $2$ is twice row $1$,
+      so $\operatorname{rank}(A)=1$. With $b=(3,6)$: since $6=2\cdot3$, the
+      augmented matrix has the same rank $1$, so the system is consistent,
+      and the solution set is $\{(x,y,z): x+2y+z=3\}$, a $2$-dimensional
+      plane ($n-\operatorname{rank}(A)=3-1=2$). With $b=(3,7)$ instead,
+      $7 \ne 2\cdot3$, the augmented rank jumps to $2 \ne \operatorname{rank}
+      (A)$, and there is no solution at all.
+    interview: >
+      "How many solutions can a linear system have" is fished for the
+      "$0$, $1$, or infinity, never two" answer. A system with visibly
+      proportional rows or columns is often handed over specifically to see
+      if you spot the rank deficiency instead of grinding through
+      elimination.
+    pitfalls: >
+      Assuming a square system automatically has a unique solution — it
+      fails whenever $\det A = 0$. Checking only $\operatorname{rank}(A)$
+      for consistency and forgetting the augmented matrix $[A\mid b]$ must
+      match it. Treating "infinitely many solutions" as always a line —
+      the family has dimension $n-\operatorname{rank}(A)$, which can exceed
+      $1$.
+    recap: >
+      Rank counts independent directions in $A$, and it alone decides
+      whether $Ax=b$ has zero, one, or an
+      $(n-\operatorname{rank}(A))$-dimensional family of solutions.
+
+  - node: quant-tools.linear-algebra.determinant-trace
+    hook: >
+      "$\det A=0$" is the fastest mental invertibility check there is, and
+      reading it as "the map crushed some direction to zero volume" — not as
+      an opaque formula — is what lets you see it coming before you compute.
+    explanation: >
+      The determinant is pinned down by three simple requirements (linear in
+      each column, sign-flipping under a column swap, $\det I=1$), and for
+      $2\times2$ this collapses to $ad-bc$: literally the signed area of the
+      parallelogram spanned by the two columns. If the columns are parallel
+      — one a scalar multiple of the other — that parallelogram degenerates
+      to a line segment, area zero, so $\det A=0$ exactly matches being
+      rank-deficient: less than full rank means the columns no longer span
+      a full-dimensional shape.
+
+      Trace is unrelated to that volume story but has its own invariance:
+      $\operatorname{tr}(AB)=\operatorname{tr}(BA)$ even though $AB\ne BA$
+      in general, which is why $\operatorname{tr}A$ is unchanged under
+      $A \mapsto P^{-1}AP$ — a fact that will matter once eigenvalues are on
+      the table, since a change of basis shouldn't change what a matrix
+      "truly" does.
+    worked: >
+      For $A$ with rows $(3,1)$ and $(2,4)$: $\det A = 3\cdot4-1\cdot2=10$
+      and $\operatorname{tr}A=3+4=7$ — the unit square, area $1$, maps to a
+      parallelogram of area $10$. Contrast with $A'$ having rows $(1,3)$ and
+      $(2,6)$: the columns are $(1,2)$ and $(3,6)$, proportional, so
+      $\det A' = 1\cdot6-3\cdot2=0$ and the image collapses to a line.
+    interview: >
+      Expect a quick $2\times2$ or $3\times3$ computation, but also "what
+      does a zero determinant tell you about the columns geometrically" —
+      the wanted answer is "they no longer span full-dimensional volume,"
+      not just "the matrix is singular."
+    pitfalls: >
+      Sign slips in $ad-bc$ versus $bc-ad$. Assuming a large or small trace
+      says anything about invertibility — it doesn't; trace can be $0$ for
+      an invertible matrix. Reading $\operatorname{tr}(AB)=
+      \operatorname{tr}(BA)$ as $\operatorname{tr}A\cdot\operatorname{tr}B=
+      \operatorname{tr}(AB)$, which is false.
+    recap: >
+      The determinant is signed volume scaling, zero exactly when a
+      direction collapses; the trace is the diagonal sum, already invariant
+      under change of basis.
+
+  - node: quant-tools.linear-algebra.determinant-properties
+    hook: >
+      "Elimination, then multiply the pivots" is the only determinant
+      algorithm that scales past $3\times3$ by hand — knowing which row
+      operations survive it is what turns a $4\times4$ determinant into a
+      two-minute problem instead of a cofactor nightmare.
+    explanation: >
+      A triangular matrix's determinant being the product of its diagonal
+      follows immediately from cofactor expansion: expanding along the first
+      column (or row) of a triangular matrix, every term except the diagonal
+      one multiplies a zero, so only the diagonal survives at each step. That
+      single fact is what makes elimination an efficient determinant
+      algorithm rather than just a way to solve systems.
+
+      Track what each row operation does to the volume it represents: adding
+      a multiple of one row to another shears the parallelepiped without
+      changing its volume, so the determinant is unchanged; swapping two
+      rows flips orientation, so the sign flips; scaling a row by $c$ stretch
+      es that one edge by $c$, so the determinant scales by $c$ — exactly the
+      alternating, multilinear properties the determinant was built from.
+
+      Multiplicativity, $\det(AB)=\det A\cdot\det B$, is composing two
+      volume-scaling factors, and $\det(A^{-1})=1/\det A$ follows since
+      composing $A$ with $A^{-1}$ scales volume by $1$. $\det(A+B)$ has no
+      such formula because the determinant is linear in one column at a
+      time, not in the whole matrix — adding matrices mixes columns from
+      both.
+    worked: >
+      Compute $\det$ of $A$ with rows $(1,2,3)$, $(2,5,3)$, $(1,0,8)$ by
+      elimination: $R_2 \to R_2-2R_1$ gives $(0,1,-3)$; $R_3 \to R_3-R_1$
+      gives $(0,-2,5)$; then $R_3 \to R_3+2R_2$ gives $(0,0,-1)$. No swaps or
+      scalings were used, so $\det A$ is the product of the resulting
+      diagonal: $1\cdot1\cdot(-1) = -1$.
+    interview: >
+      Handed a $3\times3$ or $4\times4$ matrix, the interviewer is watching
+      whether you reach for elimination instead of full cofactor expansion.
+      "What's $\det(A+B)$ given $\det A$ and $\det B$" is a standard trap —
+      the correct answer is that there is no such formula.
+    pitfalls: >
+      Forgetting to flip the sign on a row swap during elimination.
+      Writing $\det(cA)=c\det A$ instead of $c^{n}\det A$ — every one of the
+      $n$ rows gets scaled. Trying to derive $\det(A+B)$ from $\det A$ and
+      $\det B$ alone.
+    recap: >
+      Elimination turns a determinant into "product of the pivots," with a
+      sign flip per row swap and a factor per row scaling to track along the
+      way.
+
+  - node: quant-tools.linear-algebra.invertibility
+    hook: >
+      This is the node where an interviewer makes you name the same fact
+      five different ways in one conversation — hesitating on any single
+      equivalence reads as not actually seeing why they coincide.
+    explanation: >
+      All these conditions collapse to one because they're restatements of
+      "$x \mapsto Ax$ is a bijection $\mathbb{R}^{n}\to\mathbb{R}^{n}$":
+      injective is $\ker A=\{0\}$ (independent columns), surjective is the
+      columns spanning $\mathbb{R}^{n}$ (full rank). For a square map,
+      injective and surjective are the same property — a linear
+      self-map that never merges two inputs automatically hits everything,
+      and vice versa — which is special to the square case and is exactly
+      why this long list of equivalences exists only here.
+
+      The determinant enters through the volume story already built: less
+      than full rank forces the column parallelepiped into a
+      lower-dimensional set, zero volume, $\det A=0$ — the same collapse,
+      just named differently.
+
+      A practical footnote: a tiny nonzero determinant is not a
+      reassurance. Determinant scales with the size of the entries, so it is
+      not a normalized measure of "how close to singular" a matrix is —
+      near-singular matrices amplify input error regardless of how small
+      $|\det A|$ happens to be.
+    worked: >
+      Check $A$ with rows $(2,1)$ and $(1,3)$: $\det A = 6-1=5 \ne 0$, and
+      the columns $(2,1)$, $(1,3)$ are not proportional, so $A$ is
+      invertible. Confirm via the unique-solution test: solving $2x+y=5$,
+      $x+3y=5$ gives $y=5-2x$, so $x+3(5-2x)=5 \Rightarrow -5x=-10
+      \Rightarrow x=2,\,y=1$ — one solution, as $\det A\ne0$ predicted.
+    interview: >
+      "How do you check invertibility" wants the equivalences rattled off
+      interchangeably, then usually a follow-up: "which would you actually
+      compute for a $10\times10$ matrix" — testing that elimination-based
+      rank, not cofactor determinants, is the practical answer at scale.
+    pitfalls: >
+      Treating "determinant nonzero" as a different, extra check on top of
+      "full rank" rather than the same fact computed another way. Trusting a
+      small nonzero determinant as evidence of good conditioning.
+    recap: >
+      For a square matrix, invertible, full rank, nonzero determinant,
+      independent columns, and a unique solution to every $Ax=b$ are one
+      fact in five costumes — check whichever is cheapest.
+
+  - node: quant-tools.linear-algebra.eigen
+    hook: >
+      "Find the eigenvalues" is asked constantly not for the arithmetic but
+      because setting up $\det(A-\lambda I)=0$ correctly, and reading what a
+      repeated or complex root means, is the gate to PCA, Markov chains, and
+      every stability question later.
+    explanation: >
+      Along a general vector, $Ax$ can point anywhere; along an eigenvector
+      the map degenerates to pure scaling. Nearly everything you'll later
+      want to know about a matrix's long-run or extremal behavior traces
+      back to these special one-dimensional directions.
+
+      The derivation is one line: $Av=\lambda v$ with $v\ne0$ rearranges to
+      $(A-\lambda I)v=0$, a homogeneous system with a nonzero solution
+      exactly when $A-\lambda I$ is singular. That's the same determinant
+      test invertibility already uses, applied to $A-\lambda I$ instead of
+      $A$, so $\det(A-\lambda I)=0$ is not a new idea, just the old one
+      aimed at a shifted matrix.
+
+      This characteristic polynomial has degree $n$, hence exactly $n$
+      roots over $\mathbb{C}$ counted with multiplicity. Real matrices can
+      have genuinely complex eigenvalues — a pure rotation has no real
+      invariant direction at all — and a repeated root's eigenspace can be
+      smaller than its multiplicity, a wrinkle that resurfaces when asking
+      whether a matrix can be diagonalized.
+    worked: >
+      For $A$ with rows $(4,2)$ and $(3,-1)$: $\det(A-\lambda I) =
+      (4-\lambda)(-1-\lambda)-6 = \lambda^{2}-3\lambda-10 =
+      (\lambda-5)(\lambda+2)$, so $\lambda=5,-2$. For $\lambda=5$: $A-5I$
+      has rows $(-1,2)$ and $(3,-6)$, giving eigenvector $(2,1)$. For
+      $\lambda=-2$: $A+2I$ has rows $(6,2)$ and $(3,1)$, giving eigenvector
+      $(1,-3)$.
+    interview: >
+      "Find the eigenvalues of this matrix" cold is standard. A common
+      follow-up — "what if $A$ is a rotation" — fishes for the complex,
+      no-real-eigendirection answer rather than a stalled computation.
+    pitfalls: >
+      Forgetting $v \ne 0$ is required — $v=0$ trivially satisfies the
+      equation for any $\lambda$ but carries no information. Sign errors
+      expanding $(a-\lambda)(d-\lambda)-bc$. Assuming a repeated eigenvalue
+      automatically has a matching-dimension eigenspace — it need not.
+    recap: >
+      Eigenvectors are the directions where $A$ is pure scaling, found by
+      solving $\det(A-\lambda I)=0$ and then $(A-\lambda I)v=0$ for each
+      root.
+
+  - node: quant-tools.linear-algebra.trace-det-eigen
+    hook: >
+      Reading eigenvalues of a $2\times2$ straight off trace and determinant
+      — no expanding $\det(A-\lambda I)$ by hand — is the difference between
+      finding them in five seconds and thirty on a whiteboard.
+    explanation: >
+      This is packaging, not new content: comparing coefficients of
+      $\det(\lambda I-A)=\prod_i(\lambda-\lambda_i)$ against the same
+      polynomial expanded from $A$'s entries forces the $\lambda^{n-1}$
+      coefficient to equal $-\operatorname{tr}A$ and the constant term to
+      equal $(-1)^{n}\det A$ — for $n=2$ that's exactly $\sum_i\lambda_i=
+      \operatorname{tr}A$ and $\prod_i\lambda_i=\det A$.
+
+      For $2\times2$ this collapses the entire characteristic-polynomial
+      computation to $\lambda^{2}-(\operatorname{tr}A)\lambda+\det A=0$,
+      solved directly by
+      the quadratic formula — no need to ever expand $(a-\lambda)(d-\lambda)
+      -bc$ by hand again.
+
+      Two corollaries worth having automatic: a zero eigenvalue is invisible
+      in the trace but announces itself immediately as $\det A=0$; and
+      $\operatorname{tr}A/n$ is literally the average eigenvalue, a free
+      sanity check on any eigenvalue computation done some other way.
+    worked: >
+      For $A$ with rows $(7,-4)$ and $(2,1)$: $\operatorname{tr}A=8$,
+      $\det A = 7-(-8)=15$. So $\lambda = 4 \pm \sqrt{16-15} = 4\pm1$, giving
+      $\lambda=5,3$. Check: $5+3=8$ matches the trace, $5\cdot3=15$ matches
+      the determinant.
+    interview: >
+      "Give me the eigenvalues of this $2\times2$ without expanding the
+      determinant" is the direct ask. A subtler version, "what's the average
+      eigenvalue of this large matrix," wants $\operatorname{tr}A/n$ with no
+      eigendecomposition at all.
+    pitfalls: >
+      Applying the trace/determinant shortcut as if it pins down eigenvalues
+      for $n>2$ — it gives only two equations, not enough for more than two
+      unknowns. Flipping the sign in $\lambda^{2}-(\operatorname{tr}A)
+      \lambda+\det A$.
+    recap: >
+      Eigenvalues always sum to the trace and multiply to the determinant,
+      which for $2\times2$ is a plug-and-chug quadratic formula.
+
+  - node: quant-tools.linear-algebra.eigen-2x2
+    hook: >
+      This is the drill an interviewer runs to see if the trace/determinant
+      shortcut is actually automatic for you, not just something you can
+      state — expect back-to-back matrices with the clock running.
+    explanation: >
+      The routine is three lines: read $\operatorname{tr}A$ and $\det A$
+      off the matrix, solve the quadratic for both eigenvalues at once, then
+      find each eigenvector from $(A-\lambda I)v=0$. Because $A-\lambda_i I$
+      is singular by construction, its two rows are always proportional, so
+      only one of them needs solving.
+
+      Symmetric matrices are the friendly case — the spectral theorem for
+      symmetric matrices guarantees real eigenvalues and orthogonal
+      eigenvectors automatically — but the same three-line routine runs
+      unchanged on a non-symmetric matrix; it simply won't hand you
+      orthogonality for free.
+
+      The fastest self-check after finding both eigenvalues is comparing
+      their sum and product back against the trace and determinant you
+      started from, catching an arithmetic slip before it propagates into
+      an eigenvector computation that would otherwise look plausible and be
+      wrong.
+    worked: >
+      For the non-symmetric $A$ with rows $(1,4)$ and $(2,3)$:
+      $\operatorname{tr}A=4$, $\det A=3-8=-5$, so
+      $\lambda=2\pm\sqrt{4+5}=2\pm3$, giving $\lambda=5,-1$. For $\lambda=5$:
+      $A-5I$ has rows $(-4,4)$ and $(2,-2)$, giving eigenvector $(1,1)$. For
+      $\lambda=-1$: $A+I$ has rows $(2,4)$ and $(2,4)$, giving eigenvector
+      $(2,-1)$. Note $(1,1)\cdot(2,-1)=1\ne0$ — not orthogonal, since $A$
+      isn't symmetric.
+    interview: >
+      Expect two or three of these back to back, sometimes a deliberately
+      non-symmetric matrix to see whether you notice the eigenvectors won't
+      come out perpendicular and don't force them to.
+    pitfalls: >
+      Plugging $\lambda$ into the wrong row of $A-\lambda I$, or an
+      arithmetic slip there. Assuming eigenvectors are always orthogonal —
+      that's a consequence of symmetry, not a general fact about
+      eigenvectors.
+    recap: >
+      Trace and determinant give both eigenvalues in one line; each
+      eigenvector then falls out of one (necessarily dependent) row of
+      $A-\lambda I$.
+
+  - node: quant-tools.linear-algebra.inner-product
+    hook: >
+      "Correlation is just a cosine" is one of the highest-leverage
+      one-liners in the toolkit, and it only clicks once $\cos\theta$ and
+      Cauchy–Schwarz are seen as the same dot-product machinery.
+    explanation: >
+      The dot product packages length, angle, and perpendicularity into one
+      bilinear number. Length is self-similarity, $x^{T}x$; orthogonality is
+      the special case where the "overlap" $x^{T}y$ vanishes, which is why
+      the Pythagorean identity is pure algebra: expand $\lVert x+y\rVert^{2}
+      = (x+y)^{T}(x+y) = x^{T}x + 2x^{T}y + y^{T}y$ and the cross term drops
+      exactly when $x^{T}y=0$.
+
+      Cauchy–Schwarz is what makes $x^{T}y/(\lVert x\rVert\lVert y\rVert)$ a
+      legitimate cosine — without that bound nothing guarantees the ratio
+      stays in $[-1,1]$. Centring each vector before taking this cosine is
+      exactly the definition of a correlation coefficient, so every fact you
+      know about correlation being bounded by $\pm1$ is a corollary of
+      Cauchy–Schwarz, not a separate result.
+
+      The identity $x^{T}(Ay)=(A^{T}x)^{T}y$ is worth memorizing on its own:
+      it's the move that lets a matrix hop across a dot product from one
+      side to the other, and it is exactly the trick the normal equations
+      use later.
+    worked: >
+      Let $x=(3,4,0)$ and $y=(1,0,2)$. Then $x^{T}y=3$, $\lVert x\rVert=5$,
+      $\lVert y\rVert=\sqrt5$, so $\cos\theta = 3/(5\sqrt5) \approx 0.268$.
+      For orthogonality, take $z=(4,-3,0)$: $x^{T}z=12-12=0$, so $x,z$ are
+      orthogonal, and indeed $\lVert x+z\rVert^{2}=7^{2}+1^{2}=50$ equals
+      $\lVert x\rVert^{2}+\lVert z\rVert^{2}=25+25=50$.
+    interview: >
+      "How would you compute the angle between two vectors" and "how is
+      correlation related to cosine similarity" are the standard framings —
+      the interviewer wants both the formula and the Cauchy–Schwarz bound
+      stated together.
+    pitfalls: >
+      Calling an unnormalized dot product a "cosine" — it isn't bounded in
+      $[-1,1]$ without dividing by both norms. Treating a zero dot product
+      of raw (uncentred) data as "no correlation" — correlation needs
+      centred data first.
+    recap: >
+      The dot product is the single operation behind length, angle, and
+      orthogonality, with Cauchy–Schwarz guaranteeing the resulting cosine —
+      and hence any correlation — lands in $[-1,1]$.
+
+  - node: quant-tools.linear-algebra.orthogonal-matrix
+    hook: >
+      "$Q^{-1}=Q^{T}$" is the cheapest inverse you'll ever get to use —
+      spotting that a matrix qualifies turns an inversion problem into a
+      transpose.
+    explanation: >
+      An orthogonal matrix is the matrix form of "change coordinates
+      without distorting lengths or angles": its columns are unit vectors,
+      pairwise orthogonal, so applying $Q$ sends the standard basis to
+      another orthonormal basis rigidly, which is why $\lVert Qx\rVert =
+      \lVert x\rVert$ for every $x$.
+
+      The inverse formula needs no elimination or cofactors at all — it
+      follows directly from the defining equation $Q^{T}Q=I$, which already
+      says $Q^{T}$ undoes $Q$.
+
+      Determinant $\pm1$ separates rotations from reflections: both preserve
+      length, but a reflection flips orientation. Since length preservation
+      applied to an eigenvector forces $|\lambda|=1$ for every eigenvalue of
+      $Q$, a rotation's eigenvalues can be complex (modulus $1$, not real),
+      while a reflection always has a real eigenvalue of $-1$.
+    worked: >
+      Let $Q$ have columns $(0.6,0.8)$ and $(-0.8,0.6)$. Checking
+      $Q^{T}Q$: each column has squared length $0.36+0.64=1$, and the two
+      columns' dot product is $0.6(-0.8)+0.8(0.6)=0$, so $Q^{T}Q=I$. Also
+      $\det Q = 0.36-(-0.64)=1$, so $Q$ is a rotation, and $Q^{-1}=Q^{T}$
+      has rows $(0.6,0.8)$ and $(-0.8,0.6)$ with no further computation.
+    interview: >
+      "Is this matrix orthogonal, and what's its inverse" is answered by
+      checking $Q^{T}Q=I$ and then writing down the transpose — no
+      elimination. A follow-up often asks rotation-versus-reflection from
+      the determinant's sign.
+    pitfalls: >
+      Assuming unit-length columns alone make a matrix orthogonal — they
+      must also be pairwise orthogonal. Computing $Q^{-1}$ by elimination or
+      cofactors instead of noticing $Q^{T}Q=I$ first. Forgetting that a
+      product of orthogonal matrices is again orthogonal, so composing two
+      rotations never needs a fresh invertibility check.
+    recap: >
+      Orthogonal matrices are rigid rotations or reflections with
+      orthonormal columns, so their inverse is free: just transpose.
+
+  - node: quant-tools.linear-algebra.spectral
+    hook: >
+      "Why is a covariance matrix always diagonalizable with real
+      eigenvalues" has exactly one answer, and it's this theorem — every
+      symmetric matrix decomposes into perpendicular stretch directions, no
+      exceptions.
+    explanation: >
+      Unlike a general matrix, a symmetric one is guaranteed real
+      eigenvalues and a full orthonormal set of eigenvectors — no complex
+      eigenvalues to worry about, no eigenvector deficiency like the
+      non-diagonalizable matrix with rows $(1,1)$ and $(0,1)$ exhibits.
+
+      The orthogonality argument is short and worth re-deriving on the spot:
+      if $Av=\lambda v$ and $Aw=\mu w$, compute $v^{T}Aw$ two ways using the
+      matrix-across-a-dot-product identity — $\lambda\,v^{T}w = (Av)^{T}w =
+      v^{T}A^{T}w = v^{T}Aw = v^{T}(\mu w) = \mu\,v^{T}w$ — which forces
+      $v^{T}w=0$ whenever $\lambda\ne\mu$. Symmetry, $A=A^{T}$, is exactly
+      what makes the middle step $(Av)^{T}w=v^{T}Aw$ valid.
+
+      Reading $A=\sum_i\lambda_iq_iq_i^{T}$: each term is a rank-one
+      projector onto one eigendirection, so a symmetric matrix is a weighted
+      sum of independent stretches along perpendicular axes — exactly why
+      a covariance matrix, symmetric by construction, always decomposes
+      into uncorrelated directions.
+    worked: >
+      For symmetric $A$ with rows $(5,3)$ and $(3,5)$: $\operatorname{tr}A=
+      10$, $\det A=16$, so $\lambda=5\pm3=8,2$. For $\lambda=8$: $A-8I$ has
+      rows $(-3,3)$ and $(3,-3)$, giving $q_1=(1,1)/\sqrt2$. For $\lambda=2$:
+      $A-2I$ has rows $(3,3)$ and $(3,3)$, giving $q_2=(1,-1)/\sqrt2$. Indeed
+      $q_1\cdot q_2=0$, and $A = 8\,q_1q_1^{T} + 2\,q_2q_2^{T}$.
+    interview: >
+      "Why must a symmetric matrix have real eigenvalues" and "why are a
+      covariance matrix's eigenvectors orthogonal" are both this theorem —
+      answer with the $v^{T}Aw$-two-ways argument, not a citation.
+    pitfalls: >
+      Assuming any diagonalizable matrix has orthogonal eigenvectors — that
+      is special to symmetric matrices. Forgetting the eigenvectors must be
+      normalized to unit length for $A=Q\Lambda Q^{T}$ to hold with $Q$
+      truly orthogonal.
+    recap: >
+      Symmetry alone guarantees real eigenvalues and an orthonormal
+      eigenbasis, so $A=Q\Lambda Q^{T}$ — independent stretches along
+      perpendicular axes.
+
+  - node: quant-tools.linear-algebra.quadratic-form
+    hook: >
+      Any time a problem asks you to maximize or classify a "portfolio
+      variance" formula or a Hessian, it's secretly asking about the sign
+      behaviour of a quadratic form — the algebra underneath is always
+      $x^{T}Ax$.
+    explanation: >
+      Only the symmetric part of $A$ survives in $q(x)=x^{T}Ax$ because the
+      $(i,j)$ and $(j,i)$ terms of the double sum pair up into
+      $(a_{ij}+a_{ji})x_ix_j$ — only the sum matters, so any antisymmetric
+      part of $A$ is invisible to $q$ and can always be discarded by
+      symmetrizing first.
+
+      Reading the formula straight off a symmetric matrix: diagonal entries
+      are the pure-square coefficients, and off-diagonal entries get
+      doubled, since both $(i,j)$ and $(j,i)$ contribute the same cross
+      term. This is the fact to have automatic when translating between "a
+      matrix" and "a formula" in either direction.
+
+      Because $q$ is degree-two homogeneous, $q(cx)=c^{2}q(x)$ never flips
+      sign as $c$ varies, so the sign behaviour of $q$ on the whole space is
+      already decided by its sign on the unit sphere — "always nonnegative,"
+      "always nonpositive," and "changes sign" (a saddle) are the only three
+      possibilities.
+    worked: >
+      For symmetric $A$ with rows $(3,1)$ and $(1,3)$: $q(x) = 3x_1^{2} +
+      2x_1x_2 + 3x_2^{2}$ (the off-diagonal $1$ doubles to $2$). At
+      $x=(2,1)$: $q(2,1) = 3\cdot4 + 2\cdot2\cdot1 + 3\cdot1 = 12+4+3=19$.
+    interview: >
+      "Write out $x^{T}Ax$ for this matrix" and its reverse, "write down the
+      matrix behind this quadratic expression," both get asked — the doubled
+      off-diagonal entry is exactly where people slip in either direction.
+    pitfalls: >
+      Forgetting to double the off-diagonal entry going from matrix to
+      formula (or halve it going the other way). Using a non-symmetric $A$
+      and being confused that two different matrices give the same $q(x)$ —
+      always symmetrize first.
+    recap: >
+      $x^{T}Ax$ only sees the symmetric part of $A$, with off-diagonal
+      entries doubled into the cross terms, and its sign is fixed by its
+      behaviour on the unit sphere.
+
+  - node: quant-tools.linear-algebra.psd
+    hook: >
+      "Is this matrix positive semidefinite" is really always one of two
+      questions in disguise — "is this a valid covariance matrix" or "is
+      this a local minimum" — and the eigenvalue test settles both in one
+      line.
+    explanation: >
+      PSD is the matrix generalization of "nonnegative number," and the
+      spectral theorem is exactly what makes the eigenvalue test valid:
+      writing $x=Qy$ turns $x^{T}Ax$ into $\sum_i\lambda_iy_i^{2}$, a plain
+      sum of squares weighted by eigenvalues, so it stays $\ge0$ for every
+      $x$ exactly when every $\lambda_i\ge0$.
+
+      The factorization $A=B^{T}B$ is the other standard certificate, and it
+      needs no eigenvalues: $x^{T}Ax=x^{T}B^{T}Bx=\lVert Bx\rVert^{2}\ge0$
+      automatically. This is the form a covariance matrix naturally arrives
+      in, since it comes from a variance.
+
+      Sylvester's criterion is a shortcut but a fragile one: it certifies
+      positive definite (not merely semidefinite) via all leading principal
+      minors being strictly positive. The semidefinite boundary needs every
+      principal minor
+      checked, not only the nested leading ones, because a single bad
+      off-diagonal block can hide from the leading corners alone.
+    worked: >
+      Test $A$ with rows $(2,-1)$ and $(-1,2)$: leading minors $2>0$ and
+      $\det A=4-1=3>0$, so $A$ is PD by Sylvester. Confirming via
+      eigenvalues: $\operatorname{tr}A=4$, $\det A=3$, so
+      $\lambda=2\pm\sqrt{4-3}=2\pm1=3,1$, both positive — consistent.
+    interview: >
+      "Is this covariance matrix valid" or "is this the Hessian at a
+      minimum" are both PSD/PD checks. For a small matrix the fast answer is
+      Sylvester's leading minors, with the caveat that it only proves the
+      strict, definite case.
+    pitfalls: >
+      Using leading-minor positivity (even $\ge0$) to certify PSD — it
+      doesn't; a valid counterexample has rows $(0,0)$ and $(0,-1)$.
+      Concluding PD just because the diagonal entries are all positive, which
+      says nothing about the off-diagonal.
+    recap: >
+      PSD means every eigenvalue is nonnegative, equivalently $A=B^{T}B$ for
+      some $B$, and Sylvester's leading-minor test certifies only the
+      strict, positive-definite case.
+
+  - node: quant-tools.linear-algebra.rayleigh-quotient
+    hook: >
+      "What direction maximizes $x^{T}Ax$ subject to $\lVert x\rVert=1$"
+      underlies every PCA and portfolio-optimization problem, and the
+      Rayleigh quotient answers it with no calculus: the maximum is just the
+      top eigenvalue.
+    explanation: >
+      The proof is worth re-deriving because it's what makes PCA sit on
+      ground already built: write $x=\sum_ic_iq_i$ in the orthonormal
+      eigenbasis from the spectral theorem. Since the $q_i$ are orthonormal,
+      $x^{T}x=\sum_ic_i^{2}$, and $x^{T}Ax=\sum_i\lambda_ic_i^{2}$, so the
+      quotient is a weighted average of the eigenvalues with weights
+      $c_i^{2}/\sum_jc_j^{2}$.
+
+      A weighted average can never exceed its largest term or fall below
+      its smallest, which gives the bound immediately, and equality happens
+      exactly when all the weight sits on one eigenvalue — that is, $x$ is a
+      multiple of the corresponding eigenvector.
+
+      The optimization reading is the one to keep: maximizing a quadratic
+      form on the unit sphere has no free-standing calculus content once you
+      know this — it is already solved, and the answer is always "the top
+      eigenvalue, at the top eigenvector," the exact first step PCA takes.
+    worked: >
+      For symmetric $A$ with rows $(3,1)$ and $(1,3)$: $\lambda=3\pm1=4,2$,
+      so the quotient ranges over $[2,4]$. At $x=(1,0)$: the quotient is
+      $3/1=3$, inside the range. At the $\lambda=4$ eigenvector $(1,1)$
+      (from $A-4I$ having rows $(-1,1)$ and $(1,-1)$): $x^{T}Ax=3+2+3=8$,
+      $x^{T}x=2$, ratio $4$ — the maximum, attained exactly there.
+    interview: >
+      "How would you maximize $x^{T}Ax$ over unit vectors without calculus"
+      is exactly this fact — say "diagonalize; it's a weighted average of
+      eigenvalues, so the max is the top eigenvalue at the top eigenvector"
+      cold.
+    pitfalls: >
+      Forgetting the constraint $\lVert x\rVert=1$ changes everything —
+      unconstrained, $x^{T}Ax$ is unbounded above whenever any eigenvalue is
+      positive. Assuming the maximizing direction is unique when the top
+      eigenvalue is repeated.
+    recap: >
+      On the unit sphere, $x^{T}Ax$ is a weighted average of eigenvalues of
+      $A$, so it never leaves $[\lambda_{\min},\lambda_{\max}]$, hitting
+      both ends exactly at the corresponding eigenvectors.
+
+  - node: quant-tools.linear-algebra.covariance-psd
+    hook: >
+      "Prove a covariance matrix is PSD" is one of the most common quant
+      proof questions, and the whole proof is one sentence — a variance
+      can't be negative — worth having word for word.
+    explanation: >
+      Expanding $a^{T}\Sigma a$ gives exactly $\operatorname{Var}(a^{T}X)$,
+      the variance of the scalar random variable $a^{T}X$ — a weighted
+      portfolio of the coordinates of $X$. A variance is never negative, so
+      $a^{T}\Sigma a \ge 0$ for every $a$ follows immediately, with no
+      eigenvalue computation at all.
+
+      Symmetry of $\Sigma$ is likewise definitional: $\operatorname{Cov}
+      (X_i,X_j)=\operatorname{Cov}(X_j,X_i)$ always holds. Combined with the
+      spectral theorem, PSD plus symmetric already tells you every
+      eigenvalue of a covariance matrix is real and $\ge0$ before looking at
+      a single number in $\Sigma$.
+
+      Singularity has a clean reading here too: a zero eigenvalue means some
+      portfolio $a^{T}X$ has exactly zero variance — a deterministic linear
+      relationship among the coordinates of $X$. This is exactly what
+      happens for a sample covariance matrix built from fewer observations
+      than variables, since $n-1$ centred data points cannot support more
+      than $n-1$ independent directions.
+    worked: >
+      Two assets with $\operatorname{Var}(X)=4$, $\operatorname{Var}(Y)=9$,
+      correlation $0.5$, so $\operatorname{Cov}(X,Y)=0.5\sqrt{4\cdot9}=3$ and
+      $\Sigma$ has rows $(4,3)$ and $(3,9)$. For $a=(1,-1)$: $a^{T}\Sigma
+      a=4-2\cdot3+9=7$. Checking directly, $\operatorname{Var}(X-Y)=4+9-2
+      \cdot3=7$ — matches, and $7\ge0$ as required.
+    interview: >
+      "Why is a covariance matrix always PSD" is asked nearly verbatim —
+      give the one-line variance argument before reaching for eigenvalues,
+      and expect the follow-up "when is it singular" (a riskless combination
+      exists).
+    pitfalls: >
+      Reaching for eigenvalues or Sylvester's criterion first instead of the
+      direct variance argument. Forgetting a sample covariance matrix from
+      $n$ observations of $d$ assets is automatically singular whenever
+      $n-1<d$, regardless of the data.
+    recap: >
+      $a^{T}\Sigma a$ is literally the variance of the portfolio $a^{T}X$,
+      so it can never be negative — every covariance matrix is PSD by
+      construction, singular exactly when some combination is riskless.
+
+  - node: quant-tools.linear-algebra.correlation-matrix-bound
+    hook: >
+      "Can three trades all be pairwise correlated $-0.9$" sounds like a
+      data question but is actually a two-line eigenvalue check — most
+      people answer it by intuition and get it wrong.
+    explanation: >
+      Not every symmetric matrix with $1$s on the diagonal is a valid
+      correlation matrix, only the PSD ones — so "can these correlations
+      coexist" is literally "is this matrix PSD," answered by finding its
+      eigenvalues.
+
+      The equicorrelated matrix $(1-\rho)I+\rho J$ ($J$ the all-ones matrix)
+      is worth recognizing on sight, since it comes up constantly in
+      exchangeable-asset setups: $J$ has eigenvalue $n$ on the all-ones
+      direction and $0$ on everything orthogonal to it, so adding $(1-\rho)I$
+      shifts every eigenvalue up by $1-\rho$, giving $1+(n-1)\rho$ once and
+      $1-\rho$ with multiplicity $n-1$.
+
+      The bound's asymmetry has a real intuitive reading: it's easy for many
+      things to move together, but hard for many things to move against each
+      other simultaneously, since if $X$ and $Y$ both disagree strongly with
+      $Z$ they're forced to agree somewhat with each other — that forcing
+      effect compounds as $n$ grows, tightening the floor.
+    worked: >
+      For $n=4$, the bound is $\rho\ge-1/3$. At $\rho=-1/3$ exactly:
+      $1+3(-1/3)=0$ — boundary, still PSD but singular (some combination is
+      riskless), with the other eigenvalue $1-\rho=4/3>0$. At $\rho=-0.4$:
+      $1+3(-0.4)=-0.2<0$ — not PSD, so four assets cannot be pairwise
+      correlated $-0.4$.
+    interview: >
+      Posed as "can $n$ assets all be pairwise correlated $\rho$" for some
+      specific negative $\rho$ — answer by computing $1+(n-1)\rho\ge0$
+      mentally, not by guessing. The interviewer is listening for you to
+      name the equicorrelated matrix and its eigenvalues, not to reason
+      from vague intuition about how correlated things "feel."
+    pitfalls: >
+      Forgetting the bound only applies to the equicorrelated case (all
+      pairs equal $\rho$) — unequal pairwise correlations need the full
+      principal-minor or eigenvalue check. Assuming the floor is $-1$ per
+      pair rather than the joint $-1/(n-1)$.
+    recap: >
+      All-pairs correlation $\rho$ among $n$ variables is only possible for
+      $\rho\ge-1/(n-1)$, a direct consequence of needing $\Sigma$ to be PSD.
+
+  - node: quant-tools.linear-algebra.projection
+    hook: >
+      Least squares and orthogonal projection are the same picture — the
+      closest point in a subspace is the one where the error is invisible to
+      that subspace — and once that clicks, the normal equations stop
+      looking like they came from nowhere.
+    explanation: >
+      Minimizing $\lVert b-v\rVert$ over $v\in V$ is calculus-free geometry
+      once seen right: if the error $b-\hat b$ had any component still
+      inside $V$, subtracting that component off $\hat b$ would get strictly
+      closer to $b$. So at the true minimizer the error has zero component
+      in every direction of $V$ — orthogonal to all of $V$, which is the
+      entire content of $A^{T}(b-\hat b)=0$.
+
+      Turning that into a solvable system uses the identity for moving a
+      matrix across a dot product: substituting $\hat b = A\hat x$ turns
+      $A^{T}(b-A\hat x)=0$ into $A^{T}A\hat x = A^{T}b$, and independent
+      columns of $A$ — the same condition invertibility already needs — is
+      exactly what guarantees $A^{T}A$ is invertible, pinning $\hat x$ down
+      uniquely.
+
+      Know the projector $P=A(A^{T}A)^{-1}A^{T}$ by its two defining
+      properties rather than the formula: $P^{2}=P$ (projecting twice does
+      nothing new) and $P^{T}=P$, which together force every eigenvalue of
+      $P$ to be $0$ or $1$ and make $\operatorname{tr}P$ literally count the
+      dimension of $V$.
+    worked: >
+      Project $b=(4,3,0)$ onto the line spanned by $a=(1,1,1)$ in
+      $\mathbb{R}^{3}$. Here $\hat x=(a^{T}b)/(a^{T}a)=(4+3+0)/3=7/3$, so
+      $\hat b=(7/3,7/3,7/3)$. The residual $b-\hat b=(5/3,2/3,-7/3)$ is
+      orthogonal to $a$, since $5/3+2/3-7/3=0$.
+    interview: >
+      "Derive the least-squares formula from scratch" is standard — the
+      interviewer wants the orthogonality argument, not memorized algebra.
+      "Why must $A^{T}A$ be invertible" tests the link back to independent
+      columns.
+    pitfalls: >
+      Forming normal equations with dependent columns of $A$, silently
+      making $A^{T}A$ singular. Forgetting it is $b-\hat b$ (not $b$ itself)
+      that is orthogonal to the column space.
+    recap: >
+      The closest point of a subspace to $b$ is the one whose error is
+      orthogonal to it, and writing that as $A^{T}(b-A\hat x)=0$ is exactly
+      the normal equations $A^{T}A\hat x=A^{T}b$.
+
+  - node: quant-tools.linear-algebra.least-squares-fit
+    hook: >
+      This is orthogonal projection's geometry run as arithmetic — doing it
+      once by hand, then checking the residual really is orthogonal to both
+      columns, is what makes "orthogonal projection" stop being an
+      abstraction.
+    explanation: >
+      Fitting $y=a+bx$ is projection with a two-column design matrix: the
+      first column all $1$s (intercept), the second the $x$-values. The
+      normal equations for orthogonal projection, $A^{T}A\hat x=A^{T}b$, are
+      the entire computation — nothing new is introduced here beyond
+      plugging in.
+
+      $A^{T}A$'s entries are sums the data already gives: $n$, $\sum x_i$,
+      $\sum x_i^{2}$; and $A^{T}y$ is $\sum y_i$, $\sum x_iy_i$. Setting
+      these sums up correctly is the only place arithmetic actually
+      happens — solving the resulting $2\times2$ system is ordinary
+      elimination.
+
+      The residual-orthogonality fact from orthogonal projection is exactly
+      the diagnostic to run at the end: fitted residuals must sum to zero
+      (orthogonal to the intercept column) and satisfy $\sum x_ie_i=0$
+      (orthogonal to the slope column). Either failing means the normal
+      equations were set up or solved wrong.
+    worked: >
+      Fit $y=a+bx$ to $(0,1)$, $(1,1)$, $(2,3)$: $n=3$, $\sum x_i=3$, $\sum
+      x_i^{2}=5$, $\sum y_i=5$, $\sum x_iy_i=7$. Normal equations
+      $3a+3b=5$, $3a+5b=7$ give $2b=2 \Rightarrow b=1$, $a=2/3$. Fitted
+      values are $2/3$, $5/3$, $8/3$; residuals $1/3$, $-2/3$, $1/3$ sum to
+      $0$ and satisfy $0\cdot\tfrac13+1\cdot(-\tfrac23)+2\cdot\tfrac13=0$.
+      The minimized sum of squared residuals is $1/9+4/9+1/9=2/3$.
+    interview: >
+      "Fit a line to these three points" by hand is a real prompt — go
+      straight to the normal-equations sums, not calculus. Checking the
+      residuals sum to zero shows you understand what you just computed.
+    pitfalls: >
+      Confusing $\sum x_iy_i$ with $(\sum x_i)(\sum y_i)$ when building
+      $A^{T}y$. Skipping the residual-orthogonality check, which catches
+      most arithmetic slips for free.
+    recap: >
+      Fitting a line projects $y$ onto the span of $1$ and $x$, so the
+      normal equations reduce to elementary sums, and the fitted residuals
+      must be orthogonal to both columns.
+
+  - node: quant-tools.linear-algebra.pca
+    hook: >
+      "PCA" sounds like a separate machine-learning topic, but on the
+      interview it's pure linear algebra — diagonalize the covariance
+      matrix — dressed up in the language of "explained variance."
+    explanation: >
+      The Rayleigh quotient already answered "which direction maximizes
+      variance": the top eigenvector of $\Sigma$. PCA applies that fact
+      repeatedly — after restricting to vectors orthogonal to $q_1$, the
+      same maximization on the remaining space is again solved by an
+      eigenvector, this time for the second-largest eigenvalue, and so on
+      down the spectrum.
+
+      Uncorrelatedness of the component scores $q_i^{T}X$ is not an extra
+      assumption — it falls out of orthogonality of the $q_i$ for distinct
+      eigenvalues, from the spectral theorem, combined with $\Sigma$ being
+      diagonal in that basis, so two different components literally cannot
+      share variance.
+
+      "Variance explained" is the eigenvalues renormalized to sum to $1$,
+      since $\sum_i\lambda_i=\operatorname{tr}\Sigma$ is the total variance
+      across all original coordinates — trace is basis-independent, so this
+      total doesn't depend on which orthonormal directions were chosen.
+      Keeping the top $k$ components is choosing the $k$-dimensional
+      subspace capturing the most variance possible, orthogonal projection's
+      "closest subspace" idea applied to variance instead of distance.
+    worked: >
+      Covariance matrix $\Sigma$ with rows $(5,4)$ and $(4,5)$:
+      $\operatorname{tr}\Sigma=10$, $\det\Sigma=9$, so $\lambda=5\pm4=9,1$.
+      For $\lambda_1=9$: $\Sigma-9I$ has rows $(-4,4)$ and $(4,-4)$, giving
+      $q_1=(1,1)/\sqrt2$. Total variance is $10$, so the first component
+      alone explains $9/10=90\%$ of it.
+    interview: >
+      "What is PCA, in one sentence" is answered by "eigendecompose the
+      covariance matrix; the top eigenvectors are the directions of maximal
+      variance." A follow-up on why components are uncorrelated should
+      trigger the orthogonality argument, not a hand-wave.
+    pitfalls: >
+      Running PCA on raw variables of very different scales without
+      standardizing — components then chase whichever variable has the
+      largest numerical variance. Treating "explained variance" as
+      predictive usefulness rather than spread — a high-variance direction
+      can be pure noise.
+    recap: >
+      PCA is the covariance matrix's spectral decomposition: eigenvectors
+      are the uncorrelated directions of maximal variance, eigenvalues are
+      how much variance each carries, and $\lambda_k/\operatorname{tr}
+      \Sigma$ is the share explained.
+
+  - node: quant-tools.linear-algebra.diagonalization-powers
+    hook: >
+      "What happens after many steps" — a Markov chain settling down, a
+      recursion's growth rate, a risk factor's persistence — is always
+      answered the same way: diagonalize once, then powers are free.
+    explanation: >
+      The substitution is short but worth deriving: if $A=PDP^{-1}$ then
+      $A^{2}=PDP^{-1}PDP^{-1}=PD^{2}P^{-1}$, since the middle $P^{-1}P$
+      cancels — the same cancellation telescopes for any $k$, so computing
+      $A^{k}$, normally expensive, costs exactly one entrywise diagonal
+      power $D^{k}$ sandwiched between a change of basis and its inverse.
+
+      Existence of $P$ needs $n$ independent eigenvectors, guaranteed when
+      the $n$ eigenvalues are distinct (eigenvectors for distinct
+      eigenvalues are always independent) or when $A$ is symmetric (the
+      spectral theorem's orthonormal basis is in particular independent) —
+      but not in general, since a repeated eigenvalue can leave the
+      eigenspace too small to span the space.
+
+      The practically useful reading: since $D^{k}$ raises each eigenvalue
+      to the $k$, the entries of $A^{k}$ are eventually dominated by
+      whichever $|\lambda|$ is largest. Every $|\lambda|<1$ drives
+      $A^{k}\to0$; a $|\lambda|=1$ eigenvalue survives while the rest decay;
+      any $|\lambda|>1$ blows up — the entire content of "does this
+      recursion converge" before any numbers are plugged in.
+    worked: >
+      $A$ has rows $(3,1)$ and $(0,2)$ — upper triangular, so eigenvalues
+      are the diagonal entries $3,2$. For $\lambda=3$: $A-3I$ has rows
+      $(0,1)$ and $(0,-1)$, eigenvector $(1,0)$. For $\lambda=2$: $A-2I$ has
+      rows $(1,1)$ and $(0,0)$, eigenvector $(1,-1)$. With $D^{2}=
+      \operatorname{diag}(9,4)$, computing $PD^{2}P^{-1}$ gives $A^{2}$ with
+      rows $(9,5)$ and $(0,4)$ — matching direct multiplication of $A$ by
+      itself.
+    interview: >
+      "Does this Markov chain or recursion converge, and to what" is
+      diagonalization in disguise — answer in terms of the largest
+      $|\lambda|$ before doing any actual multiplication. Being asked to
+      state the long-run behaviour without computing a single power is the
+      real test of whether you understand the eigenvalue story, not just
+      the algebra.
+    pitfalls: >
+      Assuming every matrix is diagonalizable — a repeated eigenvalue with a
+      deficient eigenspace (rows $(1,1)$, $(0,1)$) needs Jordan form
+      instead. Computing $PD^{k}$ alone and forgetting the outer $P^{-1}$,
+      which is not $A^{k}$.
+    recap: >
+      Diagonalizing turns matrix powers into scalar powers of the
+      eigenvalues sandwiched by a fixed change of basis, and the largest
+      $|\lambda|$ alone decides whether $A^{k}$ decays, stabilizes, or blows
+      up.
+
+  - node: quant-tools.linear-algebra.fibonacci-matrix
+    hook: >
+      This is the pattern behind every "closed form for a linear recurrence"
+      question — Fibonacci is just the cleanest instance, reducing to a
+      $2\times2$ eigenvalue computation you already know cold.
+    explanation: >
+      Turning a scalar recurrence into a matrix power is the reusable move,
+      more than Fibonacci itself: any recurrence expressible as (next state)
+      $=A\cdot$(current state) becomes, after $n$ steps, (state after $n$
+      steps) $=A^{n}\cdot$(initial state) — diagonalization then gives a
+      closed form for any such recurrence, not just this one.
+
+      The golden ratio falls out exactly the way any $2\times2$ eigenvalue
+      does — trace $1$, determinant $-1$, quadratic formula — with no
+      special theory involved. The two roots $\varphi\approx1.618$ and
+      $\psi\approx-0.618$ have $|\psi|<1$, which is what makes $\psi^{n}$
+      negligible for large $n$: $F_n$ tracks $\varphi^{n}/\sqrt5$ almost
+      exactly, and $F_{n+1}/F_n\to\varphi$ is just dominant-eigenvalue
+      behaviour, from diagonalization, applied here.
+
+      Cassini's identity is a one-line bonus once thinking in determinants
+      rather than recurrences: $\det(A^{n})=(\det A)^{n}$ always, and
+      reading the left side off the entries of $A^n$ gives
+      $F_{n+1}F_{n-1}-F_n^{2}$ directly.
+    worked: >
+      For $n=8$: $A^{2}$ has rows $(2,1)$ and $(1,1)$; squaring,
+      $A^{4}=(A^{2})^{2}$ has rows $(5,3)$ and $(3,2)$; squaring again,
+      $A^{8}=(A^{4})^{2}$ has rows $(34,21)$ and $(21,13)$. Reading the
+      $(1,2)$ entry, $F_8=21$, matching Binet's formula since
+      $\varphi^{8}\approx46.979$ and $\psi^{8}\approx0.021$ give
+      $(46.979-0.021)/\sqrt5\approx21$.
+    interview: >
+      "Find a closed form for $F_n$" or "solve this linear recurrence" is
+      answered by writing the state as a matrix power and diagonalizing —
+      say the matrix and its eigenvalues immediately rather than guessing a
+      pattern from small cases. A fast follow-up is $F_{n+1}/F_n\to\varphi$,
+      which should come straight out of the dominant eigenvalue, not a
+      separate memorized fact.
+    pitfalls: >
+      Reading off the wrong entry of $A^{n}$ for $F_n$ versus $F_{n+1}$.
+      Assuming Cassini's identity needs induction — it is one line from
+      $\det(A^{n})=(\det A)^{n}$.
+    recap: >
+      Writing the Fibonacci recursion as a matrix power turns Binet's
+      formula, the golden-ratio growth rate, and Cassini's identity into
+      three corollaries of diagonalizing one $2\times2$ matrix.
+
+  - node: quant-tools.linear-algebra.matrix-square-root
+    hook: >
+      Generating correlated random draws from independent noise is a
+      constant simulation task, and the entire method is one factorization —
+      Cholesky — applied to whatever covariance matrix you're handed.
+    explanation: >
+      The eigenvalue square root $A^{1/2}=Q\Lambda^{1/2}Q^{T}$ is the
+      conceptually clean answer — it exists because PSD guarantees every
+      $\lambda_i\ge0$, so $\sqrt{\lambda_i}$ is real — but it costs a full
+      eigendecomposition, expensive in practice.
+
+      Cholesky is the practical substitute, trading "any square root" for
+      one specific triangular one: because $A$ is symmetric, $L$'s
+      lower-triangular entries can be found one at a time, top-left down,
+      each solved from a single equation involving only previously found
+      entries — cheap, and unique once the diagonal is required positive.
+
+      The simulation use is the point of learning this: if $z$ has
+      independent, unit-variance entries, then $Lz$ has covariance
+      $\mathbb{E}[(Lz)(Lz)^{T}] = L\,\mathbb{E}[zz^{T}]\,L^{T} = LL^{T} = A$
+      — Cholesky turns a target covariance matrix directly into the linear
+      transform manufacturing it, and the factorization failing partway (a
+      negative number under a square root) is itself the diagnostic that
+      the input wasn't PSD.
+    worked: >
+      Take the correlation matrix with rows $(1,0.8)$ and $(0.8,1)$. Then
+      $L_{11}=\sqrt1=1$, $L_{21}=0.8/L_{11}=0.8$, and
+      $L_{22}=\sqrt{1-0.8^{2}}=\sqrt{0.36}=0.6$, so $L$ has rows $(1,0)$ and
+      $(0.8,0.6)$. Checking $LL^{T}$: $(2,2)$ entry is $0.64+0.36=1$ and
+      $(2,1)$ entry is $0.8$ — reproducing the original matrix.
+    interview: >
+      "How would you simulate two variables with correlation $0.8$ from a
+      random-normal generator" is answered by writing down exactly this $L$
+      and applying it to independent draws — be ready to explain why
+      $LL^{T}=A$ makes it work. A common follow-up asks what goes wrong if
+      the input "correlation matrix" isn't actually valid, listening for
+      "the square root under $L_{22}$ goes negative."
+    pitfalls: >
+      Applying Cholesky to a matrix that isn't PSD and being surprised by a
+      negative number under a square root — that failure is informative,
+      not a bug. Forgetting the factorization is unique only when positive
+      definite; a singular PSD matrix still factors, but $L$ isn't unique.
+    recap: >
+      Cholesky writes any PSD matrix as $LL^{T}$ with $L$ lower triangular,
+      and applying $L$ to independent unit-variance noise is the standard
+      way to manufacture draws with a prescribed covariance.

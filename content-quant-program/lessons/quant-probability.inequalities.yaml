@@ -1,0 +1,866 @@
+unit: quant-probability.inequalities
+opening: >
+  This unit collects the standard levers for turning limited information about
+  a random variable — a mean, a mean and a variance, a moment generating
+  function, or nothing but a list of bad events — into a bound on a tail
+  probability. Markov starts the chain: the weakest bound, needing only a
+  mean, and every sharper bound in the unit is Markov applied to a cleverly
+  chosen transformation of $X$. Chebyshev squares first and buys $1/k^{2}$
+  decay from two moments; Chernoff exponentiates first and buys exponential
+  decay from the full moment generating function, at the cost of computing
+  it. Jensen, the union bound, and Cauchy–Schwarz solve a different kind of
+  problem — moving a function through an expectation, bounding a union
+  without independence, capping a covariance — and the unit closes with a
+  decision list for picking the right tool under interview pressure.
+lessons:
+  - node: quant-probability.inequalities.markov
+    hook: >
+      Markov's inequality is the fallback that always works — when a problem
+      hands you nothing but a mean and a promise of nonnegativity, this is
+      the one bound you can always write down, and interviewers use it to
+      check you don't reach for machinery you don't have the inputs for.
+    explanation: >
+      Think of $\mathbb{E}[X]$ as a fixed budget of probability mass times
+      value. If a chunk of that mass, however small, sat far out past $a$, it
+      would drag the average up more than the rest of the distribution could
+      pull it down — since $X$ can't go negative, there's no room below zero
+      to compensate. Markov turns that intuition into an inequality by
+      comparing $X$ to the crude approximation $a\mathbf{1}\{X \ge a\}$,
+      which is $0$ where $X$ is small and $a$ where $X$ is already at least
+      $a$; $X$ dominates this approximation everywhere, so its mean does
+      too.
+
+      Nonnegativity is what keeps the argument honest: allow negative
+      values and a large negative outcome could pull $\mathbb{E}[X]$ below
+      $a\Pr(X\ge a)$ even with the exact same upper tail, breaking the
+      inequality. The rescaled form $\Pr(X \ge k\,\mathbb{E}[X]) \le 1/k$ is
+      the one worth memorizing cold, since it needs no units — a variable is
+      at least $k$ times its own mean with probability at most $1/k$, for
+      any nonnegative $X$ whatsoever.
+
+      Every sharper bound in this unit is secretly Markov in disguise:
+      Chebyshev applies it to $(X-\mu)^{2}$, Chernoff applies it to
+      $e^{tX}$. Reaching for Markov by name signals you know it's the floor,
+      not the ceiling, of what's available.
+    worked: >
+      A queue's waiting time $W$ (minutes) is nonnegative with mean
+      $\mathbb{E}[W] = 4$, no other information about its shape. Bound the
+      chance a customer waits at least $20$ minutes: $\Pr(W \ge 20) \le
+      4/20 = 1/5$. In the rescaled form, $20 = 5 \times 4$, so $k=5$ and the
+      bound is $1/5$ directly.
+    interview: >
+      The trigger phrase is "given only the mean, bound this probability" —
+      say the rescaled form $\Pr(X \ge k\mu) \le 1/k$ out loud and name it
+      Markov before computing. A follow-up almost always asks how loose the
+      bound is on a specific distribution, which is really asking you to
+      recall the tightness example.
+    pitfalls: >
+      Applying Markov to a variable that can be negative (net P&L,
+      temperature) without first shifting or taking an absolute value gives
+      a meaningless or false bound. Quoting Markov's number as if it were
+      the actual probability, rather than an upper bound that is often off
+      by a wide margin, undersells your own answer.
+    recap: >
+      Markov turns a bare mean into a tail bound, $\Pr(X\ge a) \le
+      \mathbb{E}[X]/a$ for nonnegative $X$, and it is the weakest bound in
+      the toolkit precisely because it is the only one that always applies.
+
+  - node: quant-probability.inequalities.markov-tightness
+    hook: >
+      Knowing a bound is tight in principle, but usually far off in
+      practice, is exactly what separates using Markov correctly from
+      citing it as if it were exact — this is the example that makes both
+      halves concrete.
+    explanation: >
+      The two-point law behind Markov's tightness is the same trick every
+      "is this bound the best possible" question uses: put all the slack at
+      the threshold itself. Concentrating probability $\mu/a$ exactly at
+      $a$ (the rest at $0$) uses every unit of mean as efficiently as
+      possible to inflate $\Pr(X\ge a)$ — spreading that same mass out below
+      $a$, or above it, can only lower the mean needed to hit the same tail
+      probability. So no inequality using only $\mathbb{E}[X]$ can ever
+      promise less than $\mu/a$ in the worst case.
+
+      That worst case is also the tell for why Markov disappoints on
+      ordinary distributions: it is calibrated to a law with almost no mass
+      near the threshold and a spike right at it, the opposite shape of a
+      die, a normal, or most things worth modeling. The gap to expect in
+      practice is a small constant factor — the fair die example undershoots
+      by $3.5\times$ — not agreement.
+    worked: >
+      Let $X$ be exponential with mean $1$, so $\Pr(X \ge a) = e^{-a}$
+      exactly. Markov gives $\Pr(X\ge a) \le 1/a$. At $a=5$: Markov says
+      $\le 0.2$, the truth is $e^{-5}\approx 0.0067$, off by a factor of
+      about $30$. At $a=1$, Markov says $\le 1$ — vacuous — while the truth
+      is $e^{-1}\approx 0.368$.
+    interview: >
+      Expect a direct follow-up after quoting Markov: "can this be improved
+      knowing only the mean?" The answer is the two-point construction,
+      stated fast — mass $\mu/a$ at $a$, rest at $0$ — showing the bound is
+      unimprovable in the worst case even though it's usually far from the
+      truth.
+    pitfalls: >
+      Treating "Markov is tight" as meaning "Markov is usually accurate"
+      inverts the point — it is tight only for one adversarially chosen
+      shape. Forgetting the bound becomes vacuous ($\ge 1$) once $a \le
+      \mu$ is an easy oversight when picking a threshold to illustrate
+      looseness.
+    recap: >
+      A two-point law makes Markov exact, proving no mean-only bound can
+      beat it — and the same construction explains why it undershoots real
+      distributions like the exponential by an order of magnitude or more.
+
+  - node: quant-probability.inequalities.chebyshev
+    hook: >
+      This is the default answer whenever a problem gives you a mean and a
+      variance and nothing about the shape of the distribution — the
+      two-moment bound every "how confident can you be" question is quietly
+      asking for.
+    explanation: >
+      Chebyshev is Markov with one substitution: apply Markov not to $X$
+      itself but to the nonnegative variable $(X-\mu)^{2}$, at the level
+      $t^{2}$. Markov says $\Pr((X-\mu)^{2} \ge t^{2}) \le
+      \mathbb{E}[(X-\mu)^{2}]/t^{2}$, and the event $(X-\mu)^{2} \ge t^{2}$
+      is exactly $|X-\mu|\ge t$, while $\mathbb{E}[(X-\mu)^{2}]$ is by
+      definition the variance $\sigma^{2}$. No new machinery — squaring the
+      deviation converts "how far from the mean" into a nonnegative
+      quantity Markov can already bound.
+
+      The payoff of squaring first is that the bound is automatically
+      two-sided: unlike Markov, which only controls one direction,
+      Chebyshev catches deviations above and below the mean in a single
+      inequality, because $(X-\mu)^{2}$ doesn't care which side $X$ landed
+      on. It costs nothing beyond the variance already being finite — no
+      symmetry, no independence, no bounded range.
+
+      Reach for this whenever a question supplies (or lets you compute) a
+      variance and asks for a deviation bound without further shape
+      assumptions — the natural second rung after Markov, trading a
+      stronger hypothesis for a sharper, two-sided guarantee.
+    worked: >
+      A stock's daily return has mean $0$ and variance $\sigma^{2}=4$ (std
+      dev $2\%$), with no assumption on shape. Bound the chance the return
+      is at least $8$ in magnitude: with $t=8$, $\Pr(|X|\ge 8) \le 4/64 =
+      1/16 = 0.0625$ — at most a $6.25\%$ chance of a move four standard
+      deviations from the mean, using nothing but the variance.
+    interview: >
+      "Bound this without assuming a distribution, given a mean and
+      variance" is Chebyshev by name — state $\sigma^{2}/t^{2}$ immediately
+      and note it's the two-sided version, since a one-sided question calls
+      for the one-sided version (Cantelli) instead.
+    pitfalls: >
+      Applying Chebyshev when the question actually hands you a bounded
+      range or known shape wastes the sharper bounds those extra hypotheses
+      would allow. Forgetting the square on $t$ — writing $\sigma^{2}/t$
+      instead of $\sigma^{2}/t^{2}$ — is the most common slip under time
+      pressure.
+    recap: >
+      Chebyshev is Markov applied to $(X-\mu)^{2}$: a distribution-free,
+      two-sided bound $\sigma^{2}/t^{2}$ that costs only a finite variance.
+
+  - node: quant-probability.inequalities.k-sigma
+    hook: >
+      This is the version you actually recite in an interview — "at most
+      this percent beyond $k$ standard deviations" — and the number people
+      picture from the normal curve is almost always far tighter than what
+      this distribution-free guarantee can promise.
+    explanation: >
+      Setting $t=k\sigma$ is nothing more than plugging into Chebyshev with
+      the deviation measured in units of standard deviation instead of raw
+      units — the substitution turns $\sigma^{2}/t^{2}$ into the shape-free
+      $1/k^{2}$, a number that no longer depends on the variable's actual
+      scale.
+
+      The looseness is the price of a guarantee that holds for every
+      distribution with the given variance, including the two-point law
+      that makes Chebyshev tight — a spike sitting exactly $k\sigma$ out,
+      with just enough mass to hit $1/k^{2}$. Real data essentially never
+      looks like that spike, which is why the bound is almost never
+      approached in practice.
+
+      Use $1/k^{2}$ as a worst-case guarantee — a claim defensible without
+      knowing the shape of the data — never as an estimate of the actual
+      tail. Whenever a shape assumption (normal, bounded, symmetric) is
+      available, it cuts the bound by orders of magnitude, as the
+      comparison to the normal tails shows.
+    worked: >
+      A trading desk knows its daily P&L has some variance $\sigma^{2}$ but
+      refuses to assume a shape. The guaranteed bound on landing beyond
+      $5\sigma$ in either direction is $1/5^{2} = 1/25 = 4\%$ — compare a
+      normal's true two-sided tail at $5\sigma$, about $5.7\times10^{-7}$,
+      six orders of magnitude smaller.
+    interview: >
+      "Give me a bound with no assumptions, in standard deviations" is the
+      $k$-sigma form — answer with $1/k^{2}$ immediately, and volunteer the
+      normal comparison to show you know how conservative it is.
+    pitfalls: >
+      Quoting a $k$-sigma bound as though it were the real tail probability
+      (treating $4\%$ as the actual chance of a five-sigma move) confuses a
+      distribution-free guarantee with an estimate. Using $k \le 1$ gives a
+      vacuous bound above $1$, worth noticing before presenting it as a
+      result.
+    recap: >
+      At most $1/k^{2}$ of any distribution lies beyond $k$ standard
+      deviations — a guarantee for every possible shape, and hundreds to a
+      trillion times weaker than the normal tail it's often mistaken for.
+
+  - node: quant-probability.inequalities.cantelli
+    hook: >
+      The instinct to just halve Chebyshev for a one-sided question is
+      wrong, and Cantelli is the fix — a genuinely sharper bound for exactly
+      the "at least this much above the mean" phrasing interviewers like.
+    explanation: >
+      Chebyshev bounds two tails glued together, $\Pr(X-\mu\ge t) +
+      \Pr(X-\mu\le -t)$, so splitting that bound in half implicitly assumes
+      the two tails contribute equally — true only when the distribution is
+      symmetric. A distribution can dump its entire deviation on one side,
+      all the mass that would exceed $t$ concentrated above the mean, none
+      below, and the two-sided bound gives no information about how that
+      mass splits.
+
+      Cantelli's proof shifts before squaring: adding $u>0$ to both sides of
+      $X-\mu\ge t$ before squaring only tightens the containment, since
+      $(X-\mu+u)^{2}\ge (t+u)^{2}$ still implies the original event, and now
+      ordinary Markov applies to this squared, shifted quantity. Optimizing
+      the free parameter $u$ finds the shift that makes the resulting Markov
+      bound as sharp as possible for this one-sided event — Markov applied
+      to a family of transformations, then optimized, beating Markov applied
+      blindly. Chernoff runs the identical playbook with $u$ replaced by
+      exponentiation.
+    worked: >
+      A portfolio's daily return has mean $0$ and standard deviation
+      $\sigma=2$. Bound the chance of a gain of at least $t=6$: $\sigma^{2}
+      /(\sigma^{2}+t^{2}) = 4/(4+36)=4/40=0.1$. Chebyshev's two-sided bound
+      at the same $t$ is $\sigma^{2}/t^{2}=4/36\approx0.111$, so naively
+      halving it would (wrongly) suggest $0.056$ — below the correct,
+      sharper one-sided value of $0.1$.
+    interview: >
+      "What's the chance of at least this much upside (or downside)" is
+      one-sided — say explicitly that halving Chebyshev is not valid and
+      quote $\sigma^{2}/(\sigma^{2}+t^{2})$ instead.
+    pitfalls: >
+      Halving the two-sided Chebyshev bound for a one-sided question can
+      understate the true worst case, exactly backwards from what a
+      conservative bound should do. Forgetting the mirrored form for the
+      lower tail — replacing $t$ with $-t$ correctly — is an easy sign
+      error.
+    recap: >
+      For a one-sided deviation the sharp distribution-free bound is
+      $\sigma^{2}/(\sigma^{2}+t^{2})$, strictly better than Chebyshev but
+      never simply half of it.
+
+  - node: quant-probability.inequalities.chebyshev-sample-size
+    hook: >
+      "How many samples do I need" is a direct application of Chebyshev to
+      a sample mean, and knowing the formula cold — not rederiving it under
+      time pressure — is what separates a fast answer from a stalled one.
+    explanation: >
+      The sample mean of $n$ independent draws has variance $\sigma^{2}/n$
+      — averaging divides variance by $n$, because variances of independent
+      pieces add and then the $1/n^{2}$ from averaging outweighs the $n$
+      growth of the sum. Feeding that shrunk variance into Chebyshev,
+      $\Pr(|\bar{X}-\mu|\ge \varepsilon)\le \sigma^{2}/(n\varepsilon^{2})$,
+      then solving for $n$ turns a precision-and-confidence target directly
+      into a required sample count: $n \ge \sigma^{2}/(\alpha
+      \varepsilon^{2})$, where $\alpha$ is the tolerated failure
+      probability.
+
+      Both knobs bite quadratically: halving the tolerance $\varepsilon$ or
+      halving the acceptable failure rate $\alpha$ each roughly quadruples
+      the required $n$, since both sit in the denominator alongside a
+      square. This is why precision in any Chebyshev-style estimate is
+      expensive to buy — going from two digits of accuracy to three costs
+      about a hundred times the data, not ten.
+    worked: >
+      A sensor's reading has variance at most $\sigma^{2}=9$, and you want
+      the sample mean within $\pm 0.5$ of the true value with confidence
+      $99\%$ ($\alpha=0.01$), assuming nothing about the reading's
+      distribution. Chebyshev requires $n \ge \sigma^{2}/(\alpha
+      \varepsilon^{2}) = 9/(0.01 \times 0.25) = 9/0.0025 = 3600$ readings.
+    interview: >
+      "How many samples do you need for this precision" with no
+      distributional assumption is exactly this formula — state $n\ge
+      \sigma^{2}/(\alpha\varepsilon^{2})$ and be ready to note it's
+      conservative, usually several times more data than a normal
+      approximation would ask for.
+    pitfalls: >
+      Plugging in the target confidence level $1-\alpha$ instead of the
+      failure rate $\alpha$ inverts the formula. Treating the Chebyshev
+      sample size as the "right" answer, rather than a conservative,
+      distribution-free upper bound, overstates how much data is really
+      needed once any shape information is available.
+    recap: >
+      Chebyshev converts a precision-and-confidence target into a sample
+      count via $n\ge\sigma^{2}/(\alpha\varepsilon^{2})$ — quadratic in both
+      the tolerance and the confidence, and typically several times more
+      conservative than a normal-based estimate.
+
+  - node: quant-probability.inequalities.jensen
+    hook: >
+      Every "can I move this function inside the expectation" question — is
+      $\mathbb{E}[1/X]$ the same as $1/\mathbb{E}[X]$, is average volatility
+      the same as volatility of the average — is Jensen, and the direction
+      of the inequality is the entire answer.
+    explanation: >
+      Picture a convex function as a bowl: any chord connecting two points
+      on its graph lies above the curve, the definition of convexity
+      extended from two points to a whole distribution of points. Averaging
+      the $x$-values first and evaluating $\varphi$ at that single average
+      lands you on the curve itself; averaging the $\varphi$-values of many
+      scattered points first lands you on or above the chords connecting
+      them — and a bowl's chords never dip below the bowl. That ordering is
+      the entire content of Jensen: bend after averaging gives less than
+      averaging after bending, for a convex $\varphi$.
+
+      How large the gap is depends on both how curved $\varphi$ is near
+      $\mu$ and how spread out $X$ is — a nearly flat region of $\varphi$ or
+      a tightly concentrated $X$ makes the two sides nearly equal, while a
+      sharply curving $\varphi$ combined with a widely spread $X$ can make
+      them very different. The concave case reverses everything: swap the
+      sign of $\varphi$'s curvature and the inequality flips, $\mathbb{E}
+      [\varphi(X)]\le\varphi(\mathbb{E}[X])$.
+
+      Equality is the degenerate case, not the default: for strictly convex
+      $\varphi$ it forces $X$ to be constant, so genuine randomness makes
+      the inequality strict. The general pattern to recognize: any question
+      with a nonlinear function wrapped around a random quantity — a ratio,
+      a square, an exponential, a log — is asking you to name which side is
+      bigger, not to compute both sides.
+    worked: >
+      Take $\varphi(x)=x^{4}$ (convex) and let $X$ be $-1$ or $3$ with equal
+      probability. Directly, $\mathbb{E}[X^{4}] = \frac{1}{2}(1) +
+      \frac{1}{2}(81) = 41$. But $\mathbb{E}[X]=1$, so $\varphi(\mathbb{E}
+      [X]) = 1^{4} = 1$. Indeed $41 \ge 1$, and the gap is large exactly
+      because $X$ is spread far apart and $x^{4}$ curves sharply away from
+      $x=1$.
+    interview: >
+      The canonical prompt is "is $\mathbb{E}[f(X)]$ equal to
+      $f(\mathbb{E}[X])$" for some named $f$ — answer by naming $f$'s
+      convexity or concavity and stating the direction immediately, before
+      attempting any computation.
+    pitfalls: >
+      Assuming equality — silently sliding $\varphi$ through the
+      expectation — is the single most common error; it only holds for
+      affine $\varphi$, or when $X$ is deterministic. Applying Jensen
+      outside the interval where $\varphi$ is actually convex (many
+      functions are convex on one region, concave on another) produces an
+      inequality in the wrong direction.
+    recap: >
+      For convex $\varphi$, averaging then applying $\varphi$ gives less
+      than applying $\varphi$ then averaging, $\mathbb{E}[\varphi(X)]\ge
+      \varphi(\mathbb{E}[X])$, with equality only when $X$ is constant.
+
+  - node: quant-probability.inequalities.jensen-second-moment
+    hook: >
+      This is the lookup table for the interview's favorite Jensen
+      questions — reciprocal, exponential, log — and knowing the direction
+      cold, without re-deriving convexity each time, is what fluency looks
+      like.
+    explanation: >
+      Each fact here is the same move: name $\varphi$, check its curvature,
+      apply Jensen. $\varphi(x)=x^{2}$ is convex everywhere, so
+      $\mathbb{E}[X^{2}]\ge(\mathbb{E}[X])^{2}$ always — not a separate fact
+      to memorize, it is $\operatorname{Var}(X)\ge0$ restated, since the gap
+      between the two sides is exactly the variance.
+
+      $\varphi(x)=1/x$ is convex on $x>0$ (it curves upward, steepening as
+      $x$ shrinks toward $0$), so $\mathbb{E}[1/X]\ge1/\mathbb{E}[X]$
+      whenever $X$ is positive — averaging the reciprocals always overstates
+      the reciprocal of the average, because small values of $X$ contribute
+      disproportionately large $1/X$ terms. $\varphi(x)=e^{x}$ is convex,
+      giving $\mathbb{E}[e^{X}]\ge e^{\mathbb{E}[X]}$; $\ln$ is concave,
+      flipping the direction to $\mathbb{E}[\ln X]\le\ln\mathbb{E}[X]$.
+
+      The exponential and log versions are the same fact from opposite
+      sides, and together they explain why a compounding return's long-run
+      growth rate sits below its arithmetic average return — the log of the
+      average outruns the average of the logs, and that shortfall is what
+      "volatility drag" means.
+    worked: >
+      Let $X$ be $0$ or $2$ with equal probability, so $\mathbb{E}[X]=1$.
+      Directly, $\mathbb{E}[e^{X}] = \frac{1}{2}(e^{0}+e^{2}) =
+      \frac{1}{2}(1+7.389)\approx4.19$, while $e^{\mathbb{E}[X]}=e^{1}
+      \approx2.72$ — confirming $\mathbb{E}[e^{X}]\ge e^{\mathbb{E}[X]}$,
+      with a gap of about $1.48$ coming entirely from the spread between
+      $0$ and $2$.
+    interview: >
+      "Is $\mathbb{E}[1/X]$ the same as $1/\mathbb{E}[X]$" (or the
+      exponential or log version) is asked almost verbatim — answer "no"
+      immediately, name the direction, and only then offer the convexity
+      reason if asked.
+    pitfalls: >
+      Getting the reciprocal direction backwards (assuming averaging
+      reciprocals gives something smaller) is the most common slip, since
+      it runs against the intuition that more terms in the denominator
+      should shrink things. Applying the exponential or log substitution to
+      a variable that can be zero or negative breaks the domain $\varphi$
+      needs.
+    recap: >
+      Squares, reciprocals, exponentials and logs each inherit a fixed
+      direction of Jensen gap — $\ge$ for the convex ones, $\le$ for
+      concave $\ln$ — and the square case is exactly $\operatorname{Var}
+      (X)\ge0$.
+
+  - node: quant-probability.inequalities.jensen-am-gm
+    hook: >
+      AM–GM shows up constantly as a standalone algebra fact, but seeing it
+      fall out of Jensen in three lines is what lets you also produce the
+      weighted version on the spot, which the memorized inequality alone
+      doesn't give you.
+    explanation: >
+      The move is to manufacture a random variable out of a deterministic
+      list: put probability $w_i$ on the point $x_i$, so $X$ literally
+      equals one of $x_1,\dots,x_n$ chosen with those weights. Averaging is
+      now a genuine expectation, $\mathbb{E}[X]=\sum_i w_ix_i$, the ordinary
+      weighted arithmetic mean.
+
+      $\ln$ is concave, so Jensen in its concave direction gives
+      $\mathbb{E}[\ln X]\le\ln\mathbb{E}[X]$, which unpacked is $\sum_i
+      w_i\ln x_i \le \ln\left(\sum_i w_ix_i\right)$. Exponentiating both
+      sides — a strictly increasing map, so the inequality direction
+      survives — turns the sum on the left into a product, $\prod_i
+      x_i^{w_i}\le\sum_i w_ix_i$: the weighted geometric mean never exceeds
+      the weighted arithmetic mean.
+
+      Equal weights $w_i=1/n$ recover the version usually seen first, and
+      strict concavity of $\ln$ pins equality down to exactly the case
+      where every $x_i$ coincides. The randomization trick generalizes
+      beyond $\ln$: any concave $\varphi$ applied this way produces a
+      weighted inequality the deterministic proof, built for equal weights,
+      doesn't hand you directly.
+    worked: >
+      Take $x=(4,9)$ with weights $w=(0.25,0.75)$. The weighted arithmetic
+      mean is $0.25(4)+0.75(9)=1+6.75=7.75$. The weighted geometric mean is
+      $4^{0.25}\cdot 9^{0.75} = \sqrt{2}\cdot 3\sqrt{3}\approx1.414\times
+      5.196\approx7.35$, confirming $7.35\le7.75$.
+    interview: >
+      "Prove AM–GM" sometimes explicitly asks for the probabilistic route —
+      naming the randomization trick and citing Jensen on $\ln$ is faster
+      and more general than the classical induction proof, and it hands you
+      the weighted version for free.
+    pitfalls: >
+      Forgetting the weights must be nonnegative and sum to $1$ for the
+      construction to be a genuine probability distribution invalidates the
+      whole argument. Applying the trick to numbers that aren't strictly
+      positive breaks $\ln$'s domain before Jensen can even be invoked.
+    recap: >
+      Randomizing over the numbers and applying Jensen to concave $\ln$
+      produces weighted AM–GM in three lines, with the classical
+      equal-weights inequality as the special case.
+
+  - node: quant-probability.inequalities.union-bound
+    hook: >
+      "What's the chance something goes wrong" across many possible failure
+      modes, with no way to compute how they overlap, is answered by the
+      union bound — the only tool in this unit that needs zero information
+      about dependence.
+    explanation: >
+      You already know the two-event identity $\Pr(A\cup B)=\Pr(A)+\Pr(B)-
+      \Pr(A\cap B)$; dropping the subtracted intersection term (never
+      negative) immediately gives $\Pr(A\cup B)\le\Pr(A)+\Pr(B)$. Chaining
+      this pairwise bound across any number of events, finite or countable,
+      gives the general union bound $\Pr(\bigcup_iA_i)\le\sum_i\Pr(A_i)$ —
+      no assumption about how the $A_i$ overlap is ever used, because the
+      bound is thrown away rather than computed.
+
+      The intuition is a Venn diagram: summing $\Pr(A_i)$ separately counts
+      every outcome once per event it belongs to, so an outcome in three
+      events at once gets counted three times. That over-counting is
+      exactly what makes the sum an upper bound rather than an exact
+      answer, and it's also why the bound is only useful while the sum
+      stays comfortably below $1$ — once double-counting could plausibly
+      account for the excess over $1$, the bound has nothing left to say.
+
+      The complementary reading is usually the one actually used: $\Pr(
+      \bigcap_iA_i^{c})\ge1-\sum_i\Pr(A_i)$, so if a list of individually
+      rare failure probabilities adds to something small, everything
+      survives simultaneously with high probability — the standard move
+      behind "nothing goes wrong across all these components" arguments.
+    worked: >
+      A trading system depends on $5$ independent-looking checks, each
+      failing with probability $0.01$ on a given day (dependence between
+      them is unknown). The chance at least one check fails is at most
+      $5\times0.01=0.05$, so the chance every check passes is at least
+      $1-0.05=0.95$ — a guaranteed $95\%$ reliability floor without knowing
+      anything about how the checks interact.
+    interview: >
+      "Bound the chance at least one of these things happens" with no
+      independence assumption is the union bound by reflex — sum the
+      individual probabilities and say explicitly that overlap is being
+      ignored, which only makes the bound conservative, never wrong.
+    pitfalls: >
+      Using the union bound when events are known to be disjoint wastes
+      information — it's a strict equality there, not just a bound.
+      Trusting the bound once the sum exceeds $1$ gives a technically true
+      but useless statement ($\Pr(\cdot)\le1$ trivially).
+    recap: >
+      Discarding the intersection terms from inclusion–exclusion gives
+      $\Pr(\bigcup_iA_i)\le\sum_i\Pr(A_i)$ for free — no independence, no
+      structure — and it's sharp exactly while that sum stays well under
+      $1$.
+
+  - node: quant-probability.inequalities.collision-bound
+    hook: >
+      This is the birthday problem's estimate, generalized to hashing — the
+      union bound turns a hard combinatorial collision question into a
+      one-line sum over pairs, and knowing when that sum is trustworthy
+      versus useless is the actual skill.
+    explanation: >
+      Name one event per pair of items instead of reasoning about the
+      collision directly: with $n$ items there are $\binom{n}{2}$ pairs,
+      and pair $(i,j)$ collides — lands on the same one of $m$ labels — with
+      probability exactly $1/m$, since the second item's label is uniform
+      over $m$ choices independent of the first's. The union bound sums
+      these $\binom{n}{2}$ probabilities without needing to know how the
+      pair-events overlap through shared items, giving $\Pr(\text{some
+      collision})\le\binom{n}{2}/m$ immediately.
+
+      The bound is essentially exact whenever collisions are rare, because
+      in that regime a double collision (two different pairs colliding at
+      once) is a second-order event the sum barely over-counts — the same
+      logic behind the Poisson approximation for rare events built from
+      many weakly dependent indicators. It degrades exactly as
+      $\binom{n}{2}/m$ approaches $1$, since the over-counting from shared
+      items becomes a real fraction of the total.
+    worked: >
+      Assign $50$ people independent random codes out of $m=1000$
+      possibilities. There are $\binom{50}{2}=1225$ pairs, each colliding
+      with probability $1/1000$, so $\Pr(\text{some shared code})\le
+      1225/1000=1.225$ — already past $1$, so the bound is worthless here;
+      the true collision probability (computable directly) is about
+      $0.71$. Shrinking to $n=10$ people restores usefulness:
+      $\binom{10}{2}/1000=45/1000=0.045$, close to the true value of about
+      $0.044$.
+    interview: >
+      Hashing questions ("how many items before two hash to the same
+      bucket") are this bound by name — set up the $\binom{n}{2}/m$ sum
+      immediately, and be ready to say when it stops being trustworthy
+      rather than quoting it blindly.
+    pitfalls: >
+      Presenting $\binom{n}{2}/m$ as an exact probability rather than an
+      upper bound overstates precision the union bound never promised.
+      Applying the formula once it exceeds $1$ without flagging that the
+      bound has become vacuous signals you don't know its regime of
+      validity.
+    recap: >
+      Summing collision probability over all $\binom{n}{2}$ pairs bounds
+      any-collision by $\binom{n}{2}/m$ — accurate while that quantity is
+      well under $1$, meaningless once it isn't.
+
+  - node: quant-probability.inequalities.chernoff
+    hook: >
+      When mean-and-variance bounds decay only polynomially and the
+      question needs "exponentially unlikely," Chernoff is the escalation —
+      the same Markov trick, aimed at the moment generating function
+      instead of $X$ itself.
+    explanation: >
+      The trick is a change of variable before applying Markov: for any
+      $t>0$, the events $\{X\ge a\}$ and $\{e^{tX}\ge e^{ta}\}$ are
+      identical, since $e^{tx}$ is strictly increasing in $x$, and $e^{tX}$
+      is always positive so Markov applies to it cleanly. That gives
+      $\Pr(X\ge a)\le e^{-ta}\mathbb{E}[e^{tX}]=e^{-ta}M_X(t)$ for every
+      valid $t$, and because this holds for every $t$ at once, minimizing
+      the right side over $t>0$ produces the tightest bound this method can
+      deliver.
+
+      The exponential is what makes this pay off for a sum of independent
+      pieces: the moment generating function of a sum of independent
+      variables factors into a product of individual mgfs, so the optimized
+      exponent grows linearly in the number of summands instead of surviving
+      only the $1/k^{2}$-style decay of a moment-based bound. That's why
+      Chernoff bounds appear whenever a question needs a tail that vanishes
+      exponentially fast in $n$, not just polynomially.
+
+      The recipe is always the same three moves — exponentiate the event,
+      apply Markov, optimize the free parameter $t$ — and the only real work
+      in any specific problem is computing $M_X(t)$ and solving the
+      resulting minimization, often a single derivative set to zero.
+    worked: >
+      Let $X$ be exponential with mean $1$, so $M_X(t)=1/(1-t)$ for $t<1$.
+      Bound $\Pr(X\ge5)$: minimizing $e^{-5t}/(1-t)$ over $t\in(0,1)$ gives
+      $t=0.8$, and plugging back in gives $5e^{-4}\approx0.0916$. Markov
+      alone only gives $\mathbb{E}[X]/5=1/5=0.2$, so exponentiating first
+      already roughly halves the bound before optimizing further; the true
+      value is $e^{-5}\approx0.00674$, closer than either bound but not the
+      point — the point is that Chernoff beats Markov by construction.
+    interview: >
+      "Get an exponential tail bound" or "why does this concentrate so
+      fast" calls for naming the three-step recipe — exponentiate, Markov,
+      optimize $t$ — before diving into any specific mgf; interviewers
+      listen for "optimize over $t$," since skipping that step leaves a
+      bound valid but far from best.
+    pitfalls: >
+      Picking an arbitrary $t$ instead of optimizing leaves a correct but
+      needlessly weak bound on the table — the whole value of the method is
+      in the minimization step. Using a $t$ outside the region where
+      $M_X(t)$ is finite produces a bound that isn't valid at all.
+    recap: >
+      Chernoff is Markov applied to $e^{tX}$ and optimized over $t$, and
+      exponentiating first is precisely what turns polynomial tail decay
+      into exponential decay for sums of independent pieces.
+
+  - node: quant-probability.inequalities.chernoff-binomial
+    hook: >
+      This is the number that justifies reaching for Chernoff at all —
+      seeing the exponential bound beat the polynomial one by a widening
+      factor as the threshold moves out is worth more than any amount of
+      abstract "exponential decay" language.
+    explanation: >
+      Recentering $H$ as $S=\sum\varepsilon_i$ with $\pm1$ increments turns
+      a binomial tail into a sum-of-independent-pieces tail, exactly the
+      shape both Chebyshev and Chernoff are built for — Chebyshev needs
+      only the variance of $S$, Chernoff needs its full moment generating
+      function, available in closed form via $\mathbb{E}[e^{t\varepsilon}]
+      =\cosh t$.
+
+      The comparison isn't a fixed ratio: near the mean the two bounds are
+      close, both fairly loose, but the Chernoff bound decays like
+      $e^{-cs^{2}}$ in the deviation $s$ while Chebyshev only decays like
+      $1/s^{2}$, so the gap between them widens without bound as the
+      threshold moves further into the tail. That growth rate, not the
+      bound at any single point, is the real content of "Chernoff beats
+      Chebyshev" — the exponential eventually wins everywhere, and how fast
+      depends on how far into the tail you look.
+    worked: >
+      Bound $\Pr(H\ge58)$ for the same $100$ fair tosses. Here $S\ge16$, so
+      Chernoff gives $e^{-16^{2}/200}=e^{-1.28}\approx0.278$, while
+      Chebyshev (with $\sigma_S=10$) gives $100/256\approx0.391$. Chernoff
+      wins by a smaller margin at this closer-to-the-mean threshold — a
+      normal approximation puts the true probability near $6.7\%$
+      ($z\approx1.5$ after continuity correction), so both bounds are still
+      generous, but Chernoff visibly closes the gap faster the further the
+      threshold sits from the mean.
+    interview: >
+      "Bound the chance of at least $60$ heads in $100$ fair tosses" is the
+      canonical prompt, and the strong answer produces both bounds and
+      states which is tighter and why — the interviewer is checking you
+      know Chernoff isn't automatically much better at every threshold,
+      just eventually and usually decisively.
+    pitfalls: >
+      Reporting only the Chernoff number without the Chebyshev comparison
+      misses the point of the question, which is usually about the two
+      bounds' relative behavior. Forgetting the factor of $2$ inside the
+      exponent — using $e^{-s^{2}/n}$ instead of $e^{-s^{2}/(2n)}$ — comes
+      from mishandling the $\cosh t\le e^{t^{2}/2}$ step.
+    recap: >
+      Both bounds are computable from the same $\pm1$ sum, but Chernoff's
+      $e^{-s^{2}/(2n)}$ decay overtakes Chebyshev's $1/s^{2}$ decay as the
+      threshold moves deeper into the tail, with the gap widening the
+      further out you look.
+
+  - node: quant-probability.inequalities.cauchy-schwarz-rv
+    hook: >
+      This is the inner-product inequality from linear algebra wearing a
+      probability costume, and recognizing that connection is what tells
+      you when to reach for it — anywhere a product of two random
+      quantities needs bounding by their individual sizes.
+    explanation: >
+      The proof is a single clean trick: build the quadratic
+      $q(t)=\mathbb{E}[(X-tY)^{2}]$ in the free variable $t$. Because it's
+      an expectation of a square, $q(t)\ge0$ for every real $t$, no matter
+      what $X$ and $Y$ are. Expanding gives an ordinary quadratic in $t$,
+      $\mathbb{E}[Y^{2}]t^{2} - 2\mathbb{E}[XY]t + \mathbb{E}[X^{2}]$, and a
+      quadratic that never dips below zero can't have two distinct real
+      roots — its discriminant must be at most zero, and that discriminant
+      condition, written out, is Cauchy–Schwarz.
+
+      There's a geometric reading underneath the algebra: $tY$ ranges over
+      every scalar multiple of $Y$ as $t$ varies, and $q(t)$ is minimized at
+      the $t$ that makes $tY$ the closest multiple of $Y$ to $X$ in
+      mean-square. The inequality says even the best such approximation
+      leaves a nonnegative leftover, which caps how large $\mathbb{E}[XY]$
+      can be relative to the two variables' own sizes.
+
+      Equality is again the degenerate case: the quadratic touches zero
+      only when $X$ is an exact multiple of $Y$ with probability $1$, so
+      $\mathbb{E}[XY]$ reaches its ceiling only for perfectly proportional
+      variables. Setting $Y=1$ specializes the whole inequality to
+      $(\mathbb{E}[X])^{2}\le\mathbb{E}[X^{2}]$ — the same fact behind
+      variance's nonnegativity — a hint that Cauchy–Schwarz is the more
+      general engine behind several separate-looking facts.
+    worked: >
+      Let $X$ be $1$ or $2$ with equal probability, and let $Y=3-X$. Then
+      $\mathbb{E}[XY]=0.5(1\cdot2)+0.5(2\cdot1)=2$, $\mathbb{E}[X^{2}]
+      =0.5(1)+0.5(4)=2.5$, and $\mathbb{E}[Y^{2}]=0.5(4)+0.5(1)=2.5$.
+      Cauchy–Schwarz claims $(\mathbb{E}[XY])^{2}\le\mathbb{E}[X^{2}]
+      \mathbb{E}[Y^{2}]$: indeed $4\le2.5\times2.5=6.25$, with room to
+      spare since $Y$ is an affine, not exact, multiple of $X$.
+    interview: >
+      "Bound $\mathbb{E}[XY]$ using only the second moments of $X$ and $Y$"
+      is Cauchy–Schwarz, and naming the discriminant argument, rather than
+      just citing the inequality, is what shows you can reconstruct it if a
+      follow-up asks for the proof.
+    pitfalls: >
+      Forgetting the expectation-of-a-square step — why $q(t)\ge0$ for
+      every $t$ in the first place — leaves the derivation incomplete if
+      asked to justify it. Applying the inequality without checking
+      $\mathbb{E}[X^{2}]$ and $\mathbb{E}[Y^{2}]$ are actually finite skips
+      a real hypothesis.
+    recap: >
+      $(\mathbb{E}[XY])^{2}\le\mathbb{E}[X^{2}]\mathbb{E}[Y^{2}]$ falls out
+      of $\mathbb{E}[(X-tY)^{2}]\ge0$ holding for every $t$, with equality
+      exactly when $X$ and $Y$ are proportional.
+
+  - node: quant-probability.inequalities.cs-covariance
+    hook: >
+      "Can a correlation be $1.3$" should trigger an instant no — this is
+      the inequality that makes $[-1,1]$ a hard mathematical boundary, not
+      a convention, and it's the cheapest sanity check on any reported
+      covariance matrix.
+    explanation: >
+      Apply Cauchy–Schwarz not to $X$ and $Y$ directly but to the centred
+      variables $X-\mu_X$ and $Y-\mu_Y$: their product's expectation is by
+      definition $\operatorname{Cov}(X,Y)$, and their own second moments are
+      by definition $\sigma_X^{2}$ and $\sigma_Y^{2}$. Cauchy–Schwarz then
+      reads $(\operatorname{Cov}(X,Y))^{2}\le\sigma_X^{2}\sigma_Y^{2}$, and
+      taking square roots gives $|\operatorname{Cov}(X,Y)|\le\sigma_X
+      \sigma_Y$ directly — no new argument, just the right substitution
+      into a fact already in hand.
+
+      Dividing through by $\sigma_X\sigma_Y$ is exactly the definition of
+      correlation, so the boundedness of $\rho$ in $[-1,1]$ isn't a separate
+      fact about correlation — it's this one inequality, rescaled. Equality
+      $|\rho|=1$ inherits its meaning from Cauchy–Schwarz's equality case:
+      the centred variables must be exact multiples of each other, which
+      unpacks to $Y=a+bX$ with probability $1$, an exact linear
+      relationship, with the sign of $b$ matching the sign of $\rho$.
+
+      Two consequences do real work at a desk. Since $\operatorname{Var}
+      (X+Y)=\sigma_X^{2}+\sigma_Y^{2}+2\operatorname{Cov}(X,Y)\le\sigma_X^{2}
+      +\sigma_Y^{2}+2\sigma_X\sigma_Y=(\sigma_X+\sigma_Y)^{2}$, a two-leg
+      portfolio's volatility can never exceed the sum of the individual
+      volatilities — combining risks can only help, never hurt, in this
+      worst-case sense. And any reported correlation outside $[-1,1]$, or a
+      covariance matrix implying one, is not a strange market phenomenon —
+      it's an arithmetic error, full stop.
+    worked: >
+      A risk report claims $\sigma_X=4$, $\sigma_Y=9$, and
+      $\operatorname{Cov}(X,Y)=40$. The bound requires
+      $|\operatorname{Cov}(X,Y)|\le\sigma_X\sigma_Y=36$, but $40>36$ — the
+      reported numbers are inconsistent and at least one of the three was
+      computed wrong, without needing to know anything else about $X$ or
+      $Y$.
+    interview: >
+      "Why can't correlation exceed $1$" is answered by naming
+      Cauchy–Schwarz applied to the centred variables, not by citing it as
+      a convention; a portfolio follow-up ("does diversifying always reduce
+      risk") is answered by the $\sigma_{X+Y}\le\sigma_X+\sigma_Y$ triangle
+      inequality that falls out immediately after.
+    pitfalls: >
+      Treating an out-of-range correlation as a modeling curiosity rather
+      than an arithmetic red flag wastes time investigating an effect that
+      doesn't exist. Assuming $|\rho|=1$ requires $Y=X$ exactly, rather than
+      any affine relationship $Y=a+bX$, misses that a scaled or shifted
+      linear relationship also saturates the bound.
+    recap: >
+      Cauchy–Schwarz applied to the centred variables gives
+      $|\operatorname{Cov}(X,Y)|\le\sigma_X\sigma_Y$, which is exactly why
+      $\rho\in[-1,1]$ and why a reported correlation outside that range is
+      always an error.
+
+  - node: quant-probability.inequalities.paley-zygmund
+    hook: >
+      Markov only ever tells you a count can't be too big — this is the
+      counterpart that proves a count is actually positive with decent
+      probability, and it's the standard opening move whenever a proof
+      needs to show "something exists" without constructing it.
+    explanation: >
+      Markov bounds a nonnegative quantity from above using only its mean;
+      Paley–Zygmund bounds it from below, but needs a second ingredient —
+      the second moment $\mathbb{E}[X^{2}]$ — because a mean alone says
+      nothing about whether $X$ is usually near that mean or occasionally
+      enormous and mostly zero. Controlling $\mathbb{E}[X^{2}]$ rules out
+      the second, degenerate case: if the second moment stays comparable to
+      the squared mean, $X$ can't be concentrating all its mass on a tiny,
+      huge-valued sliver.
+
+      The proof splits $\mathbb{E}[X]$ at the threshold
+      $\theta\mathbb{E}[X]$ and bounds the piece above the threshold by
+      Cauchy–Schwarz — the same $(\mathbb{E}[XY])^{2}\le\mathbb{E}[X^{2}]
+      \mathbb{E}[Y^{2}]$ fact, applied to $X$ and the indicator of exceeding
+      the threshold. At $\theta=0$ this collapses to the cleanest and
+      most-used case, the second-moment method: $\Pr(X>0)\ge
+      (\mathbb{E}[X])^{2}/\mathbb{E}[X^{2}]$, needing no threshold at all,
+      just "is a nonnegative count positive."
+
+      This is the standard tool for showing a randomly constructed count is
+      positive with non-vanishing probability — a random graph contains a
+      certain subgraph, a randomized construction succeeds — precisely when
+      the second moment doesn't blow up faster than the mean squared,
+      typically because the terms making up $X$ are only weakly correlated.
+    worked: >
+      Let $X$ be the number of successes in $10$ independent
+      $\text{Bernoulli}(0.3)$ trials, so $\mathbb{E}[X]=3$ and
+      $\operatorname{Var}(X)=10(0.3)(0.7)=2.1$, giving $\mathbb{E}[X^{2}]
+      =2.1+9=11.1$. The second-moment method gives $\Pr(X>0)\ge9/11.1
+      \approx0.811$ — a valid, if not sharp, lower bound; the exact value
+      $1-0.7^{10}\approx0.972$ confirms it without needing $X$'s full
+      distribution.
+    interview: >
+      "Show this count is positive with probability at least such-and-such,
+      without finding its distribution" is the second-moment method — quote
+      $\Pr(X>0)\ge(\mathbb{E}[X])^{2}/\mathbb{E}[X^{2}]$ and note it needs
+      only two moments, the same information Chebyshev needs, but pointed
+      at existence rather than concentration.
+    pitfalls: >
+      Applying this when $\mathbb{E}[X^{2}]$ is not actually comparable to
+      $(\mathbb{E}[X])^{2}$ (a count with high variance from rare huge
+      outliers) gives a vacuous or unusable bound. Confusing this
+      lower-tail tool with Markov's upper-tail role treats two tools that
+      answer opposite questions as interchangeable.
+    recap: >
+      Paley–Zygmund lower-bounds $\Pr(X>0)$ by $(\mathbb{E}[X])^{2}/
+      \mathbb{E}[X^{2}]$, the standard second-moment method for proving a
+      nonnegative count is positive without ever finding its distribution.
+
+  - node: quant-probability.inequalities.choosing-a-bound
+    hook: >
+      The actual skill being tested at the end of an inequalities question
+      is rarely the algebra — it's recognizing which hypothesis you've been
+      handed and reaching for the bound calibrated to exactly that much
+      information, no more and no less.
+    explanation: >
+      Every bound in this unit trades a stronger hypothesis for a sharper
+      conclusion, and they nest: a mean alone (Markov) is the weakest input
+      and gives the weakest, but universally valid, output; add a variance
+      (Chebyshev) and the bound sharpens to $1/k^{2}$ decay; add the full
+      moment generating function (Chernoff) and it sharpens again to
+      exponential decay. Naming which rung of that ladder a problem has
+      handed you — not just picking a formula — is what the question is
+      actually testing.
+
+      Two of the tools solve a different kind of problem entirely, not a
+      stronger version of the same one. Jensen answers "can I move this
+      function inside the expectation" — a question about a single
+      nonlinear transformation, not a tail probability — and Cauchy–Schwarz
+      answers "how large can a product or covariance be," a question about
+      two variables together rather than the spread of one. The union
+      bound is the odd one out in the other direction: it needs no moments
+      at all, only a list of events, and it degrades gracefully to
+      uselessness rather than becoming wrong once its one condition (the
+      sum staying under $1$) fails.
+
+      In practice the fastest read is to ask what you were given before
+      asking what's being asked: a bare mean points at Markov, a mean and
+      variance at Chebyshev or the one-sided version depending on
+      sidedness, an mgf or a sum of independent bounded pieces at Chernoff,
+      an unspecified list of bad events at the union bound, a nonlinear
+      function wrapped around $X$ at Jensen, and a product or a covariance
+      at Cauchy–Schwarz. Stating that reasoning out loud before writing a
+      single symbol is the part being graded.
+    interview: >
+      Interviewers deliberately under-specify these questions to see
+      whether you ask "what do I actually know here" before reaching for a
+      formula — naming the available hypothesis out loud, then the matching
+      bound, is worth more than fast but mismatched algebra.
+    pitfalls: >
+      Reaching for Chebyshev on a one-sided question instead of its
+      one-sided form, or halving a two-sided bound, understates a one-sided
+      risk instead of bounding it correctly. Defaulting to Chernoff
+      whenever a bound is needed, even when only a mean is available,
+      invents information (a moment generating function) the problem never
+      supplied.
+    recap: >
+      Match the bound to the hypothesis you were actually given — mean,
+      variance, mgf, or a bare list of events — since each tool trades a
+      specific extra assumption for a specific sharper guarantee.

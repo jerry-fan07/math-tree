@@ -1,0 +1,817 @@
+unit: quant-tools.optimization
+opening: >
+  Optimization is where the tree's calculus and linear-algebra spines get put
+  to work: "find the best portfolio," "minimize the variance," "maximize the
+  stake" are all convex optimization problems underneath the finance dressing.
+  This unit builds the machinery in the order you apply it — what convexity is
+  and why it turns "check every point" into "check one," first- and
+  second-order conditions for finding candidates, the closed-form quadratic
+  minimization behind least squares and portfolio variance, Lagrange
+  multipliers and their KKT extension for constrained problems, and the
+  flat-optimum intuition that explains both why rounding a hedge ratio is safe
+  and why optimizers fed noisy inputs are not. Kelly's criterion, Markowitz
+  portfolio choice and OLS regression, treated elsewhere in the tree, are
+  direct applications of what gets built here.
+lessons:
+  - node: quant-tools.optimization.convex-set
+    hook: >
+      Before "convex function" means anything, the set you're optimizing over
+      has to have the right shape — and recognizing that shape instantly, from
+      a list of budget and no-short constraints, is what lets you skip
+      worrying about local traps later.
+    explanation: >
+      The segment test is the right definition because it's exactly the
+      property that rules out dents, holes, and separate pieces: if two points
+      are feasible, every blend of them must be too. That single local rule
+      has a global consequence worth internalizing — any intersection of
+      convex sets is convex, because a segment joining two points of the
+      intersection lies in each set separately (each is convex) and hence in
+      their overlap. This is why a real feasible region — a budget equality, a
+      handful of no-short inequalities, a leverage cap — is convex automatically:
+      it's built as an intersection of halfspaces and hyperplanes, each
+      individually convex, without you ever having to check the segment
+      condition by hand.
+
+      Unions break this instantly, which is the trap worth naming: "invest
+      long-only in tech OR short-only in energy" describes two convex pieces
+      whose union is not convex, since a blend of a point from each need not
+      satisfy either sub-strategy's constraints. Equality constraints that
+      aren't linear fail the same way — the unit sphere is not convex, since
+      the midpoint of two points on it sits strictly inside.
+    worked: >
+      Take the capped long-only set $\{(w_1,w_2) : w_1+w_2=1,\;0\le w_1\le
+      0.6,\;w_2\ge 0\}$, an intersection of one hyperplane and three
+      halfspaces. Two feasible extreme points are $(0.6, 0.4)$ and $(0, 1)$;
+      their midpoint is $(0.3, 0.7)$, which satisfies $0.3+0.7=1$,
+      $0\le 0.3\le 0.6$, and $0.7\ge 0$ — every constraint holds, and the same
+      check goes through for any blend $t(0.6,0.4)+(1-t)(0,1)$, $t\in[0,1]$,
+      confirming the set is convex.
+    interview: >
+      "Is this feasible region convex?" is usually answered fastest by
+      recognizing it as an intersection of halfspaces, hyperplanes and norm
+      balls rather than grinding through the segment definition — the
+      interviewer wants to see that recognition, not the algebra.
+    pitfalls: >
+      Reading "OR" in a strategy description as a hint that the union of two
+      convex pieces stays convex — it doesn't. Missing that a nonlinear
+      equality constraint (a fixed-volatility target $w'\Sigma w = \sigma^2$,
+      say) carves out a non-convex surface even though each side individually
+      looks harmless.
+    recap: >
+      A set is convex exactly when it contains every segment between its own
+      points, and any intersection of convex constraints inherits this for
+      free.
+
+  - node: quant-tools.optimization.convexity
+    hook: >
+      This is the one structural assumption that turns "search for the best
+      point" into "solve an equation" — everything downstream in the unit
+      exists to exploit it.
+    explanation: >
+      Picture the graph of $f$ as a bowl: the chord condition
+      $f(tx+(1-t)y) \le tf(x)+(1-t)f(y)$ says the straight line between any two
+      points on the graph never dips below it, which is exactly "no dents." The
+      epigraph reformulation — $\{(x,s): s\ge f(x)\}$ is a convex set — connects
+      this directly back to convex sets: a convex function is nothing but a
+      function whose "above the graph" region has the segment property.
+
+      The derivative tests are the practical payoff. In one variable, $f''\ge0$
+      throughout an interval is equivalent to convexity there; in several
+      variables, the Hessian being positive semidefinite everywhere plays the
+      same role. The first-order form $f(y) \ge f(x) + \nabla f(x)'(y-x)$ says
+      every tangent line sits below the curve — this single inequality is what
+      later makes a zero gradient enough to certify a global minimum.
+
+      Domain matters as much as the function: $1/x$ is convex on $(0,\infty)$
+      but the test simply doesn't apply once you leave that convex domain, since
+      the chord condition needs both endpoints in a convex set to begin with.
+    worked: >
+      Check $g(x) = \ln(1+e^{x})$ (the softplus function) for convexity on
+      $\mathbb{R}$. Its derivative is the logistic function
+      $g'(x) = e^{x}/(1+e^{x})$, and differentiating again gives
+      $g''(x) = e^{x}/(1+e^{x})^{2} \ge 0$ for every real $x$, so $g$ is convex
+      everywhere — for instance $g''(0) = 1/4 > 0$.
+    interview: >
+      "Prove this function is convex" almost always wants the second-derivative
+      or Hessian-PSD test applied directly, not the two-point chord definition —
+      save the chord version for when differentiability itself is in question.
+    pitfalls: >
+      Forgetting the domain has to be convex before the derivative test is
+      even valid — $f''\ge 0$ on a non-convex domain proves nothing about
+      chords that leave the domain. Flipping the inequality direction and
+      calling a concave function convex, especially with $-\ln x$ and $\ln x$
+      side by side.
+    recap: >
+      Convex means every chord lies on or above the graph, tested in practice
+      by $f''\ge0$ or a positive semidefinite Hessian.
+
+  - node: quant-tools.optimization.convex-operations
+    hook: >
+      This is how you certify an objective is convex in ten seconds flat during
+      an interview, instead of computing a Hessian under time pressure.
+    explanation: >
+      Each rule follows straight from the epigraph picture. A nonnegative
+      combination $af+bg$ stays convex because its epigraph is built from
+      convex pieces glued additively. The pointwise maximum of convex functions
+      is convex because the epigraph of $\max_i f_i$ is exactly the
+      intersection $\bigcap_i \{(x,s): s\ge f_i(x)\}$ of convex epigraphs, and
+      intersections of convex sets are convex — the pointwise minimum has no
+      such argument, since a union of epigraphs replaces the intersection and
+      unions aren't convex.
+
+      Affine substitution $x \mapsto f(Ax+b)$ preserves convexity because a
+      segment in the new variable maps to a segment in $Ax+b$, so the chord test
+      transfers unchanged. Composing with a monotone convex outer function
+      works because you're stacking two "bowl" curvatures that reinforce each
+      other; drop monotonicity and they can cancel, which is why $-x^{2}$
+      (convex $h(u)=-u$ applied to convex $f(x)=x^2$, but $h$ is decreasing) is
+      concave, not convex.
+    worked: >
+      Certify $f(x) = \max(x^{2}, (x-3)^{2}) + |x-1|$ is convex on
+      $\mathbb{R}$: $x^2$ and $(x-3)^2$ are convex, so their pointwise max is
+      convex; $|x-1|$ is $|\cdot|$ composed with the affine map $x \mapsto x-1$,
+      also convex; the sum of two convex pieces is convex. No Hessian needed,
+      and e.g. $f(2) = \max(4,1) + 1 = 5$.
+    interview: >
+      Expect objectives built as sums of squares, norm penalties, and
+      worst-case terms like $\max_i f_i(x)$ — naming which rule certifies each
+      piece is faster and more convincing than offering to compute a Hessian.
+    pitfalls: >
+      Applying the max rule to a minimum — $\min_i f_i(x)$ of convex pieces is
+      generally not convex. Composing with a convex but decreasing outer
+      function and assuming convexity survives anyway.
+    recap: >
+      Nonnegative sums, pointwise maxima, affine substitutions, and monotone
+      convex compositions all preserve convexity — enough to certify most
+      objectives by inspection.
+
+  - node: quant-tools.optimization.strict-convexity
+    hook: >
+      "The minimizer is unique" and "a minimizer exists" are two separate
+      claims, and strict convexity only ever buys you the first one.
+    explanation: >
+      The uniqueness argument is a short contradiction: if $x\ne y$ were both
+      minimizers with value $m$, the midpoint would satisfy
+      $f(\tfrac{x+y}{2}) < \tfrac{1}{2} f(x) + \tfrac{1}{2} f(y) = m$ by strict
+      convexity, undercutting the supposed minimum. So at most one point can
+      achieve it. $f''>0$ (or a positive definite Hessian) is a convenient
+      sufficient test for strict convexity, but it's not necessary — $x^{4}$ is
+      strictly convex on $\mathbb{R}$ even though $f''(0)=0$, so failing this
+      test doesn't rule strict convexity out.
+
+      Existence is a wholly separate question that strict convexity says
+      nothing about: $e^{x}$ is strictly convex on all of $\mathbb{R}$ and has
+      no minimizer at all, since it keeps decreasing toward $0$ without ever
+      reaching it. You need either a closed, bounded domain or coercivity
+      ($f(x)\to\infty$ as $\lVert x\rVert\to\infty$) to know a minimizer is
+      there before asking whether it's unique.
+    worked: >
+      Minimize $f(x) = x^{2} - \ln x$ on $(0,\infty)$. $f''(x) = 2 + 1/x^{2} >
+      0$ everywhere, so $f$ is strictly convex; as $x\to0^{+}$ or $x\to\infty$,
+      $f(x)\to\infty$, so a minimizer exists. Setting
+      $f'(x) = 2x - 1/x = 0$ gives $x^{*} = 1/\sqrt{2}$, with value
+      $f(x^{*}) = \tfrac{1}{2} + \tfrac{1}{2}\ln 2 \approx 0.847$.
+    interview: >
+      "Does this problem have a unique solution?" and "does a solution exist
+      at all?" are two questions an interviewer expects you to separate —
+      answering only the uniqueness half is a common half-answer.
+    pitfalls: >
+      Citing strict convexity as a reason a minimizer must exist — it isn't
+      one. Concluding non-strict (only semidefinite) convexity rules out
+      uniqueness — it doesn't force multiple minimizers, it just fails to
+      forbid them.
+    recap: >
+      Strict convexity guarantees at most one minimizer; existence is a
+      separate argument via a bounded domain or coercivity.
+
+  - node: quant-tools.optimization.stationary-points
+    hook: >
+      Interviewers say "critical point," "extremum," and "stationary point"
+      almost interchangeably, but only one of the three is a definition you can
+      check by computation — the other two describe what you find once you
+      classify it.
+    explanation: >
+      A minimizer is a claim about every point of the feasible set (global) or
+      just a neighborhood of it (local); a stationary point is a purely local,
+      computable condition, $\nabla f(x)=0$, that doesn't by itself say which
+      kind of extremum — or whether any extremum at all — you've found. Because
+      maximizing $f$ is the same as minimizing $-f$, one vocabulary and one
+      theory cover both without duplication.
+
+      In the interior of the domain, a stationary point of a differentiable
+      function is one of three things: a local min, a local max, or a saddle,
+      where the function increases in some directions from the point and
+      decreases in others. Keep the value and the location distinct too —
+      $\min_x f(x)$ is a number, $\arg\min_x f(x)$ is the set of points
+      achieving it, and that set can be empty, a single point, or infinite.
+    worked: >
+      $f(x,y) = x^{2} - y^{4}$ has gradient $(2x, -4y^{3})$, zero only at the
+      origin. Along the $x$-axis, $f(x,0) = x^{2} \ge 0 = f(0,0)$, so the
+      origin looks like a minimum in that direction; along the $y$-axis,
+      $f(0,y) = -y^{4} \le 0 = f(0,0)$, so it looks like a maximum in that
+      direction. The mixed behavior makes the origin a saddle point, not an
+      extremum of either kind.
+    interview: >
+      "Characterize the critical points" wants you to name all stationary
+      points, then say for each whether it's a min, max, or saddle — stopping
+      at "the gradient is zero here" answers only half the question.
+    pitfalls: >
+      Treating every stationary point as an extremum by default — plenty are
+      saddles. Reporting the minimum value when asked for the minimizer, or
+      vice versa; the two answers are different objects and interviewers listen
+      for the mix-up.
+    recap: >
+      A stationary point is where the gradient vanishes; whether it's a local
+      min, local max, or saddle is a separate question the gradient alone
+      doesn't answer.
+
+  - node: quant-tools.optimization.local-global
+    hook: >
+      This is the entire reason a convex optimization problem "counts as
+      solved" the moment you find one point with no better neighbor — no
+      restarts, no checking other regions.
+    explanation: >
+      Suppose $x$ is a local minimizer of convex $f$ over convex $C$, but some
+      other point $y \in C$ has $f(y) < f(x)$. For small $t>0$, the point
+      $x+t(y-x)$ lies in $C$ (convexity of the set) and in any small ball
+      around $x$, and convexity of $f$ gives
+      $f(x+t(y-x)) \le (1-t)f(x)+tf(y) < f(x)$ — a nearby point strictly
+      better than $x$, contradicting local minimality. So no local minimizer
+      of a convex function can fail to be global.
+
+      The mental model is the bowl: a bowl-shaped surface cannot have a dip
+      that isn't the deepest point, because any lower point elsewhere would
+      pull the whole chord down through the supposed local floor. This is what
+      licenses gradient descent, coordinate descent, or plain guessing on a
+      convex problem — whatever locally-optimal point you land on is the
+      answer. It also draws the line sharply: portfolio problems with
+      cardinality or integer constraints, and most machine-learning losses,
+      are not convex, and a local optimum found there carries no such
+      guarantee.
+    worked: >
+      $f(x,y) = 2x^{2}+y^{2}-4x-6y$ has Hessian $\operatorname{diag}(4,2)$,
+      positive definite everywhere, so $f$ is (strictly) convex. Setting
+      $\nabla f = (4x-4,\;2y-6) = 0$ gives $x=1$, $y=3$, and
+      $f(1,3) = 2-4+9-18 = -11$. Convexity alone certifies $-11$ at $(1,3)$ as
+      the global minimum — no other point needs checking.
+    interview: >
+      "You found a stationary point — how do you know it's the global
+      optimum?" is answered by convexity, not by searching further: certify
+      the objective is convex first, then stationarity alone finishes the
+      problem.
+    pitfalls: >
+      Carrying "found a local optimum, so I'm done" reasoning into a
+      non-convex setting — integer or cardinality-constrained portfolio
+      problems and most neural-network losses can have many local optima at
+      different values.
+    recap: >
+      For a convex problem, any local minimizer is automatically the global
+      minimizer.
+
+  - node: quant-tools.optimization.foc
+    hook: >
+      "Differentiate and set to zero" is the reflex; the interview question is
+      whether you can also justify why the point you found is actually the
+      answer.
+    explanation: >
+      At an interior local minimizer, $\nabla f(x^{*})=0$ is necessary: if the
+      gradient were nonzero, moving a small step in the direction $-\nabla
+      f(x^{*})$ would strictly decrease $f$, contradicting local optimality.
+      Necessity is all this buys on its own — stationary points that are
+      neither minima nor maxima exist in one variable and show up constantly
+      in several, so "the derivative is zero" is a candidate list, not a
+      verdict.
+
+      Convexity is what promotes the condition to sufficient. Recall the
+      tangent-underestimate inequality $f(y) \ge f(x^{*}) + \nabla
+      f(x^{*})'(y-x^{*})$ for convex $f$; substituting $\nabla f(x^{*})=0$
+      collapses the right side to $f(x^{*})$, so $f(y) \ge f(x^{*})$ for
+      every $y$ in the domain — $x^{*}$ is a global minimizer, no further
+      search required. The interview recipe is exactly this two-step move:
+      differentiate and solve, then justify with convexity (or a second-order
+      check) rather than simply asserting the stationary point is the answer.
+    worked: >
+      Minimize $f(x) = e^{x} - x$ over $\mathbb{R}$. $f'(x) = e^{x}-1=0$ gives
+      $x^{*}=0$; $f''(x)=e^{x}>0$ everywhere, so $f$ is convex and $x^{*}=0$
+      is the global minimum, with value $f(0) = 1 - 0 = 1$.
+    interview: >
+      "Minimize this function" wants three moves in sequence: differentiate,
+      solve $f'=0$, then state why that point is the minimum — convexity or a
+      second-order check — since a bare stationary point convinces no one.
+    pitfalls: >
+      Stopping after "the derivative is zero" without the justification step.
+      Applying $\nabla f=0$ outside its scope: it says nothing at a boundary
+      point or at a point where $f$ isn't differentiable, both of which need
+      separate handling.
+    recap: >
+      A zero gradient is necessary at any interior optimum, and sufficient for
+      a global minimum exactly when the objective is convex.
+
+  - node: quant-tools.optimization.boundary-check
+    hook: >
+      A large share of wrong interview answers minimize only over the points
+      where the gradient vanishes and never check anywhere else.
+    explanation: >
+      $\nabla f = 0$ only ever finds interior optima of a differentiable
+      function, so before reporting an answer you need three more categories
+      of candidate: boundary points of the feasible set, points where $f$ isn't
+      differentiable (kinks), and behavior at infinity (is $f$ even bounded
+      below?). None of these show up as a solution to $\nabla f=0$, because
+      the condition was never designed to see them.
+
+      The safe habit is to build one candidate list — every stationary point,
+      every kink, every boundary point — evaluate $f$ at all of them, and
+      compare numbers directly rather than trusting whichever candidate you
+      found first. Existence of a minimum is guaranteed when the domain is
+      closed and bounded with $f$ continuous, or when $f$ is continuous and
+      coercive; outside those guarantees, a "local minimum" you found may not
+      even be the best point on an unbounded piece of the domain.
+    worked: >
+      Minimize $g(x) = |x-2| + x^{2}/4$ on $[-1,5]$. For $x<2$,
+      $g'(x) = -1+x/2$, which would vanish at $x=2$ — outside that region, so
+      no interior stationary point there; for $x>2$, $g'(x)=1+x/2>0$
+      throughout, so none there either. The only candidates are the kink
+      $x=2$ and the endpoints: $g(2)=1$, $g(-1)=3.25$, $g(5)=9.25$. The minimum
+      is $1$, at the kink $x=2$.
+    interview: >
+      "Minimize this over the interval..." is testing whether you reach for
+      endpoints and kinks even when $\nabla f=0$ turns up nothing, or turns up
+      a point that isn't actually the best one.
+    pitfalls: >
+      Skipping endpoints because the domain "should" have an interior
+      optimum. Reporting a genuine local minimum on an unbounded domain
+      without checking whether $f$ diverges to $-\infty$ somewhere else
+      entirely.
+    recap: >
+      Compare stationary points, kinks, and boundary points side by side — the
+      first-order condition alone only ever covers one of the three.
+
+  - node: quant-tools.optimization.gradient-hessian
+    hook: >
+      Every later step in this unit — FOC, SOC, Lagrange — is written in
+      gradient and Hessian notation, so fluency here is what lets you move fast
+      once the real problem starts.
+    explanation: >
+      The gradient $\nabla f(x)$ collects the $n$ first partials into a vector,
+      and the Hessian $H(x)$ collects the $n^2$ second partials into a matrix,
+      symmetric whenever those partials are continuous. Taylor's theorem's
+      multivariable analogue plugs both in at once:
+      $f(x+h) = f(x) + \nabla f(x)'h + \tfrac{1}{2} h'H(x)h + o(\lVert h\rVert^{2})$
+      — a constant, a linear correction from the gradient, and a quadratic-form
+      correction (recall quadratic forms) from the Hessian, exactly mirroring
+      the single-variable expansion term by term.
+
+      Two gradients are worth having memorized rather than re-derived each
+      time. $\nabla(b'x) = b$ falls out because $\partial(\sum_j b_j x_j)/
+      \partial x_i = b_i$. $\nabla(x'Ax) = (A+A')x$ — which is $2Ax$ once $A$ is
+      symmetric — comes from each $x_k$ appearing in both the row and column
+      of the bilinear sum $\sum_{i,j}a_{ij}x_ix_j$. The quadratic form
+      $h'H(x)h$ that appears in the expansion is precisely the object whose
+      sign, at a stationary point, decides whether you're at a min, a max, or a
+      saddle.
+    worked: >
+      For $f(x,y) = 3x^{2}+2xy+y^{2}-5x$: $\nabla f = (6x+2y-5,\;2x+2y)$, so
+      $\nabla f(1,1) = (3, 4)$. The Hessian is constant, with rows $(6,2)$ and
+      $(2,2)$, read off directly from the second partials
+      $\partial^2 f/\partial x^2=6$, $\partial^2 f/\partial x\partial y=2$,
+      $\partial^2 f/\partial y^2=2$.
+    interview: >
+      "Write down the gradient and Hessian of this function" is often step one
+      of a bigger problem — doing it quickly and correctly, including the
+      factor-of-2 bookkeeping, is what buys you time for the harder part.
+    pitfalls: >
+      Forgetting the $2A$ shortcut only applies once $A$ is symmetrized —
+      $\nabla(x'Ax)=(A+A')x$ in general. Dropping cross-partial terms or
+      double-counting them when assembling the Hessian by hand from a
+      polynomial.
+    recap: >
+      The gradient and Hessian are the vector of first partials and matrix of
+      second partials, and together they give the quadratic Taylor expansion
+      around any point.
+
+  - node: quant-tools.optimization.soc
+    hook: >
+      Once you have a stationary point, the Hessian's definiteness is the
+      tiebreaker between "minimum," "maximum," "saddle," and "can't tell yet."
+    explanation: >
+      Near a stationary point $x^{*}$, the gradient term of the Taylor
+      expansion vanishes, leaving
+      $f(x^{*}+h) - f(x^{*}) \approx \tfrac{1}{2} h'Hh$: the sign of this quadratic
+      form for every direction $h$ is exactly the sign of $f(x^{*}+h)-f(x^{*})$
+      near $x^{*}$. A positive definite $H$ makes that quadratic form positive
+      in every direction, hence a strict local minimum; negative definite gives
+      a strict local max; and an $H$ with eigenvalues of both signs gives a
+      direction that increases and a direction that decreases — a saddle. When
+      $H$ is only semidefinite and singular, the quadratic term vanishes along
+      some direction and the sign is decided by terms the expansion doesn't
+      show, so the test is genuinely silent.
+
+      For a $2\times2$ symmetric $H$ with rows $(a,b)$ and $(b,c)$, positive
+      definiteness reduces to two numbers: $a>0$ and $ac-b^{2}>0$. Checking
+      only the diagonal entry $a>0$ and skipping the determinant is the most
+      common shortcut error, because a large enough off-diagonal term can flip
+      an apparently positive-curvature direction into a saddle.
+    worked: >
+      Classify the stationary point of $f(x,y) = x^{2}-y^{2}+4xy$. Gradient
+      $(2x+4y,\;4x-2y) = 0$ forces $x=y=0$. The Hessian is $H$ with rows
+      $(2,4)$ and $(4,-2)$: $a=2>0$, but $ac-b^{2} = -4-16=-20<0$, so $H$ is
+      indefinite and the origin is a saddle — despite the positive diagonal
+      entry that, checked alone, would have suggested a minimum.
+    interview: >
+      "Classify this critical point" wants the definiteness of the Hessian —
+      eigenvalue signs in general, the $a>0,\;ac-b^{2}>0$ shortcut whenever
+      it's $2\times2$ — not a guess based on one partial derivative.
+    pitfalls: >
+      Using a single positive diagonal second partial as if it were sufficient
+      for a minimum — it isn't, only the full definiteness test is. Treating a
+      singular semidefinite Hessian as decisive in either direction when it's
+      actually inconclusive without more information.
+    recap: >
+      The Hessian's definiteness at a stationary point reads off the local
+      shape: positive definite is a min, negative definite is a max, indefinite
+      is a saddle, and singular semidefinite decides nothing.
+
+  - node: quant-tools.optimization.quadratic-min
+    hook: >
+      Kelly staking, minimum-variance portfolios, ridge regression and OLS all
+      end at the same three-line derivation — this is that derivation, done
+      once.
+    explanation: >
+      In one variable, $\nabla q(x) = 2ax+b=0$ gives $x^{*}=-b/(2a)$ directly;
+      substituting back gives the value $c-b^{2}/(4a)$. The sign of $a$ decides
+      everything: $a>0$ is a minimum, $a<0$ a maximum, $a=0$ with $b\ne0$ leaves
+      $q$ unbounded both ways.
+
+      The vector case is the same equation with the gradient formulas from
+      Gradient, Hessian and the second-order expansion plugged in: for
+      $q(x) = \tfrac{1}{2} x'Ax - b'x + c$, $\nabla q(x) = Ax-b$, so
+      $\nabla q=0$ is the linear system $Ax=b$. If $A$ is positive definite —
+      which is automatic once you've confirmed $q$ is strictly convex — this
+      system has the unique solution $x^{*}=A^{-1}b$, and it's the global
+      minimum by Second-order conditions, with value
+      $c-\tfrac{1}{2} b'A^{-1}b$. Every quadratic minimization, however it's
+      dressed up, is "solve $Ax=b$" in disguise.
+    worked: >
+      Minimize $q(x,y) = x^{2}+2y^{2}-2x-8y$, which is
+      $\tfrac{1}{2} x'Ax - b'x$ with $A=\operatorname{diag}(2,4)$ and $b=(2,8)$.
+      $\nabla q = (2x-2,\;4y-8)=0$ gives $x^{*}=1$, $y^{*}=2$. Using
+      $c-\tfrac{1}{2} b'A^{-1}b$ with $A^{-1}=\operatorname{diag}(1/2,1/4)$:
+      $b'A^{-1}b = 2 + 16 = 18$, so the minimum value is $-9$ — matching the
+      direct check $q(1,2)=1+8-2-16=-9$.
+    interview: >
+      "Minimize this quadratic" wants recognition of the $Ax=b$ structure
+      first — if only the minimizer is asked for, solve the linear system;
+      only compute the value formula when the minimum value itself is asked
+      for.
+    pitfalls: >
+      Declaring a stationary point of a quadratic a minimum without checking
+      $A$ is positive definite — an indefinite $A$ makes it a saddle, and a
+      negative-eigenvalue direction makes $q$ unbounded below. Misreading the
+      factor-of-2 convention when assembling $A$ from a quadratic written out
+      term by term rather than in the $\tfrac{1}{2} x'Ax$ form.
+    recap: >
+      Minimizing a quadratic always reduces to solving the linear system
+      $Ax=b$, with minimum value $c-\tfrac{1}{2} b'A^{-1}b$ once $A$ is positive
+      definite.
+
+  - node: quant-tools.optimization.complete-square
+    hook: >
+      This is the mental-math route to a vertex or a Gaussian integral — no
+      derivative required, which matters when a speed round leaves no time to
+      differentiate.
+    explanation: >
+      Completing the square is the algebraic mirror of setting the derivative
+      to zero: $ax^{2}+bx+c = a(x+b/(2a))^{2} + c - b^{2}/(4a)$ makes the
+      vertex $x^{*}=-b/(2a)$ visible by inspection, exactly the formula from
+      Minimizing a quadratic, reached without calculus. The vector version does
+      the identical rearrangement with the matrix $A$ standing in for $a$.
+
+      The same rearrangement evaluates Gaussian integrals, because
+      $-\alpha x^{2}+\beta x$ completes to
+      $-\alpha(x-\beta/(2\alpha))^{2}+\beta^{2}/(4\alpha)$, pulling a constant
+      out of the exponent and leaving the standard Gaussian integral behind —
+      the route by which normal moment generating functions get evaluated in
+      closed form.
+
+      Reach for this move before reaching for a derivative whenever the
+      quadratic is simple enough to factor by eye — it's faster, it makes sign
+      errors easier to catch by inspection, and it generalizes directly to the
+      $\tfrac{1}{2}x'Ax-b'x$ form that shows up throughout Markowitz-style variance
+      minimization.
+    worked: >
+      Complete the square in $-2x^{2}+8x-3$: factor out the leading
+      coefficient, $-2(x^{2}-4x)-3 = -2\left[(x-2)^{2}-4\right]-3 =
+      -2(x-2)^{2}+5$. Since the leading coefficient is negative, this is a
+      maximum, not a minimum: the maximum value is $5$, attained at $x=2$.
+    interview: >
+      "Find the vertex" or "maximize/minimize this quadratic" without a
+      calculator is exactly what completing the square is for — producing the
+      answer in one algebraic step signals fluency the derivative route
+      doesn't.
+    pitfalls: >
+      Losing the sign when factoring out a negative leading coefficient — the
+      term inside the parentheses must flip sign correctly, as in the $-2$
+      example, or the vertex location comes out wrong. Forgetting the
+      $-b^{2}/(4a)$ correction term and reporting the vertex value as just $c$.
+    recap: >
+      Rewriting a quadratic as a perfect square plus a constant hands you the
+      vertex and extreme value with no calculus at all.
+
+  - node: quant-tools.optimization.quadratic-example
+    hook: >
+      This is the timed drill: hand a two-variable quadratic, produce the
+      exact minimizer and minimum value in under two minutes, every time,
+      mechanically.
+    explanation: >
+      The recipe is always the same four steps. Read the Hessian off the
+      second partials directly — the coefficient of $x_i^2$ doubled on the
+      diagonal, the coefficient of the cross term on the off-diagonal. Check
+      positive definiteness with the $2\times2$ shortcut $a>0$, $ac-b^{2}>0$
+      from Second-order conditions — this single check replaces having to
+      compare against every other point in the plane. Solve the two linear
+      equations $\nabla f=0$ for the minimizer. Then plug the minimizer back
+      into $f$ for the value, or cross-check with the matrix formula
+      $c-\tfrac{1}{2} b'A^{-1}b$.
+
+      What makes this mechanical rather than clever is that steps one and two
+      only ever need to be done once per problem — after that it's solving a
+      $2\times2$ linear system, which is arithmetic, not insight.
+    worked: >
+      Minimize $f(x,y) = 3x^{2}-2xy+3y^{2}+4x-8y$. $\nabla f =
+      (6x-2y+4,\;-2x+6y-8)=0$ gives $y=3x+2$ from the first equation; substituting,
+      $-2x+6(3x+2)-8=0 \Rightarrow 16x=-4 \Rightarrow x^{*}=-1/4$, so
+      $y^{*}=5/4$. The Hessian has rows $(6,-2)$ and $(-2,6)$: $a=6>0$,
+      $ac-b^2=32>0$, positive definite, so this is the global minimum. The
+      value is $f(-1/4,\,5/4) = -5.5$.
+    interview: >
+      Expect exactly this setup cold — a two-variable quadratic with no
+      further structure — and the interviewer is timing whether you skip
+      straight to the linear system instead of narrating the theory.
+    pitfalls: >
+      Skipping the positive-definiteness check and assuming any stationary
+      point of a quadratic is automatically the minimum. Arithmetic slips
+      solving the $2\times2$ system — substitute the answer back into both
+      original gradient equations, not just the one used to eliminate a
+      variable.
+    recap: >
+      Read off the Hessian, confirm positive definiteness, solve the
+      $2\times2$ system, and the minimizer and minimum value fall out as plain
+      arithmetic.
+
+  - node: quant-tools.optimization.least-squares
+    hook: >
+      This is where "minimize a quadratic" and "fit a line" turn out to be the
+      identical three lines of algebra — the reasoning behind every OLS
+      regression a finance interview asks about.
+    explanation: >
+      $S(\beta) = \lVert y-X\beta\rVert^{2}$ expands to
+      $y'y - 2\beta'X'y + \beta'X'X\beta$, which is quadratic in $\beta$ because
+      $y-X\beta$ is affine in $\beta$ and squaring an affine function always
+      produces a quadratic. Matching to the template
+      $\tfrac{1}{2}\beta'A\beta-b'\beta+c$ gives $A=2X'X$ and $b=2X'y$ — and $X'X$
+      is a Gram matrix, always positive semidefinite no matter what $X$ is, so
+      $S$ is convex automatically, with no case-by-case check required the way
+      a generic quadratic needs.
+
+      Positive definiteness — needed for a unique minimizer — holds exactly
+      when $X$ has full column rank; short of that, $X'X$ is only
+      semidefinite and the minimizers form an affine set, matching the
+      degenerate case of Minimizing a quadratic. Setting $\nabla S=0$ gives the
+      normal equations $X'X\beta = X'y$, the linear system you actually solve.
+      Geometrically the fitted values $X\hat\beta$ are the projection of $y$
+      onto the column space of $X$, but you never need that picture to compute
+      $\hat\beta$ — the normal equations alone finish the problem.
+    worked: >
+      Fit $y=\beta_0+\beta_1x$ to $(0,2), (1,3), (2,3), (3,6)$. $X'X$ has rows
+      $(4,6)$ and $(6,14)$ (from $\sum 1$, $\sum x_i$, $\sum x_i^2$), and
+      $X'y = (14, 27)$ (from $\sum y_i$, $\sum x_iy_i$). Solving
+      $4\beta_0+6\beta_1=14$ and $6\beta_0+14\beta_1=27$ gives $\beta_1=1.2$
+      and $\beta_0=1.7$: the fitted line is $y=1.7+1.2x$.
+    interview: >
+      "Why is least squares convex?" wants the Gram-matrix argument —
+      $X'X$ is positive semidefinite for any $X$ — not a case-by-case
+      Hessian check; "derive the normal equations" wants the gradient of the
+      expanded quadratic set to zero.
+    pitfalls: >
+      Assuming a unique $\hat\beta$ exists without checking $X$ has full
+      column rank — collinear regressors leave $X'X$ singular and the
+      minimizer non-unique. Extending the automatic-convexity argument to a
+      different loss function where no Gram-matrix structure backs it up.
+    recap: >
+      Fitting a line is minimizing one convex quadratic in $\beta$, and its
+      first-order condition is the normal equations $X'X\beta=X'y$.
+
+  - node: quant-tools.optimization.lagrange
+    hook: >
+      Whenever "subject to" attaches a clean equality — weights sum to one, a
+      budget is fully spent — Lagrange multipliers turn the constrained problem
+      back into an ordinary first-order condition.
+    explanation: >
+      At a constrained optimum, moving along the constraint surface can't
+      improve $f$ to first order — if it could, you'd move that way and do
+      better while staying feasible, contradicting optimality. So $\nabla f$
+      must have no component tangent to the surface, which means it lies
+      entirely in the space spanned by the constraint gradients
+      $\nabla g_1,\dots,\nabla g_m$ (the surface's normal directions): this is
+      exactly the condition $\nabla f(x^{*}) = \sum_j \lambda_j \nabla
+      g_j(x^{*})$.
+
+      The Lagrangian $L(x,\lambda) = f(x)-\sum_j\lambda_j g_j(x)$ packages this
+      as an ordinary unconstrained stationarity condition: setting every
+      partial of $L$ to zero reproduces the gradient equation plus, from the
+      $\lambda_j$ partials, the constraints themselves. That gives $n+m$
+      equations in the $n$ coordinates and $m$ multipliers — solvable exactly
+      like any other first-order system, once you remember the constraints are
+      part of the system, not an afterthought.
+    worked: >
+      Maximize $f(x,y)=xy$ subject to $x+y=10$. $L=xy-\lambda(x+y-10)$ gives
+      $y-\lambda=0$ and $x-\lambda=0$, so $x=y=\lambda$; the constraint
+      $x+y=10$ then forces $x=y=5$, with maximum value $f(5,5)=25$.
+    interview: >
+      "Maximize this subject to a budget/weight constraint" is a direct cue to
+      write the $n+m$-equation Lagrange system and solve it — don't try to
+      substitute the constraint in by hand unless it's genuinely a one-liner.
+    pitfalls: >
+      Solving $\nabla f=\lambda\nabla g$ for $x$ in terms of $\lambda$ and
+      forgetting to actually impose the constraint equation to pin $\lambda$
+      down. Skipping the regularity check when constraint gradients could be
+      linearly dependent or zero at a candidate point — the method can
+      misidentify the optimum there.
+    recap: >
+      At a constrained optimum, the objective's gradient is a linear
+      combination of the constraint gradients — solve that system together
+      with the constraints.
+
+  - node: quant-tools.optimization.shadow-price
+    hook: >
+      This is where the number $\lambda$ that falls out of a Lagrange system
+      stops being algebra and becomes what a desk means by "the marginal value
+      of one more unit of risk budget."
+    explanation: >
+      Write $V(c)$ for the optimal value as a function of the constraint level,
+      $g(x)=c$. The total derivative $dV/dc$ splits into a direct effect
+      (how $f$ changes with $c$ holding $x$ fixed — zero here, since $c$ only
+      enters through the constraint) and an indirect effect through the moving
+      optimizer $x^{*}(c)$: $dV/dc = \nabla f(x^{*})'\,dx^{*}/dc$. Substituting
+      the stationarity condition $\nabla f(x^{*})=\lambda\nabla g(x^{*})$ gives
+      $dV/dc = \lambda\,\nabla g(x^{*})'dx^{*}/dc$, and differentiating the
+      constraint $g(x^{*}(c))=c$ itself gives $\nabla g(x^{*})'dx^{*}/dc = 1$ —
+      so the indirect effect collapses to exactly $\lambda$. The movement of
+      $x^{*}$ contributes nothing beyond that, because the first-order
+      condition was built to make it vanish.
+
+      That's the envelope theorem in miniature, and it's why $\lambda$ carries
+      units of objective per unit of constraint: it prices exactly how much
+      slack in the constraint is worth, to first order.
+    worked: >
+      Maximize $f(x,y)=xy$ subject to $x+y=c$. The Lagrangian
+      $L=xy-\lambda(x+y-c)$ gives $y=\lambda$ and $x=\lambda$, and the
+      constraint then forces $x=y=c/2$, so $V(c)=c^{2}/4$ and $\lambda=c/2$. At
+      $c=10$, $\lambda=5$ and $V(10)=25$; raising the budget to $c=10.1$ gives
+      $V(10.1)=102.01/4=25.5025$, a gain of about $0.5$ — matching
+      $\lambda\times0.1=0.5$ to first order.
+    interview: >
+      "What does the multiplier mean economically?" is asked constantly around
+      Kelly staking, portfolio risk budgets, and VaR limits — the expected
+      answer is "marginal value of one more unit of the constrained resource,"
+      stated cold.
+    pitfalls: >
+      Quoting a shadow price without stating the sign convention used to write
+      $L$ — $f-\lambda(g-c)$ versus $f-\lambda g$ flips the sign of $\lambda$.
+      Treating $\lambda$ as a fixed constant rather than a function of $c$ —
+      the interpretation is only a first-order, local statement, not a promise
+      that doubling the budget doubles the benefit.
+    recap: >
+      The multiplier equals $dV/dc$: exactly how much the optimal value
+      improves per unit of relaxation in the constraint.
+
+  - node: quant-tools.optimization.lagrange-example
+    hook: >
+      "Nearest point to a plane" and "minimum-variance point on a budget line"
+      are the same computation, and recognizing that pattern instantly beats
+      re-deriving Lagrange from scratch every time it appears.
+    explanation: >
+      Minimizing $\lVert x\rVert^{2}$ subject to a single linear constraint
+      $a'x=c$ always resolves the same way: stationarity gives
+      $2x_i=\lambda a_i$ for every coordinate, so $x=(\lambda/2)a$ — the
+      minimizer is forced to be proportional to $a$ before you even use the
+      constraint. Dotting both sides with $a$ and imposing $a'x=c$ then pins
+      down $\lambda$, giving the closed form $x^{*}=c\,a/\lVert a\rVert^{2}$
+      directly, with no need to re-run the Lagrangian each time this shape of
+      problem appears.
+
+      Spotting "minimize a sum of squares subject to one linear constraint" as
+      this pattern, rather than as a generic Lagrange problem, is what turns a
+      multi-step derivation into a formula lookup.
+    worked: >
+      Minimize $f(x,y)=x^{2}+y^{2}$ subject to $2x+y=10$. With $a=(2,1)$,
+      $c=10$: $\lVert a\rVert^{2}=5$, so $x^{*}=10(2,1)/5=(4,2)$, value
+      $16+4=20$. Direct Lagrange confirms it: $L=x^2+y^2-\lambda(2x+y-10)$
+      gives $x=\lambda$, $y=\lambda/2$, and the constraint
+      $2\lambda+\lambda/2=10$ gives $\lambda=4$, matching $(4,2)$; the shadow
+      price check $V(c)=c^2/5$ gives $V'(10)=4=\lambda$.
+    interview: >
+      "Find the point on this line closest to the origin" is a recurring
+      geometry-flavored Lagrange question — quote the proportional-to-$a$
+      shortcut first, with the full Lagrangian as backup if you're pressed to
+      justify it.
+    pitfalls: >
+      Reporting the squared distance ($20$ here) when the question asked for
+      distance itself ($\sqrt{20}=2\sqrt5$). Sign errors moving the constraint
+      constant to the wrong side of $a'x=c$, which propagates straight into
+      $x^{*}$.
+    recap: >
+      Minimizing a sum of squares subject to one linear constraint always
+      lands on $x^{*}=c\,a/\lVert a\rVert^{2}$, here $(4,2)$ at value $20$.
+
+  - node: quant-tools.optimization.kkt
+    hook: >
+      The moment "subject to" turns into an inequality — a budget that need
+      only be met, a no-short constraint — Lagrange's equality machinery isn't
+      enough, and the sign of the multiplier is exactly what an interviewer
+      probes.
+    explanation: >
+      KKT extends the Lagrangian $L=f+\sum_i\mu_ig_i+\sum_j\lambda_jh_j$ with
+      two new conditions beyond ordinary stationarity and feasibility. Dual
+      feasibility $\mu_i\ge0$ holds because relaxing a binding inequality
+      $g_i(x)\le0$ — loosening the bound — only ever enlarges the feasible set,
+      so the optimal value can only improve, never worsen; the shadow price of
+      an inequality constraint can't be negative the way an equality's sign is
+      a free convention. Complementary slackness $\mu_i\,g_i(x^{*})=0$ says
+      each inequality is either binding, with a nonnegative price attached, or
+      strictly slack, in which case its multiplier is forced to zero because a
+      constraint that doesn't touch the boundary can't be pulling on the
+      gradient balance.
+
+      The practical recipe is to guess which inequalities are active, solve
+      the resulting equality-constrained problem, then verify the guess: check
+      $\mu_i\ge0$ for every guessed-active constraint and feasibility for every
+      guessed-slack one. A failed check means the guess was wrong, not that the
+      method failed.
+    worked: >
+      Minimize $f(x,y)=(x-3)^{2}+(y-3)^{2}$ subject to $x+y\le4$, $x\ge0$,
+      $y\ge0$. The unconstrained minimum $(3,3)$ violates $x+y\le4$, so guess
+      only that constraint binds. With $L=f+\mu(x+y-4)$: stationarity gives
+      $x=y=3-\mu/2$, and the active constraint $x+y=4$ gives $\mu=2$, so
+      $(x,y)=(2,2)$. Check: $\mu=2\ge0$ (valid) and $x,y\ge0$ hold strictly, so
+      those multipliers are correctly $0$ by complementary slackness. Minimum
+      value is $f(2,2)=1+1=2$.
+    interview: >
+      Portfolio problems with a budget and no-short constraints are the
+      standard setting — expect to guess the active set, solve, and defend the
+      guess with $\mu\ge0$ and complementary slackness rather than solving a
+      generic nonlinear program blind.
+    pitfalls: >
+      Getting the required sign of $\mu$ backwards for a maximization or for
+      the opposite inequality direction — always re-derive which sign helps
+      the objective rather than memorizing one sign. Trusting a guessed active
+      set without verifying $\mu\ge0$ and primal feasibility — a failed check
+      means try a different active set, not that the answer stands anyway.
+    recap: >
+      KKT adds nonnegative multipliers and complementary slackness to
+      Lagrange: each inequality either binds with a nonnegative price or sits
+      slack with multiplier zero.
+
+  - node: quant-tools.optimization.flat-optimum
+    hook: >
+      This is why a desk doesn't sweat rounding a stake or a hedge ratio, but
+      does sweat covariance-estimation noise driving huge swings in an
+      "optimal" portfolio.
+    explanation: >
+      At an interior optimum the gradient term of the Taylor expansion
+      vanishes, leaving $f(x^{*}+h) - f(x^{*}) \approx \tfrac{1}{2} h'Hh$: a
+      relative error of size $\varepsilon$ in your choice of $x$ costs order
+      $\varepsilon^{2}$ in the objective, not order $\varepsilon$. That
+      quadratic — not linear — falloff is why inputs to an optimizer can
+      tolerate more slop than the optimizer's own precision suggests: a
+      slightly wrong stake or a rounded hedge ratio gives up very little.
+
+      The same fact runs backward and turns unfriendly: because the objective
+      resists movement of $x$ near the optimum, it's correspondingly
+      uninformative about exactly where $x^{*}$ sits, so noise in the data used
+      to build $f$ — an estimated covariance matrix, say — can move the
+      inferred optimum a long way even though the objective value barely
+      changes. This is precisely why portfolio weights coming out of an
+      optimizer run on noisy covariance estimates are so much less stable than
+      the smoothness of the objective would suggest.
+    worked: >
+      Maximize $f(x) = x(20-x)$: $f'(x)=20-2x=0$ gives $x^{*}=10$,
+      $f(10)=100$. A $30\%$-high input, $x=13$, gives $f(13)=13\cdot7=91$, a
+      loss of $9\%$ — exactly $0.3^{2}$, matching the $\varepsilon^{2}$ scaling
+      precisely because $f$ is exactly quadratic here.
+    interview: >
+      "How sensitive is the optimal value to a small error in your inputs,
+      versus how sensitive is the optimal decision itself?" is the standard
+      framing — the objective is quadratically forgiving, the argmax is not,
+      and the two answers are opposite in character.
+    pitfalls: >
+      Extending the "small errors cost little" comfort to the data that builds
+      $f$ itself — noisy inputs move where the optimum sits, sometimes
+      substantially, precisely because the objective doesn't resist that
+      motion. Assuming the $\varepsilon^{2}$ scaling near a boundary or kink
+      optimum, where the gradient needn't vanish and first-order costs can
+      appear instead.
+    recap: >
+      Near an optimum the objective is quadratically flat — cheap to
+      misjudge — while the location of the optimum itself is correspondingly
+      hard to pin down from noisy data.

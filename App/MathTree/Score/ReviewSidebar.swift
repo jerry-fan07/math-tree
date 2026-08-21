@@ -32,6 +32,9 @@ struct ReviewSidebar: View {
     var onPlace: () -> Void = {}
     /// §6.5's entry point. `nil` in previews, where there is no map to fly.
     var onLearnSubject: ((NodeID) -> Void)?
+    /// §6.6's program, when this tree ships one.
+    var program: Program?
+    var onOpenProgram: (() -> Void)?
     var onClose: () -> Void
 
     private static let upcomingLimit = 8
@@ -45,6 +48,11 @@ struct ReviewSidebar: View {
                 // what happens when placement has been answered and there are no
                 // diagnostics, i.e. the common case.
                 VStack(alignment: .leading, spacing: 22) {
+                    // Above the queue, alone among the sections: D11.7 recorded
+                    // that the app had no notion of "the course I am on" to
+                    // return anyone to, and the program is exactly that — the
+                    // bookmark belongs where the eye lands first.
+                    programSection
                     dueList
                     // Below the queue on purpose: this file's header calls review
                     // surfacing "the loop the product is for", and twelve subject
@@ -77,6 +85,40 @@ struct ReviewSidebar: View {
                     .init(color: theme.railScrimFar.color, location: 1),
                 ],
                 startPoint: .leading, endPoint: .trailing)
+        }
+    }
+
+    // MARK: - Program
+
+    /// §6.6's entry point: where the program's bookmark sits, and one click back
+    /// into the reader. A heading, a sentence, one underlined action — the same
+    /// shape placement takes.
+    @ViewBuilder
+    private var programSection: some View {
+        if let program, let onOpenProgram {
+            let plan = ProgramPlan.compute(
+                spine: program.spine, graph: scores.graph, state: scores.state,
+                at: scores.evaluatedAt, config: scores.config)
+            VStack(alignment: .leading, spacing: 9) {
+                Eyebrow(title: "Program")
+                if let resume = plan.resume, let unit = plan.unit(resume.unit) {
+                    note("Unit \(unit.index + 1) of \(plan.units.count) — \(title(of: unit.id)).")
+                } else if plan.stepCount > 0 {
+                    note("Every step learned. Open it to reread anything.")
+                }
+                HStack(alignment: .firstTextBaseline, spacing: 14) {
+                    TextAction(
+                        title: plan.resume == nil ? "Open" : "Continue",
+                        size: 11.5,
+                        accessibilityHint: "Opens §6.6's program at the bookmark",
+                        action: onOpenProgram)
+                    Text("\(plan.metCount) / \(plan.stepCount)")
+                        .font(Typeface.mono(10))
+                        .foregroundStyle(ThemeStore.shared.theme.eyebrowCount.color)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Rule()
         }
     }
 

@@ -18,6 +18,10 @@ struct ContentView: View {
     @State private var attempt: Attempt?
     /// §5.3's placement flow.
     @State private var isPlacing = false
+    /// §6.6's program, when the tree has one and it is open.
+    @State private var isProgramOpen = false
+    /// The node the program should open at — the panel's "read the lesson" jump.
+    @State private var programTarget: NodeID?
     /// The renderer's zoom band, pushed up when it changes. The map legends are
     /// drawn from mid zoom on, matching the design's frames.
     @State private var band: ZoomBand = .overview
@@ -46,12 +50,16 @@ struct ContentView: View {
                     renderer: renderer, selection: $selection,
                     onToggleSidebar: { isSidebarVisible.toggle() },
                     onEscape: { escape() },
-                    isNavigationSuspended: focus != nil
+                    isNavigationSuspended: focus != nil || isProgramOpen
                 )
                 .ignoresSafeArea()
                 .overlay(alignment: .top) { commandBar(scene: scene, renderer: renderer) }
                 .overlay(alignment: .bottom) { legends }
                 .overlay(alignment: .topLeading) { sidebar(scene: scene, renderer: renderer) }
+                // Under the panel on purpose: selecting a step opens the panel
+                // *over* the reader, so a lesson and its node's history can be
+                // read side by side without leaving the program.
+                .overlay { programOverlay(scene: scene) }
                 .overlay(alignment: .topTrailing) {
                     if let selection, let index = scene.document.index(of: selection) {
                         panel(for: scene.document[index], renderer: renderer)
@@ -87,7 +95,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private func commandBar(scene: GraphScene, renderer: GraphRenderer) -> some View {
-        if focus == nil {
+        if focus == nil, !isProgramOpen {
             CommandBar(
                 document: scene.document,
                 scores: store.scores,
@@ -105,7 +113,7 @@ struct ContentView: View {
     @ViewBuilder
     private var legends: some View {
         let theme = ThemeStore.shared.theme
-        if focus == nil, attempt == nil, !isPlacing, band != .overview {
+        if focus == nil, attempt == nil, !isPlacing, !isProgramOpen, band != .overview {
             HStack(alignment: .bottom) {
                 EdgeLegend()
                 Spacer(minLength: 24)
@@ -141,7 +149,8 @@ struct ContentView: View {
     }
 
     /// Escape closes the topmost thing: the problem sheet, then placement, then the
-    /// node panel, then focus mode — outermost-first, matching what covers what.
+    /// node panel, then the program, then focus mode — outermost-first, matching
+    /// what covers what.
     private func escape() {
         if attempt != nil {
             attempt = nil
@@ -149,6 +158,9 @@ struct ContentView: View {
             isPlacing = false
         } else if selection != nil {
             selection = nil
+        } else if isProgramOpen {
+            withAnimation(.easeInOut(duration: 0.3)) { isProgramOpen = false }
+            programTarget = nil
         } else if focus != nil, let renderer = store.renderer {
             exitFocus(renderer: renderer)
         }
@@ -210,6 +222,34 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Program
+
+    /// §6.6's reader, over the map the way focus mode is. Present only when the
+    /// tree ships a program and there is user state to adapt it to.
+    @ViewBuilder
+    private func programOverlay(scene: GraphScene) -> some View {
+        if isProgramOpen, let scores = store.scores, store.program.isAuthored {
+            ProgramView(
+                program: store.program.program,
+                document: scene.document,
+                scores: scores,
+                target: programTarget,
+                onSelect: { id in selection = id },
+                onExit: {
+                    withAnimation(.easeInOut(duration: 0.3)) { isProgramOpen = false }
+                    programTarget = nil
+                }
+            )
+            .transition(.opacity)
+        }
+    }
+
+    private func openProgram(at target: NodeID? = nil) {
+        programTarget = target
+        selection = nil
+        withAnimation(.easeInOut(duration: 0.3)) { isProgramOpen = true }
+    }
+
     @ViewBuilder
     private func focusOverlay(scene: GraphScene, renderer: GraphRenderer) -> some View {
         if let focus, let scores = store.scores {
@@ -225,7 +265,7 @@ struct ContentView: View {
     }
 
     private var isRailVisible: Bool {
-        isSidebarVisible && focus == nil && store.scores != nil
+        isSidebarVisible && focus == nil && !isProgramOpen && store.scores != nil
     }
 
     /// The review queue and the frontier (§5.4, §4.5). Absent when there is no
@@ -252,6 +292,9 @@ struct ContentView: View {
                 // §6.5's entry point that does not require finding a hub on the
                 // map first: pick the subject by name, get the path.
                 onLearnSubject: { enterFocus(.subject($0), renderer: renderer) },
+                // §6.6's entry point: the program, resumable from the rail.
+                program: store.program.isAuthored ? store.program.program : nil,
+                onOpenProgram: store.program.isAuthored ? { openProgram() } : nil,
                 onClose: { isSidebarVisible = false }
             )
             .frame(width: theme.railWidth)
@@ -278,7 +321,12 @@ struct ContentView: View {
             onFocus: store.scores == nil
                 ? nil
                 : { goal in enterFocus(goal, renderer: renderer) },
-            onReview: { review($0) }
+            onReview: { review($0) },
+            // §6.6's connective tissue: any node on the map, straight to its
+            // lesson in the program.
+            onLesson: store.program.program.lesson(for: node.id) == nil
+                ? nil
+                : { id in openProgram(at: id) }
         )
         .frame(width: theme.panelWidth)
         .padding(.top, focus == nil ? theme.barHeight : 0)

@@ -1,0 +1,681 @@
+unit: quant-programming.randomized
+opening: >
+  Every routine in this unit turns a coin flip into a guarantee a
+  deterministic routine cannot buy at any price: a provably uniform
+  shuffle, a one-pass sample from a stream whose length you never learn, a
+  fair bit manufactured from a biased source (and the reverse), and a sort
+  whose bad case is a property of the dice rather than the data. The
+  throughline is a single primitive reused everywhere — reduce any random
+  draw to a clean, unbiased integer, then account for its expected cost —
+  starting from the two contracts that govern any randomized routine (Las
+  Vegas and Monte Carlo), through shuffling, sampling and rand7-from-rand5,
+  to randomized quicksort's expected comparison count, and closing on why
+  randomizing a worst case is usually the entire point.
+lessons:
+  - node: quant-programming.randomized.las-vegas-monte-carlo
+    hook: >
+      The instant you say "randomized algorithm" in an interview, the next
+      question is "what's the worst case?" — and the honest answer depends
+      entirely on which of these two contracts you built, since "worst"
+      means something different in each.
+    explanation: >
+      There is no free randomness: you are choosing which failure mode the
+      coin flips are allowed to cause. A routine that redraws until some
+      check passes — rejection sampling, a redraw-until-accepted loop,
+      randomized quickselect hunting a pivot — is Las Vegas: it never
+      returns a wrong answer, only, on unlucky coins, a slow one. A routine
+      that spends a fixed budget once and reports a plausible answer —
+      Miller–Rabin's single round, an integral estimated by sampling — is
+      Monte Carlo: it always finishes on time, but with some real,
+      controllable chance the coins were unlucky and it lied.
+
+      The two convert into each other, but not symmetrically. Capping a Las
+      Vegas run at a deadline turns it into a Monte Carlo one, provided you
+      can bound the probability the deadline is missed. Going the other way
+      costs more: turning a Monte Carlo routine into a Las Vegas one needs a
+      separate, cheap way to check its output and retry on failure — no
+      checker, no conversion.
+
+      This is why "what's the worst case" has to be answered by naming the
+      contract first. For Las Vegas, the number that matters is the
+      expected running time, and its worst case over inputs is a worst case
+      of that expectation, because the randomness lives in your coins, not
+      in the input — the input never sees them. For Monte Carlo, the number
+      that matters is the failure probability at a fixed budget, and it
+      falls by adding independent reruns, not by giving one run more time.
+    worked: >
+      Take a Las Vegas routine with expected running time 100 microseconds
+      and cap it at 10 times the mean, 1 millisecond. By a standard tail
+      bound, the chance the true running time exceeds $k$ times its mean is
+      at most $1/k$, so the capped version fails to finish with probability
+      at most $0.1$ — a Monte Carlo algorithm with a fixed 1-millisecond
+      budget and success probability at least $0.9$. Three independent
+      reruns, each capped the same way, push the joint failure probability
+      down to at most $0.1^{3} = 0.001$.
+    interview: >
+      Expect "is this always correct?" and "what happens at the deadline?"
+      as the two questions that pin down which contract you built; naming
+      Las Vegas or Monte Carlo before being asked signals understanding
+      rather than a lucky heuristic. A common follow-up is amplification —
+      how repeated independent runs turn a 90% Monte Carlo guarantee into a
+      99.9% one.
+    pitfalls: >
+      Quoting a Las Vegas algorithm's expected time as though it were a
+      hard bound — an interviewer asking for the worst case wants
+      "unbounded, but rare," not a number. Assuming Monte Carlo failure
+      probability shrinks by giving one run more time — it only shrinks by
+      adding independent runs, not by waiting longer on the one you have.
+    recap: >
+      Las Vegas spends unbounded time to stay always right; Monte Carlo
+      spends a fixed sliver of correctness to stay always on time — name
+      which one you built before naming a worst case.
+
+  - node: quant-programming.randomized.uniform-random-integer
+    hook: >
+      Almost everything later in this unit — shuffling, reservoir sampling,
+      rand7 from rand5 — reduces to one primitive, a uniform integer below
+      $n$, and getting it slightly wrong poisons everything built on it
+      silently.
+    explanation: >
+      The library hands you a uniform draw $r$ on $\{0,\dots,M-1\}$, but
+      what's needed is uniform on $\{0,\dots,n-1\}$. Returning $r \bmod n$
+      looks free but is biased whenever $n$ does not divide $M$: the
+      residues below $M \bmod n$ collect one extra preimage each relative to
+      the rest, so the low end of the range comes out measurably more often
+      than the high end.
+
+      The fix is rejection sampling applied to this exact problem: set
+      $L = M - (M \bmod n)$, the largest multiple of $n$ at or below $M$;
+      draw $r$, redraw while $r \ge L$, and only then return $r \bmod n$.
+      Every one of the $n$ residues now has exactly $L/n$ preimages, so the
+      output is exactly uniform — not approximately, exactly, because the
+      biased tail was discarded rather than smoothed over.
+
+      Cost: acceptance probability is $L/M$, so the expected number of
+      draws before acceptance is $M/L$, bounded above by $1/(1 - n/M)$ —
+      cheap insurance since the loop almost always exits on the first draw
+      when $n \ll M$. This is the master pattern reused everywhere in the
+      unit: restrict a source to a clean sub-range and discard the rest,
+      never approximate a boundary.
+    worked: >
+      Need a uniform integer below $n = 3\times10^{9}$ out of
+      $M = 2^{32} \approx 4.295\times10^{9}$. Naive mod gives the residues
+      $0$ through $1{,}294{,}967{,}295$ two preimages each and the rest only
+      one — the bottom 43% of the range comes out twice as likely as the
+      top 57%. Rejecting the top $M \bmod n = 1{,}294{,}967{,}296$ draws
+      leaves exactly $L = 3\times10^{9}$ accepted values with one preimage
+      each: acceptance is $L/M \approx 0.6985$, so the expected number of
+      draws before acceptance is $M/L \approx 1.432$.
+    interview: >
+      Asked as "how do you get a fair die roll from a PRNG" — interviewers
+      listen for you to name the bias mechanism (unequal preimage counts)
+      before reaching for a fix, and for rejection rather than a
+      floating-point normalization, which reintroduces rounding error at
+      the boundary.
+    pitfalls: >
+      $r \bmod n$ looks fine for small $n$ or $n$ near a power of two, where
+      $M \bmod n$ is $0$ or tiny — testing only with $n=2$ or $n=256$ hides
+      the bug completely. Sampling a float via $r/M$ and scaling by $n$
+      carries the same bias in a sneakier form, plus new rounding error at
+      the edges.
+    recap: >
+      Never take $r \bmod n$ on a raw draw; reject everything above the
+      largest multiple of $n$ at or below $M$, and only then take mod $n$.
+
+  - node: quant-programming.randomized.fisher-yates
+    hook: >
+      This is the shuffle every interviewer expects verbatim, and the one
+      line separating it from the wrong version everyone half-remembers is
+      the range of the draw at each step.
+    explanation: >
+      Loop $i$ from $n-1$ down to $1$: draw $j$ uniform on $\{0,\dots,i\}$
+      using the uniform-integer primitive, and swap $a[i]$ with $a[j]$. The
+      range shrinks with $i$ — that shrinking range is the entire mechanism.
+
+      Uniformity by induction: at the first step, $j$ is uniform on all $n$
+      positions, so the element that lands in the last slot is a uniformly
+      random choice among all $n$ elements. What remains in positions
+      $0,\dots,n-2$ is now exactly the same problem one size smaller, so by
+      induction it is a uniform shuffle of the other $n-1$ elements. Every
+      step contributes a free, independent, uniform choice among exactly as
+      many options as slots left to fill — that one-to-one correspondence
+      between draws and remaining freedom is what forces exact uniformity;
+      counting choice sequences gives the same fact, since there are
+      $n \cdot (n-1) \cdots 2 = n!$ equally likely sequences and the map to
+      permutations is a bijection.
+
+      Cost: $O(n)$ time, $O(1)$ extra space, exactly $n-1$ draws. The naive
+      version breaks the mechanism by drawing from the full range every
+      time instead of the shrinking one — the next lesson works out exactly
+      how badly.
+    worked: >
+      Trace $n=4$ from $[A,B,C,D]$: at $i=3$ draw $j=1$ and swap, giving
+      $[A,D,C,B]$; at $i=2$ draw $j=2$, a no-op swap, unchanged; at $i=1$
+      draw $j=0$ and swap, giving $[D,A,C,B]$. Three draws for $n=4$,
+      matching $n-1$, and this particular sequence of choices had
+      probability $(1/4)(1/3)(1/2) = 1/24$ — exactly $1/4!$, the same as
+      every other final order.
+    interview: >
+      Asked as "shuffle an array" or "implement a random.shuffle" —
+      interviewers listen for the descending loop and the shrinking draw
+      range, then almost always follow with "prove it's uniform," where the
+      induction (last slot uniform over all $n$, the rest recurses) is the
+      fast answer.
+    pitfalls: >
+      Drawing $j$ from the full range $\{0,\dots,n-1\}$ at every step
+      instead of $\{0,\dots,i\}$ — it compiles, runs, and looks shuffled,
+      but is measurably biased. Special-casing $j = i$ as though a self-swap
+      needs different handling changes the distribution; it's just a no-op
+      and must be left in.
+    recap: >
+      Walk backward from the last slot, drawing each swap partner from the
+      shrinking range $\{0,\dots,i\}$: $n-1$ draws, $O(1)$ space, exactly
+      $1/n!$ per permutation.
+
+  - node: quant-programming.randomized.naive-shuffle-bias
+    hook: >
+      The naive shuffle passes every casual test — the array looks
+      scrambled — which is exactly why this proof matters: the bias is
+      invisible by eye and only shows up as a divisibility argument.
+    explanation: >
+      The naive version draws $j$ from the full range $\{0,\dots,n-1\}$ at
+      every one of $n$ steps, rather than the shrinking range Fisher–Yates
+      uses. That gives $n^{n}$ equally likely execution paths, against
+      Fisher–Yates's $n!$.
+
+      For the result to be uniform, all $n!$ permutations would need equal
+      shares of those $n^{n}$ paths, which requires $n!$ to divide $n^{n}$.
+      For every $n \ge 3$ it doesn't: there is always a prime $p$ with
+      $n/2 < p < n$, and such a $p$ divides $n!$ (it appears as one of the
+      factors $1,\dots,n$) but cannot divide $n^{n}$, since $n^{n}$'s only
+      prime factors are the primes dividing $n$ itself, and $p$ is too big
+      to be one of those. So $n!$ fails to divide $n^{n}$, and no
+      distribution built from $n^{n}$ equal atoms can land exactly $1/n!$
+      on every permutation.
+
+      The general lesson: any routine assembled from independent uniform
+      choices creates a fixed number of equally likely paths, and only
+      target distributions whose denominator divides that path count are
+      even reachable — if it doesn't divide, the mismatch is provable, not
+      just measurable, and no amount of code tweaking fixes it; only
+      changing the draws themselves, as Fisher–Yates does, can.
+    worked: >
+      Divisibility alone doesn't force large bias — check $n=2$: the naive
+      loop draws $(j_0,j_1)$ uniformly from $4$ paths. Enumerating all four
+      from $[A,B]$: $(0,0)\to[B,A]$, $(0,1)\to[A,B]$, $(1,0)\to[A,B]$,
+      $(1,1)\to[B,A]$ — each order lands exactly $2$ times out of $4$,
+      probability $1/2$ each, exactly fair. Consistent with the theorem:
+      $2! = 2$ divides $2^{2} = 4$, so nothing rules out uniformity here,
+      and it's achieved; the failure is specific to $n \ge 3$, where a
+      prime between $n/2$ and $n$ always exists and blocks it.
+    interview: >
+      Usually a code snippet — a loop from $i=0$ to $n-1$ with a full-range
+      draw — with "what's wrong with this shuffle." Interviewers want the
+      divisibility argument, not a vague "it doesn't look random."
+    pitfalls: >
+      Assuming any code that touches every position with some randomness
+      must be uniform — path-counting is necessary, not a formality.
+      Testing bias empirically at $n=2$ can mislead, since (as the worked
+      example shows) $n=2$ happens to be exactly uniform; the failure only
+      shows up for $n \ge 3$.
+    recap: >
+      The naive full-range shuffle has $n^{n}$ equally likely paths, and
+      $n!$ fails to divide $n^{n}$ for every $n \ge 3$, so no full-range
+      shuffle there can be uniform.
+
+  - node: quant-programming.randomized.sample-k-of-n
+    hook: >
+      Interviewers sometimes narrow the shuffle question to "I only need
+      $k$ random items, not the whole permutation" — running full
+      Fisher–Yates for $k=5$ out of a million-item array is correct but the
+      wrong answer.
+    explanation: >
+      When $n$ is known, two techniques beat a full shuffle. Partial
+      Fisher–Yates runs only the last $k$ steps of the same algorithm and
+      returns those slots — the uniformity proof is unchanged, since it's
+      just a prefix of the same swap sequence — costing $k$ draws instead
+      of $n-1$, though it still needs the full $n$-element array
+      materialized for random access.
+
+      When $k \ll n$, a second technique avoids touching the array at all:
+      sample indices with replacement into a hash set, redrawing on
+      collision. The $m$-th distinct item needs, in expectation, $n/(n-m+1)$
+      draws (a geometric wait, since a fresh draw collides with an existing
+      item with probability $(m-1)/n$), so $k$ items cost
+      $n(H_n - H_{n-k})$ draws in total — a telescoping harmonic sum.
+
+      This is the birthday-paradox mechanic in reverse: collisions are rare
+      while few items are collected, so the loop is nearly free for
+      $k \ll n$, but as $k$ approaches $n$ the same mechanic that makes
+      birthday collisions surprising makes this loop degrade to the coupon
+      collector, costing $\Theta(n\log n)$ draws — exactly where the
+      partial shuffle's flat $k$ draws wins outright.
+    worked: >
+      Take $k=50$ out of $n=10^{4}$: the expected total draws are
+      $n(H_n - H_{n-k}) \approx 10000 \times \ln(10000/9950)
+      \approx 10000 \times 0.005013 \approx 50.13$ — about $50$ items cost
+      about $50.13$ draws, a $0.25\%$ overhead from collisions, still
+      essentially free.
+    interview: >
+      Phrased as "give me $k$ random samples without duplicates from a huge
+      $n$" — interviewers listen for you to ask whether $k$ is small
+      relative to $n$ (hash-set rejection) or comparable to $n$ (partial
+      shuffle), since one technique alone misses the regime where it
+      degrades.
+    pitfalls: >
+      Reaching for hash-set rejection when $k$ is a sizable fraction of
+      $n$ — it silently becomes the coupon collector, $\Theta(n\log n)$
+      draws instead of $\Theta(n)$. Partial Fisher–Yates needs random
+      access to swap into the tail, so it doesn't help if the $n$ items only
+      arrive as a stream — that is reservoir sampling's job.
+    recap: >
+      For $k \ll n$ reject collisions into a hash set at barely more than
+      $k$ draws; as $k \to n$ switch to running only the last $k$ steps of
+      Fisher–Yates.
+
+  - node: quant-programming.randomized.reservoir
+    hook: >
+      The stream never tells you its length, memory can't hold it, and
+      every item still needs an equal shot — this is the technique that
+      makes that possible in one pass.
+    explanation: >
+      For $k=1$: hold the first item, and on seeing item $i$, replace the
+      held item by it with probability $1/i$. Claim: after $i$ items, each
+      is held with probability $1/i$. Base case $i=1$ is immediate. If it
+      holds at $i$, a held item survives to $i+1$ with probability
+      $(1/i)(1 - 1/(i+1)) = 1/(i+1)$, and the new arrival is held with
+      probability $1/(i+1)$ by construction — every one of the $i+1$ items
+      ends up equally likely, so the claim carries forward.
+
+      General $k$: keep the first $k$, then for $i > k$ accept item $i$
+      with probability $k/i$ and evict a uniformly random incumbent if
+      accepted; the same induction gives every item probability $k/i$ of
+      being in the reservoir after $i$ arrivals. The mental model is
+      shrinking odds: the later an item arrives, the harder it has to fight
+      to get in, and it fights exactly hard enough that fairness holds no
+      matter when the stream happens to end — which is the whole point,
+      since you never know in advance.
+
+      Cost: the expected number of replacements is
+      $k(H_n - H_k) \approx k\ln(n/k)$, since acceptance probability $k/i$
+      shrinks as $i$ grows, so nearly all the churn happens early in a long
+      stream.
+    worked: >
+      For $k=3$ held out of a stream of $n=20$: expected replacements are
+      $k(H_{20}-H_{3}) = 3\times(3.598 - 1.833) \approx 3 \times 1.764
+      \approx 5.29$ — of the $17$ candidates past the first $3$, only about
+      $5$ actually bump an incumbent, even though every one of them had a
+      real, shrinking chance to.
+    interview: >
+      The "sample a random line from a file too large to hold" question —
+      interviewers listen for the acceptance probability $k/i$ (or $1/i$
+      for $k=1$) stated cold, and for the one-line induction that proves
+      fairness, not just the code.
+    pitfalls: >
+      Using $i$ as a 0-indexed counter and forgetting acceptance is $k$ over
+      the 1-indexed arrival count — an off-by-one that breaks uniformity as
+      quietly as a modulo-bias bug. Evicting a fixed incumbent instead of a
+      uniformly random one destroys the guarantee even though the
+      acceptance probabilities stay correct.
+    recap: >
+      Accept the $i$-th arrival with probability $k/i$ and evict a
+      uniformly random incumbent: every item ends up in the sample with
+      probability exactly $k/n$, with $n$ never known in advance.
+
+  - node: quant-programming.randomized.weighted-sampling
+    hook: >
+      "Pick a random element with weight $w_i$" is asked constantly and
+      coded wrong constantly — the fix is to stop thinking in probabilities
+      and start thinking in an integer CDF you binary-search.
+    explanation: >
+      Build prefix sums $W_j = w_1 + \dots + w_j$, draw a uniform integer
+      $r$ on $\{0,\dots,W_m-1\}$ using the uniform-integer primitive, and
+      binary-search for the first $j$ with $r < W_j$. This is
+      inverse-transform sampling done entirely in integers: the CDF is a
+      step function, and the draw's position among the steps is the sampled
+      index — no floating-point cutoff can ever misplace a boundary draw.
+
+      Cost is $O(m)$ setup and $O(\log m)$ per pick. When weights change
+      between draws — an item removed after being sampled, a reweighting —
+      hold the prefix sums in a Fenwick tree instead of a flat array, so
+      both the point-update and the prefix lookup the binary search needs
+      stay $O(\log m)$.
+
+      For a stream of unknown length with unequal weights, reservoir
+      sampling's plain $k/i$ acceptance doesn't generalize, since items
+      aren't exchangeable; instead attach each item $i$ a key
+      $U_i^{1/w_i}$ for a fresh uniform $U_i$, and keep the $k$ largest keys
+      in a heap — weighted reservoir sampling, one pass, $O(k)$ memory.
+      Every distribution problem in this unit reduces to the same move:
+      turn the target into a CDF over integers and binary-search a uniform
+      draw against it.
+    worked: >
+      Weights $4, 2, 5, 1$ give prefix sums $W = 4, 6, 11, 12$; a draw of
+      $r=7$ on $\{0,\dots,11\}$ searches to the first $j$ with $r < W_j$,
+      which is $j=3$ (since $7 < 11 = W_3$ but $7 \ge 6 = W_2$) — item $3$,
+      whose weight-$5$ share is exactly the range $\{6,\dots,10\}$, five of
+      the twelve equally likely draws, matching $5/12$.
+    interview: >
+      Phrased as "sample proportional to weight" — interviewers listen for
+      prefix sums plus binary search, not a linear scan, and for you to ask
+      whether weights are static or change, which decides array versus
+      Fenwick tree.
+    pitfalls: >
+      Using floating-point cumulative probabilities compared against a
+      float draw — boundary draws can land on the wrong side of a rounding
+      error; keep the CDF in integers. A linear scan through weights per
+      draw is $O(m)$, correct for one pick but the wrong answer once the
+      interviewer says "now do this a million times."
+    recap: >
+      Prefix-sum the weights into an integer CDF and binary-search a
+      uniform draw against it — a Fenwick tree keeps updates $O(\log m)$,
+      and the key $U^{1/w}$ extends the idea to a stream.
+
+  - node: quant-programming.randomized.rand7-from-rand5
+    hook: >
+      Maybe the single most common randomization question asked cold — and
+      the part people miss under pressure isn't the grid trick, it's
+      proving no rejection-free version can exist.
+    explanation: >
+      Two independent rand5 calls $a, b$ give $v = 5(a-1)+b$ uniform on
+      $\{1,\dots,25\}$ — the uniform-integer machinery applied at the
+      smallest scale: combine two independent uniforms into a bigger
+      uniform range. Since $25$ is not a multiple of $7$, the same
+      modulo-bias problem reappears, and the fix is the same one already
+      built: rejection.
+
+      Keep $v \le 21$ (three full copies of $1,\dots,7$, since $21=3\times7$)
+      and map via $((v-1) \bmod 7)+1$, giving each of the seven outputs
+      exactly three preimages; reject $\{22,\dots,25\}$ and redraw the
+      whole pair. Acceptance is $21/25$, so the number of grid draws needed
+      is geometric with mean $25/21$.
+
+      No fixed number of rand5 calls, however large, can build rand7
+      without ever rejecting: $k$ rand5 calls produce $5^{k}$ equally likely
+      outcomes, and $7$, being prime and not equal to $5$, never divides any
+      power of $5$ — so $7$ can never evenly partition $5^{k}$ atoms. This
+      is the exact same divisibility obstruction as the naive-shuffle
+      proof, for a different pair of numbers: rejection is structurally
+      forced by which primes divide the generator's range, not a symptom of
+      a clumsy implementation.
+    worked: >
+      Build rand3 from rand4 the same way: two calls index a $4\times4$
+      grid, $v=4(a-1)+b$ uniform on $\{1,\dots,16\}$; the largest multiple
+      of $3$ at or below $16$ is $15$, so accept $v \le 15$, map via
+      $((v-1)\bmod 3)+1$, and reject only $v=16$. Acceptance is $15/16$, so
+      the expected number of grids is $16/15$, and since each grid costs
+      two rand4 calls, the expected rand4 calls per rand3 output is
+      $32/15 \approx 2.13$.
+    interview: >
+      Always "implement rand7 given rand5" or a similar pair — interviewers
+      listen for the grid construction and the rejection step first, then
+      for the impossibility argument as the follow-up separating memorized
+      code from understanding.
+    pitfalls: >
+      Rejecting only $v=25$ instead of the whole block $\{22,\dots,25\}$ —
+      that leaves uneven preimage counts instead of exactly three each; the
+      block to reject is $25 \bmod 7 = 4$ wide, not $1$. Discarding just one
+      of the two rand5 calls on rejection instead of redrawing the whole
+      pair silently correlates consecutive outputs.
+    recap: >
+      Two source calls build a grid of size (source range) squared; keep
+      the largest multiple of the target range, map by mod, reject the
+      remainder — and the rejection never disappears when the target
+      doesn't divide a power of the source.
+
+  - node: quant-programming.randomized.von-neumann
+    hook: >
+      You're handed a coin nobody has calibrated, and asked to produce
+      something provably fair without ever learning $p$ — this is the trick
+      that does it.
+    explanation: >
+      Flip in pairs. Report heads on HT, tails on TH, discard HH and TT and
+      retry. Since $\Pr(\text{HT}) = pq = \Pr(\text{TH})$ for every
+      $p \in (0,1)$ — the product $pq$ doesn't care which factor is called
+      $p$ — conditioning on landing in the usable set makes the two outputs
+      exactly equally likely, $1/2$ each, whatever $p$ is. That symmetry is
+      the entire load-bearing step: you never estimate $p$, because the
+      fact that makes the trick work doesn't depend on its value.
+
+      This is a Las Vegas contract: once it returns, the output is exactly
+      correct, and only the running time is random. A pair is usable with
+      probability $2pq$, so the number of pairs needed is geometric with
+      mean $1/(2pq)$, and at two flips per pair, the expected flips per
+      fair bit produced is $1/(pq)$.
+
+      The cost curve says where the fairness was hiding: at $p=1/2$ the
+      cost is minimized at $4$ flips per bit — already worse than the
+      theoretical floor of $2$, so this scheme is simple, not optimal — and
+      as $p \to 0$ or $p \to 1$, $pq \to 0$ and the cost blows up, because a
+      lopsided coin carries almost no information per flip about which rare
+      ordering occurred.
+    worked: >
+      At $p=0.9$: $pq = 0.9\times0.1=0.09$, so a pair is usable with
+      probability $2pq=0.18$, giving a geometric mean of
+      $1/0.18\approx5.56$ pairs, or about $11.11$ flips per fair bit —
+      nearly three times the cost at $p=0.6$, showing how fast the price
+      rises as the coin skews.
+    interview: >
+      "Generate a fair coin flip from a biased one, $p$ unknown" —
+      interviewers listen for the pairing-and-discarding construction and
+      for you to state why it's exactly fair, not approximately fair (the
+      $pq=qp$ symmetry), plus the expected-cost follow-up, $1/(pq)$ flips.
+    pitfalls: >
+      Assuming you need to estimate $p$ first — the entire point is that
+      you don't; estimating $p$ and correcting is a different, worse
+      algorithm. Reusing one flip from a rejected pair as the start of the
+      next pair, instead of discarding both, breaks independence between
+      pairs and voids the fairness proof.
+    recap: >
+      Flip in pairs, output HT as heads and TH as tails, discard ties:
+      exactly fair for every $p$, at an expected $1/(pq)$ flips, which
+      blows up as the coin skews toward certainty.
+
+  - node: quant-programming.randomized.biased-from-fair
+    hook: >
+      The reverse of von Neumann's trick — a biased bit from only fair
+      flips — costs exactly $2$ flips on average no matter how skewed the
+      target, and the construction is worth having cold.
+    explanation: >
+      Write $p$ in binary as $0.b_1b_2b_3\dots$. Draw fair bits
+      $c_1, c_2, \dots$ lazily, one at a time, and stop at the first index
+      $i$ where $c_i \ne b_i$, returning $1$ if $c_i=0$ and $0$ if $c_i=1$.
+      This is deciding $U < p$ for $U = 0.c_1c_2\dots$ uniform on $[0,1)$,
+      compared digit by digit and stopped the instant a comparison digit
+      differs — every digit where $c_i$ matched $b_i$ contributes nothing
+      to the answer, so there's no reason to have generated it in advance.
+
+      Cost: at each digit there's an independent $1/2$ chance $c_i \ne b_i$
+      and the process stops, since each $c_i$ is a fresh fair bit unrelated
+      to $b_i$ — so the number of digits examined is geometric with mean
+      $2$, for every $p$, including irrational ones, since the comparison
+      needs only finitely many digits with probability $1$. That the cost
+      doesn't depend on $p$ at all is the load-bearing fact, unlike von
+      Neumann's reverse direction, where cost blows up at extreme $p$.
+
+      For rational $p = a/b$ there's a cheaper exact route using the
+      uniform-integer primitive directly: draw a uniform integer on
+      $\{0,\dots,b-1\}$ by rejection and report whether it's below $a$ — one
+      integer draw, no lazy bit comparison, useful whenever $p$ is already
+      given as a fraction rather than a real number to expand.
+    worked: >
+      Take $p = 5/8 = 0.101$ in binary ($b_1=1, b_2=0, b_3=1$, all further
+      digits $0$). Stopping at digit $1$ needs $c_1=0$ (probability $1/2$),
+      returning $1$. Reaching digit $2$ needs $c_1=1$ and stopping there
+      needs $c_2=1$ (since $b_2=0$), returning $0$ — contributes nothing.
+      Reaching digit $3$ needs $c_1=1, c_2=0$ (probability $1/4$) and
+      stopping there needs $c_3=0$, returning $1$: contributes $1/8$. Every
+      digit past the third has $b_i=0$, so any later stop needs $c_i=1$,
+      which always returns $0$. Total: $\Pr(\text{output}=1) = 1/2+1/8=5/8$,
+      exactly $p$.
+    interview: >
+      "Flip a coin with probability $p$ of heads using only a fair coin" —
+      interviewers listen for the binary-expansion framing rather than a
+      loop that estimates $p$, and for the clean fact that expected cost is
+      $2$ flips regardless of $p$.
+    pitfalls: >
+      Generating all of $U$'s bits up front instead of lazily — for
+      irrational $p$ that never terminates, and it's wasted work regardless.
+      Mixing up the return rule: it's the value of the differing bit that
+      decides the output ($c_i=0 \to$ output $1$), an easy detail to flip by
+      accident.
+    recap: >
+      Compare a lazily-drawn fair-bit stream to $p$'s binary expansion digit
+      by digit and stop at the first mismatch: exactly $\Pr = p$, at an
+      expected $2$ flips regardless of $p$.
+
+  - node: quant-programming.randomized.pi-simulation
+    hook: >
+      Writing the four lines is the easy half of this question — the real
+      test is whether you can say how you'd test a function whose whole
+      point is that it returns something different every time.
+    explanation: >
+      Draw $u, v$ uniform on $(0,1)$, increment a hit counter when
+      $u^{2}+v^{2} \le 1$ — comparing squares directly, never taking a
+      square root, since the comparison to $1$ doesn't need it — and return
+      $4$ times hits over $n$. Constant memory, no stored points, one pass:
+      the simplicity is the point, and it's exactly the Monte Carlo
+      contract — a fixed budget $n$, an answer correct only up to sampling
+      error, not exactly.
+
+      The genuinely interesting half: how do you test a function not
+      supposed to return the same value twice? Two honest routes. Seed the
+      generator and pin the exact output as a regression test — this checks
+      "did I break the code," not "is the algorithm right," and only means
+      anything if the seeded stream is deterministic across runs. Or test
+      the distribution: the estimator's standard error at $n$ samples is
+      about $1.64/\sqrt{n}$, so asserting $|\hat\pi - \pi|$ stays under some
+      multiple of it means accepting the assertion itself has a known, tiny
+      failure probability, rather than pretending to certainty.
+
+      The general pattern for testing any randomized routine: split it into
+      deterministic pieces — here, the hit predicate and the counter — and
+      unit-test those exactly, then test the randomized composition only
+      statistically, never with an exact assertion on a random output.
+    worked: >
+      At $n = 40{,}000$: the same tolerance scales to
+      $4 \times 1.64/\sqrt{40000} = 6.56/200 = 0.0328$, so the regression
+      assertion becomes $|\hat\pi - \pi| \le 0.0328$, still failing with
+      probability below $10^{-4}$ — about five times looser than the
+      tolerance at $n=10^{6}$, since the sample size shrank by a factor of
+      $25$ and the standard error scales like $1/\sqrt{n}$.
+    interview: >
+      "Estimate pi with Monte Carlo," often immediately followed by "now
+      how would you test this" — interviewers listen for rejecting an exact
+      assertion in favor of a seeded regression test or a statistical
+      tolerance, and for separating the deterministic predicate from the
+      randomized loop.
+    pitfalls: >
+      Taking a square root to compare distances to the unit circle — an
+      unnecessary operation, since $u^{2}+v^{2}\le1$ compares exactly the
+      same way without it. Writing a test that asserts the output equals
+      $\pi$ to some fixed precision without stating $n$ or a failure
+      probability — that's a coin flip on the run, not a test.
+    recap: >
+      Two uniforms, no square root, one hit counter — and the estimator's
+      standard error, $1.64/\sqrt{n}$ scaled by $4$, is what turns "test a
+      random function" into an honest, quantified assertion.
+
+  - node: quant-programming.randomized.quicksort-expected
+    hook: >
+      The interviewer's real question is rarely "sort an array" — it's
+      "prove randomized quicksort is $n\log n$ in expectation," and the
+      whole proof is one indicator variable summed over pairs, not a
+      recurrence.
+    explanation: >
+      Fix the sorted order $z_1 < \dots < z_n$ and define
+      $X_{ij} = \mathbf{1}\{z_i \text{ and } z_j \text{ are compared}\}$ for
+      $i<j$. Total comparisons $C = \sum_{i<j} X_{ij}$, since two keys
+      compare at most once — after a comparison, one becomes the pivot and
+      they never meet again. Linearity gives
+      $\mathbb{E}[C] = \sum_{i<j}\Pr(X_{ij}=1)$, sidestepping any need to
+      reason about the recursive structure directly.
+
+      The load-bearing computation: $z_i$ and $z_j$ are compared exactly
+      when the first pivot ever drawn from the block $\{z_i,\dots,z_j\}$ is
+      $z_i$ or $z_j$ itself — any interior pivot separates them onto
+      opposite sides forever. Since that first pivot is uniform among the
+      block's $j-i+1$ members (the uniform-integer primitive again),
+      $\Pr(X_{ij}=1) = 2/(j-i+1)$.
+
+      Summing by gap length $g=j-i$: there are $n-g$ pairs at gap $g$, each
+      contributing $2/(g+1)$, and the sum collapses to
+      $2(n+1)H_n - 4n \approx 2n\ln n$, about $1.39\,n\log_2 n$. Whenever a
+      cost decomposes into "does this ever happen to this pair," summed
+      over all pairs, indicator variables plus linearity beat tracking the
+      recursion directly — the same move reappears for inversions and for
+      collisions in hashing.
+    worked: >
+      At $n=10$: $\mathbb{E}[C] = 2\times11\times H_{10} - 40$. With
+      $H_{10} \approx 2.9290$, that's $22\times2.9290 - 40 \approx 64.44 -
+      40 = 24.44$ expected comparisons — versus $\lceil\log_2 10!\rceil=22$
+      as the information-theoretic minimum, so randomized quicksort runs
+      about $1.11$ times that floor at this size.
+    interview: >
+      "Why is randomized quicksort $O(n\log n)$ in expectation" —
+      interviewers listen for the pairwise-indicator setup and the specific
+      claim (first pivot from the pair's block is one of the two), not a
+      recursion-based argument; reciting $2(n+1)H_n-4n$ cold is a strong
+      signal.
+    pitfalls: >
+      Double-counting by forgetting a pair compares at most once — that
+      fact is exactly what makes the pairwise sum equal the total.
+      Misstating the event as "$z_i$ or $z_j$ is the pivot of the whole
+      array" instead of "the first pivot drawn from their contiguous block"
+      — a much stronger, easy-to-loosen condition.
+    recap: >
+      Sum, over every pair, the probability the first pivot from their
+      block is one of the two endpoints ($2/(j-i+1)$): linearity turns that
+      into $2(n+1)H_n - 4n \approx 1.39\,n\log_2 n$ comparisons in
+      expectation.
+
+  - node: quant-programming.randomized.randomness-against-adversaries
+    hook: >
+      This is the one-sentence answer to "why randomize at all," and it
+      should come before any of the machinery in this unit — it's rarely
+      about the average case.
+    explanation: >
+      The real payoff of randomizing isn't a better average — it's deleting
+      the idea of a bad input altogether. Deterministic quicksort with a
+      fixed pivot rule is $\Theta(n^{2})$ precisely on already-sorted data —
+      exactly the input a production system is most likely to see, since
+      real data is rarely adversarially scrambled but is very often already
+      ordered. With a random pivot, no fixed input is bad: the earlier
+      comparison-count proof never referenced the input's order, only that
+      the pivot draws are uniform, so the worst case became a property of
+      unlucky coins, not of the data.
+
+      The same move defends against an actual adversary, not just an
+      unlucky ordering. A hash table on a fixed, published hash function can
+      be deliberately attacked — an attacker who knows the function
+      constructs keys that all collide, degrading every lookup to $O(n)$, a
+      real, exploited denial-of-service class. The fix is identical: draw
+      the hash function's seed at random once per process, so the attacker,
+      who never sees the coins, cannot target them; "expected $O(1)$
+      lookup" becomes true again because it's now a claim about a randomly
+      chosen function, not the one particular function that shipped.
+
+      The pattern generalizes past sorting and hashing: random tie-breaking
+      in queueing or matching prevents systematic starvation of whichever
+      element would otherwise always lose ties, and random restarts in
+      search stop a single deterministic strategy from being trapped by
+      whatever structure happens to fool it. The substitution is always the
+      same — replace "is this input bad," a question an adversary or
+      unlucky distribution controls, with "were these coins bad," a
+      question only you control and can drive down by rerunning.
+    interview: >
+      "Why would you ever randomize an algorithm" or "why does a hash table
+      need a random seed" — interviewers listen for the
+      adversarial/already-sorted-input framing specifically; "it's faster
+      on average" alone misses the actual motivation being tested.
+    pitfalls: >
+      Answering "why randomize" with only "better average case" — true, but
+      it misses worst-case-over-inputs versus worst-case-over-coins, which
+      is the actual point. Assuming a seed drawn once at process start is
+      enough against an adversary who can observe outputs over many
+      requests and infer it — some systems need the seed rotated, not just
+      randomized once.
+    recap: >
+      Randomizing swaps "some inputs are catastrophic," a fact an adversary
+      or unlucky distribution can force, for "some coin flips are unlucky,"
+      a fact only the algorithm controls and can rerun away.

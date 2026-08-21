@@ -1,0 +1,285 @@
+unit: quant-tools.recurrences
+opening: >
+  This unit turns sequential randomness into algebra: once you can write next in terms of previous, an "expected number of tosses" or "how many arrangements avoid ..." question stops being a puzzle and becomes a linear system with a mechanical solution. It runs in two halves — first the algebra of linear recurrences with constant coefficients, from the first-order fixed point through characteristic roots, repeated roots, and matching a particular solution to the forcing term, anchored by Fibonacci as the running example; then first-step analysis, the probabilistic use of the same idea, which turns conditioning on one step into a system of equations for an expected value or a probability, worked through the classic pattern-waiting races. By the end, seeing a process that restarts in a recognisable state should trigger naming the states and writing the equations before anything else.
+lessons:
+  - node: quant-tools.recurrences.recurrence-relation
+    hook: >
+      Naming the order and counting the initial values correctly is the entire setup step of every "expected time until ..." interview question — get that wrong and the rest of the algebra solves the wrong problem.
+    explanation: >
+      A recurrence is a promise that $a_n$ can be computed from a bounded window of earlier terms, and the order $k$ is the width of that window — the number of facts you must remember as you step forward. Splitting a recurrence into a linear part with constant coefficients $c_1,\dots,c_k$ and a forcing term $g(n)$ matters because it licenses superposition: the machinery built for the homogeneous case (where $g\equiv 0$) becomes reusable for the general case by adding one particular fix-up, a pattern the rest of this unit leans on repeatedly.
+
+      The uniqueness fact — that an order-$k$ recurrence plus $k$ initial values pins the sequence down completely — is the practically useful half of the definition. It licenses guess-and-check: if you can produce any closed form that satisfies the recurrence and reproduces the first $k$ terms, you are done, because no other sequence can agree with the recurrence and those $k$ terms without being identical forever. Every closed-form technique later in this unit is really a disciplined way to make that guess.
+
+      The interview skill is rarely the algebra; it's translating a word problem into $a_n$ in terms of $a_{n-1},\dots$ in the first place. Naming what $n$ counts — tosses so far, cards dealt, steps taken — before writing any equation is what makes everything after it mechanical.
+    worked: >
+      Classify $a_n = 4a_{n-1} - 4a_{n-2}$: it is order $2$, linear, constant-coefficient, and homogeneous. Given $a_0 = 1$ and $a_1 = 4$, the recurrence forces $a_2 = 4(4) - 4(1) = 12$ — and by uniqueness, no other order-$2$ sequence sharing those two starting values can ever diverge from this one.
+    interview: >
+      Rarely asked as "define a recurrence relation" — instead it's buried in a word problem, and the interviewer listens for you to name an index, state what $a_n$ depends on, and count how many boundary values you'll need before touching algebra.
+    pitfalls: >
+      Supplying the wrong number of initial values — one for an order-$2$ recurrence, or three for an order-$1$ one — leaves the system under- or over-determined. Treating coefficients that actually depend on $n$ as if they were the fixed constants this definition requires breaks every characteristic-root technique that follows.
+    recap: >
+      An order-$k$ linear recurrence plus $k$ initial values determines a sequence completely, which is what makes guessing and verifying a closed form a legitimate strategy.
+
+  - node: quant-tools.recurrences.first-order-recurrence
+    hook: >
+      This is the one-line solve you should have cold: any $a_n = ra_{n-1}+c$ appearing in an interview — depreciation, a discounted expected value, a simple population model — collapses to a fixed point and a decay rate, no series summation required.
+    explanation: >
+      The trick is a change of variables that makes the constant term disappear. If $x^\ast$ is a value that maps to itself under the recursion, $x^\ast = rx^\ast + c$, then subtracting this identity from $a_n = ra_{n-1}+c$ cancels every $c$ and leaves $a_n - x^\ast = r(a_{n-1}-x^\ast)$ — the deviation from $x^\ast$ obeys a pure geometric recursion, which you already know how to solve. Solving $x^\ast = rx^\ast+c$ gives the fixed point $x^\ast = c/(1-r)$, valid whenever $r \ne 1$.
+
+      Once you have $a_n - x^\ast = r^{n}(a_0-x^\ast)$, the qualitative picture is free: $|r|<1$ means the deviation shrinks geometrically to $0$, so $a_n \to x^\ast$ regardless of the start, and the sign of $r$ tells you whether the approach is smooth (positive $r$) or oscillates around $x^\ast$ (negative $r$). $|r|>1$ means the deviation blows up, and $r=1$ is the one case with no fixed point at all — there the recursion is just adding $c$ every step, giving the arithmetic answer $a_n = a_0 + nc$.
+
+      Recognize the shape $a_n = ra_{n-1}+c$ whenever a quantity moves a fixed fraction toward some target each step and gains a fixed increment — "fixed fraction toward a target" is the fixed point in disguise.
+    worked: >
+      Solve $a_n = -\tfrac12 a_{n-1} + 9$ with $a_0 = 0$. The fixed point is $x^\ast = 9/(1-(-\tfrac12)) = 6$, so $a_n = 6\left(1-(-\tfrac12)^{n}\right)$. Direct iteration confirms it: $a_1 = 9$, $a_2 = 4.5$, $a_3 = 6.75$ — oscillating around $6$ from both sides exactly as the negative ratio predicts, converging geometrically at rate $1/2$.
+    interview: >
+      Shows up as "a machine's value depreciates by 20% then gets serviced back up by a fixed amount each year — what's the long-run value?" or as an expected value satisfying exactly this shape. The interviewer wants the fixed point produced immediately, not a term-by-term unrolling.
+    pitfalls: >
+      Applying $x^\ast = c/(1-r)$ at $r=1$ divides by zero — that case needs the separate arithmetic formula, not a limit of this one. Missing that a negative $r$ makes the sequence oscillate rather than approach monotonically leads to a wrong qualitative description even when the formula is right.
+    recap: >
+      Subtract the fixed point $c/(1-r)$ and the recursion becomes purely geometric, giving $a_n = r^{n}(a_0-x^\ast)+x^\ast$, convergent whenever $|r|<1$.
+
+  - node: quant-tools.recurrences.linear-recurrence
+    hook: >
+      This is the general engine behind every closed-form sequence in this unit, including Fibonacci; the interview tell is a homogeneous recursion with constant coefficients where the answer wants a formula in $n$, not a table of values.
+    explanation: >
+      The ansatz $a_n = x^{n}$ works because the recursion is linear and shift-invariant: plugging it into $a_n = c_1a_{n-1}+\dots+c_ka_{n-k}$ and dividing every term by the common factor $x^{n-k}$ turns a statement about sequences into a single polynomial equation in $x$, the characteristic equation $x^{k} = c_1x^{k-1}+\dots+c_k$. Each root $r_i$ hands you one genuine solution sequence $r_i^{n}$, and because the recursion is linear, any combination $A_1r_1^{n}+\dots+A_kr_k^{n}$ solves it too — superposition is exactly why this works.
+
+      With $k$ distinct roots you have $k$ free constants $A_i$, matching exactly the $k$ initial values a recurrence of this order needs; plugging $n=0,1,\dots,k-1$ into the general solution turns those initial values into a linear system for the $A_i$. For large $n$, the root of largest modulus swamps the rest, so the long-run growth rate is set entirely by that dominant root.
+
+      A complex-conjugate pair of roots doesn't break anything; it contributes a real oscillating piece, $\rho^{n}\cos(n\theta)$ and $\rho^{n}\sin(n\theta)$ for a pair of modulus $\rho$ and argument $\theta$, since the imaginary parts of the two conjugate terms cancel once combined with the right constants.
+    worked: >
+      Solve $a_n = 5a_{n-1}-6a_{n-2}$ with $a_0=1$, $a_1=1$. The characteristic equation $x^2-5x+6=0$ factors as $(x-2)(x-3)=0$, roots $2$ and $3$, so $a_n = A\cdot2^{n}+B\cdot3^{n}$. The initial values give $A+B=1$ and $2A+3B=1$, solving to $A=2$, $B=-1$, so $a_n = 2\cdot2^{n}-3^{n}$. Checking $n=3$: the formula gives $2\cdot8-27=-11$, matching direct iteration $a_2=-1$, $a_3=5(-1)-6(1)=-11$.
+    interview: >
+      "Find a closed form for $a_n = \dots$" with constant coefficients is answered by writing the characteristic equation immediately, not by computing terms and guessing a pattern. The interviewer listens for the ansatz $a_n=x^n$ stated as the reason the polynomial appears at all.
+    pitfalls: >
+      Forgetting to fit the constants $A_i$ to the initial values leaves an answer with free parameters, not the actual sequence — the characteristic roots alone never determine it. Dividing by $x^{n-k}$ silently assumes $x\ne0$; if $0$ is genuinely a root it needs separate handling.
+    recap: >
+      Substituting $a_n=x^n$ turns a constant-coefficient recursion into its characteristic polynomial, and distinct roots combine as $a_n=\sum A_ir_i^{n}$ with constants fixed by the initial values.
+
+  - node: quant-tools.recurrences.repeated-roots
+    hook: >
+      A double root is the trap in "solve this recursion" questions — writing $a_n=Ar^n+Br^n$ for a repeated root $r$ gives only one genuine degree of freedom where two are needed, and the fix is a factor of $n$, not a second exponential.
+    explanation: >
+      Two copies of $r^{n}$ are not two independent solutions — they're the same sequence twice, so a repeated root can't be handled by simply doubling up the distinct-roots ansatz. The fix is that a root of multiplicity $m$ contributes the family $r^{n}, nr^{n}, n^{2}r^{n},\dots,n^{m-1}r^{n}$, all genuinely independent, bundled as $(A_0+A_1n+\dots+A_{m-1}n^{m-1})r^{n}$.
+
+      The bookkeeping is the way to remember this correctly rather than guess: a root of multiplicity $m$ must supply exactly $m$ independent solutions so that the total across every root always equals $k$, the order — exactly the number of initial conditions available to pin the constants down. Miscounting the multiplicity throws off this balance.
+
+      The smallest instance is worth keeping as an anchor: $a_n=2a_{n-1}-a_{n-2}$ has characteristic equation $(x-1)^2=0$, a double root at $1$, giving $a_n=A_0+A_1n$ — the arithmetic sequences are exactly the double-root-at-$1$ case, a useful sanity check whenever a repeated-root computation looks unfamiliar.
+    worked: >
+      Solve $a_n=4a_{n-1}-4a_{n-2}$ with $a_0=1$, $a_1=8$. The characteristic equation $x^2-4x+4=0$ is $(x-2)^2=0$, a double root at $2$, so $a_n=(A_0+A_1n)2^{n}$. Matching initial values: $A_0=1$, and $(A_0+A_1)2=8$ gives $A_1=3$, so $a_n=(1+3n)2^{n}$. At $n=3$: $(1+9)\cdot8=80$, matching direct iteration $a_2=4(8)-4(1)=28$, $a_3=4(28)-4(8)=80$.
+    interview: >
+      "The characteristic equation has a repeated root — what now?" directly checks whether you know to multiply by $n$ rather than declare the solution under-determined; it often hides inside a recursion deliberately engineered to have $(x-r)^2$ as a factor.
+    pitfalls: >
+      Writing $a_n=(A_0+A_1)r^n$ instead of $(A_0+A_1n)r^n$ collapses two constants into one and loses a genuine degree of freedom. For multiplicity $m>2$, forgetting the higher powers of $n$ up to $n^{m-1}$ under-supplies solutions relative to the order.
+    recap: >
+      A root of multiplicity $m$ contributes $(A_0+A_1n+\dots+A_{m-1}n^{m-1})r^{n}$, keeping the solution count equal to the recursion's order.
+
+  - node: quant-tools.recurrences.particular-solution
+    hook: >
+      Every inhomogeneous recursion is solved by this general-plus-particular split, and the resonance case — where the forcing term accidentally matches a homogeneous solution — is what interviewers use to check you're not just pattern-matching blindly.
+    explanation: >
+      Linearity is what makes the split legal: if $a_n^{(p)}$ is any single sequence satisfying $a_n=c_1a_{n-1}+\dots+c_ka_{n-k}+g(n)$, and $a_n^{(h)}$ solves the homogeneous version with $g\equiv0$, then their sum solves the full equation, and every solution arises this way — subtracting any two solutions of the full equation leaves a solution of the homogeneous one. The whole problem reduces to finding one particular solution and adding the general homogeneous family already known from characteristic roots.
+
+      Guessing the particular solution's shape from $g(n)$'s shape works because constants, polynomials, and exponentials are each closed under the recursion's linear combination of shifted copies: a constant guess stays constant after shifting, a degree-$d$ polynomial guess stays degree $d$, and $Ab^{n}$ stays proportional to $b^n$. Substituting and matching coefficients pins down the guess's own constants directly, before touching the homogeneous constants at all.
+
+      Resonance is the case where the guess already solves the homogeneous equation — $b$ equals a characteristic root, or $g$ is constant while $1$ is itself a root — and then the guess produces $0=g(n)$ rather than useful information. Multiplying the guess by $n$ (and again if the resonance is doubled) breaks the degeneracy the same way it did for repeated characteristic roots.
+    worked: >
+      Solve $a_n=2a_{n-1}+2^{n}$ with $a_0=1$. The homogeneous root is $2$, and the forcing term $2^{n}$ shares that root — resonance — so guess $a_n^{(p)}=An\cdot2^{n}$. Substituting: $An2^{n}=2A(n-1)2^{n-1}+2^{n}=A(n-1)2^{n}+2^{n}$, so $A[n-(n-1)]2^{n}=2^{n}$ gives $A=1$. The general solution is $a_n=C\cdot2^{n}+n\cdot2^{n}$, and $a_0=1$ gives $C=1$, so $a_n=(1+n)2^{n}$. At $n=3$: $(4)(8)=32$, matching direct iteration $a_1=2(1)+2=4$, $a_2=2(4)+4=12$, $a_3=2(12)+8=32$.
+    interview: >
+      "Solve $a_n=\dots+g(n)$" with a specific forcing term wants the shape of the guess named before any algebra — constant, matching-degree polynomial, or $Ab^n$ — and the interviewer specifically listens for whether you catch resonance rather than substituting a guess that silently gives $0=g(n)$.
+    pitfalls: >
+      Guessing a plain $Ab^{n}$ when $b$ is already a characteristic root produces an identity with no solution for $A$ — the multiply-by-$n$ fix is not optional there. Fitting the homogeneous constants before finding the particular solution's own constants tangles the two unnecessarily.
+    recap: >
+      The general solution is homogeneous plus particular; guess the particular piece in the shape of the forcing term, multiplying by $n$ whenever that guess collides with a homogeneous solution.
+
+  - node: quant-tools.recurrences.boundary-conditions
+    hook: >
+      A correctly solved recursion with the wrong boundary values is a wrong answer that looks completely finished — this is the step interviewers probe by asking "what's $a_0$, and why exactly that?"
+    explanation: >
+      The first habit is counting: an order-$k$ recursion needs exactly $k$ conditions, and once a problem has multiple interacting states, each one needs its own equation, so the count of unknowns and the count of conditions must match before you try to solve anything. The second habit is sourcing the numbers from the problem's own structure rather than the algebra — a state where the goal has already been reached has $\mathbb{E}=0$ remaining steps, a state from which the goal is provably unreachable has probability $0$, and for counting problems the empty configuration usually counts as exactly one arrangement, so $a_0=1$ is the default rather than $a_0=0$.
+
+      The third habit catches the most errors: boundary states often obey a genuinely different equation from the interior ones, because a move available in the interior simply doesn't exist at the edge. Writing the interior recursion at $n=0$ or at an edge state and hoping it still holds is the classic failure — the edge needs its own equation, derived from what can actually happen there, not inherited from the general pattern.
+    worked: >
+      Tilings of a $1\times n$ strip using $1\times1$ and $1\times2$ tiles satisfy $a_n=a_{n-1}+a_{n-2}$ (condition on whether the last cell is a single tile or the tail of a domino), but the boundary values come from the problem, not the recursion: the empty strip has exactly one tiling, so $a_0=1$, and a length-$1$ strip has exactly one tiling, so $a_1=1$. Iterating: $a_2=2$, $a_3=3$, $a_4=5$, $a_5=8$ — eight tilings of a $1\times5$ strip.
+    interview: >
+      "What are your boundary conditions, and where do they come from?" is asked directly after you write a recursion, and a vague "the initial values" answer fails it — the interviewer wants the specific state-by-state reasoning behind each number.
+    pitfalls: >
+      Assuming $a_0=0$ by default for a counting problem is wrong whenever the empty configuration is itself a valid arrangement. Applying the interior recursion at an edge state missing one of the interior's available moves silently produces an equation that doesn't describe that state at all.
+    recap: >
+      Count the conditions the recursion's order demands, read their values off the problem's absorbing and edge states directly, and never assume the interior equation also holds at the boundary.
+
+  - node: quant-tools.recurrences.fibonacci
+    hook: >
+      Fibonacci is the running example the rest of this unit's algebra gets tested against, and Binet's formula — not just the recursion — is what interviewers actually want when they ask for "a formula for the $n$-th Fibonacci number."
+    explanation: >
+      Fibonacci is the smallest interesting instance of the characteristic-root machinery: substituting $a_n=x^n$ into $F_n=F_{n-1}+F_{n-2}$ gives $x^2=x+1$, whose two roots are the golden ratio $\varphi=(1+\sqrt5)/2\approx1.618$ and its conjugate $\psi=(1-\sqrt5)/2\approx-0.618$. Matching the initial values $F_1=F_2=1$ to the general solution $A\varphi^n+B\psi^n$ produces Binet's formula, $F_n=(\varphi^{n}-\psi^{n})/\sqrt5$ — an irrational-looking expression that always evaluates to an integer.
+
+      It's usable for fast estimation because $|\psi|<1$, so $\psi^n\to0$ and the second term becomes negligible almost immediately; $F_n$ is exactly the nearest integer to $\varphi^{n}/\sqrt5$ for every $n\ge1$. That's also why the ratio of consecutive terms converges to $\varphi$: Fibonacci grows geometrically at rate $1.618$ per step, not linearly and not exponentially with any other base.
+
+      Every other order-$2$ recursion of the form $a_n=a_{n-1}+a_{n-2}$ shares this exact pair of characteristic roots regardless of its initial values — only the constants $A,B$ change, so recognizing the shape $a_n=a_{n-1}+a_{n-2}$ should trigger $\varphi$ and $\psi$ immediately, without rederiving the characteristic equation each time.
+    worked: >
+      Estimate $F_{10}$ via Binet without the recursion: $\varphi^{10}\approx122.9919$, and dividing by $\sqrt5\approx2.23607$ gives $\approx55.0036$. Rounding to the nearest integer gives $55$, matching the true value exactly.
+    interview: >
+      "Give a closed-form formula for the $n$-th Fibonacci number" wants Binet's formula produced from the characteristic equation, not recited from memory; a fast-estimation version, "roughly how big is $F_{30}$," wants $\varphi^{30}/\sqrt5$ used directly rather than iterating thirty steps.
+    pitfalls: >
+      Using $F_1=F_2=1$ versus an $F_0=0,F_1=1$ indexing convention shifts every subscript by one — confirm which convention a problem uses before quoting a specific term. Dropping the $\psi^n$ term entirely rather than just rounding is only valid because it's small, not because it's exactly zero.
+    recap: >
+      Fibonacci's characteristic roots are $\varphi=(1+\sqrt5)/2$ and its conjugate, giving Binet's formula and geometric growth at rate $\varphi\approx1.618$ per step.
+
+  - node: quant-tools.recurrences.no-consecutive-heads
+    hook: >
+      "Count binary strings avoiding a bad pattern" is one of the most common counting-by-recursion questions asked, and the reflex is conditioning on the first symbol, exactly the way first-order recursions get built.
+    explanation: >
+      Conditioning on the first toss splits the counting problem cleanly: if it's a tail, whatever follows just needs to be a valid length-$(n-1)$ string on its own, contributing $a_{n-1}$; if it's a head, the next toss is forced to be a tail (or the string ends), and the two together leave a valid length-$(n-2)$ string behind them, contributing $a_{n-2}$. Adding these gives $a_n=a_{n-1}+a_{n-2}$ — the Fibonacci recursion, but with its own boundary values $a_1=2$, $a_2=3$ rather than Fibonacci's own, which shifts the indexing to $a_n=F_{n+2}$.
+
+      The alternate derivation by direct counting is worth keeping because it generalizes further: laying down the $n-k$ tails first creates $n-k+1$ gaps to drop $k$ non-adjacent heads into, giving $\binom{n-k+1}{k}$ strings with exactly $k$ heads, and summing over every valid $k$ must recover the same total as the recursion — a genuine cross-check, since both are counting the identical set of strings.
+
+      The pattern to recognize: any "no two adjacent [something]" counting question, not just heads in coin tosses, reduces to this same first-symbol conditioning and lands on a Fibonacci-shifted count.
+    worked: >
+      For $n=6$: the recursion gives $a_6=F_8=21$ out of $2^6=64$ total strings, probability $21/64\approx0.328$. The binomial cross-check: $\binom{7}{0}+\binom{6}{1}+\binom{5}{2}+\binom{4}{3}=1+6+10+4=21$, matching exactly.
+    interview: >
+      "How many length-$n$ binary strings have no two consecutive $1$s" is the canonical phrasing; the interviewer listens for the first-symbol conditioning producing $a_n=a_{n-1}+a_{n-2}$ live, and for correctly stating the answer is $F_{n+2}$, not $F_n$.
+    pitfalls: >
+      Misplacing the Fibonacci index shift — quoting $F_n$ instead of $F_{n+2}$ — gives numbers close to but wrong for small $n$. Getting the boundary values $a_1=2$, $a_2=3$ wrong (rather than Fibonacci's own $F_1=F_2=1$) propagates an off-by-a-constant error through every later term.
+    recap: >
+      Conditioning on the first toss gives $a_n=a_{n-1}+a_{n-2}=F_{n+2}$ for strings avoiding two consecutive heads — $21$ of $64$ strings at $n=6$.
+
+  - node: quant-tools.recurrences.first-step-analysis
+    hook: >
+      This is the single most reused technique in the whole quant-interview probability toolkit: almost every "expected number of steps" or "probability of reaching a goal" question is exactly this recipe wearing different clothes.
+    explanation: >
+      The move is to condition on the outcome of the very next step and let the same unknown reappear on the right-hand side, because after one step a process that restarts in a recognisable situation is, probabilistically, back at square one — this is the tower property applied to the first move, not an approximation. Naming one unknown per distinct state is the setup: $E_s$ for the expected remaining steps from state $s$, or $p_s$ for the probability of some fixed target outcome starting from $s$.
+
+      The two equation shapes differ in one place worth memorizing precisely: $E_s=1+\sum_t\Pr(s\to t)E_t$ carries an explicit $+1$, because every step taken costs one unit of time regardless of where it lands, while $p_s=\sum_t\Pr(s\to t)p_t$ carries no additive constant at all, because a probability only cares about the eventual endpoint, not how many steps it took. Confusing these two forms — adding a $1$ to a probability equation, or forgetting it in an expectation equation — is a common and easy-to-miss error.
+
+      Once every state has its equation, the known values at absorbing states go in, and what remains is pure linear algebra: back-substitute where the transitions allow it, or solve simultaneously otherwise.
+    worked: >
+      A mouse starts in room $A$, which leads to $B$ or $C$ with equal probability; $B$ leads to cheese (absorbing success) or back to $A$, each with probability $\tfrac12$; $C$ leads to a trap (absorbing failure) or back to $A$, each with probability $\tfrac12$. Let $p_X$ be the probability of reaching cheese from room $X$. Then $p_B=\tfrac12(1)+\tfrac12p_A$, $p_C=\tfrac12(0)+\tfrac12p_A$, and $p_A=\tfrac12p_B+\tfrac12p_C$. Substituting: $p_A=\tfrac12\left(\tfrac12+\tfrac12p_A\right)+\tfrac12\left(\tfrac12p_A\right)=\tfrac14+\tfrac12p_A$, so $p_A=\tfrac12$.
+    interview: >
+      "What's the expected number of steps until..." or "what's the probability this process ends in state X before state Y" are both first-step analysis; the interviewer wants the equation for a generic state written down, with the $+1$ or its absence justified explicitly, before any solving happens.
+    pitfalls: >
+      Writing an expectation equation without the $+1$, or a probability equation with a stray constant added, produces plausible-looking equations that solve to the wrong numbers. Forgetting to give every reachable state its own unknown — collapsing two states with different futures into one — under-specifies the system.
+    recap: >
+      Condition on the first step, write $E_s=1+\sum_t\Pr(s\to t)E_t$ or $p_s=\sum_t\Pr(s\to t)p_t$, impose the known boundary values, and solve the resulting linear system.
+
+  - node: quant-tools.recurrences.first-head
+    hook: >
+      This is the fastest possible derivation of a geometric random variable's mean, and interviewers use it specifically to see whether you reach for one first-step equation instead of summing an infinite series live.
+    explanation: >
+      Every toss costs one unit of time no matter what happens next, which is exactly the $+1$ in a first-step expectation equation; with probability $p$ that toss is a head and the process stops, and with the remaining probability $1-p$ the coin is memoryless — the very next toss faces exactly the same waiting problem as the first one did, so the same unknown $E$ reappears unchanged on the right. That gives $E=1+(1-p)E$ directly, with no case-by-case unrolling required.
+
+      Solving is one line: $E-(1-p)E=1$, so $pE=1$, giving $E=1/p$. This is the entire content of "the mean of a geometric distribution is $1/p$," derived without ever writing $\sum_{k\ge1}kp(1-p)^{k-1}$ — the first-step equation is strictly faster and generalizes immediately to any restart-on-failure waiting-time problem, not just coins.
+
+      The template to recognize: any process where a single trial either ends things or resets you exactly to the start reduces to $E=1+(1-\Pr[\text{success}])E$, regardless of what the trial physically is.
+    worked: >
+      Each day, independently, there is a $15\%$ chance of rain. The expected number of days until the first rainy day satisfies $E=1+0.85E$, so $0.15E=1$ and $E=1/0.15=20/3\approx6.67$ days.
+    interview: >
+      "Roll a die until you get a six — what's the expected number of rolls?" is answered immediately with $1/p=6$ via this one-line equation, not by summing the geometric series. A dressed-up version, applying to job applications or repeated trials, is the identical structure.
+    pitfalls: >
+      This only works because the failure outcome genuinely resets you to the exact starting state — if failure changes your situation, such as partial progress toward a longer pattern, the same unknown can't reappear unchanged and a richer state system is needed instead. Forgetting to divide by $p$ and reporting $E=1-p$ or similar is an easy mechanical slip under time pressure.
+    recap: >
+      $E=1+(1-p)E$ solves to $E=1/p$ — no series needed, and it is the template for any single-trial-resets-you waiting time.
+
+  - node: quant-tools.recurrences.state-equations
+    hook: >
+      Choosing too coarse a state space is the most common silent failure in multi-state problems — the equations still solve, they just answer a different question than the one asked, because two situations with different futures got merged into one.
+    explanation: >
+      A state has to capture everything about the present that's relevant to the future — the length of a partial pattern match, a walk's current position, what's left in a deck — precisely so that, once you know the state, the past can be forgotten entirely, which is what lets first-step analysis apply state by state. Once the states are chosen correctly, what remains is bookkeeping: exactly one unknown and one equation per state, solved either by back-substitution from states adjacent to the absorbing end, or by simultaneous elimination when the transitions loop back on themselves.
+
+      Two checks catch setup errors before they propagate into wrong numbers. First, the count of equations must equal the count of unknowns — if it doesn't, some state was missed or double-defined. Second, every expected time should come out at least $1$ and should move in the direction the problem's structure implies as the state improves — an expected time that's smaller from a worse state than a better one signals a setup error, not a genuine surprise.
+
+      The classic failure is choosing states too coarsely: if two situations lead to genuinely different futures — "one head so far" versus "two heads so far" when chasing three in a row — they are different states and need separate unknowns, even if they look similar at a glance.
+    worked: >
+      On a triangle of three positions, a walker moves to each of the other two positions with probability $\tfrac12$ each step. Let $E_2$, $E_3$ be the expected further steps to reach position $1$ starting from $2$ or $3$. By symmetry $E_2=E_3=E'$, and $E'=1+\tfrac12(0)+\tfrac12E'$ (one step, either landing on $1$ or back at the symmetric partner state), giving $E'=2$. The expected return time to position $1$, including the first step away, is $1+E'=3$.
+    interview: >
+      "Set up the states for this problem" is often asked explicitly, before any solving — the interviewer wants to hear what makes the future depend on the state alone, and how many unknowns that implies, as a check on the setup before the algebra starts.
+    pitfalls: >
+      Merging two states with different futures — because they happen to have equal expected values in some special case, or just for convenience — produces a system with fewer equations than the problem actually has degrees of freedom. Skipping the check that every expected time is at least $1$ lets an arithmetic slip through undetected.
+    recap: >
+      Pick states so the future depends only on the present, write one equation per state, solve by back-substitution or elimination, and check every expected time is at least $1$ and moves the right direction.
+
+  - node: quant-tools.recurrences.hh-vs-ht
+    hook: >
+      This is the interview's favorite "your intuition is wrong" question — two equally likely two-toss patterns have waiting times that differ by $50\%$, and the reason is entirely about what a failed attempt destroys.
+    explanation: >
+      Both patterns need exactly two states to track: no useful progress, or "the last toss was the pattern's first symbol." The asymmetry between $HH$ and $HT$ comes down to what a wrong toss does to that progress. Chasing $HH$, being in the progress state and then tossing a tail erases everything — the next useful head has to come from scratch, resetting all the way to "no progress." Chasing $HT$, being in the progress state and tossing another head is not a failure in the same sense — you're still exactly one head deep, still in the same progress state, so nothing is lost.
+
+      This is why $HT$ finishes sooner even though both patterns have identical probability $1/4$ on any fixed pair of tosses: $HH$'s self-overlap (its own prefix matching its own suffix) means a near-miss can be partially reused as if the pattern were starting over, while $HT$ has no such overlap, so every wrong toss costs nothing beyond the toss itself.
+
+      The two-state equations make this precise rather than just plausible, and the method extends immediately to biased coins and longer patterns by the same reasoning — track only how far into the pattern you currently are, and let a bad toss return you to whichever earlier state actually matches what's now been seen.
+    worked: >
+      Chase $HH$ with a coin biased at $p=1/3$ for heads. Let $E_H$ be the expected further tosses with one head banked, $E_S$ with none: $E_H=1+\tfrac13(0)+\tfrac23E_S$, and $E_S=1+\tfrac13E_H+\tfrac23E_S \Rightarrow \tfrac13E_S=1+\tfrac13E_H \Rightarrow E_S=3+E_H$. Substituting: $E_H=1+\tfrac23(3+E_H)=3+\tfrac23E_H$, so $\tfrac13E_H=3$ and $E_H=9$, giving $E_S=12$ tosses expected from scratch — twice the fair-coin answer of $6$, since a rarer head makes every reset costlier.
+    interview: >
+      "Which takes longer on average, waiting for $HH$ or waiting for $HT$?" tests whether you reach for the two-state equations rather than guessing they're equal because the patterns are equally probable — the interviewer wants the overlap explanation stated in words, not just the numbers $6$ and $4$.
+    pitfalls: >
+      Assuming two patterns with equal single-toss probability must have equal waiting times ignores that waiting time depends on overlap structure, not just probability. Setting up the $HH$ states but writing $HT$'s transition as if a repeated head also resets progress is the specific error that erases the asymmetry the question is testing for.
+    recap: >
+      $HH$ takes $6$ tosses on average against $HT$'s $4$, because a failed $HH$ attempt wipes out all progress while a failed $HT$ attempt keeps it.
+
+  - node: quant-tools.recurrences.pattern-overlap
+    hook: >
+      Once you've solved two or three of these state systems by hand, this is the shortcut that lets you write down the expected waiting time for any fair-coin pattern by inspection, no equations required.
+    explanation: >
+      Lining up the numbers from the state-equation method reveals a pattern: the expected wait is a sum of $2^{k}$, one term for every length $k$ at which the pattern's own first $k$ symbols coincide with its last $k$ symbols, including the trivial full match at $k=n$, which is always present and contributes the dominant term $2^{n}$. $HH$ matches at $k=1$ (both single-symbol slices are $H$) and trivially at $k=2$, giving $2+4=6$; $HT$ matches only trivially at $k=2$, giving $4$.
+
+      The mechanism behind the rule is that a self-overlap is a way for the process to reset only part way rather than all the way to zero — every extra $k$ at which the pattern overlaps itself is another opportunity for a near-miss to be salvaged instead of wasted, and each one adds its own $2^{k}$ to the total wait. That's why $k$ heads in a row, which overlaps itself at every length from $1$ to $k$, accumulates to $2^{k+1}-2$.
+
+      For a biased coin the same accounting generalizes: $HH$'s wait becomes $(1+p)/p^{2}$ and $HT$'s becomes $1/(pq)$, with $q=1-p$ — each pattern's own overlap structure gives it its own formula, so these two do not extend automatically to other patterns of the same length. The rigorous justification, via a team of gamblers betting on the pattern, belongs to the martingales toolkit, but the $2^{k}$ counting rule itself is usable immediately.
+    worked: >
+      Apply the rule to $HTHT$: check $k=1$ (first symbol $H$ versus last symbol $T$ — no match), $k=2$ (first two $HT$ versus last two $HT$ — match), $k=3$ (first three $HTH$ versus last three $THT$ — no match), and the trivial $k=4$. Only $k=2$ and $k=4$ contribute: $4+16=20$ tosses expected on average to see $HTHT$.
+    interview: >
+      "Without setting up equations, what's the expected wait for $HHTH$?" tests whether the self-overlap shortcut is available on demand — the interviewer listens for the overlap check done symbol by symbol, not a guessed number.
+    pitfalls: >
+      Forgetting the trivial full-pattern term at $k=n$ undercounts every pattern, since it's always present regardless of overlap. Checking overlap incorrectly — comparing the wrong slices, or suffix against suffix instead of prefix against suffix — silently produces the wrong sum.
+    recap: >
+      Expected wait for a fair-coin pattern equals the sum of $2^{k}$ over every length at which its own prefix matches its own suffix, including the trivial full length — $20$ tosses for $HTHT$.
+
+  - node: quant-tools.recurrences.three-in-a-row
+    hook: >
+      This is the natural three-state extension of the two-state pattern problems, and the doubling-plus-two growth in $2,6,14$ is worth recognizing on sight rather than rederiving from the equations every time.
+    explanation: >
+      With states $0,1,2$ tracking the current run of heads, each state's equation has the same shape: one toss is spent regardless of outcome, a head advances the run by one (or finishes it, at state $2$), and a tail sends the run all the way back to state $0$. That "back to zero" behavior is exactly what makes the growth from $E_0$ to $E_1$ to $E_2$ compound rather than add — every level of progress wiped out means paying for the entire climb again, not just the one toss that failed.
+
+      Solving by back-substitution from $E_2$ downward — $E_2=1+\tfrac12(0)+\tfrac12E_0$, then $E_1=1+\tfrac12E_2+\tfrac12E_0$, then $E_0=1+\tfrac12E_1+\tfrac12E_0$ — gives $E_2=8$, $E_1=12$, $E_0=14$. The general formula this generates for $k$ heads in a row on a fair coin is $2^{k+1}-2$, matching $2,6,14$ for $k=1,2,3$, and for a biased coin with head probability $p$ it becomes $1/p+1/p^{2}+\dots+1/p^{k}$, reflecting that each additional required head is rarer than the last.
+    worked: >
+      For a coin biased at $p=1/3$, three heads in a row take $1/p+1/p^2+1/p^3=3+9+27=39$ tosses on average — far more than the fair-coin answer of $14$, since every one of the three required heads is individually three times rarer.
+    interview: >
+      "Expected number of flips to see three heads in a row" is meant to be answered via the three-state system with back-substitution, and a well-prepared answer names the $2^{k+1}-2$ pattern unprompted after producing the number $14$.
+    pitfalls: >
+      Solving the states in the wrong order — trying to isolate $E_0$ before expressing $E_1$ and $E_2$ in terms of it — tangles the algebra unnecessarily; back-substituting from the state closest to completion is far cleaner. Applying the fair-coin formula $2^{k+1}-2$ to a biased coin gives a wrong answer; the biased case needs the $1/p+\dots+1/p^k$ form.
+    recap: >
+      Three heads in a row take $14$ tosses on average for a fair coin, part of the $2^{k+1}-2$ ladder $2,6,14,\dots$ that comes from each failed run wiping out all prior progress.
+
+  - node: quant-tools.recurrences.pattern-race
+    hook: >
+      "Which of two equally likely patterns tends to appear first" is a standard non-transitivity trap, and the fix is the same first-step conditioning used everywhere else in this unit, applied to a race rather than a single wait.
+    explanation: >
+      Racing two patterns needs states that track just enough recent history to know how close each pattern is to completing, and the win probability from each state satisfies the no-additive-constant form of first-step analysis, since only which pattern finishes first matters, not how long it takes. The absorbing (pattern-just-completed) states are known outright: $1$ if this pattern just won, $0$ if the other did.
+
+      The recurring surprise is that these races are rarely fair even when the two patterns are individually equally probable, and they're famously non-transitive — pattern $A$ can beat $B$, $B$ can beat $C$, and $C$ can beat $A$, so there's no meaningful notion of one pattern being "stronger" outside a specific pairing. The mechanism is overlap asymmetry: whichever pattern is harder to spoil partway through tends to win the race, independent of how long it takes on average to complete alone.
+    worked: >
+      Race $HT$ against $TT$. Track the last symbol seen: states $H$ and $T$, plus a start state. From state $H$: the next toss is $T$ with probability $\tfrac12$, completing $HT$ (a win), or $H$ with probability $\tfrac12$, staying in state $H$; so $q_H=\tfrac12(1)+\tfrac12q_H$ gives $q_H=1$ — once an $H$ appears, $HT$ is certain to win eventually. From state $T$: the next toss is $T$ with probability $\tfrac12$, completing $TT$ (a loss), or $H$ with probability $\tfrac12$, moving to state $H$; so $q_T=\tfrac12(0)+\tfrac12(1)=\tfrac12$. From the start, the first toss lands in $H$ or $T$ equally: $q_0=\tfrac12(\tfrac12)+\tfrac12(1)=\tfrac34$. So $HT$ wins three times in four, mirroring the $TH$-versus-$HH$ result under swapping heads and tails.
+    interview: >
+      "Two players bet on $HH$ and $TH$ respectively — who's more likely to win?" is the canonical version; the interviewer listens for first-step conditioning on the opening toss and the explicit observation that race probabilities need not match individual waiting times.
+    pitfalls: >
+      Assuming the pattern with the shorter expected waiting time also wins the head-to-head race more often is not automatic — the two quantities need separate derivations. Forgetting that once a state guarantees one pattern wins with probability $1$, like state $H$ here, no further computation for that branch is needed.
+    recap: >
+      Racing two equally-probable patterns rarely gives even odds — $HT$ beats $TT$ three times in four, found by first-step conditioning on the opening toss, and pattern races are non-transitive in general.
+
+  - node: quant-tools.recurrences.finiteness-caveat
+    hook: >
+      A first-step equation that looks perfectly solvable can still be describing an infinite expected value — this is the check interviewers add after a correct-looking derivation to see if you'll blindly trust algebra over the underlying process.
+    explanation: >
+      First-step equations are derived assuming the quantity they describe actually exists as a finite number; they are necessary conditions on that quantity, not a proof that it's finite. Waiting for a head from a coin with $p=0$ makes this vivid: the equation $E=1+E$ is technically still a correct statement about what any finite $E$ would have to satisfy, but no finite number satisfies it, and canceling $E$ from both sides manufactures the absurd $0=1$ rather than revealing that the true answer is $E=\infty$.
+
+      On a finite state space there's a clean guarantee: if every state can eventually reach an absorbing state, all the expected absorption times are automatically finite, and the linear system has a unique solution — this is the safety net behind every worked example elsewhere in this unit. On an infinite state space that guarantee disappears; the linear system built from first-step equations can have a whole family of solutions, and the one that's probabilistically meaningful is the minimal nonnegative solution, not just any solution that satisfies the equations.
+
+      A concrete instance beyond the degenerate $p=0$ case: for a symmetric random walk on all the integers, let $T$ be the expected number of steps to move up by exactly $1$. By translation invariance, moving from $-1$ up to $1$ costs $2T$ in expectation, so $T=1+\tfrac12(0)+\tfrac12(2T)=1+T$ — again no finite solution, and indeed this walk is recurrent (it reaches $1$ with probability $1$) but has genuinely infinite expected hitting time, because the state space is unbounded on both sides.
+    worked: >
+      For a symmetric random walk on the integers, the equation $T=1+T$ has no finite solution; the true expected time to move up by one step is $\infty$, even though the walk reaches that target with probability $1$ eventually — finite almost-sure arrival does not imply finite expected arrival time.
+    interview: >
+      "Solve for $E$ and it comes out to $0=1$ — what does that mean?" directly tests this node: the expected answer is "the true value is infinite," not a claim that the setup was wrong. It often follows a problem deliberately built with $p=0$ or an unbounded state space.
+    pitfalls: >
+      Treating every solvable-looking linear system as automatically giving a correct finite answer, without checking that the state space is finite and every state can reach absorption, risks reporting a meaningless number on an infinite state space with multiple solutions. Dismissing an equation like $E=1+E$ as "something's wrong with my setup" misses that it's telling you the true answer is $\infty$.
+    recap: >
+      A first-step equation with no finite solution usually means the true expected value is infinite; finiteness is guaranteed automatically on a finite state space where every state can reach absorption, and only minimal solutions count on an infinite one.

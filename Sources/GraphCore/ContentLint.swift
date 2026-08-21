@@ -48,6 +48,15 @@ public struct LintHint: Hashable, Sendable, CustomStringConvertible {
         /// A branch with no `requires` edge crossing into or out of it — the
         /// cross-branch integration pass has not run.
         case unintegratedBranch = "unintegrated-branch"
+        /// A lesson (§6.6) whose node's kind promises a computation, with no
+        /// `worked` section. Advisory, not a validator rule: forcing the section
+        /// would manufacture filler on the nodes where it does not fit.
+        case lessonMissingWorked = "lesson-missing-worked"
+        /// A lesson explanation shorter than a lesson — the section exists but
+        /// does not teach.
+        case thinLesson = "thin-lesson"
+        /// A lesson far past the corpus norm — probably teaching two nodes.
+        case oversizedLesson = "oversized-lesson"
     }
 
     public var rule: Rule
@@ -78,6 +87,11 @@ public struct LintConfig: Sendable {
     public var landmarkShareLimit = 0.25
     /// …once it has at least this many.
     public var landmarkSampleFloor = 4
+    /// A lesson explanation below this many characters is probably a summary
+    /// wearing a lesson's clothes.
+    public var thinLessonFloor = 400
+    /// All sections together above this is probably two lessons.
+    public var oversizedLessonCeiling = 6000
 
     public init() {}
 }
@@ -221,6 +235,63 @@ public enum ContentLint {
             }
         }
 
+        return hints
+    }
+
+    /// §6.6's lesson heuristics — the judgements `ProgramValidator` deliberately
+    /// leaves to a reviewer. `worked`, `interview` and `pitfalls` are optional by
+    /// design (an `intuition` node forced to produce a computation produces
+    /// filler), but a `theorem` or `example` lesson *without* one is usually an
+    /// author who stopped early, and at 58 units nobody reads the corpus end to
+    /// end — which is exactly when lint earns its keep.
+    public static func hints(
+        for program: Program, graph: KnowledgeGraph, config: LintConfig = LintConfig()
+    ) -> [LintHint] {
+        var hints: [LintHint] = []
+        let wantsWorked: Set<NodeKind> = [
+            .theorem, .proposition, .lemma, .corollary, .technique, .example,
+        ]
+
+        for unit in program.lessonUnits.values.sorted(by: { $0.unit < $1.unit }) {
+            for lesson in unit.lessons {
+                guard let node = graph[lesson.node] else { continue }
+
+                if wantsWorked.contains(node.kind),
+                    lesson.worked?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false
+                {
+                    hints.append(
+                        .init(
+                            rule: .lessonMissingWorked, subject: lesson.node,
+                            message:
+                                "\(lesson.node) is a \(node.kind.rawValue) whose lesson has no "
+                                + "`worked` section — where is the number?"))
+                }
+
+                let explanation = lesson.explanation
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if explanation.count < config.thinLessonFloor {
+                    hints.append(
+                        .init(
+                            rule: .thinLesson, subject: lesson.node,
+                            message:
+                                "\(lesson.node): explanation is \(explanation.count) characters — "
+                                + "a lesson teaches, a summary the node already has"))
+                }
+
+                let total = [
+                    lesson.hook, lesson.explanation, lesson.worked ?? "",
+                    lesson.interview ?? "", lesson.pitfalls ?? "", lesson.recap,
+                ].reduce(0) { $0 + $1.count }
+                if total > config.oversizedLessonCeiling {
+                    hints.append(
+                        .init(
+                            rule: .oversizedLesson, subject: lesson.node,
+                            message:
+                                "\(lesson.node): lesson totals \(total) characters — "
+                                + "probably teaching two nodes (§2.2 applies to lessons too)"))
+                }
+            }
+        }
         return hints
     }
 

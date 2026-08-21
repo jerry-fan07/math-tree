@@ -1,0 +1,1008 @@
+unit: quant-statistics.testing
+opening: >
+  Hypothesis testing turns a hunch about a mean, a rate or a strategy into a
+  pre-committed decision rule you can defend under pressure. This unit builds
+  that machinery in the order an interview actually pressures it: name the
+  null and the rejection rule, price the two ways a test can be wrong and the
+  power that trades them off, read a p-value correctly and rule out its
+  standard misreadings, then run the z-test and t-test recipes end to end and
+  invert them into confidence intervals. It closes with the two questions
+  that decide whether any of this mattered — how much data a target effect
+  actually needs, and what happens to your error rate once you test more
+  than one thing at a time.
+lessons:
+  - node: quant-statistics.testing.hypotheses
+    hook: >
+      Every interview testing question starts with the same unglamorous
+      step: pin down a null hypothesis specific enough to compute
+      probabilities under. Skip it and "fail to reject" quietly gets
+      misquoted as "the null is true."
+    explanation: >
+      A test needs somewhere to stand — a hypothesis specific enough that
+      you can actually compute $\Pr_{H_0}(T \in R)$ for a statistic $T$ of
+      your choosing. That's the null's entire job description, not that
+      it's the boring or default claim: it's the one law precise enough to
+      hand you a sampling distribution to test against. The alternative can
+      stay vague, because you never need its exact law, only the null's.
+
+      Simple versus composite tracks exactly how much the null pins down. A
+      simple null like $p = 0.5$ fixes the sampling law completely — one
+      number, one distribution. A composite null like $\mu \le 0$ covers
+      infinitely many laws at once, one for every value satisfying the
+      constraint; testing it still works because the boundary value is the
+      hardest one to distinguish from the alternative, so controlling the
+      error there controls it everywhere in the null's range.
+
+      The logic runs one direction only. A rejection region $R$, fixed
+      before you look at data, is chosen so that data landing inside it
+      would be rare under $H_0$ — rare enough to treat as evidence against
+      it. Data landing outside $R$ only means this particular test had
+      nothing to complain about; it never establishes that $H_0$ generated
+      the data, since plenty of other laws would have produced the same
+      unremarkable result just as easily. That asymmetry is why the
+      vocabulary is "reject" or "fail to reject," never "accept."
+    worked: >
+      A pit boss suspects a die has been doctored to land on six more than
+      it should. Formal setup: $H_0: p_6 = 1/6$ (simple — it pins the law
+      exactly), $H_1: p_6 > 1/6$ (composite — every value above $1/6$
+      satisfies it). The test statistic is $T$, the count of sixes in $60$
+      rolls; under $H_0$, $T$ has an $\operatorname{Binomial}(60, 1/6)$ law
+      with mean $10$. The rejection region is fixed before rolling:
+      $R = \{T \ge 16\}$. Rolling the die and counting $17$ sixes lands $T$
+      inside $R$, so the test rejects — not because $17$ "proves" the die
+      is loaded, only because a fair die producing $17$ or more sixes in
+      $60$ rolls is exactly the kind of event this pre-committed rule was
+      built to flag.
+    interview: >
+      "Is this coin/pricing model/execution algorithm fair or unbiased"
+      always wants the same three things named in order: the null stated
+      precisely enough to compute with, the test statistic, and the
+      pre-committed rejection region — before any mention of the actual
+      data.
+    pitfalls: >
+      Saying "we accept $H_0$" when the data lands outside $R$ is never
+      correct — the honest phrase is "fail to reject." Choosing the
+      rejection region after seeing which way the data leans, rather than
+      fixing it in advance, breaks the guarantee the whole framework rests
+      on.
+    recap: >
+      A test pits a null precise enough to compute probabilities under
+      against a looser alternative, with a rejection rule fixed in advance
+      that can discredit the null but never confirm it.
+
+  - node: quant-statistics.testing.type-errors
+    hook: >
+      Every "how confident are you" follow-up is really asking you to name
+      a probability that depends on which hypothesis is actually true —
+      and there are two different such probabilities, not one.
+    explanation: >
+      A Type I error rejects a true null; a Type II error fails to reject
+      when a specific alternative is actually true. The first has one clean
+      number, the size, held at the significance level $\alpha$ you choose
+      before looking at data — it doesn't depend on which alternative is
+      true, because it's computed entirely under $H_0$. The second, $\beta$,
+      does depend on which alternative: an alternative barely different from
+      the null is hard to catch, one far away is easy, so there is no single
+      $\beta$, only a $\beta$ for every point in the alternative.
+
+      Power, $1 - \beta$ at a given alternative, is the chance the test
+      actually catches an effect of that size. Picture the null and
+      alternative sampling distributions overlapping: the rejection region
+      is a fixed slice carved out of the null's distribution to hold
+      $\alpha$ area; power is however much of the alternative's distribution
+      happens to fall in that same slice.
+
+      That picture is also why the two errors trade off at fixed sample
+      size. Pushing the rejection threshold outward to shrink $\alpha$
+      shrinks the slice under the null's curve, but it shrinks by the same
+      absolute amount under every alternative's curve too, raising $\beta$
+      everywhere at once. The only way to lower both simultaneously is to
+      bring in something new — more data, or a statistic with less inherent
+      noise — which narrows both curves rather than just relocating the
+      boundary between them.
+    worked: >
+      Screen $100$ traders for manipulative order flow, of whom $5$ are
+      truly manipulative and $95$ are clean. Run a test with size
+      $\alpha = 0.05$: applied to the $95$ clean traders, the expected
+      number wrongly flagged is $95 \times 0.05 \approx 4.75$ — call it $5$
+      innocent traders flagged purely from the Type I rate, batch after
+      batch. Suppose the test also has power $0.70$ against the actual
+      manipulation pattern used: of the $5$ genuinely manipulative traders,
+      the expected number caught is $5 \times 0.70 = 3.5$, so about $1.5$
+      slip through. Tightening $\alpha$ to $0.01$ would cut the false flags
+      toward $1$, but drags power down too — fewer clean traders flagged,
+      and fewer guilty ones caught.
+    interview: >
+      "What's the difference between a Type I and Type II error" is asked
+      constantly, sometimes disguised as "what does a p-value of 0.05
+      actually control." A sharp answer states that $\alpha$ is fixed and
+      known by design while $\beta$ is a function of the true alternative,
+      then names the fixed-$n$ tradeoff between them unprompted.
+    pitfalls: >
+      Quoting "the" Type II error as if it were a single number ignores
+      that $\beta$ changes with every alternative considered. Believing a
+      lower $\alpha$ is a free upgrade ignores that it raises $\beta$ at
+      every alternative simultaneously, unless sample size or the statistic
+      itself also changes.
+    recap: >
+      $\alpha$ is the false-alarm rate fixed by design under the null;
+      $\beta$ is the miss rate that depends on which alternative is true,
+      and shrinking one at fixed $n$ inflates the other.
+
+  - node: quant-statistics.testing.power-curve
+    hook: >
+      The interview wants you to produce the power formula's derivation
+      live, in about three lines, because the derivation is also the
+      fastest way to remember which quantities push power up and which
+      push it down.
+    explanation: >
+      Start from the rejection rule itself: reject when
+      $\bar{x} > \mu_0 + z_{\alpha}\sigma/\sqrt{n}$, a threshold built
+      entirely from the null. Power asks a different question about the
+      same rule — if the true mean is actually $\mu_0 + \delta$, how often
+      does $\bar{x}$ clear that same fixed threshold?
+
+      Under the true mean, $\bar{x}$ is normal with mean $\mu_0 + \delta$
+      and standard deviation $\sigma/\sqrt{n}$. Standardizing the threshold
+      against this shifted distribution is the one load-bearing step:
+      $\Pr(\bar{x} > \mu_0 + z_\alpha \sigma/\sqrt{n}) =
+      \Pr\left(Z > z_\alpha - \dfrac{\delta\sqrt{n}}{\sigma}\right) =
+      \Phi\left(\dfrac{\delta\sqrt{n}}{\sigma} - z_\alpha\right)$ —
+      subtracting the shifted mean before standardizing is exactly what
+      pulls a fresh term, $\delta\sqrt{n}/\sigma$, out of the threshold's
+      own $z_\alpha$.
+
+      Everything about power lives in that one ratio, the signal-to-noise
+      ratio $\delta\sqrt{n}/\sigma$: a bigger true effect, more data, or
+      less noise all move it up, and $\Phi$ is increasing, so power rises
+      with each. Set $\delta = 0$ and the ratio collapses to $-z_\alpha$,
+      giving power exactly $\alpha$ — a test is never less likely to fire
+      under the null than its own level, a useful sanity check on any power
+      calculation.
+    worked: >
+      Take an effect three tenths of a standard deviation, $\delta =
+      0.3\sigma$, sample size $n = 64$, and a two-sided test at
+      $\alpha = 0.05$, so $z_{\alpha/2} = 1.96$. The signal-to-noise ratio
+      is $\delta\sqrt{n}/\sigma = 0.3 \times 8 = 2.4$, so power is
+      $\Phi(2.4 - 1.96) = \Phi(0.44) \approx 0.67$ — roughly two chances in
+      three of catching this effect at this sample size.
+    interview: >
+      "How does power depend on sample size and effect size" is answered by
+      naming the ratio $\delta\sqrt{n}/\sigma$ directly, not by re-deriving
+      from scratch. A fast follow-up — "what's the power exactly at the
+      null" — checks that you know it equals $\alpha$.
+    pitfalls: >
+      Forgetting to use $z_{\alpha/2}$ in place of $z_\alpha$ for a
+      two-sided test understates power (or overstates the sample size
+      needed). Treating $\sigma$ as something power grows with, rather than
+      shrinks with, inverts the formula's one negative dependence.
+    recap: >
+      Power is $\Phi(\delta\sqrt{n}/\sigma - z_\alpha)$ — a single
+      increasing function of the signal-to-noise ratio
+      $\delta\sqrt{n}/\sigma$, equal to $\alpha$ exactly at $\delta = 0$.
+
+  - node: quant-statistics.testing.pvalue
+    hook: >
+      "What's your p-value" has one correct definition and at least four
+      common wrong ones — the interview is testing whether you can state
+      the right one under pressure, not whether you've heard the term.
+    explanation: >
+      The p-value is a tail probability computed entirely under the null:
+      $p = \Pr_{H_0}(T \ge t)$ for the observed value $t$, with the
+      direction of "extreme" set by the alternative — the right tail for a
+      right-tailed alternative, both tails for a two-sided one. Nothing
+      about the alternative's own law enters the computation; only $H_0$'s
+      law does.
+
+      The reason it's worth computing rather than just comparing $T$ to one
+      fixed threshold: rejecting whenever $p \le \alpha$ reproduces the
+      level-$\alpha$ rejection region exactly, because $p$ is a strictly
+      decreasing function of how extreme $t$ is. That makes $p$ the
+      smallest significance level at which this particular data would have
+      rejected — report it once, and every reader can apply their own
+      $\alpha$ without you rerunning the test.
+
+      There's a clean fact under the null worth having automatic: when $T$
+      is continuous, $p$ itself is $\operatorname{Uniform}(0,1)$-distributed
+      under $H_0$, which is exactly why $\Pr(p \le \alpha) = \alpha$ — the
+      false-alarm rate you set is the false-alarm rate you get. With a
+      discrete statistic the set of attainable p-values is coarse, so the
+      true rejection probability sits at or below $\alpha$ rather than
+      hitting it exactly — conservative, not exact.
+    worked: >
+      A one-sided test for a positive trading edge produces a standardized
+      statistic $t = 1.8$. The p-value is
+      $p = \Pr_{H_0}(T \ge 1.8) = 1 - \Phi(1.8) \approx 1 - 0.9641 = 0.0359$.
+      Since $0.0359 \le 0.05$, this data would reject at the conventional
+      $5\%$ level — and it's also the smallest level at which it would,
+      since any $\alpha$ below $0.0359$ would fail to reject the same data.
+    interview: >
+      Precisely stating $p = \Pr_{H_0}(T \ge t)$ — under the null, oriented
+      by the alternative — is the bar; "the probability the result is due
+      to chance" or "the probability $H_0$ is true" both fail it
+      immediately. A strong answer adds the smallest-rejecting-level
+      reading unprompted.
+    pitfalls: >
+      Computing the tail probability under some other law than the null —
+      the alternative, or the marginal distribution of the data — isn't a
+      p-value at all. Reporting a p-value from a discrete statistic as if
+      $\Pr(p \le \alpha) = \alpha$ exactly ignores that discreteness only
+      gives a conservative bound.
+    recap: >
+      The p-value is $\Pr_{H_0}(T \ge t)$, oriented by the alternative —
+      the smallest level at which the observed data would reject, and
+      uniform on $(0,1)$ under the null when $T$ is continuous.
+
+  - node: quant-statistics.testing.pvalue-misreadings
+    hook: >
+      "A low p-value means the effect is probably real" is the single most
+      common wrong sentence said in a stats interview, and naming exactly
+      which fallacy it commits is worth more than any formula.
+    explanation: >
+      The p-value answers $\Pr(\text{data this extreme} \mid H_0)$; the
+      sentence people want to say is about $\Pr(H_0 \mid \text{data})$ — a
+      completely different conditional, related to the first only through
+      Bayes' rule, which needs a prior on $H_0$ that the p-value never
+      supplies. Swapping the order of a conditional probability is the same
+      error as the prosecutor's fallacy, and it's the source of most of the
+      other misreadings too.
+
+      Two consequences worth having concrete. Because the p-value depends
+      on sample size as much as on the true effect, it is not an effect
+      size: with $n$ large enough, standardizing $\delta/(\sigma/\sqrt{n})$
+      sends the statistic to infinity and $p$ to $0$ for literally any
+      nonzero $\delta$, however economically tiny. And because a small $n$
+      can leave a genuinely large effect underpowered, failing to reject is
+      usually a low-power problem, not evidence that the effect is zero —
+      it's the same distinction as "innocent" versus "not proven guilty."
+
+      There's also no threshold in nature at $p = 0.05$: $0.049$ and
+      $0.051$ carry essentially the same evidence, since $p$ is a
+      continuous statistic, not a light switch. The discipline that
+      survives all of this: quote the point estimate and its standard
+      error first, and let the p-value answer only the narrow question it's
+      built for.
+    worked: >
+      A signal earns an edge of just $0.001$ standard deviations per trade,
+      economically negligible after any real transaction cost. Over
+      $n = 10^{8}$ trades the standard error is $1/\sqrt{10^{8}} = 0.0001$
+      (in units of $\sigma$), so the standardized statistic is
+      $0.001 / 0.0001 = 10$ — a $z$ of $10$ carries a p-value on the order
+      of $10^{-23}$. The print would read like the discovery of the decade;
+      the underlying effect is still $0.001\sigma$ per trade, exactly as
+      small as when the search began.
+    interview: >
+      "Does $p = 0.001$ mean this is a big effect" or "you failed to reject
+      at $5\%$ — does that mean there's no edge" both test the same list:
+      p-value is not a posterior, not an effect size, and a null result is
+      not proof of nothing there. A fluent answer names which specific
+      misreading is being tested.
+    pitfalls: >
+      Reading $1 - p$ as "the probability the result replicates" has no
+      basis in the definition at all. Treating a large-sample significant
+      result as automatically important skips straight past the size of
+      the effect, which the p-value never measured.
+    recap: >
+      The p-value is a statement about data under the null, not about the
+      probability the null is true, the size of the effect, or whether a
+      null result means nothing is there.
+
+  - node: quant-statistics.testing.one-two-sided
+    hook: >
+      "Should this be one-sided or two-sided" is asked to catch a very
+      specific cheat: picking the direction after seeing which way the
+      data leans, which quietly doubles your real false-alarm rate.
+    explanation: >
+      A two-sided test of $\mu = \mu_0$ splits the $\alpha$ budget between
+      both tails and rejects when $|z| \ge z_{\alpha/2}$ — $1.96$ at the
+      conventional $5\%$. A one-sided test of $\mu > \mu_0$ spends the
+      whole budget on one tail and rejects at the smaller threshold
+      $z_\alpha$, $1.645$ at $5\%$. For a symmetric null law, the two-sided
+      p-value is exactly twice the one-sided tail probability, since both
+      tails contribute equally by symmetry.
+
+      The direction has to be fixed before the data is seen, and the
+      reason is arithmetic, not etiquette. If you look at the sign of
+      $\hat{\mu}$ first and then decide to test in whichever direction the
+      data happens to point, you've effectively built a rule that rejects
+      on either tail depending on what showed up — the real Type I rate is
+      the sum of both tails' probabilities under $H_0$, turning a nominal
+      one-sided $5\%$ test into an actual $10\%$ test.
+
+      Default to two-sided unless a deviation in the "wrong" direction is
+      genuinely uninteresting — not merely unexpected. A pricing signal
+      that works backwards, or a strategy that loses money in a way that
+      would have been a discovery if it made money, is exactly the case
+      where the unexpected direction still matters, so two-sided is the
+      honest choice even when you privately expect one sign.
+    worked: >
+      A market maker tests whether a repriced quoting model shifts average
+      slippage away from zero and observes $z = 1.75$. Committed to
+      two-sided in advance: $|1.75| < 1.96$, fail to reject, with
+      $p = 2(1 - \Phi(1.75)) \approx 2 \times 0.0401 = 0.0802$. Had the
+      direction (slippage can only worsen) been fixed in advance as
+      one-sided instead: $1.75 \ge 1.645$, reject, with $p \approx 0.0401$.
+      Same data, opposite verdicts — which is exactly why the direction has
+      to be nailed down before the data arrives, not after.
+    interview: >
+      "One-sided or two-sided here" is answered by first asking whether the
+      opposite-direction outcome would still be interesting, then
+      committing before any data is examined. A sharp follow-up, "what
+      happens to your error rate if you pick the tail after looking," is
+      answered with the doubled Type I rate.
+    pitfalls: >
+      Choosing one-sided purely because it's easier to reject with — a
+      smaller critical value — without a genuine reason the opposite
+      direction is uninteresting, invalidates the stated $\alpha$.
+      Comparing a one-sided p-value directly to a two-sided critical value
+      (or vice versa) silently uses the wrong threshold.
+    recap: >
+      Two-sided spends $\alpha$ on both tails ($1.96$) and one-sided spends
+      it all on one ($1.645$) — cheap insurance against exactly the failure
+      mode of picking the tail after seeing the data.
+
+  - node: quant-statistics.testing.ztest
+    hook: >
+      "Test whether this sample mean differs from zero" is the single most
+      common quant stats question, and the z-test recipe needs to come out
+      in one breath, cold.
+    explanation: >
+      The z-test is licensed whenever the statistic's null law is
+      approximately normal — either because $\sigma$ is genuinely known, or
+      because $n$ is large enough that the sample mean's own distribution
+      has already collapsed into a normal shape regardless of the
+      underlying data's shape. That collapse is exactly what makes
+      standardizing legal: with $\bar{x}$ approximately
+      $\operatorname{Normal}(\mu_0, \sigma^2/n)$ under $H_0$,
+      $z = (\bar{x} - \mu_0)/(\sigma/\sqrt{n})$ is approximately standard
+      normal, and every subsequent step just reads off a fixed table.
+
+      The recipe: fix $H_0$ so it pins down $\mu_0$ and the null standard
+      deviation; form $z = (\bar{x} - \mu_0)/(\sigma/\sqrt{n})$; compare
+      $|z|$ to $z_{\alpha/2}$, or convert to $p = 2(1 - \Phi(|z|))$; report
+      the estimate with its uncertainty, $\bar{x} \pm
+      z_{\alpha/2}\sigma/\sqrt{n}$, alongside the verdict rather than the
+      verdict alone. For a proportion, the null variance is $p_0(1-p_0)$ —
+      the value fixed by $H_0$, not whatever the sample happened to
+      produce, since the whole computation runs under the null.
+
+      Three quantiles earn automatic recall because they set every
+      two-sided threshold in this unit: $1.645$, $1.96$, $2.576$ for
+      $90\%$, $95\%$, $99\%$ two-sided confidence.
+    worked: >
+      A strategy's daily returns over $n = 100$ days average
+      $\bar{x} = 0.5\%$, against a known historical daily volatility
+      $\sigma = 2\%$. Testing $H_0: \mu = 0$ two-sided:
+      $z = 0.005 / (0.02/\sqrt{100}) = 0.005/0.002 = 2.5$, giving
+      $p = 2(1 - \Phi(2.5)) \approx 2 \times 0.0062 = 0.0124$ — reject at
+      $5\%$. The accompanying interval,
+      $0.5\% \pm 1.96 \times 0.2\% = [0.108\%, 0.892\%]$, excludes zero,
+      consistent with the rejection.
+    interview: >
+      "Walk me through testing whether this sample mean is significantly
+      different from zero" wants the four-step recipe produced without
+      hesitation, including naming the CLT (or known $\sigma$) as the
+      reason the normal table applies at all. A common trap swaps in a
+      proportion and checks whether you use $p_0(1-p_0)$, not the sample's
+      own variance.
+    pitfalls: >
+      Plugging the sample's own standard deviation into the proportion
+      variance instead of the null value $p_0(1-p_0)$ computes the wrong
+      test entirely. Reaching for a z-test with $\sigma$ genuinely unknown
+      and $n$ too small for the CLT to have taken hold silently understates
+      the true uncertainty — that's exactly the gap the t-test exists to
+      close.
+    recap: >
+      Standardize $\bar{x}$ by its null standard error and compare to the
+      normal table — legal whenever $\sigma$ is known or $n$ is large
+      enough for the CLT to apply, with $1.645/1.96/2.576$ as the three
+      thresholds to know cold.
+
+  - node: quant-statistics.testing.coin-sixty-heads
+    hook: >
+      A borderline z-score right at the classroom-famous "$z = 2$, reject
+      at $5\%$" threshold is exactly where the normal approximation's own
+      error matters most — the interview wants you to know that, not just
+      recompute $z$.
+    explanation: >
+      Raw counts are discrete; the normal curve used to approximate them is
+      continuous and assigns zero probability to any single point.
+      Comparing a count like $60$ directly against a continuous curve, with
+      no adjustment, systematically overstates how extreme it looks,
+      because the entire probability "belonging" to the integer $60$ gets
+      counted as if it sat exactly at the boundary rather than spread
+      across $[59.5, 60.5]$.
+
+      That's the whole content of the continuity correction: shift the
+      boundary by half a unit toward the observed count before
+      standardizing. It matters most exactly at round, borderline-looking
+      z-scores — a raw $z$ of $2.0$ can visibly cross a nominal threshold
+      while the corrected value, or the exact binomial probability, sits
+      just on the other side of it. When a z-score lands close to a
+      critical value, treat that as a signal to check the exact or
+      corrected version, not as a stronger result.
+
+      Scale is what actually resolves ambiguity, not squinting at the third
+      decimal of a borderline p-value: the identical proportion at ten
+      times the sample size pushes $z$ up by a factor of $\sqrt{10}$,
+      moving a coin-flip verdict from "inside the approximation's own error
+      bars" to "not remotely in question."
+    worked: >
+      Suppose $220$ heads turn up in $400$ tosses. Under $H_0: p=0.5$, the
+      mean is $200$ and the standard deviation is
+      $\sqrt{400 \times 0.25} = 10$, so the naive $z = (220-200)/10 = 2.0$
+      and two-sided $p = 2(1-\Phi(2)) = 0.0455$ — a bare rejection at
+      $5\%$. With the continuity correction, $z = (219.5-200)/10 = 1.95$,
+      giving $p \approx 2(1-\Phi(1.95)) \approx 0.0512$ — now just short of
+      rejecting. As with the classic $100$-toss version, the honest
+      verdict at $400$ tosses and a $55\%$ rate sits right inside the
+      approximation's own error margin.
+    interview: >
+      "$60$ heads out of $100$ — is the coin biased" is the textbook
+      prompt, and the strong answer computes the naive $z$, then volunteers
+      the continuity-corrected or exact version without being asked, naming
+      the direction the correction moves the answer.
+    pitfalls: >
+      Reporting only the naive z-score on a borderline count and stopping
+      there misses that the correction (or the exact binomial) can flip the
+      verdict. Applying the continuity correction in the wrong direction —
+      shifting away from the observed count instead of toward it — makes
+      the approximation worse, not better.
+    recap: >
+      A borderline naive z-score deserves the continuity correction or the
+      exact binomial before trusting the verdict — the correction alone can
+      flip a bare rejection into a bare non-rejection.
+
+  - node: quant-statistics.testing.t-distribution
+    hook: >
+      "Why can't I just use the z-table when I don't know $\sigma$" is
+      answered by naming exactly what estimating $\sigma$ from the same
+      small sample costs you — extra tail weight, not just a formality.
+    explanation: >
+      Swap the unknown $\sigma$ for the sample standard deviation $s$ and
+      the standardized quantity is no longer exactly standard normal,
+      because $s$ itself carries sampling noise. When $s$ happens to land
+      small by chance, dividing by it inflates $|t|$ beyond what the same
+      data would have produced against the true $\sigma$ — an extra source
+      of spread that has to show up somewhere in the resulting law's shape.
+
+      That extra spread is fat tails: for iid normal data,
+      $t = (\bar{x}-\mu)/(s/\sqrt{n})$ follows the t-distribution with
+      $\nu = n-1$ degrees of freedom, constructed as a standard normal
+      divided by an independent estimate of its own scale,
+      $Z/\sqrt{V/\nu}$ with $V \sim \chi^2_\nu$. Symmetric about $0$ like
+      the normal, but with variance $\nu/(\nu-2)$ — strictly larger than
+      $1$ for every finite $\nu$, and not even defined once $\nu \le 2$, a
+      warning that very small samples can leave $s$ too unstable to trust
+      at all.
+
+      The degrees of freedom set exactly how much premium you pay:
+      two-sided $95\%$ critical values run $2.776$ at $\nu=4$, $2.228$ at
+      $\nu=10$, $2.042$ at $\nu=30$, closing in on the normal's $1.96$ only
+      as $\nu$ grows large — the smaller the sample, the more the fat tail
+      insures against having estimated the noise level from that same
+      small sample.
+    worked: >
+      With $n=6$ observations ($\nu=5$), a computed statistic comes out
+      $|t|=2.4$. The two-sided $5\%$ critical value at $\nu=5$ is $2.571$,
+      so $2.4 < 2.571$: fail to reject. Reading the same statistic off the
+      z-table instead — $1.96$ — would have wrongly rejected, since
+      $2.4 > 1.96$; that gap is exactly the tail-weight premium the
+      t-distribution charges for not knowing $\sigma$ at such a small $n$.
+    interview: >
+      "Why does the t-distribution have fatter tails than the normal"
+      wants the estimation-noise explanation, not just "because degrees of
+      freedom." A fast follow-up, "what happens as $\nu \to \infty$," is
+      answered by naming convergence to the standard normal, since $s$
+      becomes an essentially exact estimate of $\sigma$ at large $n$.
+    pitfalls: >
+      Using the z critical value $1.96$ at small $n$ because "it's close
+      enough" understates the true uncertainty exactly where it matters
+      most. Forgetting that the t-distribution's variance itself is
+      undefined for $\nu \le 2$ can lead to nonsensical variance claims at
+      very small samples.
+    recap: >
+      Standardizing by the estimated $s$ instead of the true $\sigma$ turns
+      the exact standard normal into the fatter-tailed $t_{n-1}$,
+      converging back to normal only as the degrees of freedom grow.
+
+  - node: quant-statistics.testing.ttest
+    hook: >
+      "Z-test or t-test" is a fast diagnostic question, and the correct
+      answer hinges on whether $\sigma$ is known — not, strictly, on sample
+      size, even though small $n$ is where the choice actually bites.
+    explanation: >
+      The t-test is the z-test recipe unchanged except for two swaps: the
+      sample standard deviation $s$ in place of the true $\sigma$, and the
+      $t_{n-1}$ table in place of the normal table. Compute
+      $t = (\bar{x}-\mu_0)/(s/\sqrt{n})$ and reject when
+      $|t| \ge t_{n-1,\alpha/2}$.
+
+      The swap matters enormously at small $n$ and almost not at all past
+      roughly $n \approx 30$: at $n=5$, the critical value $2.776$ is over
+      $40\%$ wider than the normal's $1.96$, so treating a small sample
+      with the z-table's thinner tails would falsely reject far more often
+      than the stated $\alpha$ promises. As $n$ grows, $s$ becomes a nearly
+      exact estimate of $\sigma$ and the two tests converge.
+
+      Its hypothesis is approximately normal underlying data, or an $n$
+      large enough that $\bar{x}$ itself is close to normal by the CLT — it
+      tolerates mild skew reasonably well, but not heavy tails or serial
+      dependence in the raw data. Daily P&L typically has both, so a raw
+      t-statistic on daily returns tends to overstate significance relative
+      to what the formula assumes.
+
+      For paired data — the same units measured twice, matched trades,
+      before/after — reduce the two series to their differences
+      $d_i = x_i - y_i$ first, then run the one-sample t-test on those
+      differences alone; this sidesteps ever having to model the
+      correlation between the two series directly.
+    worked: >
+      Over $n=25$ trading days, a strategy's mean daily return is
+      $\bar{x}=0.5\%$ with sample standard deviation $s=1\%$. Testing
+      $H_0: \mu=0$: $t = 0.005/(0.01/\sqrt{25}) = 0.005/0.002 = 2.5$. With
+      $\nu=24$, the two-sided $5\%$ critical value is about $2.064$, and
+      $2.5 > 2.064$: reject. Using the z critical value $1.96$ instead
+      would have reached the same verdict here, but only because $n=25$
+      already sits close to where the two tests agree.
+    interview: >
+      "When do you use a t-test instead of a z-test" is answered with
+      $\sigma$ unknown and estimated from the data, not just "small
+      sample" — then volunteer that the practical bite is concentrated at
+      small $n$. A common follow-up asks about paired versus independent
+      data, checking that you reduce paired data to differences first.
+    pitfalls: >
+      Running an unpaired test on two series that share a common source of
+      noise — the same trading day, the same market regime — throws away
+      the variance reduction pairing would have bought and can miss a real
+      effect. Running a raw t-test on daily P&L without acknowledging fat
+      tails or serial correlation overstates the significance the formula
+      actually earns.
+    recap: >
+      The t-test standardizes by $s/\sqrt{n}$ and reads the $t_{n-1}$ tail
+      instead of the normal — nearly identical to the z-test past
+      $n \approx 30$, materially wider at small $n$, and only valid for
+      independent, roughly normal draws.
+
+  - node: quant-statistics.testing.two-sample
+    hook: >
+      "Compare two trading strategies' returns" is asked constantly, and
+      the two things that separate a strong answer from a rote one are
+      reaching for Welch's test by default and pairing whenever the two
+      series see the same shocks.
+    explanation: >
+      For two independent samples, the natural statistic is the
+      standardized difference of means,
+      $t = (\bar{x}_1-\bar{x}_2)/\sqrt{s_1^2/n_1 + s_2^2/n_2}$ — the
+      denominator is just the variance-of-a-difference formula,
+      $\operatorname{Var}(\bar{x}_1) + \operatorname{Var}(\bar{x}_2)$, since
+      independent variances add. Welch's version lets $s_1^2/n_1$ and
+      $s_2^2/n_2$ differ freely and uses a fractional degrees-of-freedom
+      correction; the pooled-variance alternative assumes the two
+      populations share one true variance, an assumption rarely worth
+      making for two different strategies or two different assets.
+
+      Pairing changes the comparison entirely, and it's worth reaching for
+      whenever the two series are measured on the same underlying event —
+      the same trading day, the same client. With equal variances $\sigma^2$
+      and correlation $\rho$ between the matched pair,
+      $\operatorname{Var}(x_1-x_2) = \operatorname{Var}(x_1) +
+      \operatorname{Var}(x_2) - 2\operatorname{Cov}(x_1,x_2) =
+      2\sigma^2 - 2\rho\sigma^2 = 2\sigma^2(1-\rho)$ — the correlation term
+      subtracts directly, so any shared shock cancels out of the difference
+      rather than adding uncertainty to both sides independently.
+
+      The bigger $\rho$ is, the more this buys: comparing two strategies
+      day by day, so the shared market factor cancels inside each day's
+      difference, is exactly this move in practice, and it's why paired
+      comparisons of correlated series routinely find significance that an
+      unpaired comparison of the same two series' separate averages would
+      miss entirely.
+    worked: >
+      Two strategies each have daily standard deviation $\sigma = 2\%$ and
+      same-day correlation $\rho=0.6$. Unpaired, the difference's standard
+      error is $\sqrt{2 \times (0.02)^2} = \sqrt{0.0008} \approx 2.83\%$.
+      Paired, it's
+      $\sqrt{2 \times (0.02)^2 \times (1-0.6)} = \sqrt{0.00032} \approx
+      1.79\%$ — about $37\%$ smaller, equivalent to running the unpaired
+      comparison with roughly $1/(1-0.6) = 2.5$ times as much data.
+    interview: >
+      "How would you test whether strategy A outperforms strategy B" should
+      default to Welch, not pooled variance, unless there's a real reason
+      to assume equal variances — and should immediately ask whether the
+      two series share a common driver worth pairing on.
+    pitfalls: >
+      Using the pooled-variance test out of habit when the two series
+      plainly have different variances biases the standard error.
+      Comparing two strategies' separately-averaged returns instead of
+      pairing them day by day throws away the variance reduction that
+      cancels the shared market factor.
+    recap: >
+      Welch's test is the default for independent samples; pairing
+      observations that share a common shock cuts the standard error by a
+      factor of $\sqrt{1-\rho}$ instead of leaving the full, uncancelled
+      variance in the comparison.
+
+  - node: quant-statistics.testing.ci
+    hook: >
+      "Give me a range, not a point estimate" is really asking you to
+      invert the test you already know how to run — a confidence interval
+      and a hypothesis test are the same computation viewed from two
+      directions.
+    explanation: >
+      A $1-\alpha$ confidence interval for $\theta$ is a random interval
+      $C(X)$, built from the data, satisfying
+      $\Pr_\theta(\theta \in C(X)) \ge 1-\alpha$ for every possible true
+      $\theta$ — a promise about the procedure that generates the interval,
+      made before any data is collected, not a claim about one particular
+      interval after the fact. The canonical interval for a mean is
+      $\bar{x} \pm z_{\alpha/2}\sigma/\sqrt{n}$, or
+      $\bar{x} \pm t_{n-1,\alpha/2}\,s/\sqrt{n}$ once $\sigma$ has to be
+      estimated.
+
+      The duality with testing falls straight out of the rejection rule:
+      the two-sided level-$\alpha$ z-test rejects $\mu_0$ exactly when
+      $|\bar{x}-\mu_0| > z_{\alpha/2}\sigma/\sqrt{n}$, which is precisely
+      the statement that $\mu_0$ lies outside
+      $[\bar{x}-z_{\alpha/2}\sigma/\sqrt{n},\ \bar{x}+z_{\alpha/2}\sigma/\sqrt{n}]$.
+      So the confidence interval is nothing but the set of null values this
+      data would fail to reject — invert a test at every possible $\mu_0$
+      and the collection of survivors is the interval; conversely, check
+      whether $\mu_0$ sits inside the interval and you've run the test.
+
+      Width, $2z_{\alpha/2}\sigma/\sqrt{n}$, shrinks only like
+      $1/\sqrt{n}$ — the same rate governing every estimate built this way,
+      so cutting the interval in half costs four times the data, not
+      twice.
+    worked: >
+      Over $n=50$ measurements of execution slippage, $\bar{x}=1.2$ basis
+      points with a known historical $\sigma=3$ basis points. The $95\%$
+      interval is $1.2 \pm 1.96 \times 3/\sqrt{50} = 1.2 \pm 0.832$, or
+      $[0.368, 2.032]$ basis points. Since $0$ falls outside this interval,
+      the equivalent two-sided test of $H_0: \text{slippage}=0$ rejects at
+      $5\%$ — the same conclusion the interval and the test give by
+      construction.
+    interview: >
+      "How would you build a confidence interval for this mean" is
+      answered with the formula plus, unprompted, the duality with the
+      test — that the interval is exactly the set of null values the data
+      fails to reject. A common follow-up asks how much data is needed to
+      halve the width, checking the $1/\sqrt{n}$ rate.
+    pitfalls: >
+      Reporting an interval without stating the confidence level attached
+      to the procedure that built it strips it of its actual meaning.
+      Assuming halving the width only needs twice the data, rather than
+      four times, misreads the $1/\sqrt{n}$ shrinkage rate.
+    recap: >
+      A confidence interval is exactly the set of null values a two-sided
+      test at that level would fail to reject, with width shrinking only
+      as $1/\sqrt{n}$.
+
+  - node: quant-statistics.testing.ci-interpretation
+    hook: >
+      "What does 95% confidence actually mean" is a classic trap, and the
+      natural-sounding answer — a 95% chance $\mu$ is in this interval — is
+      precisely the wrong one to give.
+    explanation: >
+      The $95\%$ attaches to the recipe, not to the specific numbers on the
+      page. Imagine repeating the entire experiment many times, each time
+      computing a fresh interval by the same formula: across that whole
+      batch of repetitions, $95\%$ of the resulting intervals cover the one
+      fixed, unknown $\theta$. The particular interval you actually
+      computed either contains $\theta$ or it doesn't — there's no
+      probability left to discuss about that single, already-realized
+      outcome, only about the machine that produced it.
+
+      "There is a $95\%$ probability that $\mu$ lies in $[a,b]$" is a
+      different statement entirely — the credible-interval reading, which
+      treats $\mu$ itself as random and needs a prior distribution on it to
+      even be well-defined. Confidence intervals are built without any
+      prior at all, so that sentence describes a Bayesian object the
+      frequentist procedure never promised to deliver.
+
+      What the interval legitimately does say: values outside it are
+      exactly the ones the corresponding test would reject at that level,
+      and its width states how precisely this much data can resolve the
+      unknown. A wide interval that spans both zero and an economically
+      large value is not evidence the effect is absent — it's a statement
+      that the experiment simply wasn't informative enough to tell the two
+      apart.
+    worked: >
+      An analyst runs $20$ independent studies, each producing its own
+      $95\%$ confidence interval for a different unknown parameter. Across
+      this batch, the expected number of intervals that contain their
+      respective true parameter is $20 \times 0.95 = 19$ — that's the
+      long-run batting average the procedure guarantees. It says nothing
+      about whether interval number $7$, once computed and stared at, is
+      one of the $19$ or the $1$; there's no probability statement left to
+      make about that specific already-computed interval.
+    interview: >
+      "What exactly does the 95% mean" is a standard trap after any
+      confidence interval question — a correct answer names the
+      repeated-sampling coverage property explicitly and flags the
+      credible-interval reading as a different, Bayesian object that needs
+      a prior.
+    pitfalls: >
+      Saying "there's a $95\%$ chance $\mu$ is in this interval" smuggles
+      in a prior on $\mu$ that the frequentist construction never used.
+      Reading a wide interval containing zero as proof of no effect
+      confuses low information with a negative finding.
+    recap: >
+      The $95\%$ describes the long-run coverage of the procedure across
+      repeated samples, not a probability about the one interval already
+      computed — that reading requires a prior and belongs to Bayesian
+      credible intervals instead.
+
+  - node: quant-statistics.testing.sample-size
+    hook: >
+      "How many samples do I need to detect this edge" is answered by
+      inverting the power formula, and the interview wants the inversion
+      done live, not quoted from memory.
+    explanation: >
+      Start from the power equation and solve for $n$ directly: setting
+      $\Phi(\delta\sqrt{n}/\sigma - z_\alpha) = 1-\beta$ and applying
+      $\Phi^{-1}$ to both sides gives $\delta\sqrt{n}/\sigma - z_\alpha =
+      z_\beta$, using $z_\beta$ for the value with $\Phi(z_\beta)=1-\beta$.
+      Rearranging, $\delta\sqrt{n}/\sigma = z_\alpha + z_\beta$, hence
+      $n \approx \left(\dfrac{(z_\alpha+z_\beta)\sigma}{\delta}\right)^{2}$,
+      with $z_{\alpha/2}$ replacing $z_\alpha$ for a two-sided test.
+
+      The content worth remembering isn't the algebra, it's the scaling:
+      $n$ grows like $(\sigma/\delta)^2$, a square-law relationship, so an
+      effect half as large needs four times the data, not twice. Every
+      "how much data to detect a smaller edge" question is this same
+      square-law read backwards.
+
+      Two multipliers are worth having memorized at the conventional
+      two-sided $\alpha=0.05$: power $0.80$ gives
+      $(1.96+0.84)^2 = 7.85$, power $0.90$ gives $(1.96+1.28)^2=10.5$ — so
+      $n \approx 8(\sigma/\delta)^2$ is the fast back-of-envelope answer
+      whenever $80\%$ power is the target.
+    worked: >
+      A strategy's daily returns have $\sigma=1\%$, and the goal is to
+      reliably detect an edge of $\delta=0.05\%$ per day at two-sided
+      $\alpha=0.05$ and power $0.90$, so the multiplier is $10.5$. Then
+      $n \approx 10.5 \times (1\%/0.05\%)^2 = 10.5 \times 400 = 4200$
+      trading days — roughly $16$ years of daily data just to resolve an
+      edge this small at $90\%$ power.
+    interview: >
+      "How much data do I need to detect an edge of size $\delta$" is
+      answered by writing $n \approx ((z_\alpha+z_\beta)\sigma/\delta)^2$
+      from the power equation, then naming the square-law scaling out loud
+      before plugging in numbers. A quick sanity check the interviewer
+      often wants: halving $\delta$ should roughly quadruple your answer.
+    pitfalls: >
+      Scaling $n$ linearly with $1/\delta$ instead of quadratically badly
+      undersizes the sample needed. Using the two-sided multiplier
+      $z_{\alpha/2}+z_\beta$ when the actual test is one-sided (or vice
+      versa) mismatches the sample size to the wrong critical value.
+    recap: >
+      Inverting the power equation gives
+      $n \approx ((z_\alpha+z_\beta)\sigma/\delta)^2$, about
+      $8(\sigma/\delta)^2$ at the standard $5\%/80\%$ settings — a
+      square-law in the effect size, not a linear one.
+
+  - node: quant-statistics.testing.detect-coin-edge
+    hook: >
+      "How many flips to catch a coin that's slightly biased" is the
+      canonical worked instance of the sample-size formula, and the
+      arithmetic — not just the formula — needs to come out fast and
+      clean.
+    explanation: >
+      The recipe is exactly the general one, specialized to a coin: null
+      per-flip standard deviation $\sigma=\sqrt{p_0(1-p_0)}$, an effect
+      $\delta$ equal to how far the true rate sits from $p_0$, and the same
+      $n \approx ((z_\alpha+z_\beta)\sigma/\delta)^2$. The only judgment
+      calls are which $\sigma$ to plug in and which side of the test you
+      actually need.
+
+      Two refinements are worth doing live rather than stopping at the
+      first-pass number. Using the alternative's own variance
+      $\sqrt{p(1-p)}$ in place of the null's $\sqrt{p_0(1-p_0)}$ nudges
+      $\sigma$ slightly — usually a small correction near $p=0.5$, since
+      $p(1-p)$ is flat there. Switching from two-sided to one-sided, when
+      the direction of the suspected bias is known in advance, replaces
+      $z_{\alpha/2}$ with the smaller $z_\alpha$, which meaningfully cuts
+      the required $n$ because the entire error budget goes toward the one
+      tail you actually care about.
+
+      The other half of this pattern is reading the formula backward:
+      stopping well short of the required $n$ doesn't just weaken the
+      result a little, it can leave power near what a coin flip itself
+      would give — a reason to distrust any "edge" claimed from a sample
+      far smaller than the sizing calculation demands.
+    worked: >
+      Detect a coin biased at $52\%$ instead of $55\%$ — a smaller edge,
+      $\delta = 0.02$ — at the same two-sided $\alpha=0.05$, power $0.80$
+      settings, using the null $\sigma=0.5$: the multiplier is still
+      $1.96+0.84=2.80$, so $n \approx (2.80 \times 0.5/0.02)^2 = 70^2 =
+      4900$ flips. Dropping the true edge from $0.05$ to $0.02$ — less than
+      a third the size — pushes the requirement from $784$ flips to
+      $4900$, over six times as many, exactly the square-law the formula
+      predicts for a smaller $\delta$.
+    interview: >
+      "How many flips would you need to tell a $52\%$ (or $55\%$, or
+      $60\%$) coin from fair" is a stock prompt — plug into
+      $n\approx((z_\alpha+z_\beta)\times 0.5/\delta)^2$ live, and volunteer
+      that a one-sided version, if the direction of bias is known, needs
+      meaningfully fewer flips.
+    pitfalls: >
+      Reusing a sample-size answer computed for one edge size $\delta$ when
+      the actual suspected edge is smaller ignores the square-law
+      blowup — a coin only half as biased needs roughly four times the
+      flips, not the same number. Quoting the required flip count without
+      stating the power target it assumes leaves the number meaningless,
+      since a lower power target needs far fewer flips for the same
+      $\delta$.
+    recap: >
+      The coin version of the sample-size formula gives about $4900$ flips
+      to detect a $52\%$ coin and $784$ for a $55\%$ coin at the standard
+      $5\%/80\%$ settings — the square-law dependence on the edge size made
+      concrete.
+
+  - node: quant-statistics.testing.multiple-testing
+    hook: >
+      "You ran 50 backtests and one came back significant" is the standard
+      follow-up to any p-value question, and the interviewer wants the
+      family-wise error rate computed on the spot, not just the word
+      "Bonferroni."
+    explanation: >
+      Run $m$ tests, each at level $\alpha$, when every null happens to be
+      true. If the tests are independent, the chance every single one
+      correctly fails to reject is $(1-\alpha)^m$, so the family-wise error
+      rate — at least one false rejection — is $1 - (1-\alpha)^m$: a
+      multiplication of $m$ independent "no false alarm" events, each
+      falling short of certainty, compounds fast.
+
+      Independence isn't needed for a bound, only for the exact formula:
+      the union bound gives
+      $\Pr(\text{at least one false rejection}) \le \sum_i
+      \Pr(\text{test } i \text{ falsely rejects}) = m\alpha$ regardless of
+      how the tests are correlated, since the union bound never assumes
+      independence in the first place. Bonferroni just runs this bound
+      backward: test each hypothesis at $\alpha/m$ instead of $\alpha$, and
+      the union bound guarantees the family-wise rate stays at or below
+      $\alpha$.
+
+      The price is power — a stricter per-test threshold makes every
+      individual test harder to pass — and the bound itself is loose
+      exactly when the tests are correlated, which overlapping backtests
+      on the same market data almost always are. Sharper tools exist for
+      exactly this: Holm's step-down procedure dominates Bonferroni
+      uniformly at no extra cost, and Benjamini–Hochberg trades
+      family-wise control for control of the false discovery proportion
+      instead, useful when some false positives are tolerable as long as
+      most flagged results are real.
+    worked: >
+      Run $m=50$ independent backtests, each at $\alpha=0.05$, on
+      strategies that are all pure noise. The family-wise error rate is
+      $1 - 0.95^{50} \approx 1 - 0.077 = 0.923$ — over $92\%$ chance at
+      least one looks significant by luck alone. Bonferroni's fix: test
+      each at $0.05/50 = 0.001$, a two-sided cutoff of roughly
+      $|z| \ge 3.29$ instead of the usual $1.96$.
+    interview: >
+      "How do you account for testing many strategies at once" wants the
+      family-wise error rate computed for the actual number tested, not a
+      vague "multiple comparisons correction." A sharp follow-up, "is
+      Bonferroni exact here," checks whether you flag that the bound is
+      conservative and loose under correlation.
+    pitfalls: >
+      Reporting a single test's p-value from a search over many
+      specifications without any correction wildly understates the true
+      false-alarm rate. Applying Bonferroni's independence-derived exact
+      formula, $1-(1-\alpha)^m$, to strongly correlated tests overstates
+      how bad the true family-wise rate actually is — the union bound,
+      $m\alpha$, is the safe one to quote when tests are correlated.
+    recap: >
+      Fifty independent noise strategies each tested at $5\%$ give a
+      $92\%$ chance of a false alarm; dividing the per-test level by the
+      number of tests caps the family-wise rate at $\alpha$, at the cost
+      of power.
+
+  - node: quant-statistics.testing.data-snooping
+    hook: >
+      "We tried thirty parameter combinations and this one had a great
+      Sharpe ratio" should trigger an immediate red flag — the p-value of
+      a search's winner is not a p-value at all.
+    explanation: >
+      The correct null for the best result out of a search isn't "this one
+      strategy is noise" — it's "the best of $m$ noise strategies," and the
+      maximum of many noise statistics sits far out in the tail even when
+      every individual one is unremarkable. Judging the survivor of a
+      search against the single-test null massively overstates how
+      surprising its result actually is.
+
+      This is the multiple-testing problem in its most common practical
+      disguise: every specification tried, including the ones that were
+      tweaked, abandoned, or never wrote up, is a member of the search, and
+      the honest correction needs the true count of everything tried — a
+      number research desks rarely keep accurately, which is exactly what
+      makes this trap so persistent.
+
+      Discipline that actually works: hold out data that hasn't been
+      touched by any part of the search, and prefer a hypothesis stated and
+      frozen before the fit begins, so there's no search left to correct
+      for by the time the data is examined. Corrections specific to
+      backtest evaluation — adjustments for the number of trials in a
+      research pipeline — belong to that later stage of the process, but
+      the underlying logic is this node's.
+    worked: >
+      A desk tests $m=40$ pure-noise parameter combinations, each judged at
+      $\alpha=0.05$. The chance at least one looks significant is
+      $1 - 0.95^{40} \approx 1 - 0.129 = 0.871$, about $87\%$, and the
+      expected number of false discoveries by chance alone is
+      $40 \times 0.05 = 2$. Finding exactly two "significant" results out
+      of forty backtests is precisely what pure noise predicts — on its
+      own, zero evidence of a real edge.
+    interview: >
+      "How do you know your backtest result isn't just data snooping" wants
+      the max-of-noise reframing named directly, plus a concrete question
+      back: how many specifications were actually tried, including the
+      discarded ones. A strong answer volunteers a held-out sample as the
+      real test.
+    pitfalls: >
+      Quoting the p-value of the single winning specification as if it
+      were computed against the honest search null wildly overstates
+      significance. Undercounting the number of specifications tried —
+      forgetting abandoned variants and parameter sweeps — understates the
+      correction that's actually needed.
+    recap: >
+      The best of many noise strategies looks significant far more often
+      than a single test's p-value would suggest — count everything tried,
+      and trust only a result confirmed on data the search never touched.
+
+  - node: quant-statistics.testing.practical-significance
+    hook: >
+      "Is this result significant" and "is this worth trading" are
+      different questions with different answers, and conflating them in
+      front of an interviewer reads as not understanding what a p-value
+      measures.
+    explanation: >
+      Significance answers whether an effect is distinguishable from zero
+      given the data collected — nothing about whether it's large enough
+      to matter economically. With enough data, an edge far too small to
+      survive transaction costs becomes statistically significant; with
+      too little data, a genuinely large and tradeable edge can fail to
+      clear the conventional bar.
+
+      The fix is to read the interval, not the star next to the p-value. A
+      precisely measured but tiny effect — narrow interval, entirely below
+      any reasonable cost threshold — is significant and worthless. A wide
+      interval spanning both zero and an economically large number isn't a
+      null result at all; it's an undecided one, saying the experiment
+      collected too little data to tell the two apart, not that the effect
+      is absent.
+
+      What actually converts an effect into money is its size measured
+      against costs, capacity, and turnover — none of which a t-statistic
+      touches. The t-statistic only answers how confident you can be that
+      the true effect isn't exactly zero; every other question about
+      whether it pays lives entirely outside that number.
+    worked: >
+      A high-frequency signal earns a mean of $0.03$ basis points per trade
+      over $2{,}000{,}000$ trades, standard error $0.008$ basis points:
+      $t = 0.03/0.008 = 3.75$, decisively significant. But round-trip costs
+      run $0.5$ basis points — more than sixteen times the measured edge —
+      so the signal is unprofitable despite the overwhelming significance.
+      Contrast a slower signal earning $2$ basis points per trade over just
+      $40$ trades, standard error $1.5$ basis points: $t=2/1.5\approx1.33$,
+      not significant at $5\%$. If real, that edge would clear the same
+      $0.5$ basis-point cost many times over — the honest read is
+      "undetermined," not "no edge," since $40$ trades simply isn't enough
+      data to tell.
+    interview: >
+      "This result is statistically significant — does that mean you'd
+      trade it" is a direct test of this distinction; the strong answer
+      asks for the point estimate, its interval, and the cost structure
+      before answering, rather than treating the p-value as the whole
+      verdict.
+    pitfalls: >
+      Treating a significant result as automatically tradeable skips the
+      comparison against costs and capacity entirely. Treating a
+      non-significant result on a small sample as proof of no edge ignores
+      that low power, not a genuinely absent effect, is the more common
+      explanation.
+    recap: >
+      Large samples make trivial effects significant and small samples
+      hide real ones — quote the effect size and its interval first, and
+      ask separately whether it clears costs.

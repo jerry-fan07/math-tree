@@ -104,6 +104,23 @@
                     size: CGSize(width: 1280, height: 800))
             }
 
+            // Phase 12: §6.6's reader, over a spine derived from the real
+            // taxonomy plus one hand-authored chapter — so the contents rail,
+            // the chapter head, a full lesson, the compression of met steps and
+            // the missing-lesson state are all in one frame.
+            write(
+                AnyView(
+                    ProgramView(
+                        program: fixtureProgram(document: document),
+                        document: document, scores: scores,
+                        target: "analysis.svc.ftc-part-2",
+                        onSelect: { _ in }, onExit: {})),
+                to: root.appendingPathComponent("program.png"),
+                // Taller than the design frame on purpose: the chapter scrolls,
+                // and a shot cropped above the first authored lesson would pass
+                // without ever showing the lesson body render.
+                size: CGSize(width: 1280, height: 3800))
+
             assessment(document: document, scores: scores, into: root)
 
             if let target = environment["MATHTREE_PANEL_SHOT_REPORT"] {
@@ -113,6 +130,65 @@
             print("panel-shot: wrote to \(root.path)")
             fflush(stdout)
             exit(0)
+        }
+
+        /// A program over the *math* tree, for the shot only: the real taxonomy
+        /// as the spine (every branch a part, every subbranch a unit) and one
+        /// chapter authored by hand against real `analysis.svc` nodes. The math
+        /// tree ships no program (§6.6 lands quant-first), so the harness builds
+        /// the smallest one that exercises every state the reader draws.
+        private static func fixtureProgram(document: GraphDocument) -> Program {
+            let branches = document.nodes.filter { $0.kind == .branch }.map(\.id).sorted()
+            let parts = branches.map { branch in
+                ProgramSpine.Part(
+                    title: document.index(of: branch).map { document[$0].title } ?? branch.rawValue,
+                    units: (document.children[branch] ?? [])
+                        .filter { id in
+                            document.index(of: id).map { document[$0].kind == .subbranch } == true
+                        }
+                        .sorted())
+            }
+            return Program(
+                spine: ProgramSpine(parts: parts),
+                lessonUnits: [
+                    LessonUnit(
+                        unit: "analysis.svc",
+                        opening:
+                            "Single-variable calculus, from the limit to the fundamental "
+                            + "theorem — the chapter the seed corpus was grown around.",
+                        lessons: [
+                            Lesson(
+                                node: "analysis.svc.ftc-part-2",
+                                hook:
+                                    "Every definite integral you have ever evaluated by "
+                                    + "antidifferentiation used this.",
+                                explanation:
+                                    "The theorem converts area into endpoint data: if $F' = f$ "
+                                    + "on $[a,b]$, the accumulated change of $F$ is the "
+                                    + "integral of its rate.\nThe proof rides the MVT applied "
+                                    + "to each cell of a partition — the telescoping sum is "
+                                    + "the whole idea.",
+                                worked:
+                                    "$\\int_0^1 x^2\\,dx = \\tfrac{1}{3}(1)^3 - "
+                                    + "\\tfrac{1}{3}(0)^3 = \\tfrac{1}{3}$.",
+                                pitfalls:
+                                    "$F$ must be an antiderivative on the whole interval — "
+                                    + "a removable gap in $f$ is survivable, a pole is not.",
+                                recap: "Integrate by finding any antiderivative and "
+                                    + "differencing the endpoints."),
+                            Lesson(
+                                node: "analysis.svc.mvt",
+                                hook: "The bridge between local slope and global change.",
+                                explanation:
+                                    "Tilt Rolle's theorem: subtract the secant line and the "
+                                    + "hypotheses hand you a stationary point of the "
+                                    + "difference.",
+                                worked:
+                                    "$f(x) = x^2$ on $[0,2]$: the secant slope is $2$, and "
+                                    + "$f'(c) = 2c = 2$ at $c = 1$.",
+                                recap: "Somewhere inside, instantaneous equals average."),
+                        ])
+                ])
         }
 
         /// Phase 8's overlays. Every phase since Phase 4 has rendered its new

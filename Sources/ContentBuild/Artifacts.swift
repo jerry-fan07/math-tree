@@ -60,6 +60,26 @@ struct ProblemArtifact: Encodable {
     }
 }
 
+/// The compiled program (§6.6), shipped beside `graph.json`. Like the bank it is
+/// **always written, even when empty**: the app distinguishes "no program
+/// authored" from "a program with no parts", and a stale artifact from a previous
+/// build would silently answer the wrong one (D8.8's rule).
+struct ProgramArtifact: Encodable {
+    var version: Int
+    /// The spine, in authored order — the order *is* the data.
+    var parts: [ProgramSpine.Part]
+    /// Authored lesson units, sorted by unit id; lessons inside are sorted by
+    /// node id (`LessonUnit` guarantees it). Teaching order is computed by
+    /// `ProgramPlan`, never stored.
+    var units: [LessonUnit]
+
+    init(_ program: Program) {
+        version = ContentFormat.version
+        parts = program.spine.parts
+        units = program.lessonUnits.values.sorted { $0.unit < $1.unit }
+    }
+}
+
 struct LayoutArtifact: Encodable {
     struct Position: Encodable {
         var id: NodeID

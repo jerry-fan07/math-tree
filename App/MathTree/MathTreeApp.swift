@@ -32,11 +32,12 @@ struct MathTreeApp: App {
                     exit(2)
                 }
                 var additional: [GraphDocument] = []
+                var programs: [ProgramDocument] = [SceneStore.shared.program]
                 do {
-                    additional.append(
-                        try GraphDocument.load(
-                            from: GraphDocument.searchDirectories(
-                                subdirectory: TreeSpec.quant.subdirectory)))
+                    let quantDirectories = GraphDocument.searchDirectories(
+                        subdirectory: TreeSpec.quant.subdirectory)
+                    additional.append(try GraphDocument.load(from: quantDirectories))
+                    programs.append(ProgramDocument.load(from: quantDirectories))
                 } catch GraphDocumentError.artifactsNotFound {
                     print("note: quant artifacts not built — quant tree not checked")
                 } catch {
@@ -44,9 +45,20 @@ struct MathTreeApp: App {
                         Data("math check: quant tree failed to load: \(error)\n".utf8))
                     exit(2)
                 }
+                // Same fail-loud rule the graphs get: a program artifact that
+                // exists and cannot be used must fail the check, not skip it —
+                // a silently unchecked lesson corpus is the one outcome this
+                // check exists to prevent.
+                for program in programs {
+                    if let failure = program.loadFailure {
+                        FileHandle.standardError.write(
+                            Data("math check: program failed to load: \(failure)\n".utf8))
+                        exit(2)
+                    }
+                }
                 MathText.Check.runIfRequested(
                     document: scene.document, problems: SceneStore.shared.problems,
-                    additionalDocuments: additional)
+                    additionalDocuments: additional, programs: programs)
             }
         #endif
     }

@@ -1,0 +1,443 @@
+unit: quant-games.betting-markets
+opening: >
+  Odds are prices, and this unit teaches you to read them the way a trader
+  reads a quote sheet: convert any format to a common currency, flip it into
+  the market's implied probability, and spot the standing margin — the
+  overround — baked into every full set of prices a bookmaker posts. From
+  there the unit turns operational: stripping that margin out to recover fair
+  probabilities, weighing your own view against a price to find genuine edge,
+  locking in a riskless profit across two mispriced books or on a bet you
+  already hold, and reading what a moving line actually says about who is
+  betting and why.
+lessons:
+  - node: quant-games.betting-markets.odds-formats
+    hook: >
+      A live market or an interviewer will hand you whichever format is on
+      screen — American on a US book, fractional on a UK racing board,
+      decimal everywhere else — and expect you to see the same price under
+      all three without reaching for a converter.
+    explanation: >
+      Decimal odds are already the easy case: $d$ is the total amount
+      returned per unit staked, so its implied probability is simply $1/d$.
+      Fractional odds report something narrower — profit only, not total
+      return — as $b/a$ per unit staked, so converting to decimal means
+      adding the stake back: $d = b/a + 1$.
+
+      American odds anchor to a stake of $100$ and split into two regimes by
+      sign. Positive odds $A$ report the profit on a $100$ stake directly, so
+      $d = 1 + A/100$. Negative odds $A$ report how much you must risk to
+      profit $100$, so $d = 1 + 100/|A|$ — the risk sits in the denominator
+      rather than the numerator, which is why the formula inverts instead of
+      just flipping a sign. The two regimes meet at even money: $+100$ and
+      $-100$ both mean decimal $2.00$, and nothing sits between them —
+      American odds never read $+0$ or $-50$.
+
+      Convert through decimal as the common currency rather than memorizing a
+      direct fractional-to-American cross-formula. Once a price sits in
+      decimal form, implied probability, edge, and every later calculation in
+      this unit apply the same way regardless of which format it started in.
+    worked: >
+      Fractional odds $5/2$ convert to decimal as $d = 5/2 + 1 = 3.5$. Since
+      $d \ge 2$, that's the positive-American regime: $A = 100(d-1) =
+      100(2.5) = 250$, so $5/2$ is $+250$. Now the other direction: a
+      short-priced favorite at decimal $1.40$ has $d < 2$, so it's negative
+      American: $A = -100/(d-1) = -100/0.4 = -250$ — stake $250$ to profit
+      $100$.
+    interview: >
+      Expect a price fired at you cold in whichever format the interviewer
+      prefers, with the ask being instant, correct conversion — the right
+      branch picked without hesitation, not just the formula recited. A
+      common follow-up is the break-even stake implied by a negative-odds
+      favorite, testing the $100/|A|$ piece specifically.
+    pitfalls: >
+      Applying the positive-odds formula to a negative number, or the reverse,
+      is the single most common slip — check the sign before picking a
+      branch. Fractional odds are profit, not total return; plugging $b/a$
+      straight into $p = 1/d$ without adding the stake back understates the
+      price. And there is no American quote between $-100$ and $+100$: the
+      two regimes touch only at even money.
+    recap: >
+      Decimal is the common currency — fractional adds one stake back and
+      American branches by sign around the $100$ anchor, but every format
+      converts through $d$ into the same price.
+
+  - node: quant-games.betting-markets.implied-probability
+    hook: >
+      Every later calculation in this unit — overround, edge, arbitrage —
+      starts by turning a quoted price back into a probability, so this
+      one-line flip has to be reflexive.
+    explanation: >
+      Once a price is in decimal form, $p = 1/d$ falls straight out of what
+      "break-even" means: staking $1$ at decimal odds $d$ returns $d$ with
+      probability $p$ and $0$ otherwise, and the bet is fair exactly when
+      $p \cdot d = 1$. That single formula is why converting to decimal first
+      is worth the extra step — fractional and American odds each need their
+      own inversion, but decimal only ever needs a reciprocal.
+
+      Treat the output as a price, not a fact. A bookmaker's quote reflects
+      what the bookmaker is willing to pay, shaped by its own risk exposure
+      and margin, and a full market's worth of implied probabilities will
+      typically sum to more than $100\%$ rather than land exactly on it. That
+      gap is structural, not noise, and the next few nodes exist to name and
+      remove it.
+
+      For now, the discipline is just this: whenever a price is quoted, in
+      any format, convert to decimal and take the reciprocal before doing
+      anything else with it.
+    worked: >
+      American $+120$ converts to decimal as $d = 1 + 120/100 = 2.20$, so the
+      implied probability is $p = 1/2.20 \approx 0.4545$, about $45.5\%$ —
+      the win rate at which betting this side breaks even in the long run.
+    interview: >
+      "The market's offering you this price, what's it implying" is asked as
+      a reflex check before any harder question. A sharper follow-up — "is
+      that the true probability?" — is listening for the answer that it is
+      only the market's price, not a claim about reality.
+    pitfalls: >
+      Inverting a fractional or American number directly, instead of
+      converting to decimal first, is a common arithmetic slip. Reading an
+      implied probability as the actual chance of the outcome, rather than as
+      a price that may carry margin, sets up the overround mistake that
+      follows.
+    recap: >
+      Convert to decimal, then invert: $p = 1/d$ is the market's break-even
+      price, not a claim about the true probability.
+
+  - node: quant-games.betting-markets.overround
+    hook: >
+      "What's the vig on this line" is a standard interview ask, and it is
+      nothing more than summing implied probabilities and subtracting one.
+    explanation: >
+      A single price only tells you the break-even rate for one side. The
+      overround is a property of the whole market: convert every outcome's
+      price to an implied probability and add them up. On a theoretical,
+      zero-margin book, those probabilities would sum to exactly $100\%$,
+      mirroring the true chances. A real book prices every side a little
+      conservatively, so the sum comes in above $100\%$, and that excess is
+      margin extracted regardless of which outcome actually happens.
+
+      The overround is not charged separately or visible as a fee — it's
+      baked directly into each individual price, which is exactly why you
+      have to sum across the whole market to see it at all. A single quote in
+      isolation looks perfectly ordinary; the tell only shows up once every
+      side is accounted for.
+
+      Nothing requires the margin to be split evenly across outcomes — two
+      sides of the same market can carry very different amounts of it, and
+      the total is still what matters for measuring the house's edge.
+    worked: >
+      A two-way market quotes decimal $1.80$ on one side and $2.05$ on the
+      other. Implied probabilities are $1/1.80 \approx 0.5556$ and
+      $1/2.05 \approx 0.4878$, summing to about $1.0434$ — an overround of
+      roughly $4.3\%$, even though the two prices aren't symmetric.
+    interview: >
+      Given a full set of prices, sum the implied probabilities and subtract
+      $1$ — the interviewer is watching for that reflex, done quickly and
+      without needing every side to look alike.
+    pitfalls: >
+      Leaving out a leg of the market — forgetting the draw in a three-way
+      soccer line, say — understates the true overround by omitting real
+      margin. Treating the overround as a separate fee rather than something
+      embedded in the prices themselves misses where to actually look for it.
+    recap: >
+      Sum every side's implied probability; the amount over $100\%$ is the
+      overround, the bookmaker's structural edge before any outcome is
+      decided.
+
+  - node: quant-games.betting-markets.devigging
+    hook: >
+      To compare your own view against a market honestly, you need its price
+      with the margin stripped out — this is the standard first move whenever
+      an edge calculation needs a "true" probability.
+    explanation: >
+      The mechanics are one line: sum the implied probabilities to get
+      $S > 1$, then divide each one by $S$. This works because dividing every
+      term of a sum by that same sum's total forces the new terms to add to
+      exactly $1$ — $\sum_i (p_i / S) = S / S = 1$ — so the results are valid
+      probabilities by construction, not just numbers that happen to look
+      like some.
+
+      The method is proportional: it assumes the margin sits evenly across
+      outcomes in probability space, scaling every side down by the same
+      factor $1/S$. That's a simplification — a real book's margin can lean
+      more heavily on one side than another — but it needs no information
+      beyond the quoted prices themselves, which makes it the standard
+      baseline whenever a "fair" probability is needed on the spot.
+
+      The reason it matters: comparing your own probability estimate against
+      the raw implied probability silently hands the bookmaker's margin to
+      you as if it were part of your edge. De-vigging first isolates what the
+      market actually believes from what it charges to take the bet.
+    worked: >
+      A three-way market quotes decimal $2.20$, $3.40$, $3.60$ on the three
+      outcomes. Implied probabilities are $0.4545$, $0.2941$, $0.2778$,
+      summing to $S \approx 1.0264$. Dividing each by $S$ gives fair
+      probabilities of about $44.3\%$, $28.7\%$, and $27.1\%$ — which add
+      back to $100\%$.
+    interview: >
+      "Strip the vig out of this line" wants exactly the normalize-by-sum
+      move applied live, across every outcome quoted — not a more elaborate
+      model, unless one is explicitly asked for.
+    pitfalls: >
+      Normalizing only some of the market's outcomes — missing a leg —
+      understates $S$ and distorts every resulting probability. Treating the
+      proportional result as the single objectively correct fair price,
+      rather than a stated simplifying assumption about how margin is
+      spread, overstates how much the method actually proves.
+    recap: >
+      Divide every implied probability by their sum; the results are
+      nonnegative, sum to exactly $100\%$, and are the standard fair-price
+      estimate once the margin is removed.
+
+  - node: quant-games.betting-markets.favorite-underdog-vig
+    hook: >
+      American moneylines are the single most common two-sided quote you'll
+      be handed, and this is the full odds-to-implied-to-devigged pipeline
+      run start to finish on one.
+    explanation: >
+      The favorite is conventionally quoted negative and the underdog
+      positive precisely because negative American odds describe "risk more
+      to win less" and positive odds describe "risk less to win more" — the
+      sign is doing real work, not just a labeling convention, and mixing up
+      which raw number belongs to which side flips every downstream number.
+
+      The pipeline itself is just the previous three nodes chained: convert
+      each side to decimal, invert to get implied probabilities, sum them to
+      find the overround, then divide by that sum to recover fair
+      probabilities. Nothing new happens here mechanically — the value of
+      running it end to end on a moneyline is building the reflex to do all
+      four steps without dropping one, since a real interview question rarely
+      stops after just the first.
+
+      The same four-step chain applies unchanged to three-way lines, totals,
+      and prop bets — anywhere a book prices a full set of mutually exclusive
+      outcomes.
+    worked: >
+      A moneyline quotes a favorite at American $-150$ and an underdog at
+      $+130$. Decimal: $-150$ gives $d = 1 + 100/150 \approx 1.667$, implied
+      $p \approx 0.600$; $+130$ gives $d = 1 + 130/100 = 2.30$, implied
+      $p \approx 0.4348$. The sum is about $1.0348$, a $3.5\%$ overround.
+      Dividing by $1.0348$: the favorite's fair probability is about
+      $58.0\%$ and the underdog's about $42.0\%$.
+    interview: >
+      Handed a raw moneyline, the expectation is the full pipeline stated out
+      loud — convert, invert, sum, divide — ending in an actual fair
+      probability for each side, not just the overround percentage.
+    pitfalls: >
+      Rounding aggressively at an intermediate step compounds by the final
+      division — carry a few extra digits of precision through decimal and
+      implied probability before dividing by $S$. Swapping which raw American
+      number is the favorite when both are given unlabeled is an easy
+      sign-reading error to make under time pressure.
+    recap: >
+      Convert both sides to decimal, invert, sum for the overround, divide by
+      that sum — the standard four-step read of any moneyline.
+
+  - node: quant-games.betting-markets.bet-ev
+    hook: >
+      "Would you actually bet it" is the question every de-vigging exercise
+      is building toward, and this is the one number that answers it.
+    explanation: >
+      Treat a bet as a payoff you already know how to value: staking $1$ at
+      decimal odds $d$ returns $d - 1$ profit with probability $p$ (your own
+      estimate) and loses the stake with probability $1-p$. Its expected
+      profit per unit is $p(d-1) + (1-p)(-1) = pd - 1$ — the same expectation
+      machinery applied to a two-outcome payoff, just written out.
+
+      A positive result only requires your $p$ to differ from what the price
+      implies; it says nothing about how confident you should be in $p$ or
+      how much variance the bet carries, so a small positive edge on a
+      long-shot price can still be a poor bet once size and uncertainty in
+      your own estimate are considered.
+
+      What you compare $p$ against matters. Use the de-vigged fair
+      probability from the market, not the raw implied one — comparing
+      against the raw number silently credits the bookmaker's margin to you
+      as though it were genuine edge, when part of the gap is just the price
+      of taking the bet at all.
+    worked: >
+      You estimate a $35\%$ chance for an outcome priced at decimal $3.20$
+      (implied about $31.25\%$). Edge is
+      $\text{EV} = 0.35 \times 3.20 - 1 = 0.12$, a $12\%$ expected profit per
+      unit staked — computed from the actual price paid, $3.20$.
+    interview: >
+      "You think it's a $35\%$ chance, the market's offering this price, is
+      it a good bet" wants the formula applied on the spot, ending in a
+      signed number, not a qualitative yes or no.
+    pitfalls: >
+      Using the raw implied probability as the bar to clear, instead of the
+      de-vigged fair probability, overstates how much genuine edge exists.
+      Treating any positive EV as equally worth taking ignores that the same
+      formula says nothing about variance or how reliable $p$ itself is.
+    recap: >
+      Edge is $p \cdot d - 1$ — your probability against the price you're
+      actually paid at, benchmarked against the de-vigged fair price, not the
+      raw implied one.
+
+  - node: quant-games.betting-markets.ev-bet-worked
+    hook: >
+      Turning the EV formula into an actual verdict on one specific price is
+      the version an interviewer wants said out loud within seconds, number
+      included.
+    explanation: >
+      The decimal odds that go into $\text{EV} = pd - 1$ are always the raw
+      price you're actually paid at — never a de-vigged or adjusted number.
+      De-vigging answers a different question (what does the market really
+      believe, stripped of margin) used only as a benchmark to sanity-check
+      that your $p$ genuinely differs from consensus; the payout itself is
+      fixed by whatever price is on the board.
+
+      Once the number is computed, the size of it is the point, not just its
+      sign. A tiny positive edge and a large one both clear zero, but an
+      interviewer asking for "the number" wants the actual percentage stated,
+      since that magnitude is what a real sizing decision would be built on.
+    worked: >
+      You estimate a $30\%$ chance for an outcome priced at decimal $4.00$
+      (implied $25\%$). $\text{EV} = 0.30 \times 4.00 - 1 = 0.20$, so the
+      answer is a $20\%$ expected profit per unit staked.
+    interview: >
+      Given a specific probability estimate and a specific price, the ask is
+      the exact percentage, computed live — stopping at "yes, it's positive"
+      under-answers a question that asked for a number.
+    pitfalls: >
+      Substituting the de-vigged fair probability in place of the actual
+      decimal odds in the formula is a category error — $d$ always comes from
+      the price actually offered. Reporting only the sign of the edge instead
+      of its magnitude leaves the sizing-relevant information on the table.
+    recap: >
+      A $30\%$ true probability against $4.00$ decimal odds is a $20\%$ edge,
+      computed straight from the price actually paid.
+
+  - node: quant-games.betting-markets.dutch-book
+    hook: >
+      Two books disagreeing enough about the same event is a concrete,
+      book-against-book arbitrage — the standard test of whether you can turn
+      a probability calculation into an actual trade.
+    explanation: >
+      Two bookmakers pricing complementary outcomes of the same event are, in
+      effect, one combined market. Sum their implied probabilities: if the
+      total $S$ comes in below $1$, the two books together are underpricing
+      the event, the mirror image of overround, and a riskless profit is
+      available regardless of which side wins.
+
+      Sizing each stake proportional to its own implied probability, $T \cdot
+      p_i / S$, is what makes the payout equal across outcomes: staking
+      $T p_i / S$ at decimal odds $d_i = 1/p_i$ returns $T p_i d_i / S =
+      T/S$, since $p_i d_i = 1$ by definition — the same payout, $T/S$, no
+      matter which outcome resolves. Total stakes committed sum to exactly
+      $T$, since the $p_i/S$ terms are themselves probabilities that add to
+      $1$, so the whole bankroll is deployed and the profit is
+      $T/S - T = T(1-S)/S$, strictly positive exactly when $S < 1$.
+
+      The mental model: you're not predicting an outcome at all, only
+      converting a gap between two books' prices into cash by matching the
+      stake to each book's own implied probability.
+    worked: >
+      Book A offers decimal $1.95$ on outcome X ($p_X \approx 0.5128$); book
+      B offers decimal $2.30$ on outcome Y ($p_Y \approx 0.4348$), so
+      $S \approx 0.9476$. With $T = 500$: stake about $270.6$ on X and
+      $229.4$ on Y; either outcome pays about $527.6$, a guaranteed profit of
+      about $27.6$ (roughly $5.5\%$ of bankroll).
+    interview: >
+      Handed two books' lines on the same event, the ask is to check $S < 1$
+      first, then produce the proportional stake split live — the
+      interviewer is listening for the sizing formula, not just recognizing
+      that an arbitrage exists.
+    pitfalls: >
+      Splitting the bankroll evenly instead of proportionally to each
+      implied probability fails to equalize the payout, leaving one outcome
+      more profitable than the other. This only works when the two books'
+      outcomes are genuinely complementary and mutually exclusive across the
+      same event — near-matching but not identical markets don't actually
+      cover each other.
+    recap: >
+      When two books' implied probabilities sum below $100\%$, sizing stakes
+      proportional to each implied probability guarantees the identical
+      payout, $T/S$, whichever side wins.
+
+  - node: quant-games.betting-markets.hedging-bets
+    hook: >
+      Once a bet is already placed and the price has since moved, this is the
+      mechanical move that turns a still-live position into a fixed,
+      guaranteed number before the outcome is known.
+    explanation: >
+      This is a different situation from pricing a fresh bet: you already
+      hold a stake $S_0$ at decimal odds $O_0$, committed to a payout of
+      $S_0 O_0$ if it wins and $0$ if it loses. A later price $O_1$ on the
+      opposite outcome lets you buy your way out of that uncertainty. Setting
+      the new stake $H$ so both outcomes pay identically —
+      $S_0 O_0 = H O_1$ — gives $H = S_0 O_0 / O_1$, solved directly from the
+      one equation that has to hold.
+
+      Once $H$ is placed, your profit is fixed at $S_0 O_0 - (S_0 + H)$
+      regardless of which side wins — hedging converts an uncertain payoff
+      into a certain one, but nothing about the arithmetic guarantees that
+      certain number is positive. Whether it is depends entirely on how
+      favorable $O_1$ has become relative to $O_0$ by the time you hedge.
+
+      Read it as buying insurance on a position you already hold, priced at
+      whatever the opposing side currently offers — not as betting against
+      yourself, since the two stakes were placed at two different prices, at
+      two different times, on two mutually exclusive results of the same
+      event.
+    worked: >
+      $200$ staked at decimal $2.20$ (payout $440$ if it wins). The opposing
+      outcome later trades at decimal $2.05$, so
+      $H = 200 \times 2.20 / 2.05 \approx 214.63$. Either way the payout is
+      $440$, against total stakes of about $414.63$, locking a guaranteed
+      profit of about $25.37$ (roughly $6.1\%$ of the total committed).
+    interview: >
+      "You've got a live bet and the price has since moved — do you hedge,
+      and for how much" wants the $H$ formula solved live, plus a comment on
+      whether the resulting locked number is actually worth taking.
+    pitfalls: >
+      Computing $H$ from the hedge-side odds alone, without keeping the
+      original payout $S_0 O_0$ fixed as the target, solves the wrong
+      equation. Assuming a hedge is automatically profitable is wrong too — if
+      $O_1$ hasn't moved favorably enough, the locked-in result can be a
+      smaller guaranteed loss rather than a profit, sometimes still worth
+      taking purely to remove variance.
+    recap: >
+      Stake $H = S_0 O_0 / O_1$ on the opposite outcome at today's price to
+      equalize the payout, turning an open bet into a fixed, known result.
+
+  - node: quant-games.betting-markets.line-movement
+    hook: >
+      "The line moved against me" gets read as bad news by reflex; separating
+      why it moved is the actual signal an interviewer is probing for.
+    explanation: >
+      A bookmaker's price is a function of two things at once: its own
+      exposure across the two sides of the bet, and its read on new
+      information about the true probability. Heavy one-sided action shortens
+      a price for both reasons simultaneously — balancing the book and
+      updating the estimate — so a real price genuinely does move when real
+      money moves it.
+
+      Not all money carries the same information. "Sharp" money is
+      edge-driven and tends to arrive early, closer to a genuine update to
+      the fair probability. "Square" money is public, narrative- or
+      loyalty-driven volume that tends to push lines in predictable
+      directions unrelated to the true chance, which is exactly why sharp
+      bettors like to bet before that public volume arrives and moves the
+      price against them.
+
+      The practical consequence: a line moving against a bet you've already
+      placed is not itself evidence that your original edge was wrong — it
+      may simply mean square money pushed an already-fair price further off
+      fair. The size of the move tells you nothing on its own; figuring out
+      who moved it is the actual read.
+    interview: >
+      "You bet this side and the line's since moved against you — does that
+      change how you feel about your edge" wants reasoning about who likely
+      drove the move, not a reflexive "yes, the market disagrees with me
+      now."
+    pitfalls: >
+      Treating any adverse line move as automatic evidence against your
+      original edge conflates price movement with new information. Assuming
+      all volume is informed — reading a big move as "the market knows
+      something" — ignores how much of it is public and narrative-driven
+      rather than edge-driven.
+    recap: >
+      Lines move because money moves them, but only sharp money is genuine
+      evidence about the true probability — a move against you is signal or
+      noise depending on which kind pushed it.

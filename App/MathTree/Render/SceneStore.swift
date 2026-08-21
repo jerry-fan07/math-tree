@@ -30,6 +30,9 @@ final class SceneStore {
     /// artifact was compiled, and the app degrades to self-report rather than
     /// failing (see `ProblemDocument`).
     private(set) var problems: ProblemDocument = .missing
+    /// §6.6's program. Always present; `isAuthored` is false when the tree has
+    /// none, and the Program surface simply is not offered.
+    private(set) var program: ProgramDocument = .missing
     /// §5.3's placement session, when one has been started.
     private(set) var placement: PlacementStore?
     private(set) var errorMessage: String?
@@ -75,6 +78,7 @@ final class SceneStore {
             // the map must be interactive before assessment is reachable.
             let problems = ProblemDocument.load(from: directories)
             self.problems = problems
+            program = ProgramDocument.load(from: directories)
 
             let scores = ScoreStore(document: document, problems: problems.bank, tree: tree)
             scores.hueResolver = { scene.hue(of: $0) }

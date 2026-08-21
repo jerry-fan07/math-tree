@@ -1,0 +1,965 @@
+unit: quant-processes.martingales
+opening: >
+  Martingales formalize "fair game" precisely enough to compute with, and this
+  unit builds the whole machine an interview draws on: the zoo of martingales
+  built from a random walk, the vocabulary of stopping times, and the optional
+  stopping theorem that turns "stop a fair game" into a hitting probability or
+  an expected time — provided its conditions are checked. From there the unit
+  works through the theorem's two headline applications, gambler's ruin and
+  Wald's identity, before the ABRACADABRA casino shows the same machinery
+  solving a genuine pattern-waiting puzzle, and the doubling-strategy fallacy
+  and the maximal and convergence theorems close out the exact boundary of
+  what optional stopping can and cannot deliver.
+lessons:
+  - node: quant-processes.martingales.filtration
+    hook: >
+      Every later definition in this unit — martingale, stopping time,
+      predictable stake — is stated in terms of $\mathcal{F}_n$, so getting
+      comfortable with "what does the filtration know" before the algebra
+      starts is what makes the rest read like common sense.
+    explanation: >
+      Conditional expectation $\mathbb{E}[X\mid Y]$ already restricts an
+      average to whatever $Y$ reveals. A filtration replaces the single
+      variable $Y$ with an entire increasing history:
+      $\mathcal{F}_0\subseteq\mathcal{F}_1\subseteq\cdots$, where
+      $\mathcal{F}_n$ is everything you could know by watching the process
+      through step $n$. For a sequence $X_1,X_2,\dots$,
+      $\mathcal{F}_n=\sigma(X_1,\dots,X_n)$ just means "the first $n$
+      observations, and anything computable from them."
+
+      The two rules quoted in the statement are conditional expectation's two
+      extreme cases restated for a filtration: a quantity already fixed by
+      time $n$ passes straight through the conditioning, and a quantity that
+      hasn't happened yet and is independent of the past collapses to its
+      plain mean. Nearly every computation in this unit is one of these two
+      facts applied to a single future increment.
+
+      The adapted/predictable split is the difference between "known now" and
+      "known one step ago." A gambler's fortune is adapted — revealed as it
+      happens; a gambler's stake for the next round, chosen before that round
+      is played, is predictable. That one-step lag is what protects a betting
+      system from beating a fair game, later in this unit.
+    worked: >
+      Let $X_1,X_2,\dots$ be independent fair die rolls (values $1$ through
+      $6$), and $\mathcal{F}_n=\sigma(X_1,\dots,X_n)$. Given $\mathcal{F}_2$
+      with $X_1=4,X_2=1$, compute
+      $\mathbb{E}[X_1+X_2+X_3+X_4\mid\mathcal{F}_2]$: $X_1+X_2=5$ is already
+      known, and $X_3+X_4$ is independent of $\mathcal{F}_2$ with mean
+      $3.5+3.5=7$, so the answer is $5+7=12$.
+    interview: >
+      "Write $\mathbb{E}[\cdot\mid\mathcal{F}_n]$ for this quantity" tests
+      whether you split a sum into a known part and an independent part on
+      sight. Interviewers also probe adapted-versus-predictable directly:
+      "can you choose your bet size using today's close?" — yes, that's
+      tomorrow's predictable stake.
+    pitfalls: >
+      Writing $\mathbb{E}[X_{n+1}\mid\mathcal{F}_n]=X_{n+1}$, forgetting
+      $X_{n+1}$ is exactly what's unknown at time $n$. Calling a quantity
+      computed from $X_1,\dots,X_n$ "predictable" when it is really adapted —
+      predictable means fixed one step earlier, at $\mathcal{F}_{n-1}$.
+    recap: >
+      $\mathcal{F}_n$ is shorthand for "everything observable by time $n$,"
+      and the chapter runs on two facts: known quantities pass through
+      conditioning unchanged, independent ones average out.
+
+  - node: quant-processes.martingales.martingale
+    hook: >
+      Every "is this a fair game" question reduces to checking one equation,
+      $\mathbb{E}[X_{n+1}\mid\mathcal{F}_n]=X_n$, so recognizing that shape on
+      sight is worth more than reciting the definition.
+    explanation: >
+      The definition packages "fair game" precisely: given everything known
+      through time $n$, tomorrow's expected fortune equals today's realized
+      value — not its average, its actual value. That is stronger than
+      $\mathbb{E}[X_{n+1}]=\mathbb{E}[X_n]$; it holds along every path, not
+      just on average.
+
+      The tower property upgrades a one-step promise into a promise at every
+      future time: applying $\mathbb{E}[\cdot\mid\mathcal{F}_n]$ to
+      $\mathbb{E}[X_{n+2}\mid\mathcal{F}_{n+1}]=X_{n+1}$ and using the tower
+      property collapses two nested conditionings into
+      $\mathbb{E}[X_{n+2}\mid\mathcal{F}_n]=X_n$, and induction extends this
+      to every $m>n$. Setting $n=0$ removes the conditioning entirely, giving
+      the constant-mean property $\mathbb{E}[X_n]=\mathbb{E}[X_0]$ — the one
+      fact used to check almost every martingale identity in this unit.
+
+      Linearity of conditional expectation makes sums of martingales on a
+      shared filtration martingales again, which is the standing
+      justification for building one complicated fair game out of several
+      small ones.
+    worked: >
+      Let stakes grow with the round: bet $i$ pays $+i$ or $-i$ with equal
+      probability, and $X_n$ is the running total, $X_0=0$. Realized path
+      $+1,-2,+3$ gives $X_3=2$. Then
+      $\mathbb{E}[X_4\mid\mathcal{F}_3]=2+\mathbb{E}[\text{bet }4]=2+0=2$,
+      confirming the definition; unconditionally, $\mathbb{E}[X_4]=
+      \mathbb{E}[X_0]=0$ regardless of the path taken to get there.
+    interview: >
+      "Is this process a martingale?" wants the one-line check
+      $\mathbb{E}[X_{n+1}\mid\mathcal{F}_n]=X_n$ verified, not "it's fair on
+      average." A frequent follow-up, "what's $\mathbb{E}[X_{100}]$?", is
+      answered instantly by the constant-mean property.
+    pitfalls: >
+      Checking only $\mathbb{E}[X_{n+1}]=\mathbb{E}[X_n]$ (unconditional) and
+      calling it a martingale — necessary but not sufficient; the conditional
+      version must hold path by path. Forgetting $\mathbb{E}|X_n|<\infty$: a
+      process can satisfy the conditional equality formally and still fail to
+      qualify if some $X_n$ isn't integrable.
+    recap: >
+      A martingale is a fair game frozen precisely:
+      $\mathbb{E}[X_{n+1}\mid\mathcal{F}_n]=X_n$, and the tower property
+      promotes that single-step promise to $\mathbb{E}[X_n]=\mathbb{E}[X_0]$
+      at every fixed time.
+
+  - node: quant-processes.martingales.sub-supermartingale
+    hook: >
+      Recognizing which inequality direction you're looking at — and that a
+      house edge is a supermartingale, not a submartingale — is a two-second
+      sanity check that keeps every later sign right.
+    explanation: >
+      Relaxing the martingale's equality to an inequality gives two one-sided
+      notions: a submartingale drifts up in conditional expectation, a
+      supermartingale drifts down, and satisfying both at once is exactly
+      being a martingale — the inequality in each direction forces equality.
+
+      The naming is backwards from what intuition suggests, so memorize the
+      mnemonic: a supermartingale is "super" only in size now, headed down —
+      the game with the edge against you. A casino's house edge means your
+      fortune is a supermartingale: each round's conditional expectation is at
+      most your current stake.
+
+      Jensen's inequality manufactures new submartingales from a martingale:
+      for convex $f$, $\mathbb{E}[f(X_{n+1})\mid\mathcal{F}_n]\ge
+      f(\mathbb{E}[X_{n+1}\mid\mathcal{F}_n])=f(X_n)$, so $f(X_n)$ is a
+      submartingale whenever $X_n$ is a martingale. This is why $|X_n|$ and
+      $X_n^{2}$ both drift upward even though $X_n$ itself drifts nowhere —
+      convexity injects upward drift that wasn't there before.
+    worked: >
+      Let $X_n$ be a martingale with $X_0=0$ and each increment having
+      variance $1$. Then $X_n^{2}$ is a submartingale:
+      $\mathbb{E}[X_{n+1}^{2}\mid\mathcal{F}_n] =
+      X_n^{2}+2X_n\,\mathbb{E}[\text{incr}\mid\mathcal{F}_n]+
+      \mathbb{E}[\text{incr}^{2}] = X_n^{2}+0+1 = X_n^{2}+1 \ge X_n^{2}$,
+      confirming a submartingale drift of exactly $+1$ per step.
+    interview: >
+      "Is your P&L a sub- or supermartingale under this rule" checks whether
+      you can name the drift direction from the sign of the edge without
+      hesitation. Expect the mnemonic check: "which one goes down?" —
+      supermartingale, because life is not fair.
+    pitfalls: >
+      Swapping the two names under pressure — the single most common slip.
+      Assuming any nonlinear function of a martingale increases the mean;
+      it's specifically convexity that does it, so a concave function of a
+      martingale is a supermartingale, not a submartingale.
+    recap: >
+      A submartingale drifts up, a supermartingale drifts down, being both is
+      exactly being a martingale, and Jensen's inequality turns a martingale
+      into a submartingale via any convex function.
+
+  - node: quant-processes.martingales.examples-zoo
+    hook: >
+      These three constructions — the level, the compensated square, and the
+      geometric martingale — are the entire toolkit optional stopping draws
+      on; recognizing which one a problem wants is most of solving it.
+    explanation: >
+      Each entry is checked against the martingale definition by expanding
+      one conditional expectation of a single increment. The centered walk
+      works because $\mathbb{E}[X_{n+1}\mid\mathcal{F}_n]=p-q$ regardless of
+      the past (the increments are independent of everything already seen),
+      so subtracting the running total of that drift, $n(p-q)$, leaves
+      conditional expectation exactly zero at every step; when $p=1/2$ the
+      drift is already zero and $S_n$ itself is the martingale.
+
+      The compensated square is the same $(S_n-n\mu)^{2}-n\sigma^{2}$
+      construction general iid increments always get, with $\mu=p-q$ and
+      $\sigma^{2}$ computed directly: since $X_i^{2}=1$ always for a $\pm1$
+      step, $\mathbb{E}[X_i^{2}]=1$, and
+      $\operatorname{Var}(X_i)=1-(p-q)^{2}=4pq$ using $p+q=1$ — that variance
+      is exactly the $4pq\,n$ compensator, no coincidence at all. At
+      $p=1/2$ this collapses to the familiar $S_n^{2}-n$.
+
+      The geometric martingale checks a multiplicative fair game instead of
+      an additive one: $(q/p)^{S_n}$ multiplies by the random factor
+      $(q/p)^{X_{n+1}}$ each step, and that factor's mean is exactly $1$ —
+      $p\cdot(q/p)+q\cdot(p/q)=q+p=1$ — so "drift zero" for a multiplicative
+      process means "multiplier averages to $1$," the natural analogue of
+      additive drift zero.
+    worked: >
+      Take $p=1/4$, $q=3/4$, so $q/p=3$. Check
+      $\mathbb{E}[3^{X_1}] = (1/4)(3)+(3/4)(1/3) = 3/4+1/4 = 1$, confirming
+      $\mathbb{E}[3^{S_{n+1}}\mid\mathcal{F}_n]=3^{S_n}\cdot1=3^{S_n}$ — the
+      martingale property verified directly for this biased walk.
+    interview: >
+      "Name a martingale built from this random walk" should produce the
+      three-item list instantly, keyed to whether the walk is symmetric. A
+      pointed follow-up — "why $4pq\,n$ and not just $n$?" — tests whether
+      you actually computed $\operatorname{Var}(X_i)$ rather than memorizing
+      the symmetric case only.
+    pitfalls: >
+      Using $S_n^{2}-n$ for a biased walk — that identity is special to
+      $p=1/2$; the biased version needs the $4pq\,n$ compensator and the
+      $p-q$ recentering. Writing the geometric martingale as $(p/q)^{S_n}$
+      instead of $(q/p)^{S_n}$ — only one ratio has expectation $1$ per step.
+    recap: >
+      Three martingales cover nearly every random-walk problem: $S_n-n(p-q)$,
+      $(S_n-n(p-q))^{2}-4pq\,n$, and $(q/p)^{S_n}$ — each checked by one line
+      of conditional expectation algebra on a single increment.
+
+  - node: quant-processes.martingales.exponential-martingale
+    hook: >
+      This is the general engine behind the geometric martingale — pick
+      $\theta$ so the moment generating function equals $1$, and any random
+      walk hands you a bounded martingale for free.
+    explanation: >
+      The geometric martingale is a special case of a much more general
+      construction: for iid increments with finite
+      $\phi(\theta)=\mathbb{E}[e^{\theta X_1}]$, the ratio
+      $M_n=e^{\theta S_n}/\phi(\theta)^{n}$ is always a martingale, because
+      the new increment's contribution $e^{\theta X_{n+1}}$ is independent of
+      the past and averages to exactly $\phi(\theta)$, cancelling the extra
+      factor picked up in the denominator — the same one-line check used
+      throughout the zoo, carried out for exponentials.
+
+      The move worth remembering is choosing $\theta$ to solve
+      $\phi(\theta)=1$ rather than leaving the denominator in. When that root
+      exists, the denominator becomes $1$ and $e^{\theta S_n}$ itself is a
+      martingale — no time-dependent compensator to carry into optional
+      stopping.
+
+      For the $\pm1$ walk, $\phi(\theta)=pe^{\theta}+qe^{-\theta}$, and
+      solving $\phi(\theta)=1$ gives the nontrivial root $e^{\theta}=q/p$
+      ($\theta=0$ is the trivial root), recovering the geometric martingale
+      exactly. The general construction is what to reach for once the
+      increments aren't $\pm1$.
+    worked: >
+      Let $X_i=+1$ with probability $1/3$ and $X_i=-2$ with probability
+      $2/3$ (mean $-1$, an unfavorable walk). Then
+      $\phi(\theta)=(1/3)e^{\theta}+(2/3)e^{-2\theta}$. With $y=e^{\theta}$,
+      $\phi(\theta)=1$ becomes $y^{3}-3y^{2}+2=0$; the trivial root is
+      $y=1$, and factoring $(y-1)(y^{2}-2y-2)=0$ gives the nontrivial root
+      $y=1+\sqrt3\approx2.732$, so $\theta=\ln(1+\sqrt3)\approx1.005$ and
+      $M_n=e^{\theta S_n}$ is a martingale with $M_0=1$ — even though the
+      walk itself drifts to $-\infty$.
+    interview: >
+      "Construct a bounded martingale for this random walk" is answered by
+      writing $e^{\theta S_n}/\phi(\theta)^{n}$ and proposing to solve
+      $\phi(\theta)=1$ for the nontrivial root, showing you know the general
+      construction, not just the $\pm1$ special case.
+    pitfalls: >
+      Forgetting $\theta=0$ always solves $\phi(\theta)=1$ and stopping
+      there — the useful root is the other one. Using $M_n=e^{\theta S_n}$
+      without dividing by $\phi(\theta)^{n}$ for a $\theta$ that hasn't been
+      tuned to make $\phi(\theta)=1$ — for a generic $\theta$ that's not a
+      martingale at all.
+    recap: >
+      $e^{\theta S_n}/\phi(\theta)^{n}$ is a martingale for any $\theta$, and
+      solving $\phi(\theta)=1$ for its nontrivial root removes the
+      compensator, generalizing the $\pm1$ walk's geometric martingale to any
+      iid step distribution.
+
+  - node: quant-processes.martingales.spotting-martingales
+    hook: >
+      This is the master recipe interviewers actually expect: compute one
+      drift, read one case, done — memorizing the zoo's formulas is no
+      substitute for deriving a fourth one live.
+    explanation: >
+      Every hitting-probability or hitting-time question reduces to the same
+      computation: propose a candidate function $f$ of the current state,
+      compute the one-step drift
+      $D(x)=\mathbb{E}[f(X_{n+1})-f(X_n)\mid X_n=x]$, and read off which case
+      you're in — exactly the calculation already done three times in the
+      zoo, made systematic.
+
+      Zero drift is the probability case: if $D\equiv0$ then $f(X_n)$ is
+      itself a martingale, and optional stopping — once its conditions are
+      checked — reads off a hitting probability with no further work.
+      Constant nonzero drift is the time case: if $D\equiv c$, subtracting
+      the running total $cn$ cancels the drift, so $f(X_n)-cn$ is a
+      martingale, and stopping it returns an expected time instead.
+
+      When the drift depends on the state $x$, the zero-drift equation
+      $D(x)\equiv0$ is a functional equation for $f$ — for a Markov chain
+      with transition matrix $P$ this is the harmonic equation $Pf=f$, solved
+      subject to boundary values $1$ and $0$ at the two absorbing states,
+      while $Pf-f=-1$ is the corresponding equation for an expected time.
+      Probabilities want harmonic functions; times want a compensator.
+    worked: >
+      For the fair $\pm1$ walk absorbed at $0$ and $N$, try $f(x)=x$: its
+      drift is $D(x)=\mathbb{E}[X_{n+1}-X_n]=0$ identically, so $f(X_n)=S_n$
+      is already a martingale and needs no further solving — exactly why
+      $S_n$, not some other function, hands the ruin probability straight to
+      optional stopping.
+    interview: >
+      "How would you find the right martingale for this hitting-time
+      problem" wants the drift computation stated as a general method, not a
+      lookup in the zoo. A frequent follow-up asks you to solve $Pf=f$ for a
+      small Markov chain live.
+    pitfalls: >
+      Guessing a function, finding nonzero non-constant drift, and giving up
+      instead of solving the resulting functional equation. Forgetting the
+      boundary conditions on the harmonic equation — $Pf=f$ alone has many
+      solutions, and only the boundary values pick out the right one.
+    recap: >
+      Compute the one-step drift of a candidate function of the state; zero
+      drift gives a martingale and a probability, constant drift gives a
+      compensated martingale and an expected time.
+
+  - node: quant-processes.martingales.martingale-transform
+    hook: >
+      This is the theorem behind "the house always wins in expectation" — no
+      way of sizing your bets changes the mean of a fair game, only its
+      spread.
+    explanation: >
+      A predictable stake $H_n$ is fixed by $\mathcal{F}_{n-1}$ — chosen
+      before round $n$'s outcome is revealed, exactly the "no peeking"
+      restriction the adapted/predictable distinction was built to express.
+      The transform $(H\cdot X)_n=\sum_{k=1}^{n}H_k(X_k-X_{k-1})$ is just your
+      cumulative winnings under that staking plan.
+
+      The transform is a martingale because each term
+      $H_k(X_k-X_{k-1})$ has conditional expectation zero given
+      $\mathcal{F}_{k-1}$: $H_k$ is already known there and pulls out,
+      leaving $H_k\cdot\mathbb{E}[X_k-X_{k-1}\mid\mathcal{F}_{k-1}]=H_k\cdot0=0$
+      by the martingale property of $X$ itself. Summing zero-mean increments
+      keeps the running total flat, so $\mathbb{E}[(H\cdot X)_n]=0$ at every
+      fixed $n$.
+
+      This is the formal version of "no betting system beats a fair game":
+      doubling, stop-losses sized on past information — every one is a choice
+      of $H_n$, and every one leaves the mean exactly where it started, only
+      reshaping the distribution around it. The one lever the theorem does
+      not touch is when to stop.
+    worked: >
+      Fair coin, $X_n$ the $\pm1$ walk, staking rule $H_n=2$ if the previous
+      toss was heads, $H_n=1$ otherwise. Realized path H,T,H (increments
+      $+1,-1,+1$) gives $H_1=1$ (no history), $H_2=2$ (previous was H),
+      $H_3=1$ (previous was T), so $(H\cdot X)_3=1(1)+2(-1)+1(1)=0$;
+      unconditionally $\mathbb{E}[(H\cdot X)_3]=0$ regardless of the staking
+      rule chosen.
+    interview: >
+      "Can a clever staking strategy make a fair game profitable?" wants the
+      transform-is-a-martingale argument named, with predictability of the
+      stake identified as load-bearing. A sharp follow-up: "what if the stake
+      could depend on the current outcome?" — then it isn't predictable and
+      the theorem doesn't apply.
+    pitfalls: >
+      Letting $H_n$ depend on $X_n$ itself and still calling it predictable —
+      that breaks $\mathcal{F}_{n-1}$-measurability entirely. Assuming
+      boundedness of $H_n$ can be dropped for free; unbounded stakes are
+      exactly what breaks optional stopping later.
+    recap: >
+      Any predictable stake sequence applied to a martingale produces another
+      martingale with mean $0$ — sizing a bet reshapes variance, never
+      expectation.
+
+  - node: quant-processes.martingales.stopping-time
+    hook: >
+      This definition — decide using only the past — is the single
+      hypothesis every optional stopping argument lives or dies on, so
+      knowing the non-examples cold matters as much as the examples.
+    explanation: >
+      A stopping time formalizes "a rule for quitting that a person actually
+      watching the process could follow": at each time $n$ you must already
+      be able to say whether you've stopped, using only what's been revealed
+      through $\mathcal{F}_n$. Formally $\{T=n\}\in\mathcal{F}_n$ for every
+      $n$ — the event "I stop exactly now" is decided by present information,
+      never future.
+
+      The examples share the same shape: hitting a level, completing a
+      pattern, a fixed deterministic time, and combinations like min, max or
+      a fixed shift of two stopping times — all decidable by watching,
+      without knowing what comes next.
+
+      The non-examples are worth memorizing precisely because they look
+      almost legitimate: "the time the walk hits its maximum over $[0,N]$"
+      needs the whole path first, to know it wasn't beaten later; "the step
+      just before the first visit to $a$" requires already knowing when that
+      visit happens; "the last visit to $0$" and every version of selling at
+      the top need clairvoyance. Optional stopping has nothing to say about
+      any of these.
+    worked: >
+      For the $\pm1$ walk started at $S_0=5$, let $T_1$ = first time $S_n$
+      hits $0$ or $10$: a stopping time, since checking $S_n\in\{0,10\}$ at
+      each $n$ uses only what's observed. Let $T_2$ = the last time before
+      absorption that $S_n=5$: not a stopping time, since declaring "this is
+      the last visit to $5$" requires already knowing the walk never returns
+      — information only available from the entire future path.
+    interview: >
+      "Is this a valid stopping time?" is asked almost literally — the answer
+      must be justified by "can you tell at time $n$, using only
+      $\mathcal{F}_n$" rather than intuition about fairness. Expect several
+      examples and non-examples in a row.
+    pitfalls: >
+      Calling "the time of the maximum" a stopping time because it feels
+      natural — it needs the whole path to confirm no later value beats it.
+      Assuming any reasonable-sounding trading rule ("sell when the price
+      will never be this high again") is a stopping time; if it needs the
+      future, it isn't, no matter how natural it sounds.
+    recap: >
+      $T$ is a stopping time exactly when $\{T=n\}$ is decided by
+      $\mathcal{F}_n$ — a rule for quitting using only what has already
+      happened, and every optional stopping argument requires exactly this.
+
+  - node: quant-processes.martingales.stopped-martingale
+    hook: >
+      This is the free half of optional stopping — truncating a fair game at
+      any stopping time whatsoever costs nothing at any fixed horizon, and
+      knowing exactly why makes the theorem after this one legible.
+    explanation: >
+      Write the stopped process as a telescoping sum:
+      $X_{T\wedge n}=X_0+\sum_{k=1}^{n}\mathbf{1}\{T\ge k\}(X_k-X_{k-1})$ —
+      each term contributes the increment if the process hasn't stopped yet,
+      or zero if it has. This is exactly the martingale transform with stake
+      $H_k=\mathbf{1}\{T\ge k\}$.
+
+      The stake is predictable because $\{T\ge k\}=\{T\le k-1\}^{c}$, and
+      $\{T\le k-1\}$ is decided by $\mathcal{F}_{k-1}$ by the very definition
+      of a stopping time — whether you're "still in the game" at round $k$ is
+      knowable one step early. That predictability is the entire proof.
+
+      Because it's a martingale transform by a predictable, bounded stake,
+      $X_{T\wedge n}$ is a martingale, so $\mathbb{E}[X_{T\wedge n}]=
+      \mathbb{E}[X_0]$ holds for every fixed $n$, with no assumption on $T$
+      beyond being a stopping time. Everything difficult in optional stopping
+      lives entirely in the limit $n\to\infty$, where
+      $\mathbb{E}[X_{T\wedge n}]\to\mathbb{E}[X_T]$ can fail.
+    worked: >
+      Fair walk from $S_0=3$, $T$ = first hit of $0$ or $8$. At $n=2$, before
+      absorption is possible: with probability $1/4$ up-up ($S_2=5$), $1/2$
+      mixed ($S_2=3$), $1/4$ down-down ($S_2=1$, not yet absorbed). So
+      $\mathbb{E}[S_{T\wedge2}]=\frac14(5)+\frac12(3)+\frac14(1)=3$, matching
+      $S_0=3$ exactly.
+    interview: >
+      "Why is $\mathbb{E}[X_{T\wedge n}]=\mathbb{E}[X_0]$ always true, with
+      no conditions on $T$?" wants the martingale-transform argument named
+      directly. A sharp follow-up asks where the argument would break trying
+      to push $n\to\infty$.
+    pitfalls: >
+      Believing this already proves $\mathbb{E}[X_T]=\mathbb{E}[X_0]$ — it
+      proves only the truncated version at every finite $n$; the limit is a
+      separate, nontrivial step. Checking predictability of
+      $\mathbf{1}\{T\ge k\}$ against $\mathcal{F}_k$ instead of
+      $\mathcal{F}_{k-1}$ — the whole point is it's fixed one step early.
+    recap: >
+      Stopping a martingale at any stopping time and fixed horizon costs
+      nothing — $X_{T\wedge n}$ is itself a martingale — and every difficulty
+      in optional stopping lives in the limit $n\to\infty$.
+
+  - node: quant-processes.martingales.ost
+    hook: >
+      This theorem is asked constantly and gotten wrong constantly, because
+      the three sufficient conditions, not the conclusion, are the actual
+      content — name your condition or the argument is worthless.
+    explanation: >
+      The stopped process gives $\mathbb{E}[X_{T\wedge n}]=\mathbb{E}[X_0]$
+      free at every finite $n$; optional stopping is entirely about pushing
+      $n\to\infty$ to get $\mathbb{E}[X_T]=\mathbb{E}[X_0]$. Since
+      $X_{T\wedge n}\to X_T$ almost surely, the only question is whether
+      expectation commutes with that limit, and the three conditions are
+      three different sufficient routes to that interchange.
+
+      Condition (a), $T\le N$, needs nothing else — the sum stabilizes at
+      $X_T$ for $n\ge N$. Condition (b), a bounded stopped process, invokes
+      dominated convergence directly. Condition (c), the one most often
+      needed in interview problems, pairs bounded increments with
+      $\mathbb{E}[T]<\infty$: this bounds $|X_{T\wedge n}-X_0|$ by
+      $C\cdot T$, and $\mathbb{E}[T]<\infty$ makes that dominating bound
+      itself integrable.
+
+      The sharp criterion behind all three — uniform integrability of
+      $(X_{T\wedge n})_n$ — is worth knowing exists even if rarely checked
+      directly; each named condition is a convenient way of guaranteeing it.
+      For a supermartingale the identical conditions give
+      $\mathbb{E}[X_T]\le\mathbb{E}[X_0]$ instead of equality.
+    worked: >
+      Fair walk from $S_0=2$, absorbed at $0$ or $6$. $T$ is unbounded
+      (condition a fails), but $0\le S_{T\wedge n}\le6$ for every $n$ —
+      condition (b) holds with $C=6$ — so $\mathbb{E}[S_T]=\mathbb{E}[S_0]=2$
+      is licensed, giving $6\Pr(\text{hit }6)=2$, hitting probability $1/3$.
+    interview: >
+      "State optional stopping and its conditions" is asked almost verbatim;
+      interviewers listen for which condition applies to this problem, not a
+      recitation of all three. A common trap gives an unbounded stopping time
+      and asks whether the conclusion still holds.
+    pitfalls: >
+      Applying $\mathbb{E}[X_T]=\mathbb{E}[X_0]$ to an unbounded stopping
+      time without checking any condition — the single most common error in
+      the unit. Confusing "$T<\infty$ almost surely" (required just to state
+      the theorem) with "$T$ is bounded" (only one of three ways to satisfy
+      it).
+    recap: >
+      $\mathbb{E}[X_T]=\mathbb{E}[X_0]$ holds under a bounded stopping time,
+      a bounded stopped process, or bounded increments with
+      $\mathbb{E}[T]<\infty$ — without naming one, the conclusion is false,
+      not just unproved.
+
+  - node: quant-processes.martingales.ost-supermartingale
+    hook: >
+      This corollary is the formal reason a house edge can't be out-timed —
+      no stop-loss, take-profit, or "quit while ahead" rule turns a
+      negative-edge game into a nonnegative-edge one.
+    explanation: >
+      Applying the same three conditions to a supermartingale inherits the
+      one-sided inequality from every finite horizon:
+      $\mathbb{E}[X_{T\wedge n}]\le\mathbb{E}[X_0]$ holds unconditionally, so
+      passing to the limit under (a), (b) or (c) preserves $\le$ rather than
+      $=$. A submartingale reverses the inequality by the mirror argument.
+
+      The practical reading: in a game with negative expected value per
+      round, no exit rule — stop-loss, take-profit, quitting once ahead —
+      can push the expected outcome above where it started. Every such rule
+      is a stopping time, and stopping never helps a supermartingale, only
+      preserves or worsens the built-in drift.
+
+      The nonnegative case is genuinely stronger, with zero side conditions:
+      if $X_n\ge0$, $\mathbb{E}[X_T]\le\mathbb{E}[X_0]$ holds even when
+      $\Pr(T=\infty)>0$, using Fatou's lemma rather than any named condition
+      — nonnegativity alone survives an unbounded, possibly infinite stopping
+      time. Fair games can genuinely be broken by unboundedly patient
+      stopping (the doubling strategy), but an unfavorable nonnegative one
+      cannot be rescued by it.
+    worked: >
+      A trader's wealth $X_n\ge0$ is a supermartingale with $X_0=100$ under a
+      strategy with a small negative edge, and they exit at $T$, the first
+      time wealth doubles to $200$ or hits $0$, with $\Pr(T=\infty)>0$
+      possible. Nonnegativity alone gives $\mathbb{E}[X_T]\le100$, so if
+      wealth ever hits $200$ with probability $p$,
+      $200p\le\mathbb{E}[X_T]\le100$ already forces $p\le0.5$ — a genuine
+      bound with no further computation.
+    interview: >
+      "Can a stop-loss rule make a losing strategy profitable?" is answered
+      immediately by this corollary. A sharper version asks about the
+      nonnegative case ("what if the trader can't go into debt") to check
+      whether you know it needs no side conditions at all.
+    pitfalls: >
+      Assuming the nonnegative-supermartingale bound needs one of the three
+      optional-stopping conditions verified — it doesn't; nonnegativity alone
+      suffices via Fatou. Reversing the sub-/supermartingale inequality
+      direction under time pressure.
+    recap: >
+      Optional stopping never helps a supermartingale,
+      $\mathbb{E}[X_T]\le\mathbb{E}[X_0]$ under the usual conditions, and for
+      nonnegative wealth that bound holds even with an unbounded, possibly
+      infinite stopping time.
+
+  - node: quant-processes.martingales.ruin-via-ost
+    hook: >
+      This is the fastest legitimate derivation of both gambler's ruin
+      formulas — three lines each, no recurrence to set up, once the right
+      martingale and optional-stopping condition are named.
+    explanation: >
+      Recall the two-barrier absorbing walk: a walker at $k$ between $0$ and
+      $N$, stopped at $T$, the first exit. Checking a condition is the first
+      move, and it's the same for both cases: any run of $N$ consecutive
+      up-moves ends the game, so $T$ is dominated by a geometric number of
+      such blocks, giving $\mathbb{E}[T]<\infty$; and the walk is trapped in
+      $[0,N]$ until it stops, so $0\le S_{T\wedge n}\le N$ — both (b) and (c)
+      hold at once.
+
+      In the fair case, $S_n$ itself is the zoo's martingale, so optional
+      stopping gives $k=\mathbb{E}[S_0]=\mathbb{E}[S_T]$. Since $S_T$ is $N$
+      with probability $\Pr(\text{hit }N)$ and $0$ otherwise,
+      $\mathbb{E}[S_T]=N\Pr(\text{hit }N)$ directly, so
+      $\Pr(\text{hit }N)=k/N$ — one substitution into optional stopping.
+
+      The biased case swaps in the geometric martingale $(q/p)^{S_n}$, which
+      is automatically bounded on $[0,N]$. Optional stopping gives
+      $(q/p)^{k}=u(q/p)^{N}+(1-u)$ where $u=\Pr(\text{hit }N)$, a single
+      linear equation solved for $u=\dfrac{1-(q/p)^{k}}{1-(q/p)^{N}}$.
+    worked: >
+      Take $k=3$, $N=5$, biased with $p=0.4$ so $q/p=1.5$. Then
+      $u=\dfrac{1-1.5^{3}}{1-1.5^{5}}=\dfrac{1-3.375}{1-7.59375}=
+      \dfrac{-2.375}{-6.59375}\approx0.3602$: about a $36\%$ chance of
+      reaching $5$ before $0$, despite starting past the midpoint — the bias
+      against the walker dominates the head start.
+    interview: >
+      "Derive the gambler's ruin probability using martingales" is a direct
+      request for this argument — naming $S_n$ or $(q/p)^{S_n}$ and one of
+      conditions (b)/(c) is expected within the first thirty seconds.
+    pitfalls: >
+      Invoking $\mathbb{E}[S_T]=\mathbb{E}[S_0]$ without verifying a
+      condition first — boundedness is not automatic without the two-barrier
+      setup. Using $S_n$ as the martingale in the biased case — it isn't one
+      there; only the recentered or geometric version is.
+    recap: >
+      Both ruin formulas — $1-k/N$ fair,
+      $\dfrac{1-(q/p)^{k}}{1-(q/p)^{N}}$ biased — drop out of optional
+      stopping applied to $S_n$ and $(q/p)^{S_n}$, using that the two-barrier
+      walk keeps both bounded.
+
+  - node: quant-processes.martingales.hitting-time-quadratic
+    hook: >
+      Once the ruin derivation gives the exit probability, this is the
+      one-line trick for the exit time: stop the compensated square instead
+      of the level.
+    explanation: >
+      The setup is identical to the ruin derivation — same two barriers,
+      same walker starting at $k$ — but the target is $\mathbb{E}[T]$ rather
+      than a probability, so the level martingale $S_n$ (whose optional
+      stopping identity already used up $S_T$'s information) is swapped for
+      the compensated square $S_n^{2}-n$, built precisely to convert time
+      into something optional stopping can extract.
+
+      The same condition (c) applies for the same reason as before:
+      increments of $S_n^{2}-n$ are bounded by $2N$ while the walk stays
+      trapped in $[0,N]$, and $\mathbb{E}[T]<\infty$ is already established.
+      Optional stopping gives $\mathbb{E}[S_T^{2}]-\mathbb{E}[T]=k^{2}$
+      directly from $S_0^{2}-0=k^{2}$.
+
+      The exit position $S_T$ is already known — $N$ with probability $k/N$,
+      $0$ otherwise — so $\mathbb{E}[S_T^{2}]=N^{2}\cdot(k/N)=kN$, and
+      rearranging gives $\mathbb{E}[T]=kN-k^{2}=k(N-k)$: the already-computed
+      exit position feeds straight back in. Sending $N\to\infty$ in the fair
+      case shows the walk reaches $0$ eventually with certainty, yet the
+      expected time to do so is infinite — a hitting probability of $1$ says
+      nothing about the mean waiting time.
+    worked: >
+      Start at $k=20$ between barriers $0$ and $N=30$: $\mathbb{E}[T]=
+      20(30-20)=200$ tosses expected — smaller than the maximum possible
+      duration $N^{2}/4=225$, attained at the midpoint $k=15$.
+    interview: >
+      "How long does gambler's ruin take, on average?" wants $k(N-k)$
+      produced by stopping $S_n^{2}-n$, contrasted explicitly with the
+      hitting-probability computation to show which martingale answers which
+      question.
+    pitfalls: >
+      Reusing $S_n$ to try to extract an expected time — it was already
+      spent on the hitting probability and carries no time information; only
+      the compensated square does. Treating infinite expected time for the
+      unbounded walk as a contradiction with certain absorption — it isn't;
+      the two facts coexist.
+    recap: >
+      Stopping $S_n^{2}-n$ instead of $S_n$ converts the already-known exit
+      position into the exit time, giving $\mathbb{E}[T]=k(N-k)$ in one line.
+
+  - node: quant-processes.martingales.wald
+    hook: >
+      Wald's identity answers "how much do I expect to have accumulated by
+      the time I decide to stop" — a shockingly common shape in problems
+      about random sums and sequential stopping rules.
+    explanation: >
+      The cleanest proof of $\mathbb{E}[S_N]=\mu\,\mathbb{E}[N]$ avoids side
+      conditions altogether: write
+      $S_N=\sum_{i\ge1}X_i\mathbf{1}\{N\ge i\}$, and note
+      $\{N\ge i\}=\{N\le i-1\}^{c}$ is decided by $X_1,\dots,X_{i-1}$ alone —
+      the defining property of a stopping time — so it's independent of
+      $X_i$ itself.
+
+      That independence lets the sum's expectation split term by term:
+      $\mathbb{E}[S_N]=\sum_i\mathbb{E}[X_i]\Pr(N\ge i)=
+      \mu\sum_i\Pr(N\ge i)=\mu\,\mathbb{E}[N]$, using the standard tail-sum
+      identity for expectation.
+
+      That independence — $N$ may look backward at $X_1,\dots,X_{i-1}$ but
+      never forward at $X_i$ — is the entire hypothesis, and it's exactly the
+      stopping-time condition restated. A stopping rule chosen with
+      foresight (knowing $X_i$ before deciding whether $N\ge i$) breaks the
+      identity outright.
+    worked: >
+      Roll a fair six-sided die until the first $6$: $N$ is geometric with
+      $\mathbb{E}[N]=6$, and $\mu=3.5$ is the mean of one roll. Wald gives
+      $\mathbb{E}[S_N]=3.5\times6=21$. Directly: on average $5$ non-six rolls
+      (each averaging $3$ among $\{1,\dots,5\}$) plus the final $6$ give
+      $5(3)+6=21$, matching exactly.
+    interview: >
+      "What's the expected total of a randomly stopped sum?" is Wald's
+      identity by name; interviewers listen for the independence hypothesis
+      stated — the stopping rule can't look ahead — not just the formula
+      recited.
+    pitfalls: >
+      Applying Wald's identity when $N$ depends on future increments (e.g.
+      "stop after the sum first exceeds its own eventual maximum") — the
+      needed independence is silently false there. Using the wrong $\mu$ —
+      it's the increment mean, not a mean conditional on stopping.
+    recap: >
+      $\mathbb{E}[S_N]=\mu\,\mathbb{E}[N]$ because $\{N\ge i\}$ depends only
+      on $X_1,\dots,X_{i-1}$ and is therefore independent of $X_i$ — a
+      stopping rule that never looks ahead is the whole hypothesis.
+
+  - node: quant-processes.martingales.wald-second
+    hook: >
+      The natural next question after Wald's mean identity is variance —
+      and the honest answer is that the second-moment identity is easy while
+      the actual variance of a stopped sum usually is not.
+    explanation: >
+      Wald's second identity is the compensated-square idea applied with a
+      stopping time instead of a fixed time: $(S_n-n\mu)^{2}-n\sigma^{2}$ is
+      a martingale (the general iid version of $S_n^{2}-n$), and stopping it
+      at $N$ with $\mathbb{E}[N]<\infty$ gives
+      $\mathbb{E}[(S_N-N\mu)^{2}]=\sigma^{2}\mathbb{E}[N]$ directly.
+
+      When $\mu=0$ this reads $\mathbb{E}[S_N^{2}]=\sigma^{2}\mathbb{E}[N]$,
+      the general form of exactly the computation already used for the fair
+      walk's expected duration, restated for any mean-zero iid summands, not
+      just $\pm1$ steps.
+
+      What it is not: $\operatorname{Var}(S_N)$. The variance of a randomly
+      stopped sum is
+      $\operatorname{Var}(S_N)=\sigma^{2}\mathbb{E}[N]+\mu^{2}
+      \operatorname{Var}(N)$, and that formula needs $N$ independent of the
+      increment sequence — a strictly stronger hypothesis than "$N$ is a
+      stopping time." For a walk stopped at a barrier, $N$ and the increments
+      are as dependent as two quantities can be, so the random-sums variance
+      formula is simply false there, while Wald's second identity — built
+      for exactly this dependence — still holds.
+    worked: >
+      Fair $\pm1$ walk, $\mu=0$, $\sigma^{2}=1$, stopped at $T$ = first exit
+      from $[0,10]$ starting at $k=4$: Wald's second identity gives
+      $\mathbb{E}[S_T^{2}]=\mathbb{E}[T]$. From the duration formula,
+      $\mathbb{E}[T]=k(N-k)=4(10-4)=24$, so $\mathbb{E}[S_T^{2}]=24$ as well
+      — the same number read two ways.
+    interview: >
+      "Is $\mathbb{E}[(S_N-N\mu)^{2}]$ the same as $\operatorname{Var}(S_N)$?"
+      is asked precisely to catch this conflation; the correct answer
+      distinguishes them and names the independence hypothesis the variance
+      formula needs that Wald's identity does not.
+    pitfalls: >
+      Quoting $\operatorname{Var}(S_N)=\sigma^{2}\mathbb{E}[N]$ for a
+      stopping time dependent on the increments — that formula needs $N$
+      independent of the sequence, which fails for essentially every
+      barrier-hitting stopping time. Forgetting $\mu=0$ must hold literally,
+      not just approximately.
+    recap: >
+      $\mathbb{E}[(S_N-N\mu)^{2}]=\sigma^{2}\mathbb{E}[N]$ holds for any
+      stopping time with $\mathbb{E}[N]<\infty$, but it is not
+      $\operatorname{Var}(S_N)$, which needs the strictly stronger hypothesis
+      that $N$ is independent of the increments.
+
+  - node: quant-processes.martingales.abracadabra
+    hook: >
+      This is the single most famous martingale interview problem — a team
+      of gamblers betting on future letters converts a hopeless
+      combinatorial waiting-time question into three lines of optional
+      stopping.
+    explanation: >
+      The trick is a fair casino rather than direct analysis. Just before
+      second $n$, a brand-new gambler stakes $1$ unit on letter $n$ being A
+      at fair odds $26$-to-$1$; if correct, the entire $26$ units parlay onto
+      the next letter being B, and so on — each gambler's wealth is a fair
+      game (bet-then-parlay at fair odds has expectation $1$ at every
+      stage), and any gambler who loses drops to $0$ and stays there.
+
+      Because each gambler's process is a martingale starting at $1$, the
+      pooled wealth $W_n$ makes $M_n=W_n-n$ a martingale starting at $0$ — an
+      instance of the level-martingale idea, just decorated with a casino
+      story. At $T$ (the word first completes), optional stopping applies
+      once checked: increments are bounded and $\mathbb{E}[T]<\infty$
+      (disjoint $11$-letter blocks each complete the word independently with
+      probability $26^{-11}$), licensing $\mathbb{E}[W_T-T]=0$.
+
+      What survives at $T$ is exactly the gamblers whose bets are still
+      "live" — those started at a position matching a self-overlap of the
+      word with its own prefix. ABRACADABRA overlaps itself at the full
+      word, the final "ABRA," and the final "A," so survivors hold
+      $26^{11}+26^{4}+26$ units, and $\mathbb{E}[T]$ is exactly that sum.
+    worked: >
+      Apply the same casino to the shorter word "AA." It overlaps itself at
+      $j=2$ (the whole word) and $j=1$ (the final A matches the initial A),
+      so survivors hold $26^{2}+26=676+26=702$ units, giving
+      $\mathbb{E}[T]=702$ — a self-overlapping doublet, checked the same way.
+    interview: >
+      "How long until this pattern first appears?" is the canonical prompt;
+      naming the casino-of-gamblers construction within the first minute is
+      the expected move. Interviewers listen for correctly identifying which
+      self-overlaps survive.
+    pitfalls: >
+      Forgetting a self-overlap — every prefix equal to a suffix of the same
+      length contributes a surviving gambler, and missing one undercounts
+      $\mathbb{E}[T]$. Assuming $\mathbb{E}[T]<\infty$ needs no
+      justification — it's earned by the disjoint-block argument, not free.
+    recap: >
+      A team of fair gamblers, each parlaying winnings onto the next
+      required letter, turns the expected typing time for a pattern into the
+      sum of $26^{j}$ over its self-overlaps.
+
+  - node: quant-processes.martingales.pattern-waiting
+    hook: >
+      This generalizes the ABRACADABRA casino into a formula you can apply
+      to any pattern in seconds — no new construction, just counting
+      self-overlaps.
+    explanation: >
+      The casino argument never actually used the alphabet size or word
+      length specifically — only that letters are iid and a fair-odds parlay
+      stays a martingale. Repeating it for a general target word $w$ of
+      length $\ell$: survivors at $T$ are exactly the gamblers whose starting
+      position matches a self-overlap of $w$, and each such gambler holds
+      $1/\Pr(\text{the first }j\text{ letters of }w)$ units, the fair payout
+      for correctly calling $j$ letters in a row.
+
+      Summing over every self-overlap length $j$ (always including
+      $j=\ell$, the whole word matching itself) gives
+      $\mathbb{E}[T]=\sum_j 1/\Pr(\text{first }j\text{ letters of }w)$, one
+      term per way the pattern restarts partway through itself.
+
+      The fair-coin examples show self-overlap, not length, drives the
+      answer. HH overlaps at $j=2$ and $j=1$ (the trailing H restarts
+      progress), giving $4+2=6$; HT overlaps only at $j=2$, giving just $4$ —
+      shorter to wait for despite the same length, because every near-miss
+      on HT throws away all progress rather than partial progress. The
+      single letter H recovers the geometric mean $2=1/p$, since a
+      one-letter pattern trivially only overlaps itself.
+    worked: >
+      For the pattern THT: self-overlaps are $j=3$ (the whole word) and
+      $j=1$ (the trailing T matches the leading T; checking $j=2$, "TH"
+      versus the suffix "HT," these don't match). So
+      $\mathbb{E}[T]=2^{3}+2^{1}=8+2=10$ tosses expected — less than HHH's
+      $14$ despite the same length, because THT's only overlap is the
+      shorter one.
+    interview: >
+      "Expected tosses to see [pattern]" wants the overlap-sum formula
+      applied on sight. A frequent check compares two same-length patterns
+      (HH vs HT) to confirm you understand why one takes longer, not just
+      that you can compute both.
+    pitfalls: >
+      Checking the wrong alignment — $j$ ranges over lengths where the
+      prefix equals the suffix, not the reverse. Forgetting to include
+      $j=\ell$, the trivial full-word overlap, which every pattern includes.
+    recap: >
+      $\mathbb{E}[T]=\sum_j 1/\Pr(\text{first }j\text{ letters of }w)$ over
+      the pattern's self-overlaps generalizes the ABRACADABRA casino to any
+      target, and self-overlapping patterns always wait longer than
+      non-overlapping ones of the same length.
+
+  - node: quant-processes.martingales.martingale-betting-fallacy
+    hook: >
+      This is the standing counterexample every optional stopping condition
+      earns its keep against — a genuine martingale, a genuine almost-sure
+      win, yet $\mathbb{E}[X_T]\ne\mathbb{E}[X_0]$.
+    explanation: >
+      The doubling strategy — stake $1,2,4,\dots$ on fair even-money bets,
+      quitting at the first win $T$ — genuinely produces $X_T=+1$ with
+      $\Pr(T<\infty)=1$ and $\mathbb{E}[T]=2$: after $n$ straight losses the
+      net is $-(2^{n}-1)$, and the next win of $2^{n}$ nets exactly
+      $2^{n}-(2^{n}-1)=1$. So $\mathbb{E}[X_T]=1\ne0=X_0$, even though $X_n$
+      is an honest martingale throughout.
+
+      This is not a contradiction, because none of the three sufficient
+      conditions hold: $T$ is unbounded, since $\Pr(T>N)=2^{-N}>0$ for every
+      $N$, ruling out (a); the stopped process is unbounded below, reaching
+      $-(2^{n}-1)$, ruling out (b); and while $\mathbb{E}[T]<\infty$ holds,
+      the increments $2^{n-1}$ are themselves unbounded, ruling out (c) too.
+      Every condition fails, so the theorem simply declines to apply — this
+      is not a paradox.
+
+      What restores the martingale property is a finite bankroll. With
+      starting bankroll $2^{m}-1$, the strategy wins $1$ with probability
+      $1-2^{-m}$ but loses the entire $2^{m}-1$ with probability $2^{-m}$:
+      expectation exactly $(1-2^{-m})(1)+2^{-m}(-(2^{m}-1))=0$.
+    worked: >
+      With bankroll $2^{5}-1=31$: win $1$ unit with probability
+      $1-2^{-5}=31/32$, lose $31$ units with probability $2^{-5}=1/32$.
+      Expected outcome: $\frac{31}{32}(1)+\frac{1}{32}(-31)=
+      \frac{31-31}{32}=0$, restoring the fair game the instant a finite
+      bound is imposed.
+    interview: >
+      "Does doubling your bet after every loss guarantee a profit?" tests
+      whether you can name which optional stopping condition fails, not
+      just recite "no." Expect the follow-up: "what if you had infinite
+      money and infinite time?" — the unrealizable regime where it works.
+    pitfalls: >
+      Answering "it fails because $\Pr(T<\infty)<1$" — wrong; $T$ is finite
+      almost surely, the failure is entirely in boundedness. Concluding a
+      finite bankroll alone fixes everything without noting it also forces a
+      stop, restoring bounded increments and a bounded stopped process
+      together.
+    recap: >
+      Doubling nets $+1$ with certainty only by needing unbounded losses for
+      unboundedly long — all three optional stopping conditions fail at
+      once, and any finite bankroll restores expectation exactly $0$.
+
+  - node: quant-processes.martingales.maximal-inequality
+    hook: >
+      This is Markov's inequality upgraded from a single time point to an
+      entire path, delivering ruin-type bounds instantly with none of the
+      barrier algebra the exact formulas need.
+    explanation: >
+      Fix $a>0$ and let $T$ be the first time the nonnegative supermartingale
+      $X_n$ reaches $a$ — a genuine stopping time by construction. Stopping
+      at $T\wedge n$ and using the free finite-horizon fact gives
+      $\mathbb{E}[X_0]\ge\mathbb{E}[X_{T\wedge n}]$.
+
+      Split that expectation over whether $T$ has occurred by time $n$: on
+      $\{T\le n\}$, $X_{T\wedge n}=X_T\ge a$ by construction, and on the
+      complement $X_{T\wedge n}\ge0$ by nonnegativity, so
+      $\mathbb{E}[X_{T\wedge n}]\ge a\Pr(T\le n)$. Combining and letting
+      $n\to\infty$ turns $\Pr(T\le n)$ into $\Pr(\sup_k X_k\ge a)$.
+
+      This is genuinely Markov's inequality — $\Pr(X\ge a)\le
+      \mathbb{E}[X]/a$ for nonnegative $X$ — applied to the entire
+      trajectory's running supremum, at no extra cost beyond what stopping
+      already earns free. The mirror statement for a nonnegative
+      submartingale bounds the running maximum up to a fixed $n$ by
+      $\mathbb{E}[X_n]/a$ instead, since a submartingale's mean is only
+      controlled at its endpoint, not its start.
+    worked: >
+      A fair gambler starts with $k=15$ and stops at $0$: the stopped
+      process is a nonnegative supermartingale, so
+      $\Pr(\sup_n X_n\ge40)\le15/40=0.375$ — a ruin-avoidance bound obtained
+      with no barrier at $40$ ever set up, unlike the exact two-barrier
+      computation.
+    interview: >
+      "Bound the probability the process ever exceeds this level" wants
+      Doob's maximal inequality named and applied directly — a fast answer
+      where the exact ruin machinery would be overkill or the upper barrier
+      isn't fixed in advance.
+    pitfalls: >
+      Applying the inequality to a process that isn't nonnegative — the
+      split specifically used $X_{T\wedge n}\ge0$ on the untouched part.
+      Using $\mathbb{E}[X_0]$ for the submartingale mirror version — that
+      needs $\mathbb{E}[X_n]$, the mean at the horizon.
+    recap: >
+      A nonnegative supermartingale exceeds any level $a$ at some point with
+      probability at most $\mathbb{E}[X_0]/a$ — Markov's inequality applied
+      to the whole path via stopping, at no extra cost.
+
+  - node: quant-processes.martingales.convergence-theorem
+    hook: >
+      This theorem guarantees a game that stays bounded in expectation must
+      eventually settle down — but "settles down" and "settles down to the
+      right mean" are two different claims, and only one is free.
+    explanation: >
+      The hypothesis $\sup_n\mathbb{E}|X_n|<\infty$ says the process doesn't
+      wander to infinite expected size, and the conclusion is almost-sure
+      convergence to a finite limit $X_\infty$ — a deep fact, stated here to
+      be used, not proved.
+
+      Two specializations are worth memorizing directly. Every nonnegative
+      supermartingale converges almost surely with no further hypothesis,
+      since nonnegativity alone bounds
+      $\mathbb{E}|X_n|=\mathbb{E}[X_n]\le\mathbb{E}[X_0]$. And a uniformly
+      bounded martingale converges almost surely and in $L^{1}$, and in that
+      case the limit's mean matches the start:
+      $\mathbb{E}[X_\infty]=\mathbb{E}[X_0]$ — $L^{1}$ convergence is exactly
+      what licenses passing the limit through the expectation.
+
+      The attached warning is the one optional stopping already carries:
+      almost sure convergence alone says nothing about the limit's mean
+      unless a stronger mode — $L^{1}$, guaranteed only in the bounded case
+      — is available. Polya's urn shows the limit can be genuinely
+      informative: starting from one ball of each colour and adding a copy
+      of whatever's drawn, the red fraction is confined to $[0,1]$ and hence
+      a bounded martingale, so convergence is guaranteed — what boundedness
+      alone does not reveal is that this particular limit is uniform on
+      $(0,1)$, which needs the urn's own exchangeability structure.
+    worked: >
+      A fair gambler's fortune $S_{T\wedge n}$, stopped at the first exit
+      from $\{0,\dots,10\}$ starting at $k=4$, is a bounded martingale
+      ($0\le S_{T\wedge n}\le10$), so it converges almost surely — here
+      visibly to $S_T$, which is $0$ or $10$ with probabilities $0.6$ and
+      $0.4$, giving $\mathbb{E}[S_\infty]=10(0.4)=4$, matching $k=4$ exactly
+      as $L^{1}$ convergence guarantees.
+    interview: >
+      "Does this bounded martingale converge, and to what?" wants the two
+      specializations named directly, and Polya's urn cited as evidence the
+      theorem does real work, not just guarantees existence.
+    pitfalls: >
+      Assuming almost sure convergence alone preserves
+      $\mathbb{E}[X_\infty]=\mathbb{E}[X_0]$ — it doesn't without
+      boundedness or another route to $L^{1}$ convergence; the same trap as
+      optional stopping's unbounded-time failure. Treating "converges almost
+      surely" as meaning the limit is deterministic — in Polya's urn the
+      limit is itself random, uniform on $(0,1)$.
+    recap: >
+      A process bounded in $\mathbb{E}|X_n|$ converges almost surely to a
+      finite limit, and only in the uniformly bounded case does that limit's
+      mean match the process's starting mean.

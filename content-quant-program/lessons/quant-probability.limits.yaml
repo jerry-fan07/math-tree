@@ -1,0 +1,935 @@
+unit: quant-probability.limits
+opening: >
+  Large-$n$ behavior is what makes probability computable in practice: a
+  single die roll tells you almost nothing, but the sum or average of many
+  independent draws locks onto a predictable shape you can compute with. This
+  unit builds that machinery in order — first pinning down what "converges"
+  even means for a sequence of random variables, three competing modes,
+  ranked, then the law of large numbers in its weak and strong forms, then the
+  central limit theorem and the approximation toolkit it powers: the
+  binomial-to-normal corollary, the continuity correction, and the Poisson
+  alternative for rare events. It closes with the supporting cast an interview
+  expects on demand — Slutsky's theorem and the delta method for pushing a
+  limit through an estimate, Borel–Cantelli for almost-sure statements, and
+  the one fact tying it all together: every error here shrinks like
+  $1/\sqrt{n}$.
+lessons:
+  - node: quant-probability.limits.convergence-in-probability
+    hook: >
+      Every "does the sample average behave well" question is secretly asking
+      you to state this definition correctly, and the two standard wrong
+      answers are swapping the quantifiers or claiming it says something about
+      one realized trajectory.
+    explanation: >
+      A sequence of random variables can't converge the way a sequence of
+      numbers does — each $X_n$ is spread across many possible values, not
+      pinned to one. The fix is to call $X_n$ close to $X$ when the
+      *probability* of a large gap vanishes, for every tolerance you name in
+      advance: pick $\varepsilon>0$ first, then send $n\to\infty$ and watch
+      $\Pr(|X_n-X|>\varepsilon)\to0$.
+
+      Picture, for each $n$, almost all of $X_n$'s mass sitting inside a
+      window around the target $c$, with a shrinking sliver left outside. The
+      definition only ever measures that sliver at one $n$ at a time — it
+      never asks whether the slivers at $n=100$ and $n=200$ belong to the same
+      run of bad luck. A rare miss can recur at infinitely many separate
+      $n$'s and convergence in probability still holds, because the claim is
+      about frequency at each $n$, not about a single trajectory settling
+      down.
+
+      Two working facts get used silently downstream: the limit is unique up
+      to a probability-zero set, and continuous maps preserve the mode — if
+      $g$ is continuous and $X_n\to c$ in probability, then $g(X_n)\to g(c)$
+      in probability too, with no fresh epsilon argument required.
+    worked: >
+      Let $X_n$ equal $n$ with probability $1/n$ and $0$ otherwise. For any
+      fixed $\varepsilon>0$ and $n>\varepsilon$, the event
+      $\{|X_n|>\varepsilon\}$ is exactly $\{X_n=n\}$, so
+      $\Pr(|X_n|>\varepsilon)=1/n\to0$: $X_n\to0$ in probability. Yet the
+      sequence never settles in the ordinary sense — at $n=1000$ there's still
+      a genuine $\Pr(X_{1000}=1000)=0.001$ chance of a huge value, and such
+      spikes keep recurring at every scale.
+    interview: >
+      "State the definition of convergence in probability," or "does
+      $X_n\to0$ in probability mean $X_n$ is eventually always close to $0$,"
+      both fish for the same distinction: fixed $\varepsilon$ first, then
+      $n\to\infty$, and no claim about the realized path. A good answer names
+      the shrinking-but-recurring-sliver picture in one sentence.
+    pitfalls: >
+      Reversing the quantifiers — letting $n\to\infty$ before fixing
+      $\varepsilon$ — trivializes the definition. Reading "$X_n\to c$ in
+      probability" as "$X_n$ eventually stays near $c$ forever" smuggles in
+      almost sure convergence, a strictly stronger claim.
+    recap: >
+      Convergence in probability says the chance of missing the target by
+      more than any fixed tolerance shrinks to zero, one $n$ at a time, with
+      no promise about the realized sequence itself.
+
+  - node: quant-probability.limits.convergence-in-distribution
+    hook: >
+      The central limit theorem's actual conclusion is stated in this mode,
+      not in probability, so knowing exactly what it does and doesn't promise
+      is the difference between using it correctly and misusing it.
+    explanation: >
+      $X_n\to X$ in distribution compares CDFs directly: $F_n(x)\to F(x)$ at
+      every point where $F$ is continuous. That caveat isn't pedantry — it
+      routes around exactly the points where a discrete jump would otherwise
+      make the comparison fail for no real reason. Away from those points, the
+      convergence is a genuine, checkable, pointwise fact.
+
+      This is a purely law-versus-law comparison, unlike convergence in
+      probability's joint statement about $|X_n-X|$. The $X_n$ need not even
+      share a probability space with $X$, and nothing about the *variables*
+      getting numerically close is claimed — only that their probability
+      tables line up in the limit. Two equivalent working forms show up
+      constantly: $\mathbb{E}[h(X_n)]\to\mathbb{E}[h(X)]$ for bounded
+      continuous $h$, and $\Pr(a<X_n\le b)\to\Pr(a<X\le b)$ at continuity
+      points $a,b$.
+
+      Whenever a problem says "for large $n$, treat $X_n$ as approximately
+      $Y$," it means convergence in distribution: you may compute
+      probabilities and expectations of bounded continuous functions of $X_n$
+      using $Y$'s law instead, but you may not conclude anything about a
+      specific realization of $X_n$ landing near a specific realization of
+      $Y$.
+    worked: >
+      Let $X_n$ take the value $1$ with probability $1-1/n$ and the value $n$
+      with probability $1/n$. For any fixed $x\ge1$, once $n>x$,
+      $F_n(x)=\Pr(X_n\le x)=\Pr(X_n=1)=1-1/n\to1$, while for $x<1$,
+      $F_n(x)=0$. So $F_n$ converges to the CDF of a point mass at $1$
+      everywhere except at $x=1$ itself, the one discontinuity of the limit —
+      exactly where the definition doesn't require convergence. At $n=100$,
+      $F_{100}(50)=\Pr(X_{100}=1)=0.99$, already within $0.01$ of the limiting
+      value $1$, even though $X_{100}$ still carries a genuine $1\%$ chance of
+      landing at $100$.
+    interview: >
+      "What's the difference between convergence in probability and
+      convergence in distribution" is the standard CLT follow-up — the
+      interviewer wants same-space closeness versus law-only comparison
+      stated precisely, plus the continuity-point caveat produced without
+      prompting.
+    pitfalls: >
+      Checking $F_n$ at a point where the limiting $F$ jumps and concluding
+      "convergence fails" misreads a definition that never required anything
+      there. Treating "the laws converge" as "the variables get numerically
+      close" is false in general — convergence in distribution alone gives no
+      information about how $X_n$ and $X$ move together.
+    recap: >
+      Convergence in distribution matches CDFs pointwise wherever the limit
+      is continuous — a comparison of laws alone, with no claim that the
+      variables themselves ever get close.
+
+  - node: quant-probability.limits.almost-sure-convergence
+    hook: >
+      "With probability $1$" sounds stronger than it's worth unless you can
+      say exactly what extra thing it buys over convergence in probability —
+      a whole trajectory settling, not just each $n$ taken alone.
+    explanation: >
+      Convergence in probability assigns a probability to an event indexed by
+      one $n$ at a time: $|X_n-X|>\varepsilon$. Almost sure convergence
+      assigns a probability to an event about the *entire* infinite sequence
+      at once — "does the numerical sequence $X_1,X_2,\dots$ converge to $X$"
+      is itself one event, and the claim is that this event has probability
+      $1$.
+
+      The equivalent tail form makes the extra strength visible: for every
+      $\varepsilon>0$, $\Pr(|X_m-X|>\varepsilon\text{ for some }m\ge n)\to0$
+      as $n\to\infty$. This looks like the same condition as convergence in
+      probability, but "for some $m\ge n$" sweeps the whole tail of the
+      sequence into a single probability instead of checking each $m$ in
+      isolation — that sweep is the entire technical difference.
+
+      The mental model: convergence in probability samples a snapshot at each
+      $n$ and asks the snapshot to be trustworthy; almost sure convergence
+      watches the whole infinite run and asks it, with probability $1$, to
+      eventually get trapped near the target and stay there.
+    worked: >
+      Let $U$ be uniform on $(0,1)$ and set $X_n=U^n$. For every outcome with
+      $U<1$ — probability $1$, since $\Pr(U=1)=0$ — the real-number sequence
+      $U^n\to0$ as $n\to\infty$, deterministically, for that single outcome.
+      So $\Pr(\lim_n X_n=0)=1$: $X_n\to0$ almost surely. Concretely, at
+      $U=0.5$, $X_{10}=0.5^{10}\approx0.000977$ — the trajectory is literally
+      shrinking to $0$ for that outcome, not merely likely to be small at each
+      $n$ checked separately.
+    interview: >
+      "What extra does 'almost surely' give you over 'in probability'"
+      listens for: probability assigned to a property of the whole path, not
+      a per-$n$ snapshot. A strong answer produces the tail-event
+      reformulation on request.
+    pitfalls: >
+      Treating "almost surely" as a synonym for "very likely at large $n$"
+      collapses it back into convergence in probability and misses the
+      whole-trajectory content. "Probability $1$" still permits a genuine
+      exceptional set — just one carrying no probability mass, not literally
+      "every outcome."
+    recap: >
+      Almost sure convergence assigns probability $1$ to the event that the
+      entire sequence $X_1,X_2,\dots$ converges, strictly more than
+      convergence in probability's per-$n$ guarantee.
+
+  - node: quant-probability.limits.convergence-hierarchy
+    hook: >
+      Interviewers love asking you to rank the three modes and then produce a
+      counterexample on the spot for each failed converse — the ranking alone
+      doesn't survive that follow-up.
+    explanation: >
+      Almost sure convergence controls the whole trajectory at once, so it's
+      the strongest; convergence in probability controls only one $n$ at a
+      time, weaker; convergence in distribution only compares laws, without
+      even requiring the variables to share a probability space, so it's the
+      weakest of the three — and each implication is strict.
+
+      The probability-but-not-almost-sure gap happens when a rare miss keeps
+      recurring at ever-changing locations: each individual miss shrinks in
+      probability, but the tail event "some miss occurs eventually" never
+      drops to zero. The distribution-but-not-probability gap happens because
+      a purely marginal comparison is blind to joint behavior — two variables
+      can share a law while moving in lockstep, in perfect opposition, or
+      anything in between, and convergence in distribution can't tell those
+      apart.
+
+      One partial converse is worth memorizing: convergence in distribution
+      to a *constant* already forces convergence in probability to it. A
+      constant target has no spread for the laws to disagree about, so once
+      the laws match a fixed number, the mass really is concentrating near
+      that single point — there's no room left for a distributional-only gap.
+    worked: >
+      Let $X$ be Bernoulli($1/2$) and set $X_n=1-X$ for every $n$. Since
+      Bernoulli($1/2$) is its own complement, $X_n\sim X$ for every $n$, so
+      $X_n\to X$ in distribution trivially. But $X$ and $X_n$ only take
+      values in $\{0,1\}$ with $X_n=1-X$ always, so $|X_n-X|=|1-2X|=1$
+      exactly, every time. Hence $\Pr(|X_n-X|>0.5)=1$ for every $n$ — it
+      never shrinks, so there is no convergence in probability at all,
+      despite the identical marginal laws.
+    interview: >
+      "Rank the three modes of convergence" plus "give an example where
+      $X_n\to X$ in distribution but not in probability" is the standard
+      pairing — produce a fresh example live (a complementary coin works) and
+      name which converse the constant-limit exception rescues.
+    pitfalls: >
+      Assuming any distributional counterexample also breaks convergence to a
+      constant — it doesn't; the exception applies precisely when the target
+      has no spread. Citing the textbook counterexamples by name only,
+      without being able to verify the probability that actually fails,
+      doesn't survive a follow-up.
+    recap: >
+      Almost sure implies in probability implies in distribution, each
+      strict, except that convergence in distribution to a constant already
+      forces convergence in probability to it.
+
+  - node: quant-probability.limits.sample-mean-moments
+    hook: >
+      "How much does averaging $n$ measurements help" reduces to two lines
+      you should produce without derivation — mean stays put, variance
+      divides by $n$ — and misremembering which one shrinks costs the whole
+      problem.
+    explanation: >
+      Linearity gives $\mathbb{E}[\bar{X}_n]=\mu$ immediately, exactly, for
+      every $n$ — no large-$n$ needed. The real content is the variance: the
+      general variance-of-a-sum formula has cross-covariance terms, and
+      independence (in fact, merely pairwise uncorrelated already suffices)
+      kills every one of them, leaving $\operatorname{Var}(S_n)=n\sigma^{2}$
+      — the variances simply add, with no help from the number of terms.
+
+      Dividing by $n$ to form the average is what buys the shrinkage:
+      $\operatorname{Var}(\bar{X}_n)=\operatorname{Var}(S_n)/n^{2}=
+      \sigma^{2}/n$. The standard error, the number you'd actually quote, is
+      $\sigma/\sqrt{n}$ — the single most reused expression in this unit,
+      saying every doubling of precision costs a quadrupling of data.
+
+      Keep the two directions straight: the total $S_n$ spreads out as data
+      accumulates ($\sqrt{n}$ growth), while the average tightens ($1/\sqrt{n}$
+      shrinkage) — same underlying per-term variance, opposite consequence,
+      because one divides by $n$ and the other doesn't.
+    worked: >
+      Let $X_i$ be iid Bernoulli($0.2$), so $\mu=0.2$,
+      $\sigma^{2}=0.2\times0.8=0.16$. For $n=64$:
+      $\mathbb{E}[\bar{X}_{64}]=0.2$ exactly, and
+      $\operatorname{Var}(\bar{X}_{64})=0.16/64=0.0025$, so the standard
+      error is $\sqrt{0.0025}=0.05$. The total $S_{64}$ has mean
+      $64\times0.2=12.8$ and standard deviation $\sqrt{64\times0.16}=
+      \sqrt{10.24}=3.2$.
+    interview: >
+      "If I average $n$ iid measurements, how does the variance behave" is
+      asked constantly, sometimes as "how many trades to halve my
+      estimation error" — answer with $\sigma^{2}/n$ and $\sigma/\sqrt{n}$
+      cold, and note that independence is only used to zero the
+      covariance terms.
+    pitfalls: >
+      Quoting $\operatorname{Var}(\bar{X}_n)=\sigma^{2}$ — forgetting the
+      division by $n^{2}$, not just $n$, when passing from the sum's
+      variance to the average's — is the most common slip. Claiming full
+      independence is required overstates the hypothesis; pairwise
+      uncorrelated already zeroes every cross term.
+    recap: >
+      The sample mean is unbiased for every $n$ and has variance exactly
+      $\sigma^{2}/n$, so precision buys itself back only at rate
+      $1/\sqrt{n}$.
+
+  - node: quant-probability.limits.wlln
+    hook: >
+      This is the theorem "why does averaging work" reduces to, and the
+      interview wants the one-line Chebyshev proof produced live, since that
+      proof also tells you exactly how bad the resulting bound is.
+    explanation: >
+      A shrinking variance around a fixed mean is exactly the raw material
+      Chebyshev's inequality wants. The sample mean's variance,
+      $\sigma^{2}/n$, already tends to $0$ — feed that into Chebyshev and
+      reading off the definition of convergence in probability is the entire
+      proof.
+
+      Apply Chebyshev to $\bar{X}_n$ around its mean $\mu$ with variance
+      $\sigma^{2}/n$: $\Pr(|\bar{X}_n-\mu|\ge\varepsilon)\le
+      \operatorname{Var}(\bar{X}_n)/\varepsilon^{2}=\sigma^{2}/
+      (n\varepsilon^{2})$. As $n\to\infty$ with $\varepsilon$ fixed, the
+      right side tends to $0$ — exactly the statement $\bar{X}_n\to\mu$ in
+      probability.
+
+      Be honest about the bound: finite variance is an artifact of using
+      Chebyshev specifically — Khinchin's version needs only
+      $\mathbb{E}|X_1|<\infty$, via a different argument — and the Chebyshev
+      bound itself is deliberately crude, vacuous for small $n$ even though
+      the true probability is already small.
+    worked: >
+      Let $\sigma^{2}=4$ and $\varepsilon=0.2$. Chebyshev gives
+      $\Pr(|\bar{X}_n-\mu|\ge0.2)\le4/(n\times0.04)=100/n$. Pushing this bound
+      itself below $0.05$ needs $n\ge2000$ — a large sample just to make
+      Chebyshev's guarantee non-vacuous, even though the true probability at
+      such $n$ is already far smaller in practice.
+    interview: >
+      "Prove the weak law of large numbers" is a stock question, answered by
+      the two-line Chebyshev computation above, cold. A common follow-up,
+      "is this bound tight," has the honest answer: no, it's known to be
+      loose here.
+    pitfalls: >
+      Stating the law without the finite-variance hypothesis silently
+      borrows Khinchin's weaker-hypothesis result, which needs a different
+      proof entirely. Treating the Chebyshev bound as an accurate
+      probability, rather than a crude worst-case cap, overstates what the
+      arithmetic actually shows.
+    recap: >
+      Chebyshev applied to the sample mean's shrinking variance is the whole
+      proof that $\bar{X}_n\to\mu$ in probability, and it happens to be a
+      very loose bound.
+
+  - node: quant-probability.limits.slln
+    hook: >
+      Interviews want the statement and the contrast with the weak law cold,
+      never a proof — so knowing exactly what upgrades and what doesn't is
+      the whole task.
+    explanation: >
+      The strong law changes the *mode* of convergence, not the target: same
+      $\mu$, same $\bar{X}_n$, but now the claim is that the single infinite
+      run of draws you'd actually observe has its running average settle at
+      $\mu$ with probability $1$ — the whole-trajectory guarantee almost sure
+      convergence promises, applied here.
+
+      The hypothesis is weaker than the weak law's, not stronger: no
+      variance assumption at all, only $\mathbb{E}|X_1|<\infty$. That's not a
+      free lunch — the condition is sharp, since Cauchy draws (no finite
+      mean) have $\limsup_n|\bar{X}_n|=\infty$ almost surely, the running
+      average never settling anywhere.
+
+      This is what licenses reading "probability" as "long-run frequency": it
+      says the one sequence of trials you actually run, not some hypothetical
+      ensemble of sequences, converges.
+    worked: >
+      Flip a fair coin repeatedly. The weak law's Chebyshev bound at
+      $n=100$, $\sigma^{2}=0.25$, $\varepsilon=0.05$, reads
+      $\Pr(|\bar{X}_{100}-0.5|\ge0.05)\le0.25/(100\times0.0025)=1$ —
+      completely vacuous, no information at all. Yet the strong law still
+      guarantees $\Pr(\bar{X}_n\to0.5\text{ as }n\to\infty)=1$ regardless —
+      the whole-trajectory statement holds with certainty even where the
+      weak law's per-$n$ bound has nothing to say.
+    interview: >
+      "State the strong law and contrast it with the weak law" checks two
+      things: that you name almost sure convergence explicitly, not just
+      "converges," and that you can say in one sentence what changed — mode,
+      not target; weaker hypothesis, not stronger.
+    pitfalls: >
+      Describing the strong law as needing "more" than the weak law reverses
+      the actual hypothesis comparison. Over-preparing a proof the interview
+      doesn't want, at the expense of the sharp Cauchy counterexample it
+      does, wastes prep time.
+    recap: >
+      The strong law needs only a finite first moment and upgrades the weak
+      law's conclusion to almost sure convergence of the running average —
+      a statement about the one sequence you actually observe.
+
+  - node: quant-probability.limits.clt
+    hook: >
+      This is the single most-tested fact in the curriculum, and interviews
+      test not the formula but whether you know precisely what's held fixed
+      and what's allowed to vary freely.
+    explanation: >
+      The sample mean already has mean $\mu$ and standard deviation
+      $\sigma/\sqrt{n}$ exactly, for every $n$, regardless of the shape of
+      the underlying law. The central limit theorem is the claim about what
+      fills in that shrinking window: rescale the deviation $\bar{X}_n-\mu$
+      by $\sqrt{n}/\sigma$ so it stops shrinking, and the resulting
+      standardized quantity converges in distribution to a fixed law, the
+      standard normal — no matter what the original law of $X_i$ looked like.
+
+      Read the decomposition rather than just memorizing the formula: the
+      sum is $n\mu$ plus a normal-shaped wobble of size $\sigma\sqrt{n}$; the
+      average is $\mu$ plus a normal-shaped wobble of size $\sigma/\sqrt{n}$.
+      That's the single most reusable move in the interview: for large $n$,
+      treat sums and averages as approximately normal.
+
+      What's genuinely free is the shape — discrete or continuous, skewed or
+      symmetric, bounded or not — only the mean and the finite variance ever
+      enter the limit. What's not negotiable is $0<\sigma^{2}<\infty$; drop
+      that and there is no normal limit at all.
+    worked: >
+      Let $X_i$ be iid Exponential(rate $1$), so $\mu=1$, $\sigma^{2}=1$. For
+      $n=225$ draws, $S_{225}$ is approximately normal with mean $225$ and
+      standard deviation $\sqrt{225}=15$. So
+      $\Pr(S_{225}>240)\approx1-\Phi((240-225)/15)=1-\Phi(1)\approx
+      1-0.8413=0.1587$ — computed the same way regardless of the
+      exponential shape, since only $\mu=1,\sigma^{2}=1$ mattered.
+    interview: >
+      "Why can you treat a sum of $n$ independent things as normal for large
+      $n$" is answered by naming the standardization and stating that shape
+      washes out while mean and variance don't. A fast follow-up, "what
+      hypothesis can't be dropped," is answered with finite positive
+      variance.
+    pitfalls: >
+      Quoting the theorem for infinite-variance (heavy-tailed) variables
+      simply doesn't apply, no matter how large $n$ gets. Treating the
+      unrescaled sum $S_n$ itself as converging to a fixed normal misses that
+      only the standardized version converges.
+    recap: >
+      Standardizing a sum of iid finite-variance variables by $\sqrt{n}$
+      always converges in distribution to the standard normal, whatever the
+      shape of the underlying law.
+
+  - node: quant-probability.limits.de-moivre-laplace
+    hook: >
+      "Approximate this binomial with a normal" is asked so often that
+      recognizing the corollary instantly, rather than re-deriving from the
+      raw CLT, is the time-saving move.
+    explanation: >
+      A Bernoulli($p$) summand is the simplest instance to run the central
+      limit theorem on: mean $p$, variance $p(1-p)$, both automatically
+      finite for $0<p<1$. Plugging directly into the standardization with
+      $\mu=p,\sigma^{2}=p(1-p)$ turns
+      $S_n=\sum\text{Bernoulli}_i\sim\operatorname{Bin}(n,p)$ into
+      $(S_n-np)/\sqrt{np(1-p)}\to N(0,1)$ — nothing new to prove, the general
+      theorem specialized to the one law that generates counts.
+
+      This deserves its own name because binomial counts — defaults, clicks,
+      heads — are the most common object in an interview, so this corollary
+      gets invoked far more often than the raw CLT does directly.
+
+      The usability threshold, $np(1-p)\ge10$, checks that the binomial has
+      room to spread symmetrically before you trust the bell shape; as $p$
+      moves away from $1/2$ the true binomial skews more and the
+      approximation degrades faster for a given $n$. Small $p$ with $np$
+      only moderate is the wrong regime entirely — the binomial's other
+      limit there is Poisson, not normal.
+    worked: >
+      Let $S\sim\operatorname{Bin}(500,0.4)$. Then $np=200$,
+      $np(1-p)=120\ge10$, so the approximation is trustworthy; $\sigma=
+      \sqrt{120}\approx10.95$. Standardizing,
+      $(S-200)/10.95\to N(0,1)$, so
+      $\Pr(S\le185)\approx\Phi((185-200)/10.95)=\Phi(-1.37)\approx0.0853$.
+    interview: >
+      "When can I treat a binomial count as normal" is answered with the
+      $np(1-p)\ge10$ threshold and the standardized form, cold. A common trap
+      plants a small-$p$, large-$n$ binomial to see whether you catch that
+      Poisson, not normal, is the right call.
+    pitfalls: >
+      Applying the normal approximation with $np(1-p)$ well below $10$, or
+      $p$ near $0$ or $1$, compares a badly skewed count against a symmetric
+      curve. This is a large-$n$, fixed-$p$ result — it says nothing about
+      $p\to0$ with $np$ held fixed.
+    recap: >
+      Running the CLT on Bernoulli($p$) summands gives
+      $(S_n-np)/\sqrt{np(1-p)}\to N(0,1)$, the workhorse binomial
+      approximation once $np(1-p)\ge10$.
+
+  - node: quant-probability.limits.normal-approx-binomial
+    hook: >
+      Skipping the half-unit shift is the single most common way to lose
+      points here — it looks optional and changes the answer by a real
+      margin, not a rounding error.
+    explanation: >
+      A binomial count only ever takes integer values, but the normal is a
+      smooth density with zero mass at any single point — approximating
+      $\Pr(S_n\ge k)$ directly at the integer $k$ discards exactly half of
+      the probability that "belongs" to that integer under the
+      discrete-to-continuous translation. Read the correction as granting
+      the discrete atom at $k$ its own full unit of width, $[k-0.5,k+0.5]$,
+      before crossing over to the continuous approximation.
+
+      The two recipes point opposite directions for a reason: a "$\ge k$"
+      tail pushes the boundary down half a unit before standardizing, so the
+      atom at $k$ counts as "in"; a "$\le k$" tail pushes it up half a unit.
+      The correction always moves the threshold toward including the
+      boundary integer, not in one fixed numerical direction.
+
+      The size of the error from skipping it isn't negligible at ordinary
+      $n$ — it's a mismatch of roughly half a standard-error unit divided by
+      $\sigma$, worse the smaller $\sigma$ is, exactly in the moderate-$n$
+      range interviews favor.
+    worked: >
+      $S\sim\operatorname{Bin}(50,0.3)$; want $\Pr(S\le12)$. Here $\mu=15$,
+      $\sigma=\sqrt{50\times0.3\times0.7}=\sqrt{10.5}\approx3.24$. With the
+      correction, $z=(12+0.5-15)/3.24=-0.77$, giving
+      $\Phi(-0.77)\approx0.2206$. Skipping the correction gives
+      $z=(12-15)/3.24=-0.926$ and $\Phi(-0.926)\approx0.177$ — about a
+      $20\%$ relative error against the corrected value.
+    interview: >
+      Estimating $\Pr(S\ge k)$ or $\Pr(S\le k)$ with the normal approximation
+      always expects the half-integer shift produced automatically; a sharp
+      interviewer asks you to justify the shift's direction, not just apply
+      it by rote.
+    pitfalls: >
+      Shifting the boundary the wrong direction — up instead of down for a
+      "$\ge$" tail, or vice versa — flips the correction into a bigger error
+      than skipping it. Applying it to a genuinely continuous variable, with
+      no integer atom to correct for, is a category error.
+    recap: >
+      Grant the boundary integer its own half-unit of width before
+      standardizing — $z=(k\mp0.5-\mu)/\sigma$ — or the approximation
+      mismatches the true binomial by a real margin.
+
+  - node: quant-probability.limits.poisson-vs-normal
+    hook: >
+      "Should I use Poisson or normal here" is a diagnostic interviewers
+      plant deliberately by choosing $p$ small enough that the normal answer
+      is badly wrong — naming the regime before computing is the actual
+      skill.
+    explanation: >
+      Both approximations start from $\operatorname{Bin}(n,p)$ with $n$
+      large, but they trust different things about it. The normal
+      approximation needs the count to spread symmetrically on both sides of
+      its mean, checked by $np(1-p)\ge10$. The Poisson approximation instead
+      trusts that $p$ itself is tiny, so the count is "how many rare events
+      out of very many independent tries," with $\lambda=np$ the one number
+      surviving the limit.
+
+      The diagnostic: look at $p$, not just $n$. Rare-event settings —
+      defaults, typos, arrivals — with $p$ small and $\lambda=np$ moderate
+      are the Poisson regime, where Le Cam's bound caps the error at
+      $np^{2}=\lambda p$, so accuracy *improves* as $p$ shrinks with
+      $\lambda$ fixed. Once $np(1-p)$ clears $10$, the count is wide enough
+      that the continuity-corrected normal is the accurate call instead.
+
+      The trap is defaulting to whichever approximation you memorized first
+      regardless of $p$ — a large $n$ alone never tells you which regime
+      you're in.
+    worked: >
+      Consider $\operatorname{Bin}(2000,0.001)$. Here $\lambda=np=2$ and $p$
+      is tiny, squarely the Poisson regime; Le Cam's bound is
+      $np^{2}=2000\times0.000001=0.002$, negligible. So
+      $\Pr(S=0)\approx e^{-2}\approx0.1353$. By contrast $np(1-p)\approx2$,
+      far below the normal threshold of $10$ — confirming the normal
+      approximation would be unusable here regardless of how large $n$ is.
+    interview: >
+      "A huge number of independent calls, each with a tiny complaint
+      probability — approximate the number of complaints" is a stock
+      Poisson-regime prompt; the interviewer wants $p$ checked small and
+      $\lambda=np$ moderate before any formula is written.
+    pitfalls: >
+      Reaching for the normal approximation just because $n$ is large,
+      without checking $np(1-p)$ actually clears $10$, fails badly when $p$
+      is tiny. Using the Poisson approximation once $p$ is no longer small
+      throws away accuracy the normal would have given for free.
+    recap: >
+      Diagnose by $p$, not $n$ alone — tiny $p$ with moderate $\lambda=np$
+      means Poisson with error $\lambda p$; $np(1-p)\ge10$ means the
+      continuity-corrected normal instead.
+
+  - node: quant-probability.limits.dice-sum-clt
+    hook: >
+      This is the template for "sum of many small identical things, what's
+      the chance it's unusually large" — only the mean and variance of one
+      summand ever enter, never its exact shape.
+    explanation: >
+      The recipe: pin down one summand's mean and variance, multiply by $n$
+      for the total's mean and variance, and hand those two numbers to the
+      CLT — extracting $\mu=3.5,\sigma^{2}=35/12$ from a single fair die and
+      never touching its actual pmf again.
+
+      The two directions of the same standardization answer two
+      different-sounding questions: a one-sided tail ("at least this much")
+      reads off $1-\Phi(z)$, a two-sided band ("within this much of the
+      mean") reads off $2\Phi(z)-1$, both from the identical $\mu,\sigma$
+      once computed.
+
+      The general lesson: a die's pmf is flat, about as far from
+      bell-shaped as a law gets, yet it plays no role in the limit at all —
+      a strong hint that any interview version of this pattern is really
+      testing whether $\mu$ and $\sigma^{2}$ get extracted correctly and
+      standardized, not whether you understand the specific die or coin
+      involved.
+    worked: >
+      Roll a fair die $225$ times; how likely is the total to fall short of
+      $750$? One die has $\mu=3.5,\sigma^{2}\approx2.917$, so $225$ dice have
+      mean $787.5$ and variance $225\times2.917\approx656.4$, giving
+      $\sigma\approx25.62$. With the continuity correction,
+      $z=(749.5-787.5)/25.62\approx-1.483$, so
+      $\Pr(S<750)\approx\Phi(-1.483)\approx0.069$ — about $6.9\%$, using
+      nothing about the die beyond its mean and variance.
+    interview: >
+      "Roll a die (or flip a coin) $n$ times, what's the chance the total
+      exceeds or falls short of some threshold" trains exactly this pattern
+      — extract $\mu,\sigma^{2}$ of one trial, multiply by $n$, standardize,
+      and apply the continuity correction unprompted.
+    pitfalls: >
+      Using a single die's variance as the total's variance instead of
+      multiplying by $n$ is a common slip once the arithmetic gets busy.
+      Forgetting the continuity correction on an explicitly integer total is
+      exactly the setting it matters most in.
+    recap: >
+      A hundred-plus dice's total is governed entirely by one die's mean and
+      variance fed through the CLT with a continuity correction — the die's
+      actual shape never enters.
+
+  - node: quant-probability.limits.uniform-sum-normal
+    hook: >
+      This is the classic answer to "generate a normal variable with nothing
+      but a uniform generator" before Box–Muller, and a fast sanity check on
+      how quickly the CLT bites for a tame, bounded summand.
+    explanation: >
+      Twelve is not a magic number for the CLT in general — it's a magic
+      number for this specific summand. A single $U(0,1)$ has mean $1/2$
+      and variance $1/12$, chosen so that summing $12$ of them and
+      subtracting the mean ($6$) lands the variance at exactly $1$ with no
+      rescaling needed. A uniform's flat, bounded, symmetric shape converges
+      unusually fast because there's no heavy tail or skew for the CLT's
+      error to fight.
+
+      The approximation is excellent near the centre, matching the true
+      normal CDF to a few decimals, but structurally wrong far out in a way
+      no larger $n$ fixes: the sum of $12$ uniforms is confined to $[-6,6]$
+      by construction, so it assigns exactly zero probability to events a
+      true normal would call merely rare, and its kurtosis sits slightly
+      below the normal's, light-tailed rather than matching it.
+
+      The general lesson: "large $n$" isn't one fixed threshold — a bounded,
+      symmetric summand can look essentially normal at $n$ as small as a
+      dozen, while a skewed or heavy-tailed summand can still look
+      non-normal at $n$ in the hundreds.
+    worked: >
+      Using the fitted standard normal, $\Pr(S-6\le-3)=\Pr(Z\le-3)\approx
+      1-\Phi(3)\approx0.00135$. But $S-6$ is confined to $[-6,6]$ with a
+      density that vanishes faster than the normal's tail near $\pm6$, so the
+      true probability is smaller than this estimate — the same light-tailed
+      mismatch the kurtosis figure predicts, now visible as a concrete
+      number rather than a moment.
+    interview: >
+      "Generate an approximately normal variable using only a uniform
+      generator" is answered with sum-of-$12$-uniforms-minus-$6$. A sharp
+      follow-up, "is it exactly normal," is answered by naming the bounded
+      support and the negative excess kurtosis as the concrete way it fails.
+    pitfalls: >
+      Trusting the approximation arbitrarily far into the tails runs
+      straight into the hard $[-6,6]$ boundary a true normal doesn't have.
+      Assuming "$n=12$ is large" generalizes to every summand ignores that
+      it's fast here specifically because a uniform is bounded and
+      symmetric.
+    recap: >
+      Twelve uniforms minus six is close to standard normal near the centre
+      by design, but strictly bounded to $[-6,6]$ and slightly light-tailed
+      everywhere the true normal isn't.
+
+  - node: quant-probability.limits.law-of-averages-fallacy
+    hook: >
+      "The wheel is due for red" is the most common wrong intuition an
+      interviewer will bait you with, and the correct rebuttal needs both the
+      strong law and the CLT's $\sqrt{n}$ scaling to state precisely.
+    explanation: >
+      The strong law promises the *ratio* $\bar{X}_n=H_n/n$ converges — it
+      says nothing about the *difference* $H_n-n/2$ ever shrinking, and that
+      difference in fact does the opposite: as a sum of $n$ fair-coin
+      indicators, $H_n$ has standard deviation $\sigma\sqrt{n}=\sqrt{n}/2$,
+      which grows without bound. Both facts are true of the same sequence at
+      once.
+
+      What reconciles them: the ratio shrinks because the denominator $n$
+      grows faster than the numerator's typical deviation $\sqrt{n}$ —
+      dividing $\sqrt{n}/2$ by $n$ gives $1/(2\sqrt{n})\to0$. A deficit
+      accumulated early gets diluted by an ever-larger pile of new data, not
+      repaid by a compensating run in the other direction; the expected
+      excess itself never shrinks in absolute terms.
+
+      This is exactly why "the wheel is due" betting systems — doubling
+      after losses, backing the cold number — are mispriced: they implicitly
+      bet the absolute difference will correct itself, but the true theorem
+      only ever promised the ratio would.
+    worked: >
+      Suppose after $n=400$ fair tosses there have been $220$ heads, an
+      excess $H_n-n/2=20$. After $10{,}000$ more tosses (total
+      $n=10{,}400$), the expected excess is still exactly $20$ — a fair coin
+      has no corrective memory — but as a share of the total it has fallen
+      from $20/400=5\%$ to $20/10400\approx0.19\%$: the ratio has visibly
+      converged toward $1/2$ while the raw head-count is not one head closer
+      to matching the tail-count.
+    interview: >
+      "After a long losing streak, are you due for a win," or "does the law
+      of large numbers mean deficits get corrected," both test the same
+      distinction — the ratio converges, the difference diverges like
+      $\sqrt{n}$, and these are simultaneously true, not contradictory.
+    pitfalls: >
+      Concluding from "the average converges" that a specific run of bad
+      luck must eventually be balanced out — it's diluted, not balanced.
+      Quoting the strong law as a fact about the difference $H_n-n/2$ rather
+      than the ratio $H_n/n$ misstates what the theorem covers.
+    recap: >
+      The sample average converges because the ever-growing denominator
+      dilutes any fixed deficit, not because the deficit shrinks — it grows
+      like $\sqrt{n}$ even as its share of the total vanishes.
+
+  - node: quant-probability.limits.clt-caveats
+    hook: >
+      "How accurate is the normal approximation, exactly" and "does the CLT
+      ever just fail" are the two questions this node answers precisely,
+      rather than waving at "it's approximate."
+    explanation: >
+      Rate: the CLT itself says nothing about how fast $F_n\to\Phi$, only
+      that it happens. Berry–Esseen fills the gap:
+      $C\rho/(\sigma^{3}\sqrt{n})$ for a constant $C<0.5$ and
+      $\rho=\mathbb{E}|X_1-\mu|^{3}$, meaning the worst-case CDF error
+      shrinks only like $1/\sqrt{n}$ — the same slow rate governing every
+      estimate in this subbranch — and a skewed summand (large $\rho$) is
+      punished directly in that leading term.
+
+      Region: the guarantee is strongest exactly where it's least useful.
+      Near the centre the approximation is excellent, but far in the tail,
+      where $z$ is allowed to grow with $n$, the *relative* error in
+      $1-\Phi(z)$ can be unbounded — precisely why genuine tail risk is
+      priced with Chernoff bounds or large-deviation theory instead.
+
+      Hypotheses: finite positive variance can't be relaxed. With infinite
+      variance there's no normal limit to converge to, and the standing
+      counterexample is the Cauchy law, whose sample average has exactly the
+      same distribution as one single draw for every $n$ — sampling more
+      buys zero extra precision.
+    worked: >
+      Berry–Esseen's $1/\sqrt{n}$ rate means quadrupling $n$ only halves the
+      guaranteed error bound: if the bound reads $0.02$ at $n=2500$, it
+      reads roughly $0.01$ at $n=10000$ — the same $1/\sqrt{n}$ scaling that
+      governs the standard error itself, applied to the approximation's
+      worst-case error rather than to a confidence interval.
+    interview: >
+      "Is the normal approximation accurate in the tail" and "what if the
+      variance is infinite" are the two follow-ups a good CLT answer should
+      already anticipate — Berry–Esseen's rate for the first, the Cauchy
+      counterexample for the second.
+    pitfalls: >
+      Quoting the CLT to justify a tail probability far from the centre —
+      rare-event or VaR-style questions — ignores that the relative error
+      there isn't controlled by the theorem at all. Assuming any
+      well-behaved-looking heavy-tailed variable eventually gets a normal
+      limit is false without finite variance, at any $n$.
+    recap: >
+      The normal limit is accurate only at rate $1/\sqrt{n}$, only near the
+      centre, and only when the variance is finite — each limit sharp, not
+      a technicality.
+
+  - node: quant-probability.limits.slutsky
+    hook: >
+      This is the theorem that quietly licenses plugging an estimated
+      standard deviation into a standardized statistic — skip it and every
+      confidence interval built from data alone is unjustified.
+    explanation: >
+      The setup pairs a sequence converging in distribution, possibly to
+      something genuinely random, with a second sequence collapsing to a
+      constant in probability. The claim — that the pair combines the way
+      you'd hope, $X_n+Y_n\to X+c$, $X_nY_n\to cX$, $X_n/Y_n\to X/c$ for
+      $c\ne0$ — looks almost too obvious to need a name, but distributional
+      convergence alone carries no information about how two sequences move
+      together; without $Y_n$'s target being a fixed, spread-free constant,
+      none of these rules would hold.
+
+      Why the constant matters: if $Y_n$ converged in distribution to
+      something random instead, $X_n$ and $Y_n$ could correlate arbitrarily
+      — two variables can each individually converge in distribution while
+      their sum does something the marginals never predicted. A constant
+      target correlates with nothing, so there's nothing left to go wrong.
+
+      The everyday use is substitution: a standardized statistic uses the
+      true $\sigma$, normally unknown, but if an estimator $s_n\to\sigma$ in
+      probability, Slutsky says swapping $s_n$ in for $\sigma$ changes
+      nothing about the limiting law — the one step turning a theoretical
+      CLT statement into a number computable from data alone.
+    worked: >
+      Suppose $\sqrt{n}(\bar{X}_n-\mu)\to N(0,9)$ in distribution
+      ($\sigma=3$), and a separate estimator $T_n\to3.2$ in probability
+      rather than the true $3$. By Slutsky,
+      $\sqrt{n}(\bar{X}_n-\mu)/T_n\to N(0,9)/3.2$, i.e. a $N(0,1)$ variable
+      scaled by $3/3.2=0.9375$ — so a $95\%$ interval built by treating
+      $T_n$ as if it were exactly $\sigma$ would come out about $6.7\%$ too
+      narrow, since $1/0.9375\approx1.067$.
+    interview: >
+      "Why is it valid to plug the sample standard deviation into a
+      standardized test statistic" is answered by naming Slutsky's theorem
+      and $s_n\to\sigma$ in probability. A common trap asks whether the same
+      substitution works when the "constant" is itself random.
+    pitfalls: >
+      Applying the product or quotient rule when the second sequence
+      converges to something random, not a constant, is generally false —
+      joint behavior can't be inferred from two separate marginal limits.
+      Dividing by $Y_n\to c=0$ violates the explicit $c\ne0$ requirement.
+    recap: >
+      A distributional limit survives being added to, multiplied by, or
+      divided by anything converging in probability to a fixed constant —
+      the licence to substitute an estimate for an unknown parameter.
+
+  - node: quant-probability.limits.delta-method
+    hook: >
+      Whenever the quantity you care about is some nonlinear function of a
+      sample average — a ratio, a log-return, an odds — this is the one-line
+      recipe for its standard error, and forgetting the $g'(\mu)$ factor is
+      the standard way to misprice it.
+    explanation: >
+      The engine is a first-order Taylor expansion of $g$ around $\mu$:
+      $g(\bar{X}_n)\approx g(\mu)+g'(\mu)(\bar{X}_n-\mu)$. This is valid
+      because $\bar{X}_n$ already concentrates tightly around $\mu$ — its
+      standard error shrinks like $1/\sqrt{n}$ — so only the immediate
+      neighborhood of $\mu$ is ever visited, and the higher-order terms
+      become negligible relative to the linear one as $n$ grows.
+
+      Once that linear approximation holds, $g(\bar{X}_n)-g(\mu)$ inherits
+      the CLT's normal fluctuation directly, rescaled by the constant
+      $g'(\mu)$ — a linear function of an asymptotically normal variable is
+      itself asymptotically normal with variance scaled by the square of
+      that constant. Formally, Slutsky's theorem is what licenses discarding
+      the remainder term.
+
+      The one condition that can't be dropped is $g'(\mu)\ne0$. At a
+      critical point of $g$, the linear term the whole argument leans on
+      vanishes identically, and the leading behavior is governed by the
+      quadratic term instead — the limit becomes a scaled chi-square, an
+      entirely different shape, not a normal forced through the same
+      formula.
+    worked: >
+      From $n=400$ iid Bernoulli($0.3$) draws, estimate $g(p)=\sqrt{p}$.
+      Here $g'(p)=1/(2\sqrt{p})$, so $g'(0.3)=1/(2\times0.5477)\approx
+      0.9129$. The estimator $\hat{p}$ has standard error
+      $\sqrt{0.3\times0.7/400}=\sqrt{0.000525}\approx0.0229$, so
+      $g(\hat{p})=\sqrt{\hat{p}}$ has standard error approximately
+      $0.9129\times0.0229\approx0.0209$ about the true value
+      $\sqrt{0.3}\approx0.5477$.
+    interview: >
+      "If $\hat{p}$ has standard error $s$, what's the standard error of
+      [some function of $\hat{p}$]" is answered directly with
+      $|g'(\mu)|\times s$. The interviewer checks the derivative is
+      evaluated at the true parameter and that squaring for variance versus
+      the plain factor for standard error isn't confused.
+    pitfalls: >
+      Forgetting to square $g'(\mu)$ when writing the *variance* formula,
+      versus using it unsquared for the standard error, is a constant
+      source of factor-of-two errors. Applying the method where
+      $g'(\mu)=0$ silently produces the wrong limit; a chi-square takes over
+      instead.
+    recap: >
+      A smooth function of a sample mean is itself asymptotically normal,
+      with standard error scaled by $|g'(\mu)|$ — valid because
+      $\bar{X}_n$ concentrates near $\mu$, and only when that derivative is
+      nonzero.
+
+  - node: quant-probability.limits.borel-cantelli
+    hook: >
+      This is the standard tool for upgrading a merely-summable sequence of
+      small probabilities into a with-probability-one statement about an
+      entire infinite sequence of events — exactly the machinery behind
+      promoting convergence in probability to almost sure convergence.
+    explanation: >
+      First lemma, no independence needed: if $\sum_n\Pr(A_n)<\infty$, then
+      with probability $1$ only finitely many of the $A_n$ occur. The proof
+      is the union bound pushed to the tail: the chance that *some* event
+      from $A_n$ onward happens is at most $\sum_{m\ge n}\Pr(A_m)$, and a
+      summable series' tail sum shrinks to $0$ as $n\to\infty$ — so
+      eventually the chance of any further occurrence is arbitrarily small.
+
+      Second lemma needs independence to run the opposite direction: if the
+      $A_n$ are independent and $\sum_n\Pr(A_n)=\infty$, then with
+      probability $1$ infinitely many occur. Independence is not decoration
+      — without it, a divergent sum is compatible with the same event
+      repeated forever, which doesn't recur in any new way.
+
+      The link back to convergence: if the deviation probabilities
+      $\Pr(|X_n-X|>\varepsilon)$ are summable for every $\varepsilon$ — a
+      strictly stronger hypothesis than merely tending to $0$ — the first
+      lemma upgrades convergence in probability all the way to almost sure
+      convergence, a concrete mechanism for proving it directly.
+    worked: >
+      Let $A_n$ be the event that toss $n$ of a biased coin, heads
+      probability $1/n^{2}$, comes up heads. Since
+      $\sum_n1/n^{2}=\pi^{2}/6<\infty$, the first lemma says with
+      probability $1$ only finitely many heads occur across the entire
+      infinite sequence — eventually every toss is tails. Contrast: if
+      instead $\Pr(A_n)=1/n$ with independent tosses, $\sum_n1/n=\infty$
+      diverges, so the second lemma says heads occurs infinitely often with
+      probability $1$, despite each single toss's chance shrinking to $0$.
+    interview: >
+      "If independent events have probabilities summing to infinity, does
+      at least one occur," or "does this shrinking-probability sequence
+      eventually stop happening," are Borel–Cantelli questions — check
+      summability first, and in the divergent case name independence
+      explicitly as the extra ingredient.
+    pitfalls: >
+      Applying the second lemma's "infinitely often" conclusion to a
+      divergent sum without checking independence is false in general.
+      Confusing $\Pr(A_n)\to0$ with $\sum_n\Pr(A_n)<\infty$ — the first
+      lemma needs the stronger, summable condition.
+    recap: >
+      Summable event probabilities mean only finitely many occur, with
+      probability $1$ and no independence needed; a divergent sum of
+      independent probabilities means infinitely many occur, with
+      probability $1$.
+
+  - node: quant-probability.limits.root-n
+    hook: >
+      This is the one number every "how much data do I need" question
+      collapses to, and inverting it on the spot — so many trades, so many
+      observations — is worth more than any other single skill in this
+      subbranch.
+    explanation: >
+      Every accuracy claim built on the CLT has the identical shape: an
+      average of $n$ independent observations sits within roughly
+      $\sigma/\sqrt{n}$ of the truth, with $95\%$-style confidence
+      corresponding to about $1.96$ of those units. That one expression is
+      the entire content behind confidence intervals, Monte Carlo error, and
+      the reliability of a backtested trading edge — only the specific
+      $\sigma$ and target change from problem to problem.
+
+      The consequence worth having automatic: precision is quadratically
+      expensive. To cut the error in half, $\sqrt{n}$ must double, so $n$
+      must quadruple; to gain one more decimal digit of accuracy, $n$ must
+      grow by a factor of $100$. This is why "just collect ten times more
+      data" buys far less than intuition suggests.
+
+      Two standard readings worth reproducing cold: pinning a mean to a
+      target absolute tolerance at a given confidence solves
+      $z\sigma/\sqrt{n}=\text{tolerance}$ for $n$; resolving a trading edge
+      of a given size in standard-deviation units at a target number of
+      standard errors solves $\sqrt{n}\times(\text{edge size})=
+      (\text{target }z)$ for $n$ — the same inversion of the same formula,
+      relabelled.
+    worked: >
+      A poll wants a proportion pinned to within $\pm2$ percentage points
+      at $95\%$ confidence, using the conservative worst-case
+      $\sigma=\sqrt{0.5\times0.5}=0.5$. Solve
+      $1.96\times0.5/\sqrt{n}=0.02$: $\sqrt{n}=1.96\times0.5/0.02=49$, so
+      $n=49^{2}=2401$ — matching the sample sizes real pollsters actually
+      use, from the identical $1/\sqrt{n}$ formula that governs the trading
+      and Monte Carlo cases.
+    interview: >
+      "How many samples do I need for [some target precision]" — polling
+      margins, backtest sample size, Monte Carlo path count — is answered by
+      inverting $\sigma/\sqrt{n}$; the interviewer checks that you square
+      the tolerance's inverse, not scale linearly with it.
+    pitfalls: >
+      Solving for $n$ linearly in the tolerance instead of quadratically —
+      halving a target error and only doubling $n$ — badly undersizes the
+      sample. Using a stand-in $\sigma$ from an unrelated problem silently
+      mis-scales the whole calculation.
+    recap: >
+      Accuracy costs quadratically under the CLT — $\sigma/\sqrt{n}$ per
+      unit of error — so halving an error needs four times the data, the
+      single inversion answering every "how much data" question in the
+      subbranch.

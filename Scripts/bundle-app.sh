@@ -18,9 +18,10 @@ swift run -c "$CONFIG" ContentBuild layout --out "$ROOT/build/content"
 # The quant-interview tree: same pipeline, its own roots (TreeSpec.quant). Its
 # problem bank directory does not exist yet, which ProblemLoader treats as an
 # empty bank — passed explicitly so the math bank is never validated against
-# the quant graph.
+# the quant graph. The program root (§6.6) carries the spine and lessons.
 swift run -c "$CONFIG" ContentBuild build \
     --content "$ROOT/content-quant" --problems "$ROOT/content-quant-problems" \
+    --program "$ROOT/content-quant-program" \
     --out "$ROOT/build/quant"
 swift run -c "$CONFIG" ContentBuild layout \
     --content "$ROOT/content-quant" --problems "$ROOT/content-quant-problems" \

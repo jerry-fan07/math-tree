@@ -1,0 +1,209 @@
+unit: quant-puzzles.nim-games
+opening: >
+  This unit collects the interview games you can solve completely rather than merely reason about: take-away piles, races to a target, Nim, and simple grid games, all finite and impartial enough that the winner is knowable in advance. It builds one recursive tool — labelling every position as a win or a loss for whoever moves next — then specializes it: periodic patterns in subtraction games, the mirroring trick for two equal piles, and Bouton's XOR rule for Nim with any number of piles. It closes with two set pieces that push past explicit tables: strategy stealing, which proves a winner exists without ever naming the move, worked on Chomp, and the Sprague–Grundy value, which lets several unrelated games be combined and solved as one.
+lessons:
+  - node: quant-puzzles.nim-games.combinatorial-game
+    hook: >
+      Every game in this unit gets solved by the same two-value trick, but that trick only works because the game is impartial, finite, and free of chance — checking those three facts before reaching for backward induction is the first thing an interviewer wants to see.
+    explanation: >
+      A game qualifies for the machinery in this unit only if it clears four hurdles at once: it is finite, bounded in length and guaranteed to terminate; two-player and alternating; perfect-information with no chance device, so both players see the whole position and no die or hidden card ever enters play; and impartial — the set of legal moves from a position depends only on the position itself, never on whose turn it is. Nim and every take-away game satisfy this last condition automatically, since "remove some counters from a pile" is available identically to either player; a game like chess fails it, since only the mover's own color can move, so the same board position offers different legal moves depending on who's asked.
+
+      The normal-play convention says the player who cannot move loses, equivalently the player who removes the last object wins; misère play swaps the two and is generally the harder analysis, so always confirm which convention a stated problem intends before solving. Because the game is finite, has no draws, and is perfect information, it is determined: exactly one of the two players can force a win regardless of how well the other plays. That single fact collapses the whole interview problem to two questions — which player wins, and what move proves it — with no payoffs to compute and nothing to mix, unlike the payoff-matrix games elsewhere in this course.
+    worked: >
+      Take "a single pile of six counters; each turn remove one or two counters; the player who takes the last counter wins." It clears every hurdle: finite, since the pile only shrinks; two-player and alternating by the rules as stated; perfect information and chance-free, since both players see the pile size and no die or card enters the rules; and impartial, since "remove one or two" is available to whichever player is on move, not tied to a color or role. Contrast a variant where only the first player may ever remove two at a time — that variant is no longer impartial, because the menu of legal moves now depends on who is asking, and none of this unit's techniques — mirroring, the XOR rule, backward labelling — are licensed to touch it until it's rewritten as a fair, symmetric rule.
+    interview: >
+      "Here's a game — who wins?" is always preceded, in a careful answer, by naming the convention out loud: confirm normal play (last move wins) versus misère (last move loses), and confirm the move set doesn't secretly depend on which player is speaking. Skipping straight to a guessed strategy without this check is the fastest tell of a candidate pattern-matching instead of reasoning.
+    pitfalls: >
+      Assuming "last to move wins" without asking — many interviewers state a game in misère form ("the player forced to take the last object loses") precisely to see if you check. Treating a game with player-specific pieces or roles as impartial just because it alternates turns; alternation alone doesn't make the legal-move set independent of the mover.
+    recap: >
+      A position qualifies for this unit's tools exactly when it's finite, alternating, chance-free, and impartial under a stated normal- or misère-play convention — and being finite and drawless already guarantees one side can force the win.
+
+  - node: quant-puzzles.nim-games.np-positions
+    hook: >
+      Once a game is confirmed finite and impartial, "who wins" stops being a guess and becomes a two-label bookkeeping exercise — everything else in this unit is just a faster way to compute the same P/N labels.
+    explanation: >
+      Label a position by who wins it under optimal play, using labels named for the player about to move: a P-position is a win for the previous player, so whoever is on move there loses; an N-position is a win for the next player, so whoever is on move there wins. The label is forced, not chosen, by one recursive rule run from the very end of the game backward: a terminal position with no legal move is a P-position by the normal-play convention; a position is an N-position if at least one available move leads to a P-position; a position is a P-position if every available move leads to an N-position.
+
+      This is working backwards made completely mechanical: instead of guessing forward from the start, you first label the terminal positions, then any position all of whose moves land on already-labelled positions, and so on, moving strictly toward the start. Finiteness is what makes the recursion terminate cleanly — every position is some bounded number of moves from a terminal one, so the labelling bottoms out rather than running forever, and it never needs to guess, since each rule only inspects already-known labels of strictly later positions.
+
+      Once every position carries a label, playing correctly from an N-position is mechanical too: some move reaches a P-position by the very definition of N, so find it and take it, then repeat from wherever the opponent is forced to reply. The label alone doesn't hand you that move — it only guarantees one exists — so identifying it is separate work, done position by position.
+    worked: >
+      Take "a pile of four counters; each turn remove one or two; last to take wins." Label from the bottom: $n=0$ has no move, so it's P. $n=1$ can move to $0$ (P), so $n=1$ is N. $n=2$ can move to $1$ (N) or $0$ (P); reaching the P-position $0$ makes $n=2$ an N. $n=3$ can move to $2$ (N) or $1$ (N) only — every move lands on N, so $n=3$ is P. $n=4$ can move to $3$ (P) or $2$ (N); reaching $3$ makes $n=4$ an N, and the winning move from $4$ is to remove one counter, leaving your opponent at the P-position $3$.
+    interview: >
+      "Who wins, and how do you know?" wants the recursion stated explicitly — terminal is P, an N needs one escape to P, a P has no escape — not a hunch about who "has more room." Interviewers listen for whether you build the labels from the end of the game or try to reason forward from the start, which usually collapses into guessing.
+    pitfalls: >
+      Labelling a position N because one move "looks good" without confirming it actually lands on an already-established P-position — every N claim needs a specific witnessing move. Labelling a position P after checking only some of its moves; the P rule requires every move to reach N, so a single unchecked move can silently overturn the label.
+    recap: >
+      Terminal positions are P; a position is N if some move reaches a P, and P if every move reaches an N — label backward from the end and the winner falls out for free.
+
+  - node: quant-puzzles.nim-games.backward-labelling
+    hook: >
+      When a take-away game collapses to one integer $n$, you don't need a clever invariant on the first try — writing the P/N table out by hand for a dozen values of $n$ almost always reveals the pattern before you've had to think hard at all.
+    explanation: >
+      Whenever a game reduces to a single integer state $n$ with a fixed menu of legal moves, build the win/lose table directly: compute the label of $n=0$, then $1$, then $2$, and so on, using the P-position/N-position backward rule — the label of $n$ depends only on the already-known labels of the smaller states a legal move can reach from $n$. Six to eight entries are usually enough to see a pattern, because the recursion is genuinely local: the label of $n$ never looks further back than the largest single move allows.
+
+      That locality is exactly why the pattern repeats: the label of $n$ is a function only of the small window of labels just behind it, and that window can take only finitely many shapes, so some window must eventually recur. Once it does, every label from that point on is forced to repeat too, since the same window produces the same next label every time — this is what turns "I notice a pattern" into "the pattern is proven," and it's worth stating explicitly rather than trusting a few lucky-looking entries.
+
+      Reading a winning move off the finished table is then direct: to move from an N-position $n$, look among the reachable smaller values for the one labelled P, and take exactly the move that lands there.
+    worked: >
+      Take "remove one or two counters; last to take wins." $n=0$: no move, P. $n=1$: reaches $0$ (P), so N. $n=2$: reaches $1$ (N) or $0$ (P); reaching $0$ makes it N. $n=3$: reaches $2$ (N) or $1$ (N) only — all N, so $3$ is P. $n=4$: reaches $3$ (P), so N. $n=5$: reaches $4$ (N) or $3$ (P), so N. The window $(P,N,N)$ at $n=3,4,5$ already matches the window at $n=0,1,2$, so the pattern — P exactly at multiples of $3$ — repeats forever. From $n=17$: $17 = 3\times 5 + 2$, so $17$ is N; remove $2$ to leave $15$, a multiple of $3$, and thereafter answer any opponent move of $1$ or $2$ by taking $2$ or $1$ respectively, restoring a multiple of $3$ every time.
+    interview: >
+      "What if the take set isn't one-to-three?" is the standard follow-up once you've quoted a memorized pattern — the interviewer wants to watch you actually build the table live for a new rule, not recite a formula that happened to apply to a different game.
+    pitfalls: >
+      Declaring a period after only two or three repeats of what looks like a cycle; the safe check is a window as wide as the largest legal move, confirmed to reproduce the following label exactly. Forgetting that a move can't remove more counters than the pile holds — when tabulating $n$'s label, only consult reachable values $n-s \ge 0$, not the full move set blindly.
+    recap: >
+      Build the P/N table from $n=0$ upward using the backward rule until a full window of labels repeats — the repeat is forced to continue forever, and reading off a winning move is then a table lookup.
+
+  - node: quant-puzzles.nim-games.subtraction-game-period
+    hook: >
+      "Prove the pattern repeats forever" is a fair follow-up to any table you've just built, and the honest answer is a pigeonhole argument, not "I checked a few more values and it held."
+    explanation: >
+      Fix a finite set of allowed take sizes $S$ and play "remove some $s \in S$ from a pile of $n$; last to take wins." The label of $n$ is a function only of the labels of $n-s$ for the $s \in S$ with $s \le n$ — a window of width $\max S$ behind $n$ — and that window can take only finitely many shapes, one of two labels per slot. With more values of $n$ than possible window shapes, some shape must repeat by pigeonhole; and because the labelling rule is a deterministic function of the window, a repeated window forces every label after it to repeat too. That's the actual proof behind "the pattern always settles down," not just an observation about a few computed rows.
+
+      Two shapes of $S$ are worth having memorized rather than re-derived every time. If $S = \{1, 2, \dots, k\}$, the P-positions are exactly the multiples of $k+1$: from a multiple, any move of size $1$ through $k$ lands strictly between two consecutive multiples, so it's forced onto a non-multiple; from a non-multiple $n$, removing $n \bmod (k+1)$ — a legal size, since it's between $1$ and $k$ — restores a multiple. If instead $S = \{1,3,4\}$, tabulating gives P-positions at $n \equiv 0$ or $2 \pmod 7$ — a genuinely different, longer period than $\max S + 1 = 5$, a reminder that only the consecutive-integer case reduces to that clean formula; anything else needs the table.
+    worked: >
+      Take $S = \{1,2,3,4,5\}$ on a pile of $50$: since $S$ is the full run $1$ through $5$, the P-positions are multiples of $6$. Here $50 = 6\times 8 + 2$, so $50$ is an N-position: remove $2$ counters to leave $48$, a multiple of $6$. From there, whatever the opponent removes — some $s$ between $1$ and $5$ — reply with $6-s$, which restores a multiple of $6$ every time, until the opponent is left facing the pile at $0$ and cannot move.
+    interview: >
+      Handed an arbitrary take set, an interviewer is watching for two things in order: do you recognize the consecutive-run case and quote multiples of $k+1$ immediately, and, if the set isn't consecutive, do you fall back to building the table rather than guessing a formula that doesn't apply.
+    pitfalls: >
+      Assuming every subtraction game has period exactly $\max S + 1$ — true only for the consecutive-run case; $S=\{1,3,4\}$ already has period $7$, not $5$. Quoting "multiples of $k+1$" for a set that isn't the full run $1$ through $k$ — a single missing value, like $S=\{1,2,4\}$, breaks the clean formula and needs its own table.
+    recap: >
+      Any fixed take-set subtraction game becomes periodic by pigeonhole on the window of recent labels; the run $S=\{1,\dots,k\}$ gives the clean multiples-of-$(k+1)$ pattern, but any other $S$ needs its own table and can have a longer period.
+
+  - node: quant-puzzles.nim-games.race-to-n
+    hook: >
+      "Do you want to go first?" is a trap question in the race-to-$N$ setup — the honest answer depends on a single mod computation, and answering "first" out of habit loses exactly the games where it's the wrong call.
+    explanation: >
+      The running total's distance to the goal behaves exactly like a subtraction-game pile: it starts at the goal value, each turn some amount from $1$ to $m$ is removed from that distance (added to the total), and whoever reduces the distance to exactly $0$ — says the goal number — wins under normal play. That's precisely the consecutive-run case just proved, with take-set $\{1,\dots,m\}$, so its P-positions transfer directly: the distance is a losing position for whoever must move from it exactly when it's a multiple of $m+1$.
+
+      The procedure is then one computation: let $r$ be the goal reduced modulo $m+1$. If $r \ne 0$, the starting distance (the goal itself) is not a multiple of $m+1$, so it's an N-position and the first player wins — go first, open by saying $r$, which trims the distance down to the nearest multiple of $m+1$, and thereafter answer any opponent move of $k$ with $m+1-k$, restoring a multiple of $m+1$ every turn until the opponent faces distance $0$ with nothing left to say. If $r = 0$, the starting distance is already a multiple of $m+1$ — a losing position for whoever must move from it — so go second instead, and apply the identical reply rule to whatever the first player opens with.
+
+      The two failure modes here are both off-by-one errors: using modulus $m$ instead of $m+1$, and counting control points forward from $0$ instead of backward from the goal, which silently shifts every one of them.
+    worked: >
+      "Add a number from $1$ to $4$ to a running total starting at $0$; whoever says $30$ wins." Here $m=4$, so the modulus is $5$, and $30 \bmod 5 = 0$ — the goal is already a multiple of $5$, so the first player is stuck in a losing position: go second. Whatever the opening player says, $k$, reply with $5-k$: if they say $3$, reply $2$, reaching a running total of $5$; if they then say $4$, reply $1$, reaching $10$; continuing this way lands on $15, 20, 25$, and finally $30$ on your turn — the second player wins every time, the opposite conclusion from the goal-$100$-by-$10$ version, purely because $30 \equiv 0 \pmod 5$ while $100 \equiv 1 \pmod{11}$.
+    interview: >
+      "We're racing to $N$, adding $1$ through $m$ each turn — go first or second?" is asked almost verbatim; the interviewer wants the modulus $m+1$ named immediately, the residue of the goal computed on the spot, and a concrete reply rule stated, not just a correct yes-or-no on who wins.
+    pitfalls: >
+      Reflexively choosing to go first — a goal that's already a multiple of $m+1$, like $30 \bmod 5 = 0$, is exactly the case where first is the losing seat. Using $m$ instead of $m+1$ as the modulus, which silently shifts every control point and produces a wrong opening number even when the go-first-or-second call happens to still be right.
+    recap: >
+      A race to $N$ adding $1$ through $m$ is a subtraction game on the distance to $N$: compute $N \bmod (m+1)$, go first and open with that residue if it's nonzero, go second and mirror otherwise.
+
+  - node: quant-puzzles.nim-games.nim-rules
+    hook: >
+      "Piles of stones, take any number from one pile, last to take wins" is the single most-recycled interview setup in this entire topic, and every version of it — however it's dressed up — reduces to exactly this definition.
+    explanation: >
+      Nim is played with several piles of counters; a move chooses exactly one pile and removes any positive number of counters from it, anywhere from a single counter up to the whole pile, and under normal play the player who removes the last counter overall wins. A position is fully described by the multiset of pile sizes — the piles have no identity beyond their size, so order doesn't matter and an emptied pile can simply be dropped from the list.
+
+      A single pile is the base case and it's immediate: whoever moves takes the whole pile and wins on the spot, since there's nothing left to stop them. Multiple piles are where the game stops being obvious — with piles of sizes $a_1, \dots, a_m$, there are $a_1 + \dots + a_m$ distinct single-pile moves available from the start alone, far too many to eyeball a winning line by inspection once $m$ grows past two or three.
+
+      Nim earns its central place in this unit for a reason beyond being a fun puzzle: it's the instance every other impartial game under normal play eventually gets compared to, which is why it's worth memorizing the rules cold — most interview questions that look unrelated turn out to be Nim wearing a costume.
+    worked: >
+      From piles $(2,3)$, the legal moves are: take $1$ or $2$ from the first pile, giving $(1,3)$ or $(0,3)$, or take $1$, $2$, or $3$ from the second, giving $(2,2)$, $(2,1)$, or $(2,0)$ — five options, one pile touched per move, any positive amount from it. Play one line to the end: from $(2,3)$, take $2$ from the second pile to reach $(2,1)$; the opponent takes $1$ from the first pile, reaching $(1,1)$; you take the whole first pile, reaching $(0,1)$; the opponent must take the last counter from the remaining pile, and having taken it, wins this particular line. Total counters strictly fall on every move — $5,3,2,1,0$ — which is what guarantees the game can't go on forever, regardless of how either side plays.
+    interview: >
+      Interviewers open Nim questions by stating piles and asking "who wins, and what's the move" — but the first thing worth confirming out loud is the convention: last counter wins (normal) or last counter loses (misère), since both are common phrasings and the analysis genuinely differs.
+    pitfalls: >
+      Removing counters from more than one pile in a single turn — illegal; exactly one pile per move, any positive amount from it. Assuming normal play by default when the prompt actually states the misère form ("whoever takes the last stone loses") without saying so explicitly.
+    recap: >
+      Nim is piles of counters where one move empties or shrinks exactly one pile and the last counter taken wins under normal play — trivial with one pile, and the reference point every other impartial game gets measured against.
+
+  - node: quant-puzzles.nim-games.equal-piles-mirroring
+    hook: >
+      "Two piles, same size — who wins?" is answered before you've computed anything, the instant you recognize a symmetry you can restore every single turn; spotting that is faster than any table.
+    explanation: >
+      Two equal piles of $a$ counters each is a loss for the player to move, by direct construction: whatever the opponent removes from one pile, remove exactly that many from the other. Every position handed back this way has two equal piles again, so the invariant "the piles are equal" survives every one of the mirrorer's replies, while the total counter count strictly drops on every single move by either player. Because the game must terminate and the mirrorer always restores the invariant, the empty position $(0,0)$ — a loss for whoever is asked to move from it — is always something the mirrorer hands to the opponent, never something the mirrorer is forced to face themselves.
+
+      That construction is itself a full P/N proof, not just a cute trick: it exhibits, from every $(a,a)$, that every move leads somewhere the opponent (now facing unequal piles) can be answered back to equal — which is exactly what makes $(a,a)$ a P-position. Unequal piles $(a,b)$ with $a \ne b$ are consequently N-positions, and the winning move is visible immediately: take $|a-b|$ counters from the larger pile to equalize them, handing the opponent the P-position just proved to be a loss.
+
+      The transferable procedure is: find an invariant that's symmetric between the players, check that any single move by the opponent can always be answered by a legal move restoring it, and check that some quantity strictly decreases so the exchange can't stall forever — the coins-on-a-round-table game and many mirroring puzzles beyond Nim all follow this exact three-part check.
+    worked: >
+      Take piles $(9,4)$. They're unequal, so equalize first: remove $5$ from the larger pile, reaching $(4,4)$ — now mirror. Say the opponent takes $3$ from one pile, reaching $(1,4)$; take $3$ from the other, reaching $(1,1)$. The opponent takes $1$, reaching $(0,1)$; take the remaining $1$, reaching $(0,0)$ — you take the last counter and win. The opponent was never once handed an equal pair to break out of, and the total strictly fell every step: $13, 8, 5, 2, 1, 0$.
+    interview: >
+      "Two piles, is it worth going first?" is testing whether equal-versus-unequal registers instantly, without table-building; a strong answer states the equalizing move for unequal piles in the same breath as naming who wins, since the move and the answer are the same fact here.
+    pitfalls: >
+      Mirroring blindly from an already-unequal starting position — the copy move only works once the piles are equal, so an unequal start needs one equalizing move first, made by whichever player is actually facing it. Assuming this argument extends to three or more piles without change; equal-pairs mirroring is specific to exactly two piles, and the general multi-pile case needs the XOR rule instead.
+    recap: >
+      Equal Nim piles are a loss for the mover — mirror every move in the other pile — and unequal piles are a win, by equalizing them with one move first.
+
+  - node: quant-puzzles.nim-games.nim-xor
+    hook: >
+      Three or more piles kill the mirroring trick outright, and Bouton's theorem is the fix: one bitwise computation replaces what would otherwise be an intractable table, and it's the single fact every interviewer expects cold.
+    explanation: >
+      Write each pile size in binary and define the nim-sum as the bitwise XOR of all the pile sizes, column by column with no carries: $a_1 \oplus a_2 \oplus \dots \oplus a_m$. Bouton's theorem says a Nim position is a P-position — a loss for whoever must move — exactly when its nim-sum is $0$, and proving it is exactly the two-direction P/N check applied with the nim-sum as the witness instead of a table.
+
+      From nim-sum $0$: any legal move changes the size of exactly one pile, and changing one number while holding the rest fixed always changes the XOR of the whole set — if it didn't, that pile's new size would have to equal its old size, which a legal move (a strict decrease) never does. So every move out of a zero-nim-sum position lands on a nonzero one: P leads only to N.
+
+      From nim-sum $s \ne 0$: take the highest set bit of $s$. Since that bit appears in the total XOR, an odd number of piles carry it, so at least one pile $a$ has that bit set. Because it's the highest set bit of $s$, all the bits of $a$ above it are unchanged by XOR-ing with $s$, and that bit itself flips from $1$ to $0$, so $a \oplus s < a$ — a strictly smaller, legal pile size. Removing $a - (a \oplus s)$ counters from that pile zeroes the nim-sum exactly. So every nonzero position has an explicit move to a zero one: N always has an escape to P.
+    worked: >
+      Take $(2,4,7)$: in binary, $2=010$, $4=100$, $7=111$; XOR-ing all three columns gives $2 \oplus 4 = 6$, then $6 \oplus 7 = 1$. The nim-sum is $1$, nonzero, so the mover wins. The highest (only) set bit of $1$ is bit $0$; among the piles, $7=111$ has that bit set ($2$ and $4$ don't, being even), so take pile $7$: $7 \oplus 1 = 6$, meaning remove $7-6=1$ counter from it. The new position is $(2,4,6)$, and checking: $2 \oplus 4 = 6$, $6 \oplus 6 = 0$ — nim-sum zero, the P-position just handed to the opponent.
+    interview: >
+      Any prompt with three or more piles is fishing for the nim-sum by name — state it as "XOR the pile sizes in binary; zero means the mover loses" within the first ten seconds, since hesitating here is the clearest sign of not knowing the rule cold.
+    pitfalls: >
+      Computing the piles' ordinary decimal sum, or a column AND, instead of a column XOR — the whole theorem is specific to XOR and none of these substitutes preserves it. Forgetting that "some pile carries the leading bit" only guarantees existence, not uniqueness — several piles can carry it, and any one of them supports a winning move.
+    recap: >
+      A Nim position is a loss for the mover exactly when the XOR of its pile sizes is $0$ — a single move always exists to zero a nonzero nim-sum, and no move can keep a zero one at zero.
+
+  - node: quant-puzzles.nim-games.nim-move-recipe
+    hook: >
+      Knowing Bouton's theorem and being able to execute it at the table under time pressure are different skills — this is the four-step drill that turns the XOR rule into an actual move, every time, including the misère twist near the end of the game.
+    explanation: >
+      Executing the winning move is four steps, run in order: write every pile size in binary; XOR the columns to get the nim-sum $s$; if $s = 0$, there's no move that helps — ask to move second instead; otherwise find the leading (highest) set bit of $s$, pick any pile whose binary representation has that bit set, and replace that pile's size $a$ with $a \oplus s$. The pile choice is never ambiguous about legality — the proof behind Bouton's theorem guarantees $a \oplus s < a$ whenever $a$ carries the leading bit of $s$, so the replacement is always a strict, legal decrease, never a request to add counters.
+
+      Misère Nim, where taking the last counter loses instead of wins, follows the identical recipe with one exception saved for the very end: keep zeroing the nim-sum exactly as in normal play until the position has at most one pile of size greater than $1$. At that moment switch goals — instead of zeroing the nim-sum, make your move leave an odd number of piles of size exactly $1$ for the opponent, since from then on every move is forced (take a whole singleton pile), and a mover facing an odd count of singletons is the one left holding the last, losing counter.
+    worked: >
+      Normal play on $(5,6,9)$: binary, $5=0101$, $6=0110$, $9=1001$; $5 \oplus 6 = 3$, then $3 \oplus 9 = 10$ ($1010$ in binary). The nim-sum is $10$, leading bit at position $3$ (value $8$). Among the piles, only $9=1001$ carries that bit; $9 \oplus 10 = 3$, so remove $9-3=6$ counters from the third pile, leaving $(5,6,3)$. Check: $5 \oplus 6 = 3$, $3 \oplus 3 = 0$ — the nim-sum is zero, confirming the move.
+    interview: >
+      Interviewers watch the execution, not just the final move — narrate the binary, the column XOR, the leading bit, and the specific pile out loud, and if the setup is misère, say so and flag the endgame switch before you're asked about it.
+    pitfalls: >
+      Removing $s$ counters from the chosen pile instead of setting it to $a \oplus s$ — those are different numbers whenever $a \oplus s \ne a - s$, and the wrong one doesn't zero the nim-sum. Under misère play, reducing the last big pile to zero out of habit — from $(1,1,5)$ that leaves $(1,1)$, an even two singletons, which hands the loss straight back to you; reducing it to $(1,1,1)$ instead leaves an odd three, which is what actually wins.
+    recap: >
+      Binary the piles, XOR them, replace a pile carrying the nim-sum's leading bit with $a \oplus s$ — identical under misère until one pile remains above $1$, where the goal flips to leaving an odd number of singletons.
+
+  - node: quant-puzzles.nim-games.strategy-stealing
+    hook: >
+      Some interview games can be proven won by the first player without ever naming the move — strategy stealing is how, and knowing when it applies, and when it silently doesn't, separates a real answer from a lucky guess.
+    explanation: >
+      The shape of the argument is proof by contradiction, not construction. Since the game is finite, drawless, and perfect information, one player is guaranteed to have a forcing win. Suppose, for contradiction, it's the second player, with some winning strategy $\sigma$. Let the first player make any legal opening move, then adopt $\sigma$ as if they were actually the second player responding to it — if $\sigma$ ever calls for the exact move already sitting on the board from that free opening, just make any other legal move instead and continue. Following $\sigma$ this way produces a genuine win, but it's a win reached by the real first player, which contradicts $\sigma$ being a winning strategy for whoever moves second. So the assumption fails, and by determinacy the win belongs to the first player instead.
+
+      Two conditions have to hold or the "just make another move instead" patch is illegal: an extra move already on the board must never hurt you, so treating the wasted opening as a free bonus never costs anything later, and every reply $\sigma$ calls for must remain an available legal move in the real position, not just in some idealized copy of the game. Both hold for ordinary Nim-family games; they can fail where "having more" is a liability, so check them before invoking the technique. What the argument does not deliver is worth stating in the same breath as the conclusion: no move is named, and for genuinely hard games no explicit winning strategy is known at all, even though existence is settled completely.
+    worked: >
+      Hex: each move colors one empty cell in your own color, and the first player to complete a chain of their color connecting their two opposite sides wins. Hex has a topological fact baked in — one player's connecting chain existing is exactly equivalent to the other's not existing — so it can never draw, and an extra cell in your color never blocks a connection, so both hypotheses hold. Suppose the second player had a winning strategy $\sigma$. The first player colors an arbitrary cell, then plays as "second player" using $\sigma$ against the real opponent's replies, substituting any other legal cell whenever $\sigma$ names the one already colored. That produces a win for the real first player, contradicting $\sigma$'s assumed guarantee — so the first player wins Hex on any board size, with no move ever named.
+    interview: >
+      "Show the first player wins, you don't need to say how" is the literal ask behind puzzles like Hex or symmetric-board games — the interviewer is checking that you produce the contradiction cleanly and explicitly verify the two hypotheses, rather than reflexively citing "symmetry" the way you would for mirrored Nim piles.
+    pitfalls: >
+      Invoking strategy stealing without checking that an extra move truly never hurts — in games with limited resources or where overcommitting is punished, the patched strategy can be illegal or actively bad. Trying to extract an actual winning move from the argument; it proves existence only, and claiming to also know the move overstates what the proof delivers.
+    recap: >
+      In a finite, drawless game where an extra move never hurts, assuming the second player wins and stealing that strategy after a wasted first move produces a contradiction — so the first player wins, with no move ever named.
+
+  - node: quant-puzzles.nim-games.chomp
+    hook: >
+      Chomp is the sharpest illustration in this unit of what strategy stealing actually buys you: a fully settled winner on every board, and, outside a few small special cases, zero idea what the winning move is.
+    explanation: >
+      Chomp is played on an $m \times n$ grid with a poisoned square in the bottom-left corner; a move names any remaining square and eats it along with every square above it and to its right, and whoever is forced to eat the poison loses. The single square in the top-right corner is special: it sits above and to the right of every other square on the board, so eating any other square necessarily eats the top-right one too — no other move can leave the top-right square standing. That domination is exactly what makes the top-right square a safe "wasted" opening move for stealing: whatever winning reply the hypothetical second-player strategy would have made to any first move already removes that corner, so pre-eating it costs the first player nothing.
+
+      The $1 \times 1$ board is the one excluded case, and it's excluded for a mundane reason rather than a subtlety in the argument: with only the poisoned square present, the player to move has no other option and must eat it immediately, losing on the spot — there's no room for a first move to steal from.
+
+      What's genuinely striking about Chomp is how little the existence proof buys in practice: outside a handful of small or highly structured boards, nobody has ever found an explicit winning strategy, even though the strategy-stealing argument settles the winner with certainty for every board bigger than $1 \times 1$. That gap between provably true and constructively known is rare enough in elementary game theory to be worth remembering as its own fact, independent of Chomp itself.
+    worked: >
+      On a $2 \times 4$ board, the known explicit rule, available only because the board has just two rows, is to eat the single square at the top-right corner first, leaving a bottom row of $4$ squares and a top row of $3$ — bottom exactly one square longer than top. From there the winning reply to any opponent move restores that same one-square gap: if the opponent shortens the top row further, cut the bottom row back to match it plus one; the gap survives every exchange because both rows can only ever shrink, and it eventually forces the opponent to be the one left with nothing to eat but the poison. So the first move on $2 \times 4$ is: eat the top-right square.
+    interview: >
+      "Who wins Chomp on a $5 \times 5$ board, and what's the move?" wants two separate, correctly separated answers: the winner, settled instantly by strategy stealing, and then an honest "I can't name the move in general" — unless the board is specifically $2 \times n$, where the two-row rule (eat the top-right corner, then hold the one-square gap) applies.
+    pitfalls: >
+      Trying to produce a general winning move by extending the $2 \times n$ heuristic to wider boards — it doesn't generalize, and no such rule is known. Forgetting to exclude $1 \times 1$, or misapplying the domination argument to some square other than the actual top-right corner, which is the only square dominated by nothing else.
+    recap: >
+      Strategy stealing on the dominating top-right square proves the first player wins every Chomp board bigger than $1 \times 1$ — a settled winner with, outside small special cases like $2 \times n$, no known winning move.
+
+  - node: quant-puzzles.nim-games.grundy
+    hook: >
+      Once you're playing two unrelated games at once and choosing which one to move in, "win or lose" per game stops being enough information — the Grundy value is the finer number that survives being combined.
+    explanation: >
+      For an impartial game under normal play, define the Grundy value of a position recursively as its mex — the minimum excludant, the smallest nonnegative integer missing from the set of Grundy values its options reach: $g(x) = \operatorname{mex}\{g(y) : x \to y\}$. This refines the plain P/N label rather than replacing it: $g(x) = 0$ exactly at the P-positions, matching the position-table labelling rule, but every N-position now also carries a specific positive integer instead of just the bare label "N."
+
+      The reason for the finer number is combining games: in a disjunctive sum, where several independent games sit side by side and a turn consists of moving in exactly one of them, knowing only "P or N" for each component isn't enough to say who wins the sum — two N-positions summed can go either way depending on details a binary label throws away. The Grundy value doesn't throw that away: a position of value $g$ behaves in every respect like a single Nim pile of size $g$, and the value of a disjunctive sum is the XOR of the components' Grundy values, exactly Bouton's rule with each pile's size read off as its own Grundy value.
+    worked: >
+      Take the sum of two independent games: game $A$, a pile of $5$ under "remove one or two," and game $B$, an ordinary Nim pile of $3$. Tabulating $A$ by mex: $g(0)=0$, $g(1)=\operatorname{mex}\{0\}=1$, $g(2)=\operatorname{mex}\{1,0\}=2$, $g(3)=\operatorname{mex}\{2,1\}=0$, $g(4)=\operatorname{mex}\{0,2\}=1$, $g(5)=\operatorname{mex}\{1,0\}=2$ — so $g(A)=2$. An ordinary Nim pile's Grundy value is just its size, so $g(B)=3$. The sum's value is $2 \oplus 3 = 1$, nonzero, so the mover wins. To zero it, move in $B$: $B$ can reach any Grundy value from $0$ to $2$ by shrinking to that many counters, and $2$ is exactly $3 \oplus 1$, so removing one counter from $B$, leaving it at size $2$, zeroes the combined value.
+    interview: >
+      "This is really two games glued together, played by choosing which one to move in each turn" is the tell; the correct pointer response is "compute each side's Grundy value by mex, then XOR them," stated as a one-line reflex rather than derived from scratch under time pressure.
+    pitfalls: >
+      Computing mex as "one more than the largest value present" instead of "the smallest missing nonnegative integer" — $\{0,2\}$ has mex $1$, not $3$, since $1$ is the smallest number absent from the set. Forgetting mex applies to any disjunctive sum of unrelated impartial games, not just literal side-by-side Nim piles.
+    recap: >
+      Every impartial position's Grundy value, computed by mex, makes it behave exactly like a Nim pile of that size, and a sum of independent games has Grundy value equal to the XOR of its components'.

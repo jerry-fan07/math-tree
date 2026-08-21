@@ -1,0 +1,863 @@
+unit: quant-finance.options
+opening: >
+  Option Pricing takes you from a payoff sketched on a whiteboard to the exact
+  number an interviewer wants: the price. The spine is one idea run three
+  times — build a portfolio of stock and cash that reproduces an option's
+  payoff state by state, and that portfolio's cost is the price — first on
+  one period, then through a multi-step tree, then in the continuous-time
+  limit that is the Black–Scholes formula, with the risk-neutral probability
+  $q$ falling out of the same replication algebra every time. The back half
+  turns replication and its sibling, put–call parity, into trading
+  vocabulary: how implied volatility is quoted and why it smiles, and how
+  straddles, spreads, butterflies and synthetics package a view on
+  direction, on magnitude, or on volatility alone.
+lessons:
+  - node: quant-finance.options.payoff-diagrams
+    hook: >
+      Every strategy question in this unit — the width of a spread, the
+      wings of a butterfly, the breakeven of a straddle — reduces to
+      drawing kinked lines and reading off where they cross zero, and that
+      is the one skill this node builds.
+    explanation: >
+      Fix the plot's x-axis as the terminal stock price $S_T$ and its
+      y-axis as payoff or profit. A call's payoff $(S_T-K)^{+}$ is flat at
+      $0$ up to the strike, then rises with slope $1$: a hockey stick with
+      its kink at $K$. A put's payoff $(K-S_T)^{+}$ is the mirror — slope
+      $-1$ below $K$, flat at $0$ above. The payoff line is what the
+      contract pays if it expired right now; it never turns negative,
+      because the whole point of an option is that you never exercise
+      against yourself.
+
+      P&L is the payoff shifted by what you paid or received: a long
+      position's P&L is payoff minus premium, so it starts at the negative
+      of the premium and only reaches zero once the payoff climbs back up
+      to match it — the breakeven, $K+c$ for a call bought at $c$. A short
+      position is the same line flipped top to bottom: the short collects
+      the premium up front, so its P&L starts positive and falls without
+      bound as the stock runs past the strike for a short call, or falls to
+      at most the strike minus the premium for a short put, since the
+      stock cannot go below $0$.
+
+      Every strategy in this unit — spreads, straddles, butterflies — is
+      built by adding several of these kinked lines vertically, one call or
+      put payoff per leg, net of the total premium paid across all legs.
+      Once you can add hockey sticks, max profit, max loss and breakeven
+      are just features of the resulting sum, read off without further
+      algebra.
+    worked: >
+      A trader shorts a call struck at $K=60$ for a premium of $4$. If
+      $S_T=68$: the payoff to the holder is $8$, so the short's P&L is
+      $4-8=-4$. Breakeven is where the payoff equals the premium collected,
+      $K+4=64$; below $64$ the short keeps the full $4$, and above it
+      losses grow one-for-one with $S_T$, unbounded.
+    interview: >
+      "Sketch the payoff and P&L for [strategy]" or "where's your breakeven
+      and worst case" is asked cold, often at a whiteboard — the
+      interviewer wants the kink points and slopes named instantly, and
+      wants payoff (never negative) clearly distinguished from P&L (shifted
+      by premium) without being asked.
+    pitfalls: >
+      Quoting the payoff's breakeven instead of the P&L's is common — a
+      call's payoff is zero everywhere below $K$, so breakeven is strictly
+      a P&L concept. For a short call, forgetting the loss is unbounded
+      above the strike is the fastest way to misprice risk live.
+    recap: >
+      A payoff diagram is a kinked line with slopes $0$ and $\pm 1$ meeting
+      at the strike; shift it by the premium to get P&L, and every
+      multi-leg strategy is several such lines added vertically.
+
+  - node: quant-finance.options.intrinsic-time-value
+    hook: >
+      "Is this option cheap" is really asking you to split its price into
+      what you'd get by exercising today and what you're paying for the
+      time left on the clock.
+    explanation: >
+      Intrinsic value is what the option would pay if $T$ were now:
+      $(S-K)^{+}$ for a call, $(K-S)^{+}$ for a put — read directly off the
+      payoff diagram at the current spot. Time value is whatever price sits
+      above that: price minus intrinsic. Moneyness names where $S$ sits
+      relative to $K$ — in the money when exercising now would pay off
+      ($S>K$ for a call, reversed for a put), at the money when
+      $S\approx K$, out of the money otherwise — and is often quoted in
+      standard deviations of the remaining move, $\ln(S/K)/(\sigma\sqrt{T})$,
+      so a reading of $1$ means one sigma in the money regardless of the
+      stock's actual level.
+
+      Time value is largest at the money and shrinks to $0$ at expiry in
+      every case, because deep in or out of the money there is little left
+      to be uncertain about. For a call it never goes negative: owning the
+      call always beats owning a forward-equivalent claim on the stock
+      financed by borrowing $Ke^{-rT}$, since the call lets you walk away if
+      the stock falls, so $C\ge(S-Ke^{-rT})^{+}$ and intrinsic value
+      $(S-K)^{+}$ sits at or below that bound.
+
+      A European put can break this pattern — deep in the money, its
+      holder is waiting on a strike that only arrives at $T$, discounted,
+      so the put can trade below its own intrinsic value even though the
+      call cannot.
+    worked: >
+      A stock trades at $S=54$; a call struck at $K=50$ costs $6.5$.
+      Intrinsic value is $54-50=4$, so time value is $6.5-4=2.5$. A put
+      struck at $K=50$ on the same stock costs $1.2$; its intrinsic value
+      is $0$ (out of the money), so its entire price, $1.2$, is time value.
+    interview: >
+      Interviewers ask you to name the split cold — "how much of this
+      premium is time value" — to check you know intrinsic value is a
+      payoff-diagram readout, not a pricing model, and that time value's
+      peak at the money is why at-the-money strikes carry the most premium.
+    pitfalls: >
+      Applying the nonnegative-time-value bound to puts is the standard
+      trap — it holds for calls on a non-dividend stock but not for
+      European puts, which can trade below intrinsic when deep in the
+      money. Confusing "in the money" with "profitable" is another.
+    recap: >
+      Price splits into intrinsic value (the payoff if exercised now) plus
+      time value (the rest), fattest at the money and gone at expiry.
+
+  - node: quant-finance.options.binomial-pricing
+    hook: >
+      Being handed $u$, $d$, a strike and asked to price an option live,
+      with no distribution given, is the single most common opening move
+      in an options interview — and the two-equation solve below is the
+      entire answer.
+    explanation: >
+      To price any payoff on a one-period model, look for the portfolio of
+      $\Delta$ shares and $B$ in cash that reproduces the option's payoff
+      in both the up and down states, then invoke the law of one price:
+      two portfolios with identical payoffs in every state must carry
+      identical costs today, so the option's price is whatever the
+      replicating portfolio costs to build. Two equations, two unknowns —
+      match the up state, $\Delta\cdot uS+B=V_u$, and the down state,
+      $\Delta\cdot dS+B=V_d$, and subtract to isolate the share count:
+      $\Delta=(V_u-V_d)/(S(u-d))$, the ratio of the payoff's spread to the
+      stock's own spread. Plug $\Delta$ back into either equation to solve
+      for $B$; the price is $\Delta S+B$ today.
+
+      Two features of this recipe carry forward through the rest of the
+      unit: it never asks how likely the up move is, only what the
+      payoffs are in the two states, so it prices any payoff you can name
+      state by state, not just plain calls, by the identical two-equation
+      solve. And if the market quotes anything other than $\Delta S+B$,
+      you buy the cheap side, sell the replicating portfolio, and collect
+      the gap risklessly — which is exactly why the market price cannot
+      differ from it.
+    worked: >
+      Take a put with $S=100$, up to $uS=125$ or down to $dS=75$, strike
+      $K=100$, one period, $r=0$. The put pays $P_u=0$ up and $P_d=25$
+      down, so $\Delta=(0-25)/(100(1.25-0.75))=-0.5$: short half a share.
+      Matching the down state, $-0.5(75)+B=25$ gives $B=62.5$; check the
+      up state, $-0.5(125)+62.5=0$. The portfolio costs
+      $-0.5(100)+62.5=12.5$, so the put is worth $12.5$.
+    interview: >
+      You'll be handed $u$, $d$, $r$ and a payoff and asked to price it
+      live, usually with round numbers so the arithmetic is the point —
+      the interviewer is checking that you reach for $\Delta$ and $B$
+      immediately, and that you can say in one sentence why the real
+      probability of an up move never appears.
+    pitfalls: >
+      Writing $\Delta=(V_u-V_d)/(uS-dS)$ with $S$ dropped from one factor
+      is the most common slip — the denominator is the stock's own spread,
+      $S(u-d)$. Reusing a call's $\Delta$ for a put instead of
+      recomputing it (it comes out negative — short stock) is another.
+    recap: >
+      The option's price is the cost of the $\Delta$ shares and $B$ cash
+      that reproduce its payoff in both states, solved from two linear
+      equations, with no probability anywhere in the calculation.
+
+  - node: quant-finance.options.risk-neutral
+    hook: >
+      Once you can price by replication, risk-neutral pricing is the same
+      number reached by a shortcut — discount an expectation instead of
+      solving for $\Delta$ and $B$ each time — and interviewers expect you
+      to derive that shortcut, not just quote it.
+    explanation: >
+      No-arbitrage in the one-step model requires the stock's two possible
+      growth factors to straddle the riskless one: $d<e^{r\Delta t}<u$. If
+      $e^{r\Delta t}\ge u$ the stock never beats the bond, so short the
+      stock and lend at $r$ for a riskless profit in both states; if
+      $e^{r\Delta t}\le d$ the reverse trade works. Inside that band,
+      define $q=(e^{r\Delta t}-d)/(u-d)$, which lands in $(0,1)$ precisely
+      because of the band condition.
+
+      Substitute the replicating hedge $\Delta=(V_u-V_d)/(S(u-d))$ and its
+      matching $B$ into the price $\Delta S+B$ and collect terms in $V_u$
+      and $V_d$: the algebra collapses to
+      $V_0=e^{-r\Delta t}(qV_u+(1-q)V_d)$ for every payoff, with the same
+      $q$ regardless of what $V$ is. So "replicate and price the hedge"
+      and "discount the expectation under $q$" are the identical
+      calculation, not two theories.
+
+      The other way to find $q$ confirms this: it is the unique weight
+      making the discounted stock price itself a martingale,
+      $q\,uS+(1-q)\,dS=Se^{r\Delta t}$, i.e. the stock's expected growth
+      under $q$ is exactly the riskless rate. That property is what makes
+      $q$ portable to every derivative on the same stock, so you compute
+      it once per model and reuse it for calls, puts, or anything else.
+    worked: >
+      Take $u=1.1$, $d=0.9$, and a riskless growth factor over the period
+      of $e^{r\Delta t}=1.02$. Then $q=(1.02-0.9)/(1.1-0.9)=0.12/0.2=0.6$.
+      Price a claim paying $V_u=8$ up and $V_d=2$ down:
+      $V_0=(0.6(8)+0.4(2))/1.02=5.6/1.02\approx 5.49$.
+    interview: >
+      "Derive risk-neutral pricing" means show the substitution — that
+      discounting under $q$ falls out of the replication algebra — not
+      just recite $q=(e^{r\Delta t}-d)/(u-d)$; naming the martingale
+      property of the discounted stock as the second characterization
+      separates a memorized formula from an understood one.
+    pitfalls: >
+      Using the real-world probability of an up move anywhere in this
+      formula is the single most common error — $q$ is a pricing weight
+      fixed by $u$, $d$, $r$, never a forecast. A computed $q$ outside
+      $(0,1)$ is a red flag that the inputs admit arbitrage.
+    recap: >
+      $q=(e^{r\Delta t}-d)/(u-d)$ is the unique weight making the
+      discounted stock a martingale, and discounting a payoff's expectation
+      under $q$ is algebraically the same number replication produces.
+
+  - node: quant-finance.options.risk-neutral-vs-real
+    hook: >
+      "The stock is going up 90% of the time — surely the call is worth
+      more than the hedge price?" is the single most repeated trap
+      question in this unit, and the fix is a one-line answer.
+    explanation: >
+      The hedge argument never used the real probability $p$ of an up
+      move — it only matched payoffs state by state. Whatever $p$
+      actually is, the portfolio of $\Delta$ shares plus $B$ cash
+      reproduces the option in both states, so its cost is the option's
+      price regardless of how likely each state is. If the market priced
+      the option away from that hedge cost because traders believed $p$
+      was high or low, you would buy the cheap side and sell the expensive
+      side risklessly and profit for certain — so $p$ cannot survive in
+      the price without creating an arbitrage.
+
+      The resolution is that $q$ is not a forecast at all: it is today's
+      price of a bet paying $1$ in the up state, rescaled — a price,
+      extracted from $S$, $u$, $d$, $r$, that happens to look like a
+      probability because it is nonnegative and sums to $1$ across states.
+      The real drift $p$ is already baked into today's spot price $S$: a
+      stock everyone believes will rise is already bid up, and pricing the
+      option off the hedge captures that belief once, through $S$, rather
+      than double-counting it through $p$ as well.
+
+      This is exactly why $\mu$, the real expected return, never appears
+      in Black–Scholes while $\sigma$ does: hedging with $\Delta$ shares
+      removes exposure to which direction the stock moves, so drift washes
+      out of the price, but hedging cannot remove exposure to how much the
+      stock moves around on the way there.
+    worked: >
+      Take $S=80$, up to $100$ or down to $60$, $K=80$, $r=0$. The call
+      pays $20$ up, $0$ down, so $\Delta=(20-0)/(80(1.25-0.75))=0.5$ and
+      $B=-30$, price $=0.5(80)-30=10$. Suppose you're told $p=0.8$: naively
+      discounting that belief gives $0.8(20)+0.2(0)=16$, six above the
+      hedge price. Quote $16$ and someone sells you the call at its true
+      price of $10$, then trades against your hedge for a riskless $6$.
+    interview: >
+      Expect a version of "if the stock is 90% likely to go up, doesn't
+      that make the call worth more" asked directly, to see whether you
+      say no immediately and point to the hedge as the reason, rather than
+      hedging your own answer with "it depends."
+    pitfalls: >
+      Justifying the irrelevance of $p$ with "the market is efficient" or
+      "expectations are already priced in" is vague and not what's being
+      tested — the precise reason is the existence of the replicating
+      hedge, and you should be able to point to it directly.
+    recap: >
+      The replicating hedge prices the option without reference to $p$,
+      because $p$'s effect is already inside today's spot price — only
+      $\sigma$, which hedging cannot remove, survives into the price.
+
+  - node: quant-finance.options.multi-step-binomial
+    hook: >
+      A live pricing question rarely stops at one period — the interviewer
+      adds a second step to see whether you roll the one-step rule
+      backward through the tree or try to reinvent it from scratch.
+    explanation: >
+      Backward induction is the whole idea: build the tree of stock prices
+      forward from today, then value the option backward one layer at a
+      time, applying the one-step replication rule at every node using
+      only that node's two children. Each node's value depends only on
+      its own children, so the same $q$ computed once from $u$, $d$, $r$
+      prices every node in the tree.
+
+      The hedge is no longer static. At each node you recompute
+      $\Delta=(V_u-V_d)/(S(u-d))$ using that node's own stock price and
+      children's values, so the share count changes as the stock moves —
+      this rebalancing is what "dynamic hedging" means, and each rebalance
+      is self-financing: the cash raised or spent adjusting the hedge
+      exactly matches what's required, with no extra money injected.
+      Summing over all paths gives the closed form
+      $e^{-rT}\sum_{k}\binom{n}{k}q^{k}(1-q)^{n-k}\,\text{payoff}(u^{k}d^{n-k}S)$,
+      a discounted expectation over a binomial distribution of terminal
+      states, the same $q$ throughout.
+
+      American options need one extra check at every node: since early
+      exercise is allowed, the node's value is
+      $\max(\text{continuation value},\text{intrinsic value})$,
+      continuation being the discounted value from holding on, intrinsic
+      being what you'd collect by exercising immediately.
+    worked: >
+      Two steps, $u=1.2$, $d=0.8$, $S=100$, $r=0$ (so $q=0.5$), pricing a
+      put struck at $K=90$. Terminal prices are $144$, $96$, $64$ with put
+      payoffs $0$, $0$, $26$. The up node (children $144,96$) is worth
+      $0.5(0)+0.5(0)=0$; the down node (children $96,64$) is worth
+      $0.5(0)+0.5(26)=13$. Today's price is $0.5(0)+0.5(13)=6.5$.
+    interview: >
+      "Now do it in two steps" is the standard follow-up to a one-step
+      pricing question — the interviewer wants backward induction stated
+      as a general procedure, and usually a comment on why the hedge ratio
+      changes at each node.
+    pitfalls: >
+      Reusing the root's $\Delta$ at every node instead of recomputing it
+      from each node's own children is the most common error. For American
+      options, forgetting to compare against intrinsic value at every
+      interior node, not just at the end, misprices early-exercise value.
+    recap: >
+      Value a multi-step tree by applying the one-step rule backward from
+      the leaves, recomputing $\Delta$ — and comparing to intrinsic value
+      for American options — at every node.
+
+  - node: quant-finance.options.binomial-convergence
+    hook: >
+      "Why does a 50-step tree already match Black–Scholes to the penny"
+      is worth a one-paragraph answer, since it's the cheapest honest
+      derivation of the formula you'll ever need.
+    explanation: >
+      The Cox–Ross–Rubinstein calibration ties the tree's step size to the
+      stock's volatility: with $n$ steps of length $\Delta t=T/n$, set
+      $u=e^{\sigma\sqrt{\Delta t}}$ and $d=1/u$, so each step multiplies
+      $\ln S$ by $\pm\sigma\sqrt{\Delta t}$. Under this choice
+      $\ln(S_T/S_0)$ is a sum of $n$ independent steps of that size, with
+      risk-neutral probability $q$ close to $1/2$ — and a sum of many
+      small, independent, identically-scaled steps is exactly the setting
+      where a bell-shaped limit emerges, the same mechanism behind any
+      large sum of small independent effects.
+
+      That limit is normal with mean $(r-\sigma^{2}/2)T$ and variance
+      $\sigma^{2}T$: the variance check is immediate, since each step
+      contributes $(\sigma\sqrt{\Delta t})^{2}=\sigma^{2}\Delta t$ and there
+      are $n$ of them, giving $n\sigma^{2}\Delta t=\sigma^{2}T$ exactly,
+      independent of $n$. A normal log-price is precisely the lognormal
+      stock price, so the tree's terminal distribution converges to the
+      same lognormal law Black–Scholes integrates against, and the tree
+      price converges to the Black–Scholes price, at a rate of about
+      $1/n$ with a characteristic oscillation between odd and even $n$.
+    worked: >
+      Take $\sigma=0.2$, $T=1$, $n=4$ steps, so $\Delta t=0.25$ and each
+      step size is $\sigma\sqrt{\Delta t}=0.2(0.5)=0.1$. The variance of
+      $\ln(S_T/S_0)$ accumulated over the $4$ steps is $4(0.1)^{2}=0.04$,
+      exactly matching the continuous-time target
+      $\sigma^{2}T=(0.2)^{2}(1)=0.04$ — the discretization already has the
+      right total variance no matter how coarse $n$ is.
+    interview: >
+      This is asked as "why does the tree converge to Black–Scholes" —
+      naming the CRR calibration and the variance-matching argument in two
+      sentences is a strong answer; "it just does" is not.
+    pitfalls: >
+      Assuming any choice of $u,d$ with $ud=1$ converges to the right
+      limit is wrong — the specific scaling $u=e^{\sigma\sqrt{\Delta t}}$
+      is what matches the variance term by term; other calibrations
+      converge to a different, or no, limit.
+    recap: >
+      Scaling each step by $u=e^{\sigma\sqrt{\Delta t}}$ keeps the total
+      variance pinned at $\sigma^{2}T$ for every $n$, so the tree's
+      terminal price turns lognormal and its value converges to
+      Black–Scholes.
+
+  - node: quant-finance.options.risk-neutral-dynamics
+    hook: >
+      Before you can even write down Black–Scholes you need the
+      continuous-time fact that makes it possible: under the pricing
+      measure the stock's real growth rate $\mu$ is simply replaced by
+      $r$.
+    explanation: >
+      The discrete hedging argument has a continuous-time twin: it forces
+      the stock's drift under the risk-neutral measure to be the riskless
+      rate, so instead of $dS=\mu S\,dt+\sigma S\,dB$ you price against
+      $dS=rS\,dt+\sigma S\,dB$ — same volatility, drift swapped for $r$.
+      Everything already known about geometric Brownian motion carries
+      over with $\mu$ replaced by $r$:
+      $S_T=S_0\exp((r-\sigma^{2}/2)T+\sigma\sqrt{T}\,Z)$ for standard
+      normal $Z$, so $S_T$ is lognormal under this measure exactly as it
+      was under the real one.
+
+      Three facts are worth having cold. The mean is
+      $\mathbb{E}^{Q}[S_T]=S_0e^{rT}$, the forward price, since a
+      risk-neutral stock must grow at the riskless rate by construction.
+      The median, $S_0e^{(r-\sigma^{2}/2)T}$, sits strictly below that
+      mean, the same lognormal gap seen before, now expressed with $r$ in
+      place of $\mu$. And the spread of outcomes on the log scale is
+      $\sigma\sqrt{T}$, growing with the square root of time, not
+      linearly.
+
+      The payoff of this measure change is mechanical: every European
+      claim is priced as $e^{-rT}\,\mathbb{E}^{Q}[\text{payoff}(S_T)]$, a
+      single integral of the payoff against the lognormal density with
+      these parameters — no replication, no tree, just calculus against
+      one fixed distribution.
+    worked: >
+      Let $S_0=50$, $r=0.04$, $\sigma=0.3$, $T=2$. The forward price is
+      $\mathbb{E}^{Q}[S_T]=50e^{0.08}\approx 54.16$. The median is
+      $50e^{(0.04-0.045)(2)}=50e^{-0.01}\approx 49.50$, below the mean as
+      always. The standard deviation of $\ln S_T$ is
+      $\sigma\sqrt{T}=0.3\sqrt{2}\approx 0.424$.
+    interview: >
+      "Why does $\mu$ disappear and $r$ show up instead" should get the
+      one-sentence answer — risk-neutral pricing replaces the real drift
+      with the riskless rate — followed by being able to write $S_T$'s
+      formula and name the forward price cold.
+    pitfalls: >
+      Writing the mean as $S_0e^{(r-\sigma^{2}/2)T}$ instead of
+      $S_0e^{rT}$ is the single most common mix-up — that expression is
+      the median, and the $-\sigma^{2}/2$ belongs inside the exponent, not
+      to the growth rate of the mean.
+    recap: >
+      Under the pricing measure the stock drifts at $r$, not $\mu$, and
+      ends up lognormal with mean $S_0e^{rT}$, median below it, and
+      log-standard-deviation $\sigma\sqrt{T}$.
+
+  - node: quant-finance.options.black-scholes
+    hook: >
+      This is the formula every quant interview eventually checks you can
+      write from memory, cold, with its assumptions attached — not just
+      the two $\Phi$ terms.
+    explanation: >
+      The formula is the risk-neutral pricing rule evaluated in closed
+      form: $C=S_0\,\Phi(d_1)-Ke^{-rT}\,\Phi(d_2)$ for a European call,
+      with $d_1=\dfrac{\ln(S_0/K)+(r+\sigma^{2}/2)T}{\sigma\sqrt{T}}$ and
+      $d_2=d_1-\sigma\sqrt{T}$. It comes from either of two routes:
+      integrate $e^{-rT}\,\mathbb{E}^{Q}[(S_T-K)^{+}]$ against the
+      lognormal density of $S_T$ under the risk-neutral dynamics,
+      splitting the integral at $S_T=K$ into the two pieces that become
+      the two $\Phi$ terms; or set up a delta-hedged portfolio and solve
+      the PDE it satisfies directly. Both land on the same closed form
+      because they're the same no-arbitrage argument in two notations.
+
+      Every assumption matters and gets tested individually: geometric
+      Brownian motion with genuinely constant $\sigma$ and $r$, no
+      dividends before $T$, continuous frictionless trading with
+      unlimited shorting and divisibility, no arbitrage, European exercise
+      only. Drop any one — a jump, a dividend, an American feature, a
+      transaction cost — and the formula is no longer exactly right,
+      though it often survives as a reasonable approximation.
+
+      Notice what's absent: five inputs go in — $S_0$, $K$, $r$, $T$,
+      $\sigma$ — and only $\sigma$ is unobservable in the market; that gap
+      is exactly what implied volatility exists to fill.
+    worked: >
+      $S_0=50$, $K=45$, $r=0.05$, $\sigma=0.25$, $T=0.5$. Then
+      $d_1=\dfrac{\ln(50/45)+(0.05+0.03125)(0.5)}{0.25\sqrt{0.5}}
+      \approx\dfrac{0.1054+0.0406}{0.1768}\approx 0.826$, and
+      $d_2\approx 0.826-0.177=0.649$. Reading a normal table,
+      $\Phi(0.826)\approx 0.796$ and $\Phi(0.649)\approx 0.742$, so
+      $C\approx 50(0.796)-45e^{-0.025}(0.742)\approx 39.8-32.6=7.2$.
+    interview: >
+      Expect "write down Black–Scholes" or "price this call" cold, with
+      the interviewer listening for correct $d_1/d_2$ and the assumption
+      list recited unprompted, plus "how would you derive it" answerable
+      with the integration or PDE route named specifically.
+    pitfalls: >
+      Swapping the sign inside $d_1$ (using $-\sigma^{2}/2$ instead of
+      $+\sigma^{2}/2$) is the most common algebra slip. Applying the
+      formula to an American option or a dividend-paying stock without
+      adjustment silently gives the wrong price.
+    recap: >
+      Black–Scholes closes the risk-neutral expectation into
+      $C=S_0\Phi(d_1)-Ke^{-rT}\Phi(d_2)$ under GBM, frictionless European
+      trading, and constant $r,\sigma$ — five inputs, one unobservable.
+
+  - node: quant-finance.options.exercise-probability
+    hook: >
+      Once the formula is memorized, the natural follow-up is what the
+      two $\Phi$ terms actually mean — answering without hesitation
+      separates memorization from understanding.
+    explanation: >
+      $\Phi(d_2)$ is the risk-neutral probability the call finishes in the
+      money, $\Pr^{Q}(S_T>K)$. That falls straight out of the lognormal
+      representation $S_T=S_0\exp((r-\sigma^{2}/2)T+\sigma\sqrt{T}Z)$: the
+      event $S_T>K$ rearranges to $Z>-d_2$ exactly, and since $Z$ is
+      standard normal and symmetric, $\Pr(Z>-d_2)=\Phi(d_2)$.
+
+      The first term reads differently:
+      $S_0\Phi(d_1)=e^{-rT}\,\mathbb{E}^{Q}[S_T\,\mathbf{1}\{S_T>K\}]$ is
+      the present value of the stock actually received, counted only on
+      the paths where exercise happens. So Black–Scholes is "present value
+      of the asset received on exercise, minus present value of the
+      strike paid on exercise," each conditioned on the same exercise
+      event but weighted differently.
+
+      $\Phi(d_1)$ has a second life as the hedge ratio — the share count
+      in the replicating portfolio, the continuous-time descendant of the
+      $\Delta$ from the binomial tree. Since $d_1=d_2+\sigma\sqrt{T}$ and
+      $\Phi$ is increasing, $\Phi(d_1)>\Phi(d_2)$ always: the hedge ratio
+      exceeds the exercise probability, by a gap that widens with
+      $\sigma\sqrt{T}$.
+    worked: >
+      $S_0=80$, $K=90$, $r=0.03$, $\sigma=0.35$, $T=1$.
+      $d_1=\dfrac{\ln(80/90)+(0.03+0.06125)(1)}{0.35}
+      \approx\dfrac{-0.1178+0.0913}{0.35}\approx -0.076$, and
+      $d_2\approx -0.076-0.35=-0.426$. So $\Phi(d_2)\approx 0.335$: about
+      a one-in-three risk-neutral chance this call finishes in the money.
+      $\Phi(d_1)\approx 0.470$: the hedge holds about $0.47$ shares per
+      call, larger than the exercise probability, as it must be.
+    interview: >
+      "What does $N(d_2)$ mean" is asked almost every time Black–Scholes
+      comes up; the fast, correct answer is "the risk-neutral probability
+      of exercise, not the real-world one," then, if pushed, that
+      $N(d_1)$ is the hedge ratio.
+    pitfalls: >
+      Calling $\Phi(d_2)$ the real-world probability of finishing in the
+      money drops the risk-neutral qualifier. Mixing up which term is the
+      hedge ratio — $\Phi(d_1)$, not $\Phi(d_2)$ — is the other common
+      slip.
+    recap: >
+      $\Phi(d_2)$ is the risk-neutral exercise probability and $\Phi(d_1)$
+      is both the hedge ratio and the exercise-weighted present value of
+      the stock, with $\Phi(d_1)>\Phi(d_2)$ always.
+
+  - node: quant-finance.options.implied-vol
+    hook: >
+      Quoting an option's price directly is meaningless across strikes and
+      maturities, so every desk quotes the one number that isn't directly
+      observable instead: the volatility Black–Scholes needs to reproduce
+      that price.
+    explanation: >
+      Black–Scholes' call price is strictly increasing in $\sigma$: at
+      $\sigma=0$ it equals the zero-vol bound $(S_0-Ke^{-rT})^{+}$, and as
+      $\sigma\to\infty$ it rises toward $S_0$. Monotone and continuous
+      means the map $\sigma\mapsto C$ is invertible, so a market price
+      pins exactly one $\sigma$ — found numerically, since $d_1,d_2$ mix
+      $\sigma$ nonlinearly and there's no closed-form inverse, typically
+      by bisection (halve the bracket until $C(\sigma)$ matches) or
+      Newton's method using vega as the derivative.
+
+      Implied volatility is a quoting convention, not a forecast of
+      future realized volatility — the wrong number in the wrong formula
+      that gives the right price. Its value is comparability: two options
+      with different strikes, maturities or underlyings can be compared
+      instantly in vol terms in a way raw prices never allow, because
+      price differences conflate moneyness and time-value differences
+      that vol strips away.
+
+      For a quick estimate at the money, use $C\approx 0.4\,\sigma
+      S\sqrt{T}$, which comes from linearizing $\Phi$ near
+      $d_1\approx d_2\approx 0$ when $S_0\approx K$ — solving it for
+      $\sigma$ gets within a percent or two of the exact bisected answer
+      instantly.
+    worked: >
+      $S=K=64$, $r=0$, $T=1$, an at-the-money call trades at $8$. The rule
+      of thumb gives $\sigma\approx 8/(0.4\cdot 64\cdot 1)=8/25.6=0.3125$,
+      so implied volatility is about $31.25\%$ — the exact bisected
+      answer would sit within a point or two of this.
+    interview: >
+      "This call trades at [price] — back out the implied vol" tests the
+      ATM rule of thumb as a fast estimate and, if pushed, whether you
+      know the exact answer needs bisection or Newton, plus that implied
+      vol isn't a forecast.
+    pitfalls: >
+      Applying $C\approx 0.4\sigma S\sqrt{T}$ far from the money gives a
+      badly wrong answer — it only holds near $S\approx K$. Treating
+      implied vol as a prediction of future realized volatility, rather
+      than a price transform, is the deeper trap.
+    recap: >
+      Implied volatility is the unique $\sigma$ making Black–Scholes
+      match the market price, found numerically since the price is
+      monotone but not invertible in closed form — a convention, not a
+      forecast.
+
+  - node: quant-finance.options.vol-smile
+    hook: >
+      If Black–Scholes were literally true, every strike and maturity on a
+      stock would trade at the same implied vol — they never do, and
+      reading why is a standard probe of whether you understand the
+      model's limits.
+    explanation: >
+      Plot implied volatility against strike for a fixed maturity and,
+      instead of a flat line, you get a smile in FX markets and a
+      downward skew in equity indices — puts trading at higher implied
+      vol than calls, roughly monotone down as strike rises. Do this
+      across maturities too and the whole thing is a surface. Since one
+      lognormal model would price every strike with the same $\sigma$,
+      the shape is a direct readout of where the market's true
+      risk-neutral density diverges from lognormal.
+
+      The mechanisms are concrete: the market prices in price jumps (the
+      lognormal model has none), volatility that is itself random and
+      tends to rise when spot falls, and demand for downside protection
+      that isn't purely about expected loss. Each fattens the tails and
+      skews the density relative to the lognormal benchmark, and
+      out-of-the-money puts — the cheapest insurance against a crash —
+      absorb that extra pricing.
+
+      Two practical rules follow. Never price two different strikes off
+      one flat vol; each strike gets its own point on the surface. And
+      market-quoted combinations read the density directly: a risk
+      reversal (the vol gap between an out-of-the-money call and put)
+      reads the skew, and a butterfly quote (the vol premium of wings
+      over the at-the-money strike) reads the tail fatness.
+    worked: >
+      On one index maturity: the $90$-strike put trades at implied vol
+      $28\%$, the $100$-strike (at the money) at $22\%$, the $110$-strike
+      call at $20\%$. That's a downward skew of $8$ vol points end to end;
+      the $90/110$ risk reversal reads $28-20=8$ points, quantifying the
+      market's crash-insurance premium in one number.
+    interview: >
+      "Why does the smile exist" wants a specific mechanism named — jumps,
+      stochastic vol correlated with spot, or the crash-insurance premium
+      — not a vague "markets aren't perfect"; naming risk reversal and
+      butterfly as direct reads on the surface is a strong finish.
+    pitfalls: >
+      Pricing an exotic or a spread using one flat implied vol taken from
+      an unrelated strike silently misprices it. Calling the skew
+      "irrational" rather than a rational price for a fatter-tailed,
+      skewed true density is a conceptual miss.
+    recap: >
+      Implied vol varies by strike and maturity because the market's true
+      risk-neutral density has fatter tails and more skew than lognormal —
+      readable directly off risk-reversal and butterfly quotes.
+
+  - node: quant-finance.options.straddle
+    hook: >
+      "Do you think the stock moves more than the market expects" is a
+      straddle question in disguise, and pricing its breakeven on the
+      spot is a two-second desk check.
+    explanation: >
+      A long straddle buys a call and a put at the same strike and expiry,
+      so its payoff is $(S_T-K)^{+}+(K-S_T)^{+}=|S_T-K|$ — a V shape
+      pointed at $K$, found by adding the call's and put's hockey sticks
+      vertically. Its cost is the sum of the two premiums, so the P&L is
+      $|S_T-K|$ minus that total premium: it loses everything if the
+      stock pins the strike and profits once the move in either direction
+      exceeds the premium, giving two breakevens, $K$ minus and $K$ plus
+      the premium.
+
+      A long strangle uses a lower put strike and a higher call strike
+      instead of a common one, so both legs start further out of the
+      money: it costs less than the straddle but needs a bigger move
+      before either leg pays off. Both are direction-free — the trade
+      doesn't care whether the stock rises or falls, only how far it
+      moves — which is what makes them the natural expression of a pure
+      view on volatility.
+
+      Selling either collects the premium up front but inverts the risk:
+      a short position profits only if the stock stays inside the
+      breakevens and loses as the move grows past them, a bet that the
+      market's implied move overstates what will actually happen.
+    worked: >
+      $S=200$, and the $200$ call and put each cost $8$, so the straddle
+      costs $16$ and breaks even at $184$ and $216$ — the stock must move
+      more than $8\%$ off $200$ to profit. A $180/220$ strangle costs
+      $3+2=5$ instead, with breakevens at $175$ and $225$: cheaper to
+      enter, but needing a bigger move to pay off.
+    interview: >
+      "How would you bet the stock moves a lot without picking a
+      direction" is the canonical phrasing; the interviewer wants
+      "straddle" named immediately, the two breakevens computed, and the
+      strangle offered as the cheaper, wider-breakeven alternative.
+    pitfalls: >
+      Forgetting the straddle has two breakevens, not one, is a common
+      slip — quoting only the upside as if it were a call. Selling a
+      straddle without naming the unbounded loss above the strike
+      misstates the risk.
+    recap: >
+      A straddle is a symmetric direction-free bet on the size of the
+      move, breaking even one full premium either side of the strike; a
+      strangle costs less and needs more.
+
+  - node: quant-finance.options.vertical-spreads
+    hook: >
+      "I like this stock but don't want unlimited downside on the trade
+      itself" is answered with a vertical spread, and computing its
+      capped max profit and max loss live is a standard exercise.
+    explanation: >
+      A vertical spread is long one strike and short another of the same
+      type and expiry — a bull call spread, for instance, is long a
+      lower-strike call and short a higher-strike call. Adding the two
+      payoff diagrams vertically caps the shape at both ends: below the
+      lower strike both legs are worthless; between the strikes the
+      payoff rises at slope $1$; above the higher strike the short leg's
+      growth cancels the long leg's, so the payoff flattens at the strike
+      gap. The net debit is paid up front, so max loss is that debit,
+      hit below the lower strike, and max profit is the strike gap minus
+      the debit, hit above the higher strike — breakeven sits at the
+      lower strike plus the debit.
+
+      The same construction works with puts for a bearish view: long the
+      higher-strike put, short the lower-strike put, paying a debit for a
+      payoff worth the most below the lower strike and worthless above
+      the higher one.
+
+      Trade a vertical spread instead of an outright option whenever you
+      have a directional view but want defined, smaller risk than a naked
+      option carries — you give up some upside in exchange for a lower
+      cost, a capped worst case, and less exposure to a volatility move
+      working against you.
+    worked: >
+      Bear put spread on $S=50$, $\sigma=30\%$, $T=0.5$, $r=0$: buy the
+      $50$ put at $4.0$, sell the $45$ put at $2.0$, net debit $2.0$.
+      Below $45$ both legs are fully in the money and the payoff maxes at
+      $50-45=5$, so max profit is $5-2=3$. Above $50$ both legs expire
+      worthless, so max loss is the $2.0$ debit; breakeven is $50-2=48$.
+    interview: >
+      "Structure a trade expressing [bullish/bearish] view with limited
+      risk" wants a vertical spread named directly, with max profit, max
+      loss and breakeven computed from the premiums and strike gap
+      without hesitation.
+    pitfalls: >
+      Computing max profit as the full strike gap instead of the strike
+      gap minus the debit double-counts the premium. Mixing up which leg
+      is long and which is short flips the payoff's slope entirely.
+    recap: >
+      A vertical spread caps both cost and payoff by going long one
+      strike and short another; the debit paid is the max loss and the
+      strike gap minus the debit is the max profit.
+
+  - node: quant-finance.options.butterfly
+    hook: >
+      "What's the cheapest way to bet the stock pins near a level" is a
+      butterfly question, and it's also the cleanest instrument for
+      reading the implied density directly off a quote.
+    explanation: >
+      A long call butterfly is long one $K_1$ call, short two $K_2$
+      calls, and long one $K_3$ call, with $K_2$ exactly midway. It's
+      algebraically the difference of two vertical spreads sharing the
+      middle strike, so adding those two capped shapes vertically
+      produces a tent: $0$ below $K_1$, rising to a peak at $K_2$, falling
+      back to $0$ at $K_3$ and beyond. The net debit is small because
+      you're buying one spread and financing most of it by selling an
+      offsetting one.
+
+      Since the payoff is a tent that never goes negative in any state,
+      its price, $e^{-rT}\mathbb{E}^{Q}[\text{tent}]$, must be nonnegative
+      too — so a market quoting a negative butterfly price is directly
+      quoting an arbitrage. More than that, the butterfly's price relative
+      to its tent height is a direct probe of how much risk-neutral
+      probability mass sits near $K_2$: a market-maker reads butterfly
+      quotes as reads on the local density, the role the risk reversal
+      plays for skew.
+
+      Use it to express a pinning view cheaply: you give up the payoff a
+      single option offers away from $K_2$ in exchange for a much lower
+      cost, appropriate when you expect the stock to sit near a level
+      rather than run far from it.
+    worked: >
+      Strikes $35/40/45$ on $S=40$: buy the $35$ call at $6.5$, sell two
+      $40$ calls at $3.0$ each, buy the $45$ call at $1.0$ — net debit
+      $6.5-6.0+1.0=1.5$. At $S_T=40$ the payoff peaks at $40-35=5$, so
+      max profit is $5-1.5=3.5$. The payoff rises from $0$ at $35$ to $5$
+      at $40$ then falls to $0$ at $45$, so breakevens are $36.5$ and
+      $43.5$, and max loss is the $1.5$ debit outside $[35,45]$.
+    interview: >
+      "How would you cheaply bet the stock pins near [level]" should get
+      "butterfly" immediately, with the three strikes, small debit, and
+      tent-shaped payoff described unprompted; naming it as a probe of the
+      implied density near $K_2$ shows depth.
+    pitfalls: >
+      Forgetting the middle strike sells two contracts, not one, breaks
+      the tent shape — the $1{:}2{:}1$ ratio is load-bearing. Treating a
+      quoted negative butterfly price as a curiosity rather than a flagged
+      arbitrage misses the point.
+    recap: >
+      A butterfly is the difference of two vertical spreads sharing a
+      strike, producing a small-debit tent that peaks at the middle
+      strike — its price directly reads the risk-neutral density there.
+
+  - node: quant-finance.options.synthetics
+    hook: >
+      "You want to be long the stock but the options desk has better
+      liquidity" is exactly when synthetics pay off, and put–call parity
+      is the whole toolkit for building any leg from the other three.
+    explanation: >
+      Put–call parity, $C-P=S-Ke^{-rT}$, is usually read as a pricing
+      constraint; read instead as an identity between positions, it says
+      any one of the four instruments — long call, short put, long stock,
+      short bond — is recoverable from the other three. Rearranged four
+      ways: long call plus short put equals long stock financed by
+      borrowing $Ke^{-rT}$ (synthetic long stock); short call plus long
+      put is the mirror; long stock plus short call equals short put plus
+      a bond, so a covered call is a disguised short put; long stock plus
+      long put equals long call plus a bond.
+
+      Each of these is the same identity solved for a different unknown,
+      so there's nothing new to derive per combination — isolate the leg
+      you want and read off what it equals. That makes the identity
+      useful two ways: express a view through whichever leg is cheapest
+      or most liquid to trade, and check a quoted set of prices for
+      consistency in one line — if $C-P\ne S-Ke^{-rT}$, one side is a buy
+      and the other a sell, riskless.
+
+      The identity needs European exercise, matched strike and expiry,
+      and no dividends before $T$ to hold exactly; American exercise or
+      dividends require the dividend-adjusted or inequality forms instead.
+    worked: >
+      $S=70$, $K=65$, $r=0.04$, $T=1$, and the market quotes the call at
+      $9$. Parity pins the put: $P=C-S+Ke^{-rT}=9-70+65e^{-0.04}
+      \approx 9-70+62.45=1.45$. Check the synthetic: long call plus short
+      put costs $9-1.45=7.55$, and $S-Ke^{-rT}=70-62.45=7.55$ — matches,
+      confirming the synthetic long stock is correctly priced.
+    interview: >
+      "Build me synthetic [stock/short stock] out of options" or "price
+      the put given the call" both test this identity directly — the
+      interviewer wants the rearrangement done instantly, not re-derived
+      from scratch each time.
+    pitfalls: >
+      Forgetting the dividend or American-exercise caveats and applying
+      the plain identity anyway gives a wrong number. Getting the sign of
+      the bond leg backwards flips a synthetic long into a synthetic
+      short.
+    recap: >
+      Put–call parity is an identity between positions, not just prices —
+      any leg is recoverable from the other three, which is how a covered
+      call becomes a short put in disguise.
+
+  - node: quant-finance.options.options-as-vol-bets
+    hook: >
+      "The stock will move more than the market thinks" is the interview
+      phrasing for a volatility view, and naming the straddle instantly —
+      not a call, not a put — is the tell that you've internalized this
+      unit.
+    explanation: >
+      Strip the directional bet out of an option and what's left is a bet
+      on realized volatility against the implied volatility you paid for.
+      Hedge a long option's direction away by continuously trading the
+      underlying against its changing delta, and the surviving profit
+      over the position's life is, to good approximation, realized
+      variance minus implied variance — the precise accounting is gamma
+      and theta's job, but the qualitative fact holds without them: pay
+      for implied vol, collect on realized vol, and the difference is the
+      trade.
+
+      That reframing explains the trader's vocabulary. Nobody says "I
+      bought a call," they say "I bought vol," because an unhedged long
+      call actually bundles two bets — a bet the stock rises and a bet it
+      moves a lot either way — and only the second is what most option
+      traders are trying to express. The straddle is the clean version:
+      its two deltas roughly cancel near the money, so it carries almost
+      no directional exposure and isolates the volatility bet by itself.
+
+      The rule of thumb $C\approx 0.4\sigma S\sqrt{T}$ makes this
+      concrete: since an at-the-money put costs about the same as the
+      call when $r$ is small, the straddle costs about
+      $0.8\sigma S\sqrt{T}$, so dividing by $S$ gives the straddle's
+      breakeven move as a fraction of spot — the market's implied move.
+      Buy the straddle when you believe the true move will exceed that
+      number.
+    worked: >
+      $S=50$, implied $\sigma=30\%$, $T=0.25$. ATM call
+      $\approx 0.4(0.30)(50)\sqrt{0.25}=0.4(0.30)(50)(0.5)=3.0$; straddle
+      $\approx 2(3.0)=6.0$. As a fraction of spot, $6/50=12\%$: the
+      market is implying about a $12\%$ move this quarter. If realized
+      volatility pushes the actual move past $12\%$, the straddle is
+      priced too cheap for that belief and is the trade.
+    interview: >
+      "How do you trade a view that a stock will be more volatile than
+      the market expects" should produce "buy the straddle" immediately,
+      followed by "because it isolates realized-vs-implied variance with
+      direction hedged out."
+    pitfalls: >
+      Calling an unhedged long call a "pure vol bet" misses that it
+      bundles direction and volatility together; only a delta-hedged
+      position or a near-the-money straddle isolates volatility alone.
+    recap: >
+      Stripped of direction, an option pays realized volatility minus the
+      implied volatility you paid for it — the straddle, its two deltas
+      canceling near the money, is the cleanest instrument for that bet.

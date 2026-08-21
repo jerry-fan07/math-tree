@@ -1,0 +1,271 @@
+unit: quant-processes.stopping
+opening: >
+  Optimal stopping turns a stream of one-at-a-time decisions — reroll or keep, hire or pass, exercise or hold — into a single repeated comparison: does what's in hand beat what continuing is worth? This unit builds that comparison from the value function and backward induction, works it fully through the fair-die reroll ladder, then swaps the finite-horizon machine for its long-horizon cousin, one-step lookahead, wherever a closed "don't bother continuing" region makes the myopic rule exactly right. It closes with the secretary problem's $1/e$ rule as the canonical rank-only, no-recall instance, a coda on how fragile that famous $37\%$ really is, and a pointer to American-option early exercise as the same idea in a finance costume.
+lessons:
+  - node: quant-processes.stopping.stopping-problem
+    hook: >
+      Every "reroll or keep," "hire now or wait," "exercise or hold" question in this branch is an instance of this one setup, and the interview tell is whether you can name its defining constraint — a stopping rule may use only what has already happened — before writing a single equation.
+    explanation: >
+      A stopping time already requires that quitting at time $n$ depend only on $Y_1,\dots,Y_n$, nothing later. Optimal stopping adds a payoff on top: instead of merely being allowed to stop at a non-anticipating time, you choose the non-anticipating rule that makes $\mathbb{E}[Y_\tau]$ as large as possible. That restriction is the entire content of the problem — drop it and the "optimal" rule collapses to "wait for whichever $Y_n$ turns out biggest," a rule no real decision-maker can execute, since it needs to see the future to know when to stop.
+
+      Before any algebra, three questions fix which problem you are actually solving. Horizon: a hard deadline $N$, or can you keep looking indefinitely? Observation: do you see $Y_n$'s actual value, or only how it ranks against what came before? Recall: if you pass on $Y_n$, is it gone for good, or can you reclaim it later? Two questions phrased almost identically in English can have opposite answers here — "hire the best of $n$ candidates" is a different computation depending on whether you see salaries or only relative rank.
+
+      The single-agent framing is worth stating explicitly, because habits from game theory import badly by mistake: there is no opponent picking a best response to your rule, only a fixed random mechanism generating $Y_1, Y_2,\dots$. Every technique this unit builds — backward induction, one-step lookahead — optimizes against chance, not against an adversary.
+    worked: >
+      Suppose $Y_1$ pays $8$ with probability $1/2$ and $0$ otherwise, and if you pass, $Y_2$ pays a certain $5$. The rule "stop at $n=1$ iff $Y_1 \ge 5$" reads only $Y_1$, so it is a legitimate stopping time, giving $\mathbb{E}[Y_\tau] = \tfrac12(8)+\tfrac12(5)=6.5$. Contrast "accept whichever of $Y_1,Y_2$ turns out bigger": deciding at $n=1$ under that rule needs already knowing $Y_2$, so it is not a stopping time at all, however tempting its arithmetic looks.
+    interview: >
+      "How would you set this problem up" is really asking for the horizon, the observation type, and the recall rule stated before the reward sequence is even discussed; "is that a valid strategy" tests whether a proposed rule secretly peeks ahead. Stating $\mathbb{E}[Y_\tau]$ with $\tau$ explicitly non-anticipating is the ten-second version.
+    pitfalls: >
+      Proposing a rule that compares $Y_n$ against a later, unobserved value smuggles in information you don't have — check every candidate rule against the "known only through time $n$" test. Treating the problem as adversarial, as if some opponent shaped the $Y_n$, imports game-theoretic reasoning that doesn't belong here.
+    recap: >
+      A stopping rule must be a non-anticipating $\tau$, and before computing anything you need the horizon, what you observe, and whether a reject can be reclaimed.
+
+  - node: quant-processes.stopping.value-function
+    hook: >
+      This is the mechanical engine behind every rule in the unit: once you can write down $V_n$ and compare it against $Y_n$, "when should I stop" stops being a puzzle and becomes one inequality checked at every step.
+    explanation: >
+      $V_n$ is the best expected reward obtainable from time $n$ onward, given everything observed by then. At the deadline there is no choice left, so $V_N=Y_N$. Earlier, a rational decision-maker facing chance does exactly one of two things: bank $Y_n$, or continue and get whatever playing on optimally is worth in expectation, $\mathbb{E}[V_{n+1}\mid\mathcal{F}_n]$. $V_n$ is the better of these two numbers, and the optimal rule falls straight out: stop the first time the reward in hand meets or beats the continuation value.
+
+      The subtlety worth internalizing is that $V_{n+1}$ already has every later decision baked in optimally — it is not "the average of what happens next," it is "the average of what happens next if you keep playing perfectly from here." That is what makes the recursion exact rather than a heuristic: comparing $Y_n$ to $V_{n+1}$ accounts for all remaining chances at once, not just the next one.
+
+      $V_n$ can only drift downward in conditional expectation as time passes, since tomorrow's version of the game has strictly fewer chances left than today's — that "only shrinks" property is what the name supermartingale captures, and Snell envelope is just the name for the smallest such process sitting on top of the rewards.
+    worked: >
+      A coin pays $10$ dollars on heads (probability $0.4$) and $3$ on tails. With one flip, $V_1=\mathbb{E}[Y]=0.4(10)+0.6(3)=5.8$. With a second flip available, keep the first flip only if it clears $5.8$: heads ($10$) does, tails ($3$) doesn't, so $V_2 = 0.4(10)+0.6(5.8)=4+3.48=7.48$.
+    interview: >
+      Interviewers want $V_n$ and its boundary condition written down explicitly before any numbers, then the optimal rule stated as one comparison — "stop when $Y_n$ beats the continuation value" — not derived case by case.
+    pitfalls: >
+      Forgetting the boundary condition $V_N=Y_N$ — there is no continuation option at the deadline, you must accept whatever is in hand. Confusing the true continuation value $V_{n+1}$ with the value of just one more look, $\mathbb{E}[Y_{n+1}]$, understates continuing whenever more than one chance remains.
+    recap: >
+      $V_n=\max\left(Y_n,\mathbb{E}[V_{n+1}\mid\mathcal{F}_n]\right)$ with $V_N=Y_N$, and the optimal rule stops the moment $Y_n$ first meets the continuation value.
+
+  - node: quant-processes.stopping.backward-induction
+    hook: >
+      This is the value-function recursion turned into arithmetic: solve the decision you're most sure about — the very last one — first, then work backward one comparison at a time.
+    explanation: >
+      Every earlier value in the recursion needs the next one already known, so any order other than last-to-first requires guessing what you haven't computed yet. Name the state you carry into a stage — usually the reward currently in hand plus the number of chances left — then set the final stage's value to whatever you must accept there, since no further choice remains. Each earlier stage's value is the max of the reward in hand and the expectation of the stage after it, already solved.
+
+      Because rewards here are typically numbers on a line, "stop or continue" collapses into a single threshold at each stage: accept anything at or above the continuation value, reroll or reject anything below it. Backward induction's real output is not one number but a ladder of thresholds, one per stage, that together implement the optimal rule.
+
+      The mental model is ordinary dynamic programming, with one twist worth flagging: unlike a game tree, where you'd take the worst case over an adversary's replies, every continuation value here is a plain expectation over chance. Recognize the shape — a bounded number of remaining chances, a reward revealed one at a time — and backward induction is the default move.
+    worked: >
+      A bonus round pays $100$ (probability $0.2$), $60$ (probability $0.5$), or $20$ (probability $0.3$), for up to $3$ rounds; you must accept whatever the final round gives. Last round: $V=0.2(100)+0.5(60)+0.3(20)=56$. Two rounds left: accept anything $\ge 56$, so only $100$ and $60$ qualify, giving $V=0.2(100)+0.5(60)+0.3(56)=66.8$. Three rounds left: accept anything $\ge 66.8$, so only $100$ now qualifies, giving $V=0.2(100)+0.8(66.8)=73.44$ — notice $60$ was worth keeping with two rounds left but not with three, exactly because the continuation value itself climbed.
+    interview: >
+      "Walk me through solving this step by step" wants the last stage's value written first, with the boundary condition stated explicitly, then each earlier threshold produced by comparison — not an intuited final answer.
+    pitfalls: >
+      Solving stages out of order, or guessing an early threshold before the later stages that determine it, tangles the algebra. Reusing one stage's threshold at another stage assumes the continuation value is constant when it generally isn't — the whole point of the ladder is that it moves.
+    recap: >
+      Solve the last stage first, get one number, then compare each earlier stage's reward against that number to get a ladder of thresholds back to the start.
+
+  - node: quant-processes.stopping.dice-game
+    hook: >
+      The interview version of the reroll ladder is almost always this exact die, and reciting $3.5$ / $4.25$ / $14/3$ without being able to rebuild the reasoning live is a tell that you memorized rather than derived it.
+    explanation: >
+      Applying backward induction to a fair die is mechanical once you see the pattern. With one roll you must accept whatever comes, so $V_1$ is just the die's mean, $3.5$. With one extra chance, reroll only if the first roll falls below the value of that one guaranteed extra roll — keep $4,5,6$, reroll $1,2,3$ — which is the threshold rule from backward induction applied to two stages.
+
+      Extending to three rolls, the continuation value has already risen to $4.25$, so the first roll gets pickier and keeps only $5,6$; the second roll of the three, now facing exactly the two-roll problem, reverts to keeping $4$ and up. That's the general fact worth keeping: the threshold rises the further you are from the deadline and falls as chances run out, because more remaining patience makes settling for a mediocre face less attractive.
+
+      Recognize this shape — "you may redraw up to $k$ times, keep whichever you finally accept" — whenever it appears, whatever the underlying prize is. The recipe never changes: compute the base case, then repeatedly fold in "the expected value of the better of a fresh draw and the previous stage's value."
+    worked: >
+      Redo the ladder for a fair $8$-sided die with only two rolls allowed. One roll: $V_1=(1+\dots+8)/8=4.5$. Two rolls: keep the first roll if it's at least $4.5$, i.e. keep $\{5,6,7,8\}$ and reroll $\{1,2,3,4\}$, giving $V_2=\frac{5+6+7+8}{8}+\frac{4}{8}(4.5)=3.25+2.25=5.5$.
+    interview: >
+      "You roll a die, you may reroll up to twice, keeping your final face — what's the expected value with optimal play?" wants backward induction narrated stage by stage, with the accept threshold stated explicitly at each one, not a guessed number.
+    pitfalls: >
+      Applying the same threshold at every stage — comparing the first roll of three against the one-roll value $3.5$ instead of the two-roll value $4.25$ — undercounts the game's true value. Averaging over the reroll outcome incorrectly, by forgetting that a rerolled face is itself governed by the previous stage's value rather than the die's flat mean, breaks the recursion.
+    recap: >
+      Backward induction on a fair die gives $V_1=3.5$, $V_2=4.25$ ("keep $4$+"), $V_3=14/3\approx4.67$ ("keep $5$+, then $4$+") — thresholds that get pickier the more chances remain.
+
+  - node: quant-processes.stopping.dice-ladder-limit
+    hook: >
+      This two-branch recursion is worth having cold — it tells you not just that unlimited rerolls approach $6$, but exactly how fast, which is the number an interviewer actually wants when they ask how many rerolls before you're basically guaranteed near the top.
+    explanation: >
+      One more roll always buys the better of the fresh face and the old game, so $V_{k+1}=\mathbb{E}[\max(X,V_k)]$ generalizes the same move used to build $V_2$ and $V_3$. As $V_k$ climbs past $4$ and then past $5$, fewer faces clear the bar, so which faces get kept — and hence which linear recursion applies — changes with $V_k$ itself.
+
+      While $4<V_k<5$, only $5$ and $6$ beat the continuation value, giving $V_{k+1}=\frac{11}{6}+\frac{2}{3}V_k$. Once $V_k>5$, only a $6$ is worth keeping, giving $V_{k+1}=1+\frac{5}{6}V_k$ — and this second recursion has $6$ as its own fixed point ($6=1+\frac56\cdot6$), so $6-V_{k+1}=\frac56(6-V_k)$: the gap to $6$ shrinks by a constant factor every extra roll, geometric decay rather than ever reaching the ceiling exactly.
+
+      The mental model: unlimited free rerolls with no deadline is what "wait for a $6$" looks like when you arrive at it through finite-horizon machinery instead of assuming it — the ceiling and the $5/6$-per-roll decay rate both fall straight out of the same backward-induction reasoning already built for two and three rolls.
+    worked: >
+      Continue past $V_5=277/54\approx5.130$, which already exceeds $5$, using $V_{k+1}=1+\frac56V_k$: $V_6\approx5.275$, $V_7\approx5.396$, $V_8\approx5.496$, $V_9\approx5.580$. So it takes $9$ rolls of patience before the expected value first climbs past $5.5$.
+    interview: >
+      "Does letting the reroll count go to infinity ever actually beat just waiting for a six?" wants the two-regime recursion named and the ceiling identified as exactly $6$, approached geometrically at rate $5/6$ per roll, not a vague "it gets close."
+    pitfalls: >
+      Applying the $4<V_k<5$ recursion once $V_k$ has already crossed $5$ uses the wrong kept set and derails the whole trajectory. Treating the limit as reached in finitely many rolls, rather than only approached, misstates what geometric convergence means — $V_k<6$ for every finite $k$.
+    recap: >
+      Past $V_k=5$ the recursion is $V_{k+1}=1+\frac56V_k$, so $6-V_k$ shrinks by a factor of $5/6$ every extra roll on the way to the ceiling of $6$.
+
+  - node: quant-processes.stopping.one-step-lookahead
+    hook: >
+      This shortcut is what makes long or infinite-horizon stopping problems tractable at all — every reroll-with-a-fee or search-with-a-cost question in this unit reduces to this one-line comparison.
+    explanation: >
+      Full backward induction needs a last stage to start from, so it fails outright once the horizon is long or has no end. One-step lookahead substitutes the true continuation value — which in principle needs the entire remaining optimal policy — with a far cheaper proxy: the value of taking exactly one more observation and then stopping. Stop the moment the reward in hand already beats $\mathbb{E}[Y_{n+1}\mid\mathcal{F}_n]$, net of whatever continuing costs.
+
+      Equivalently, name $B$ the set of situations where one more look doesn't pay for itself, and stop the first time you enter $B$. The substitution is reasonable because most of the benefit of continuing typically comes from the very next observation, with returns shrinking fast after that — sometimes this shortcut is only a good guess, and sometimes it is exactly optimal, which is what a closed absorption region pins down.
+
+      Reach for this the instant a problem says "you may keep searching as long as you like" or "each extra look costs a fee" — that phrasing is the signal that full backward induction, which needs a hard endpoint, is off the table.
+    worked: >
+      Offers arrive i.i.d., worth $0$, $5$, or $10$ with equal probability, and each additional look costs $2$. One-step lookahead compares the offer in hand against $\mathbb{E}[Y]-c=5-2=3$: accept any offer $\ge 3$, meaning accept $5$ or $10$ and reject only $0$.
+    interview: >
+      "When does it stop being worth searching further?" wants the one-step comparison against $\mathbb{E}[Y_{n+1}]$ net of cost stated directly, with the resulting accept set named as a threshold, not a full re-derivation of the value function.
+    pitfalls: >
+      Comparing against $\mathbb{E}[Y_{n+1}]$ while forgetting to net out the cost of continuing biases the accept set too wide. Treating the lookahead answer as automatically exact is the most common overreach — in general it is only a heuristic.
+    recap: >
+      Stop as soon as the reward in hand beats the expected value of one more observation net of cost — cheap to compute, and sometimes exactly right.
+
+  - node: quant-processes.stopping.monotone-case
+    hook: >
+      This is the fine print that tells you whether one-step lookahead is the actual optimal rule or merely a plausible guess — and the reroll ladder is the standard case where guessing costs real value.
+    explanation: >
+      Call a problem monotone if the "don't bother continuing" region $B$ is closed: once the process lands in $B$, it never leaves. The clean case is a per-look game with a fixed cost against draws from a fixed law — the comparison "is one more look worth it" is the identical computation at every visit, so $B$ can't depend on how many looks have already happened or how many remain.
+
+      Closedness is what forces exactness. If landing in $B$ means every possible future also stays in $B$, no strategy that plans further ahead can ever escape back into "keep going" territory, so there is nothing further-lookahead reasoning could have bought you — the one-step comparison has already accounted for everything relevant, by induction backward from any horizon you like.
+
+      The finite free-reroll ladder is the counterexample worth keeping: its true accept region shifts with how many rolls remain — keep $4$+ with two left, but only $5$+ with three — so a single fixed threshold can't be closed. A per-look fee game, by contrast, is stationary: nothing about the decision changes between visits, so the same threshold solves it forever via a single self-referential equation, $V=\mathbb{E}[\max(X,V-c)]$, rather than a shrinking ladder.
+    worked: >
+      Take a fee-based reroll game, fee $c=1$, on a fair $4$-sided die. Guessing the accept set $\{2,3,4\}$: $V=\frac{2+3+4}{4}+\frac14(V-1)=2+\frac{V}{4}$, so $V=8/3\approx2.67$. The resulting threshold $V-c=5/3\approx1.67$ does keep exactly $\{2,3,4\}$, confirming the guess — the same accept set works at every visit, exactly as closedness predicts.
+    interview: >
+      "Is greedy optimal here?" wants you to check whether the stop region can be exited once entered, not assume a heuristic is exact by default; a fixed per-look cost against i.i.d. draws is the canonical monotone example to cite.
+    pitfalls: >
+      Assuming a lookahead-derived threshold is automatically optimal without checking closedness silently fails on any problem with a shrinking horizon, like the plain reroll ladder. Assuming "one threshold works forever" from a stationary fee game carries over to a game whose fee or underlying law changes over time — it doesn't.
+    recap: >
+      Lookahead is exactly optimal when the "stop" region can't be exited once entered; the reroll ladder fails this, a stationary per-look fee game satisfies it automatically.
+
+  - node: quant-processes.stopping.reroll-fee
+    hook: >
+      This is the fixed-point trick for collapsing an infinite-horizon reroll game into one equation, and "guess the accept set, solve for $V$, check the guess reproduces itself" is the actual recipe an interviewer wants named.
+    explanation: >
+      At any point in this game you either take the current draw or pay $c$ to reroll and face the exact same game again — the game has no memory of how many times you've already paid the fee. That self-similarity is why the value satisfies $V=\mathbb{E}[\max(X,V-c)]$: a genuine fixed-point equation rather than a finite ladder, since there is no last stage to anchor a backward recursion to.
+
+      Because this per-look game looks identical at every visit, the same accept-or-reject threshold has to be right forever, which is exactly why one equation nails the whole infinite game. Solve it by guessing a threshold or accept set, substituting into the equation to get $V$ in terms of itself, solving algebraically, and then checking that the resulting threshold $V-c$ actually reproduces the accept set you guessed — an unchecked guess can be wrong even when the algebra looks clean.
+
+      The rule that falls out, "accept iff $X\ge V-c$," is exactly the one-step-lookahead comparison — current draw against continuation value net of fee — applied to a game where that comparison never changes shape from one visit to the next.
+    worked: >
+      Try $c=0.25$ on the ordinary $6$-sided die. A first guess, accept $\{4,5,6\}$, gives $V=\frac{4+5+6}{6}+\frac36(V-0.25)=2.375+0.5V$, so $V=4.75$ — but then the threshold $V-c=4.5$ would keep only $\{5,6\}$, contradicting the guess. Retrying with accept $\{5,6\}$: $V=\frac{5+6}{6}+\frac46(V-0.25)=\frac53+\frac23V$, giving $V=5$, and $V-c=4.75$ does keep exactly $\{5,6\}$ — self-consistent. A quarter fee is worth $5$, tighter than the $4.50$ at a fifty-cent fee.
+    interview: >
+      "If it costs you $c$ to reroll, what's this game worth?" wants the fixed-point equation $V=\mathbb{E}[\max(X,V-c)]$ set up immediately, with guess-substitute-verify narrated aloud rather than a number pulled from nowhere.
+    pitfalls: >
+      Solving for $V$ from a guessed accept set without then checking the resulting threshold reproduces that same set — a plausible-looking guess can be self-inconsistent, as the first attempt above was. Forgetting that a rising fee can only ever lower the game's value is a useful sanity check that catches sign errors.
+    recap: >
+      $V=\mathbb{E}[\max(X,V-c)]$ solves an infinite reroll game with one fixed point; guess the accept set, solve for $V$, and verify the threshold $V-c$ reproduces it.
+
+  - node: quant-processes.stopping.house-selling
+    hook: >
+      This is search-with-a-cost in its cleanest form, and the reservation price $1-\sqrt{2c}$ is exactly the kind of formula you should be able to rederive live, not recite.
+    explanation: >
+      Offers are i.i.d. $U(0,1)$, each look costs $c$, and you decide on the spot — no recall, an infinite horizon carried by the fee rather than a deadline. Because every look faces the identical draw and the identical cost, this is a stationary per-look-fee game, so one-step lookahead is not just a heuristic here but exactly optimal: keep searching only while the expected gain from one more look, $\mathbb{E}[(X-x)^{+}]$, still exceeds $c$.
+
+      For $U(0,1)$, that expected gain has a clean closed form: $\mathbb{E}[(X-x)^{+}]=\int_x^1(u-x)\,du=\frac{(1-x)^{2}}{2}$, the area of the triangle of "how much better than $x$" a draw above $x$ tends to be. Setting $\frac{(1-x)^{2}}{2}=c$ and solving gives the stationary threshold $x^{*}=1-\sqrt{2c}$.
+
+      That same $x^{*}$ is also the game's value, by the same fixed-point logic as the fee-per-look re-roll game: at the threshold you are exactly indifferent between stopping now and continuing, so the game must be worth precisely what stopping now delivers there.
+    worked: >
+      Take $c=0.005$: $x^{*}=1-\sqrt{2(0.005)}=1-\sqrt{0.01}=0.9$. The number of offers viewed is geometric with mean $1/(1-x^{*})=1/0.1=10$, the accepted price averages $\mathbb{E}[U\mid U\ge0.9]=0.95$, and the net payoff is $0.95-10(0.005)=0.9=x^{*}$, confirming the threshold is also the value.
+    interview: >
+      "You're searching for an apartment, each viewing costs time — when do you stop?" wants $x^{*}=1-\sqrt{2c}$ produced from $\mathbb{E}[(X-x)^{+}]=c$, plus the mean-number-of-looks sanity check that ties the accepted price and total cost back to $x^*$ exactly.
+    pitfalls: >
+      Treating one-step lookahead as exact here without noting it's because the problem is monotone — a fixed cost against a fixed law, unlike the shrinking-horizon dice ladder — is a gap in the justification, not just a stylistic one. Confusing the accepted price's average ($0.95$ here) with the game's net value ($0.9$) drops the search cost already spent.
+    recap: >
+      Search costing $c$ per look against $U(0,1)$ offers has reservation price and value $x^{*}=1-\sqrt{2c}$, found by setting the expected gain from one more look equal to the cost.
+
+  - node: quant-processes.stopping.recall
+    hook: >
+      Two throwaway modeling words — "with recall" or "ranks only" — completely change which formula applies, and saying them out loud before solving is the fastest way to avoid answering a different problem than the one asked.
+    explanation: >
+      Recall decides how much a stopping rule actually restricts you. With recall, the payoff is $\max_{k\le n}Y_k$, so you can wait out the whole sequence and grab the best one seen so far at the very end — patience costs nothing, and the stopping aspect nearly disappears. Without recall, passing on $Y_n$ is irrevocable, which is what makes deciding when to stop a genuine problem rather than a formality.
+
+      Observation decides how much you're told. Under full information you see $Y_n$'s actual value, drawn from a known law; under rank-only information you see only how $Y_n$ compares with everything before it. Rank-only strictly throws information away: two candidates that both happen to be "better than everything so far" look identical under this signal even if their true values are worlds apart.
+
+      Say both switches out loud before solving, because problems that share a paragraph of English can be opposites once they're pinned down — "no recall, ranks only, win only by landing the very best" and "recall, full information, i.i.d. values" share almost no structure and essentially never share an answer.
+    worked: >
+      Three offers, in order, are $40\text{k}$, $70\text{k}$, $55\text{k}$. Under full information you see those numbers directly; under rank-only information you'd see only "first," "better than the last," "worse than the last" — never learning that $70\text{k}$ beat the others by tens of thousands. With recall, rejecting all three in real time costs nothing, since you can go back and take $70\text{k}$ regardless. Without recall, passing on $70\text{k}$ hoping for better loses it for good.
+    interview: >
+      "What do you get to observe, and can you go back?" is often the implicit question behind a stopping-problem prompt before any payoff rule is even stated; answering it up front signals you know these two switches change the entire problem.
+    pitfalls: >
+      Assuming full information by default whenever a problem says "candidates" or "applicants" — many classic phrasings deliberately mean rank-only. Assuming recall by default when a problem says "decide on the spot," which is the standard signal for no recall.
+    recap: >
+      Whether a rejected item can be reclaimed, and whether you see values or only relative ranks, are two modeling choices that determine which stopping problem you're actually solving.
+
+  - node: quant-processes.stopping.best-so-far
+    hook: >
+      These two probabilities — $1/i$ for being a leader, $i/n$ for a leader being champion — are the entire arithmetic engine the secretary problem runs on, and deriving them from symmetry is what lets you rebuild the $37\%$ rule from scratch under pressure.
+    explanation: >
+      In a uniformly random order, nothing distinguishes the $i$ positions holding the first $i$ items before the order is revealed, so the largest of those $i$ items is equally likely to sit in any of them. It sits at position $i$ itself — making item $i$ "best so far" — with probability exactly $1/i$.
+
+      The second fact follows from a short Bayes-style argument. The event "item $i$ is a record and also the overall best" is really just "item $i$ is the overall best," since the overall best is automatically a record wherever it sits. By the same symmetry, the overall best is equally likely to occupy any of the $n$ positions, so that joint probability is $1/n$. Dividing by $\Pr(\text{record at }i)=1/i$ gives $\Pr(\text{overall best}\mid\text{record at }i)=(1/n)/(1/i)=i/n$.
+
+      Since $i/n$ increases in $i$, a late record is far more informative than an early one — an early record is almost certainly a false start, since almost nobody else has been compared against yet. Combined with the fact that anything not currently best so far is certainly not the overall best, the whole strategy space collapses to "which record do I accept," not "which item."
+    worked: >
+      For $n=5$, position $3$: $\Pr(\text{record at }3)=1/3$, and given that, $\Pr(\text{it's the overall best})=3/5$. Multiplying gives $\Pr(\text{position }3\text{ holds the overall best})=\tfrac13\cdot\tfrac35=\tfrac15$ — exactly $1/n$, as it must be, since the overall best is equally likely to sit anywhere. The identity $(1/i)(i/n)=1/n$ makes itself visible at every $i$.
+    interview: >
+      "Why is $\Pr(i\text{ is a record})=1/i$?" is a standalone derivation question, and a follow-up, "why do later records matter more," is listening specifically for the $i/n$ reasoning rather than a hand-wave about intuition.
+    pitfalls: >
+      Confusing "record" with "overall best" — a record only guarantees local superiority over what's already been seen, not global superiority, and conflating the two invalidates both probabilities. Forgetting that $\Pr(\text{overall best}\mid\text{record at }i)$ needs the joint-probability trick above, rather than being derivable by inspection.
+    recap: >
+      In a random order, item $i$ is a record with probability $1/i$, and a record at $i$ is the true best with probability $i/n$ — late records are the ones worth trusting.
+
+  - node: quant-processes.stopping.secretary
+    hook: >
+      This is the single most quoted "do you know a cute probability result" interview question, and the actual bar is deriving the $1/e$ cutoff from the success-probability sum, not reciting "$37\%$."
+    explanation: >
+      Since only a record is ever worth accepting, attention narrows to cutoff rules: reject the first $r-1$ outright, then take the next record. This succeeds exactly when the overall best sits at some position $i\ge r$ and the best of the first $i-1$ items — which would otherwise have been mistakenly hired as a false record before position $i$ — happened to fall among the rejected first $r-1$. That combinatorial statement is exactly the sum $\sum_{i=r}^{n}\frac{1}{n}\cdot\frac{r-1}{i-1}$.
+
+      Pulling $(r-1)/n$ out front leaves a harmonic-style tail, $\sum_{i=r}^{n}1/(i-1)$, which behaves like $\ln(n/r)$ for $r$ and $n$ both large. Writing $x=r/n$, the success probability behaves like $x\ln(1/x)$, and a one-line derivative check shows this is maximized at $x=1/e$, with maximum value $1/e\approx0.368$ — skip about $37\%$ of the field to calibrate, then take the next record.
+
+      Recognize the shape — $n$ items in random order, rank-only information, no recall, win only by landing the actual best — and this reject-then-take-next-record cutoff is the template, with $r\approx n/e$ its calibration.
+    worked: >
+      For $n=6$, compare cutoffs directly using $P(r)=\frac{r-1}{6}\sum_{i=r}^{6}\frac{1}{i-1}$. At $r=3$: $\sum_{i=3}^{6}\frac{1}{i-1}=\frac12+\frac13+\frac14+\frac15\approx1.283$, so $P(3)=\frac26(1.283)\approx0.428$. Checking neighbors, $P(2)\approx0.381$ and $P(4)\approx0.392$, so $r=3$ is the true optimum for $n=6$ — reject the first $2$, take the next record — beating even the asymptotic $1/e\approx0.368$.
+    interview: >
+      "$n$ candidates interview one at a time, reject or hire on the spot, you win only by hiring the best — what's your strategy?" wants the cutoff structure stated first, then the sum-to-limit derivation ending at "reject the first $n/e$, take the next record."
+    pitfalls: >
+      Quoting $37\%$ for a differently scored objective, like minimizing expected rank instead of maximizing the chance of the very best — the constant is specific to this exact payoff. Misapplying the $r\ge2$ formula at the degenerate $r=1$ edge case, where the rule is just "take the first candidate outright" and the success probability is simply $1/n$.
+    recap: >
+      Reject the first $r-1\approx n/e$ candidates, then hire the next record — success probability tends to $1/e\approx0.368$ as $n\to\infty$, however large $n$ is.
+
+  - node: quant-processes.stopping.secretary-variants
+    hook: >
+      The $37\%$ number answers exactly one question, and an interviewer who follows up with "what if you just want someone good, not necessarily the best" is testing whether you notice the objective changed.
+    explanation: >
+      Keep the same information structure — rank-only, no recall — but score by the rank of whoever you hire instead of all-or-nothing on landing rank $1$. This is a friendlier problem: as $n\to\infty$ the optimal expected rank tends to about $3.87$, because a rule no longer has to gamble everything on catching the single best — being reliably very good is rewarded, which the original objective doesn't credit at all.
+
+      Now keep the same all-or-nothing objective but hand over actual values drawn from a known law instead of ranks. Extra information should help, and it does substantially: the chance of catching the maximum rises from $\approx0.368$ to $\approx0.580$, because each new value can be judged against the whole known distribution, not merely against the handful of predecessors personally observed.
+
+      A third wrinkle: if $n$ itself is unknown in advance, a time-based rather than count-based cutoff still guarantees at least $1/e$ — a useful robustness fact, since real searches rarely come with a known headcount. The interview habit this all builds: restate which objective is being scored before quoting any specific constant.
+    worked: >
+      For $n=3$, the win-maximizing rule (reject the first, take the next record, else the last) is known to succeed with probability exactly $1/2$. Checking its expected rank across all $3!=6$ orderings of $\{1,2,3\}$ gives an average landed rank of $5/3\approx1.67$ — better than picking blind ($2$), but this is the expected rank of the win-maximizing rule specifically, not a rule optimized to minimize rank; the two objectives generally want different cutoffs.
+    interview: >
+      "Does more information help?" and "what if you don't need the very best, just someone good?" are the two standard follow-ups this node answers — full information raises success to $\approx0.580$, and minimizing rank targets $\approx3.87$ regardless of $n$.
+    pitfalls: >
+      Assuming full information helps only marginally — the jump from $0.368$ to $0.580$ is large, driven by comparing against the known law rather than only rank. Assuming the rank-only $37\%$ cutoff schedule stays optimal once the objective changes to expected rank — it doesn't.
+    recap: >
+      Change the payoff or hand over actual values and the rule changes with it: expected rank $\approx3.87$, full-information success $\approx0.580$, both distinct from the classic $37\%$.
+
+  - node: quant-processes.stopping.prophet-gap
+    hook: >
+      This bounds how much you could possibly be leaving on the table by not seeing the future — a useful ceiling whenever you're unsure whether some stopping rule is "good enough."
+    explanation: >
+      $\mathbb{E}[\max_n Y_n]$ is what a prophet with total foresight collects — an unreachable benchmark for any genuine stopping rule, which by definition can't consult values it hasn't seen yet. The natural question is how large that gap can be, and the answer is bounded: a single fixed threshold, chosen so that $\Pr(\max_n Y_n\ge t)=1/2$, already guarantees at least half the prophet's expected value.
+
+      Splitting the prophet's expectation at the threshold makes the argument bite: $\mathbb{E}[\max_n Y_n]\le t+\mathbb{E}[(\max_n Y_n-t)^{+}]$. The threshold rule captures at least half of each piece. It banks at least $t$ whenever some $Y_n$ clears $t$, which happens with probability exactly $1/2$ by construction — half of the first term. And whichever $Y_i$ is first to clear $t$, the rule also collects that draw's own overshoot $Y_i-t$; independence makes "nothing earlier already crossed" happen with probability at least $1/2$ regardless of $Y_i$'s size, so the rule captures at least half of $\mathbb{E}[(\max_n Y_n-t)^{+}]$ too. Add the two halves back together and the rule clears half the prophet's total.
+
+      The constant $1/2$ can't be improved, and the tightness example is instructive: $Y_1=1$ always, $Y_2=1/\varepsilon$ with probability $\varepsilon$ and $0$ otherwise. The prophet nets almost $2$, but any rule nets exactly $1$ — betting on $Y_2$ mostly gets $0$, and banking $Y_1$ upfront can't beat $1$ either way. Use the bound as a ceiling on how much cleverness in rule design is worth.
+    worked: >
+      Let $Y_1=4$ for sure and $Y_2=10$ with probability $0.5$, else $0$. The prophet's value is $\mathbb{E}[\max(Y_1,Y_2)]=0.5(10)+0.5(4)=7$. The threshold with $\Pr(\max\ge t)=1/2$ is $t=10$: reject $Y_1=4$ since it's below $10$, then take $Y_2$ if it's $10$, or accept $0$ if forced to. That rule nets $0.5(10)+0.5(0)=5$, a ratio of $5/7\approx0.71$ to the prophet — comfortably above the $1/2$ guarantee, since this instance isn't the adversarial worst case.
+    interview: >
+      "How much could a smarter rule possibly beat a simple fixed-price offer?" is the practical phrasing; the interviewer wants the factor-of-two ceiling named along with the reasoning that a single threshold already secures half.
+    pitfalls: >
+      Treating the $1/2$ constant as typically nearly tight — the tight example is a deliberately extreme, high-variance construction, and well-behaved distributions usually clear the bound with room to spare, as above. Forgetting the independence and nonnegativity hypotheses, without which the guarantee isn't assured at all.
+    recap: >
+      No stopping rule beats the prophet's $\mathbb{E}[\max_n Y_n]$, but a single fixed threshold with $\Pr(\max_n Y_n\ge t)=1/2$ already secures at least half of it, and that constant is tight.
+
+  - node: quant-processes.stopping.early-exercise
+    hook: >
+      "When is it optimal to exercise an American option early?" is an optimal-stopping question wearing a finance costume, and the vocabulary — intrinsic value, continuation value — is a direct relabeling of what you already know.
+    explanation: >
+      Intrinsic value at a date is just the reward you'd get by stopping now, exercising the option; continuation value is the expected payoff of holding on, computed exactly the way one-step lookahead computes a continuation value elsewhere in this unit. The optimal exercise policy is the stopping time at which intrinsic value first overtakes continuation value — the same comparison, run at every decision point.
+
+      On a binomial tree this is literally backward induction: value the final date's payoff, then at every earlier node take the max of intrinsic value and the discounted expectation of continuing, rolling backward to today. The only genuinely new ingredient finance adds is discounting future cash by the risk-free rate; the recursive structure is the machinery already built.
+
+      The standard fact that a non-dividend-paying American call is never exercised early is exactly the statement that its continuation value dominates intrinsic value everywhere, so the "first overtake" comparison never fires — holding the option keeps the same upside while your cash still earns interest, so there's never a reason to give that up early. An American put has no equivalent shield, since a stock's price is bounded below by zero while its potential upside is not, so waiting can genuinely cost you interest on a payoff you could lock in today; its exercise boundary is real.
+    interview: >
+      "Is it ever optimal to exercise an American call early, no dividends?" wants "no — continuation value dominates everywhere" with the one-line reasoning above; a follow-up on puts wants "yes, a real exercise boundary" contrasted immediately.
+    pitfalls: >
+      Assuming the "never exercise early" fact carries over to puts, or to dividend-paying calls — both break the dominance argument that makes it true for the plain call. Treating this as requiring new option-pricing formulas rather than recognizing it as the same stopping comparison already known, just discounted.
+    recap: >
+      Early exercise is optimal stopping: exercise when intrinsic value first overtakes continuation value, which is why a non-dividend call is never exercised early but a put can be.

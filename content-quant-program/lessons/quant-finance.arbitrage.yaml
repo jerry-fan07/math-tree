@@ -1,0 +1,794 @@
+unit: quant-finance.arbitrage
+opening: >
+  This unit is where "no free lunch" stops being a slogan and becomes a
+  pricing method: given no distribution at all, the single axiom that a
+  liquid market admits no arbitrage forces exact prices for forwards, options
+  and cross-currency trades. It opens with the axiom itself and the law of
+  one price it implies, builds the replication technique that does all the
+  actual work, and applies it first to forwards and then to the workhorse
+  identity of the options world, put–call parity. From there it runs parity
+  in both directions — synthesizing any instrument from the other three, and
+  trading the conversion or reversal when the market disagrees — before
+  closing on the option bounds and the one early-exercise result every
+  interview checks: American calls should never be exercised early on a
+  non-dividend stock, while American puts sometimes must be.
+lessons:
+  - node: quant-finance.arbitrage.no-arbitrage
+    hook: >
+      An interviewer who asks "is this an arbitrage?" is testing a
+      definition, not your cleverness — get the definition exactly right and
+      the trade that exploits any violation falls out automatically.
+    explanation: >
+      An arbitrage is a position built for zero cost today whose payoff at
+      time $T$ is never negative and strictly positive in at least one state
+      — or, equivalently, one with strictly negative cost today and a payoff
+      that is never negative. Both phrasings describe the same free lunch:
+      money now, or later, or both, with no scenario in which you pay.
+
+      The no-arbitrage axiom asserts that a liquid market contains none of
+      these, and it is an axiom rather than a derived fact: nothing forces
+      prices to obey it except that any violation would be traded in
+      unlimited size by whoever spots it first, erasing the mispricing
+      faster than it can be measured. That argument needs the standing
+      frictionless assumptions — borrowing and lending freely at the
+      riskless rate, short-selling at no cost, trading any size, facing no
+      counterparty risk — which is why the axiom describes an idealized
+      liquid market rather than every quote you will ever see.
+
+      Notice what the definition never mentions: no probability of each
+      state, no expected return, no risk aversion. Every price derived
+      downstream in this unit is forced by this one structural axiom alone,
+      which is exactly why the results are called model-free — they hold
+      whatever you believe about the future.
+    worked: >
+      Suppose a non-dividend stock trades at $50.00$ on one venue and
+      $50.20$ on another, with no borrow cost and no timing gap between the
+      two prints. Buy $100$ shares on the cheap venue for $5{,}000.00$ and
+      simultaneously sell $100$ shares on the rich venue for $5{,}020.00$,
+      delivering the shares you just bought to settle the sale instead of
+      borrowing any. The two trades net to zero shares held and a locked
+      profit of $20.00$ collected today, with no future obligation at all —
+      negative cost today, a payoff that is never negative because there is
+      no future state left to reach.
+    interview: >
+      Two questions test this directly: "define arbitrage precisely" and
+      "is this actually an arbitrage or just a good trade?" The interviewer
+      is listening for the exact zero-cost, never-negative,
+      sometimes-positive structure, and for you to name which frictionless
+      assumption a real-world near-arbitrage is violating.
+    pitfalls: >
+      Calling any positive-expected-value trade an arbitrage is the single
+      most common slip — a directional bet with real downside is not
+      arbitrage no matter how favorable the odds. Also forgetting that the
+      frictionless assumptions are load-bearing: a mispricing that costs
+      more to trade than it pays is not exploitable, so real screens show
+      near-arbitrages surviving inside a band of round-trip cost.
+    recap: >
+      An arbitrage is a zero-or-negative-cost position whose payoff is never
+      negative and sometimes positive — a structural definition with no
+      probabilities in it, enforced by unlimited trading size rather than by
+      any belief about the future.
+  - node: quant-finance.arbitrage.law-of-one-price
+    hook: >
+      Once you accept no arbitrage, this is the first hard consequence, and
+      it is the one line that turns "no free lunch" into an actual pricing
+      tool: match the payoff, and you have matched the price.
+    explanation: >
+      If two portfolios deliver identical payoffs in every state at time
+      $T$, they must trade at identical prices at every earlier time. The
+      proof is the standard no-arbitrage proof: if portfolio $X$ costs more
+      than portfolio $Y$ today, sell $X$ and buy $Y$. The terminal payoffs
+      are identical, so they cancel state by state at $T$, leaving a
+      riskless position with zero future exposure and a cash difference
+      banked today — exactly the arbitrage the axiom forbids, so the price
+      gap cannot exist.
+
+      Two corollaries do essentially all the pricing work later in this
+      unit. Price is additive: a package of instruments is worth the sum of
+      what its pieces are worth separately, since you can always replicate
+      the package by holding the pieces. And a payoff that is zero in every
+      state is worth exactly zero today — a portfolio with no future value
+      can carry no present value either, or shorting it against nothing
+      would be free money.
+
+      Frictions weaken the equality to a band rather than destroying it.
+      Bid–ask spreads, borrow fees and financing costs mean two instruments
+      with identical payoffs can show slightly different quoted prices in
+      practice; what disappears is only the incentive to trade the gap,
+      once its round-trip cost exceeds the mispricing.
+    worked: >
+      Take two zero-coupon bonds from the same issuer, both maturing in
+      exactly two years and both paying a face value of $1{,}000$ then —
+      identical payoffs in every state, since neither carries any risk of
+      default before the other. Suppose bond A trades at $900$ and bond B,
+      otherwise identical, trades at $910$. Sell bond B short for $910$ and
+      buy bond A for $900$, banking $10$ today. At maturity both bonds pay
+      $1{,}000$: use the $1{,}000$ received from A to deliver the $1{,}000$
+      owed on the short B position, leaving nothing outstanding. The $10$
+      collected today was riskless, so only equal prices are consistent
+      with no arbitrage.
+    interview: >
+      This shows up as "why should X and Y have the same price?" for any
+      two instruments with matched payoffs — a swap replicated by bonds, an
+      ETF against its basket, a bond against a strip of its own cash flows.
+      The expected answer is the sell-the-dear/buy-the-cheap argument stated
+      in one breath, not just the conclusion.
+    pitfalls: >
+      The payoffs must match in every state, not just on average — two
+      bonds with the same expected payoff but different default risk are
+      not interchangeable, and the law says nothing about them. Also, real
+      quotes differing by less than round-trip transaction cost are not a
+      violation; the law binds prices up to that cost, not to the last cent.
+    recap: >
+      Identical payoffs in every future state force identical prices today,
+      because any gap is sold on one side, bought on the other, and banked
+      risklessly — the tool behind every replication argument that follows.
+  - node: quant-finance.arbitrage.replication
+    hook: >
+      This is the single most reusable move in the whole unit: whenever a
+      question asks what something is worth and gives you no distribution,
+      this is the technique, not a pricing formula to memorize.
+    explanation: >
+      Replication turns "what is this worth" into four mechanical steps.
+      Write the target's payoff at $T$ as a function of the terminal state —
+      usually the underlying price $S_T$. Assemble a portfolio out of
+      instruments you can already price — shares, zero-coupon bonds,
+      forwards, other options — whose payoff matches the target's in every
+      state. Invoke the law of one price: since the payoffs are identical,
+      the target's fair price today is exactly the cost of assembling that
+      portfolio. And if the market disagrees, buy whichever side is cheap,
+      sell whichever side is dear, and the difference is riskless profit.
+
+      The technique needs no view on probabilities anywhere in it —
+      replication works whether the underlying is about to double or halve,
+      which is the whole point of a model-free price. What it does need is a
+      big enough menu of instruments you can already price to span the
+      target's payoff; if nothing in reach spans it exactly, replication
+      stalls until a richer instrument set is available.
+    worked: >
+      Price a claim that pays $2S_T - 100$ at time $T$ — twice the terminal
+      stock price, less a fixed $100$. Step one, the payoff is linear in
+      $S_T$: two units of stock minus a fixed cash amount. Step two,
+      replicate: hold $2$ shares and go short a zero-coupon bond with face
+      value $100$ maturing at $T$; at $T$ this pays $2S_T - 100$ exactly,
+      matching in every state. Step three, price it: $2S - 100e^{-rT}$. With
+      $S = 60$, $r = 5\%$, $T = 1$: $2(60) - 100e^{-0.05} = 120 - 95.12 =
+      24.88$ — so the answer is $24.88$.
+    interview: >
+      Almost every pricing question in this subject is secretly asking for
+      this four-step routine — "how would you price this payoff" should
+      trigger writing the payoff as a function of $S_T$ before reaching for
+      any formula. Naming the replicating portfolio explicitly is what
+      separates a real answer from a guessed one.
+    pitfalls: >
+      Reaching for a probability-weighted average before checking whether
+      the payoff can be spanned by instruments you already price — that is a
+      different, model-dependent technique, not this one. Also, an inexact
+      replication that only approximately matches the target's payoff proves
+      nothing; the match must hold in every state, not on average.
+    recap: >
+      Write the payoff as a function of $S_T$, build a portfolio of
+      already-priced instruments matching it state by state, and the
+      portfolio's cost is the price — no probabilities required.
+  - node: quant-finance.arbitrage.relative-pricing
+    hook: >
+      Confusing what no-arbitrage actually proves with what it merely
+      sounds like it proves is a fast way to say something wrong under
+      interview pressure.
+    explanation: >
+      Every result built by replication is a relative pricing statement: it
+      tells you what an option is worth given the stock and the bond, or
+      what a forward is worth given the spot and the rate, but it never
+      tells you whether the stock itself is priced correctly, because there
+      is nothing left to replicate the stock with. That absence is the
+      technique's real strength — the conclusions hold under any
+      distribution of $S_T$, so they survive being wrong about the market's
+      direction — and simultaneously its hard limit.
+
+      Keep two vocabularies separate under questioning. An arbitrage is
+      riskless and self-financing: zero or negative cost, a payoff that is
+      never negative. A positive-expected-value trade is neither of those —
+      it can lose money, and it costs something to put on. Calling the
+      second one "arbitrage" is one of the fastest ways to sound like you do
+      not actually know the definition.
+
+      Real limits to arbitrage matter because the frictionless assumptions
+      never hold exactly: financing cost eats into the locked profit, margin
+      calls can force a position closed before prices converge, a stock
+      borrow can be recalled mid-trade forcing the short leg to unwind
+      early, and legging into a multi-instrument trade carries execution
+      risk if the market moves between fills.
+    interview: >
+      "Does no-arbitrage tell you the stock is fairly priced?" is a direct
+      test of this distinction — the correct answer is no, and naming why
+      (nothing to replicate the underlying with) is worth more than the
+      one-word answer. Interviewers also probe by describing a real-world
+      "arbitrage" that actually carries risk, listening for you to catch it.
+    pitfalls: >
+      Treating a replication-based price as proof the underlying itself is
+      correctly valued — it only prices derivatives relative to the
+      underlying. Also, describing a trade with any financing risk, borrow
+      risk or execution risk as riskless arbitrage rather than a
+      near-arbitrage with real limits.
+    recap: >
+      Replication prices instruments relative to each other with no model
+      at all, but it says nothing about whether the underlying is cheap,
+      and real limits to arbitrage keep near-arbitrages from closing
+      instantly.
+  - node: quant-finance.arbitrage.forward-pricing
+    hook: >
+      "Price me a forward" is asked almost verbatim in interviews, and the
+      entire answer is one line of replication — get the
+      borrow-buy-hold argument cold.
+    explanation: >
+      For an asset with no income and no storage cost, at a constant
+      continuously compounded rate $r$, the forward price for delivery at
+      $T$ is $F = Se^{rT}$. The proof is pure replication: borrow $S$ today,
+      buy the asset, and hold it. At $T$ you own the asset and owe $Se^{rT}$
+      on the loan — exactly the payoff of a long forward struck at
+      $Se^{rT}$. Both the loan-and-buy strategy and entering a forward cost
+      nothing to set up today, so the strike that makes their payoffs match
+      is the one the forward must actually trade at; any other quoted
+      strike lets you run one side of the trade against the other for a
+      riskless profit.
+
+      Discretely compounded the same argument gives $F = S(1 + r)^{T}$
+      instead. An already-existing forward struck at some fixed $K$, rather
+      than at the current fair strike, is worth $(F - K)e^{-rT}$ today — its
+      payoff discounted back, since a forward always costs nothing to enter
+      but a live position with an off-market $K$ generally does not have
+      zero value.
+
+      The mental model to keep is that $F$ is not a forecast of $S_T$ — it
+      says nothing about where the asset is going. It is today's spot,
+      carried forward at the cost of financing the purchase, which is why
+      $F$ moves one-for-one with $S$ and with $r$ and never with anyone's
+      view of the future.
+    worked: >
+      $S = 200$, $r = 3\%$, $T = 2$ years, continuously compounded, no
+      income: $F = 200e^{0.03 \times 2} = 200e^{0.06} \approx
+      200(1.0618) \approx 212.37$ — so the answer is $212.37$.
+    interview: >
+      The canonical prompt is close to "what's the fair forward price on
+      this stock" — the strong answer states $F = Se^{rT}$ and derives it
+      from borrow-buy-hold in the same breath, rather than quoting the
+      formula alone. Interviewers often follow with "is that a prediction
+      of the future price," testing whether you distinguish a carry
+      relationship from a forecast.
+    pitfalls: >
+      Mixing up continuous and discrete compounding — $Se^{rT}$ and
+      $S(1+r)^T$ agree only approximately for small $r$, and an interviewer
+      who specifies one expects that exact form used. Also, treating $F$ as
+      a market view on direction, which invites an easy follow-up you do
+      not want to fumble.
+    recap: >
+      $F = Se^{rT}$ because borrowing to buy the asset now exactly
+      replicates a forward at that strike — the forward price is carried
+      spot, never a forecast.
+  - node: quant-finance.arbitrage.cash-and-carry
+    hook: >
+      This is the trade behind the theorem — if a forward price ever
+      strays from $Se^{rT}$, this is the exact mechanical arbitrage that
+      pulls it back, in both directions.
+    explanation: >
+      Forward pricing gives the fair strike; if the market quotes something
+      else, cash-and-carry, or its mirror, is the explicit trade that
+      exploits the gap. When the forward is quoted rich — above $Se^{rT}$ —
+      borrow cash, buy the asset, and sell the forward: at $T$, deliver the
+      asset into the forward for the rich strike and repay the loan,
+      keeping the difference. When the forward is quoted cheap — below
+      $Se^{rT}$ — run it in reverse: short the asset, lend the proceeds, and
+      buy the forward; at $T$, collect the loan with interest, take
+      delivery at the cheap strike, and use the asset to return what was
+      borrowed.
+
+      Both trades cost nothing to set up and pay a certain, positive amount
+      at $T$ regardless of where the asset ends up — the defining shape of
+      an arbitrage — so only the single strike $F = Se^{rT}$ is consistent
+      with no arbitrage existing on either side. In practice the two
+      directions are not equally easy: the reverse trade needs a stock
+      borrow, which can be costly or simply unavailable, which is one
+      reason cheap forwards tend to persist longer than rich ones.
+    worked: >
+      $S = 50$, $r = 4\%$, $T = 0.5$: fair forward $F = 50e^{0.04 \times
+      0.5} = 50e^{0.02} \approx 51.01$. Suppose the market quotes $52.00$ —
+      rich. Borrow $50$, buy the asset, sell the forward at $52$. At $T$,
+      deliver the asset for $52$ and repay $50e^{0.02} \approx 51.01$,
+      keeping $0.99$. Now suppose instead the market quotes $50.50$ —
+      cheap. Short the asset for $50$, lend the proceeds, buy the forward at
+      $50.50$. At $T$, collect $50e^{0.02} \approx 51.01$, take delivery for
+      $50.50$, return the borrowed asset, and keep $0.51$.
+    interview: >
+      "The forward is trading above fair value — what do you do?" expects
+      the specific four-leg trade named in order (borrow, buy, hold, sell
+      forward), not just "sell the forward." Stating both directions, and
+      which one is usually harder to execute, shows you understand the
+      mechanics rather than just the formula.
+    pitfalls: >
+      Naming only one direction of the trade — the reverse cash-and-carry
+      needs a short sale, which real borrow costs and availability can
+      block, so interviewers listen for you to flag that asymmetry
+      unprompted. Also, forgetting that the profit is the mispricing
+      carried forward at $r$, not the raw quoted gap.
+    recap: >
+      A forward priced away from $Se^{rT}$ in either direction is locked in
+      by borrow-buy-sell-forward or its mirror short-lend-buy-forward —
+      both riskless, which is exactly why only $F = Se^{rT}$ survives.
+  - node: quant-finance.arbitrage.cost-of-carry
+    hook: >
+      The moment an underlying pays income or costs money to hold, the
+      plain $Se^{rT}$ formula is wrong, and this is the fix every commodity
+      or dividend-stock forward question is actually testing.
+    explanation: >
+      Income and holding costs shift the exponent in the forward-pricing
+      formula directly. With a continuous income yield $q$ (dividends on an
+      index, or a commodity's convenience yield working the other way) and
+      a continuous storage cost $u$ (physical storage, insurance),
+      $F = Se^{(r + u - q)T}$ — carry costs raise the forward, income lowers
+      it, exactly as replication predicts: the holder of the physical asset
+      in the borrow-buy-hold trade collects the income and pays the
+      storage, while a forward holder does neither until delivery.
+
+      With dividends known as fixed cash amounts on fixed dates rather than
+      a continuous yield, the adjustment is cleaner:
+      $F = (S - \operatorname{PV}(D))e^{rT}$, replacing $S$ with the
+      ex-dividend value of the position, since the physical holder collects
+      those dividends along the way and the forward holder does not.
+
+      When $q > r + u$ — income outweighs financing and storage cost — the
+      forward trades below spot, called backwardation; when carry cost
+      dominates, it trades above spot, called contango. Both are ordinary
+      outcomes of the same one formula, not separate phenomena needing
+      separate explanations.
+    worked: >
+      $S = 80$, $r = 6\%$, $T = 0.5$, one dividend of $3$ paid at the
+      three-month mark, so its own maturity is $0.25$ years out:
+      $\operatorname{PV}(D) = 3e^{-0.06 \times 0.25} = 3e^{-0.015} \approx
+      2.96$. Then $F = (80 - 2.96)e^{0.06 \times 0.5} = 77.04\,
+      e^{0.03} \approx 77.04(1.0305) \approx 79.39$ — so the answer is
+      $79.39$, below the no-dividend forward of $80e^{0.03} \approx 82.44$.
+    interview: >
+      Any forward question that mentions a dividend, a yield or a storage
+      cost is asking for this adjustment, not the plain formula — state
+      which of the two forms applies, discrete dividend or continuous
+      yield, before plugging in numbers, since using the wrong one is the
+      most common wrong answer.
+    pitfalls: >
+      Discounting the dividend to today at the wrong date — it is the
+      present value of the dividend as of the dividend's own payment date,
+      not $T$. Also, mixing the continuous-yield form and the
+      discrete-dividend form in one problem; pick the one that matches how
+      the income is actually described.
+    recap: >
+      Forward equals spot compounded at the riskless rate, adjusted up for
+      storage cost and down for income — $F = Se^{(r+u-q)T}$ continuously,
+      or $F = (S - \operatorname{PV}(D))e^{rT}$ for known dividend cash
+      flows.
+  - node: quant-finance.arbitrage.put-call-parity
+    hook: >
+      Say this cold: it is the most-quoted identity in the options half of
+      every quant interview, and the interviewer expects the replicating
+      portfolio, not just the formula.
+    explanation: >
+      Hypotheses first, because they are graded: a European call and a
+      European put on the same underlying, same strike $K$, same expiry
+      $T$, no dividends before $T$, a constant riskless rate $r$, no
+      frictions. Under exactly those conditions, $C - P = S - Ke^{-rT}$.
+
+      The proof is replication, applied to two portfolios rather than one.
+      Portfolio A holds the call plus $K$ face value of zero-coupon bonds
+      maturing at $T$. Portfolio B holds the put plus one share. At expiry,
+      A is worth $K + (S_T - K)^{+}$ and B is worth $S_T + (K - S_T)^{+}$ —
+      and these are the same number in every state, both equal to
+      $\max(S_T, K)$, whether $S_T$ ends above or below $K$. Identical
+      payoffs in every state force identical prices today by the law of one
+      price: $C + Ke^{-rT} = P + S$, which rearranges to the stated
+      identity.
+
+      It is worth stressing that this is an identity, not a model: no
+      distribution of $S_T$ appears anywhere in the derivation, only that
+      both portfolios pay $\max(S_T, K)$. Whatever the market's actual
+      prices for $C$ and $P$ are, this equation constrains the two of them
+      relative to each other, independent of anyone's view on volatility or
+      direction.
+    worked: >
+      $S = 50$, $K = 45$, $r = 4\%$, $T = 0.5$: $Ke^{-rT} = 45e^{-0.02}
+      \approx 44.11$, so $C - P = 50 - 44.11 = 5.89$ — so the answer is
+      $5.89$, the call trading nearly six above the put since it is
+      comfortably in the money.
+    interview: >
+      "State put–call parity and prove it" is asked close to verbatim —
+      give the hypotheses first, then the two-portfolio argument, then the
+      identity; skipping straight to the formula loses points even if the
+      formula is correct. A common follow-up asks what breaks if the option
+      is American, testing whether you notice early exercise voids the
+      clean replication.
+    pitfalls: >
+      Dropping a hypothesis silently — American-style options, a dividend
+      before expiry, or mismatched strikes and expiries all break the
+      identity as stated, and each needs its own adjusted form. Also,
+      mixing up which portfolio is which — it is call-plus-bond against
+      put-plus-stock, not put-plus-bond against call-plus-stock.
+    recap: >
+      $C - P = S - Ke^{-rT}$ for European options, same strike and expiry,
+      no dividends — proved by two portfolios that both pay
+      $\max(S_T, K)$ at expiry, hence must cost the same today.
+  - node: quant-finance.arbitrage.parity-worked
+    hook: >
+      Getting the sign of $C - P$ instantly, without recomputing the
+      formula, is the fast version of this identity that interviewers
+      actually want to see.
+    explanation: >
+      Plugging numbers into put–call parity is mechanical, but the useful
+      skill is reading the sign without doing the arithmetic: the call
+      holder in $C - P = S - Ke^{-rT}$ effectively defers paying the strike
+      until $T$, and the interest that deferral is worth is exactly what
+      makes the call the more valuable side when $S$ and $K$ are close. As
+      $K$ moves further above $S$, that advantage shrinks and can flip — a
+      call struck comfortably above the current spot can be worth less than
+      the corresponding put, since the put is now the side more likely to
+      pay off.
+
+      The identity pins only the difference $C - P$, never either price on
+      its own — parity says nothing about the level of volatility, so it
+      constrains one option once you already know the other, but it never
+      tells you either price starting from nothing.
+    worked: >
+      $S = 60$, $K = 65$, $r = 5\%$, $T = 0.5$: $Ke^{-rT} = 65e^{-0.025}
+      \approx 63.40$, so $C - P = 60 - 63.40 = -3.40$ — so the answer is
+      $-3.40$: with the strike above the spot, the put is worth $3.40$ more
+      than the call. If the call is quoted at $2.10$, the put must be
+      $5.50$.
+    interview: >
+      Expect a quoted price for one option and a request for the other —
+      the fast path is compute $S - Ke^{-rT}$ once, then add or subtract
+      the known price, never solve for $C$ and $P$ separately from scratch.
+      Being asked to explain a negative $C - P$ out loud, as here, is a
+      common check that you understand the identity rather than having
+      memorized one sign pattern.
+    pitfalls: >
+      Assuming $C > P$ always — that only holds when $S$ is at or above
+      $Ke^{-rT}$; struck comfortably out of the money, the put is the more
+      valuable side and $C - P$ is negative. Also, forgetting the discount
+      on $K$ and using $S - K$ instead of $S - Ke^{-rT}$, which is the raw
+      intrinsic-value gap, not the parity gap.
+    recap: >
+      With $K$ above $S$ the sign can flip: $S - Ke^{-rT}$ pins the exact
+      gap, positive or negative, and the discounting of $K$ is what makes
+      it differ from plain intrinsic value.
+  - node: quant-finance.arbitrage.parity-violation
+    hook: >
+      "The screen shows a call and a put that violate parity — what trade
+      do you put on?" is asked with real numbers, and the conversion is the
+      exact, nameable answer.
+    explanation: >
+      When the market's quoted gap $C - P$ exceeds the fair gap
+      $S - Ke^{-rT}$, the call is priced rich relative to the put, and the
+      trade that exploits it is called a conversion: sell the rich call,
+      buy the put, buy the share, funding the net outlay by borrowing at
+      $r$. By the parity proof, the share plus the put minus the call is
+      worth exactly $K$ at expiry in every state — a synthetic riskless bond
+      — so repaying the loan against that guaranteed $K$ locks in the
+      mispricing, carried forward to expiry at the borrowing rate.
+
+      When the gap is too small instead — the put priced rich relative to
+      the call — the mirror trade, a reversal, does the same job with every
+      leg flipped: buy the call, sell the put, short the share, and lend the
+      resulting credit instead of borrowing. Either way the size of the
+      profit at expiry is today's mispricing compounded forward by
+      $e^{rT}$, not the raw mispricing itself.
+    worked: >
+      $S = 50$, $K = 50$, $r = 4\%$, $T = 1$: fair gap $50 - 50e^{-0.04}
+      \approx 50 - 48.04 = 1.96$. Suppose the screen shows $C = 5.00$,
+      $P = 2.00$, a gap of $3.00$ — the call is rich. Conversion: short the
+      call ($+5$), long the put ($-2$), long the share ($-50$), a net
+      outlay of $47$, funded by borrowing at $4\%$. At expiry the share
+      plus put minus call is worth exactly $K = 50$ regardless of $S_T$;
+      repay $47e^{0.04} \approx 48.92$ and keep $50 - 48.92 = 1.08$ — so the
+      answer is $1.08$, close to the $1.04$ mispricing carried one year
+      forward.
+    interview: >
+      State the four legs in order — short the rich option, long the cheap
+      one, take the matching stock position, finance the difference — and
+      name the trade a "conversion" or "reversal" by ear; interviewers use
+      these terms and expect them back.
+    pitfalls: >
+      Sizing the profit as the raw mispricing rather than the mispricing
+      compounded forward at $r$ to expiry — the two only coincide when $r$
+      or $T$ is near zero. Also, getting the stock leg backwards: a
+      conversion is long the share, a reversal is short it, and mixing them
+      up inverts the whole trade's sign.
+    recap: >
+      A gap wider than fair means sell the call, buy the put, buy the share
+      and borrow the rest — a conversion — locking in today's mispricing
+      carried forward to expiry; a reversal is the exact mirror when the
+      gap is too narrow.
+  - node: quant-finance.arbitrage.synthetics
+    hook: >
+      Every trading desk quotes conversions and boxes because parity turns
+      any one of call, put, stock and bond into a combination of the other
+      three — this is how desks manufacture whichever leg is missing or
+      mispriced.
+    explanation: >
+      Rearranging $C - P = S - Ke^{-rT}$ solves for any single instrument
+      in terms of the other three. Synthetic long stock is long call, short
+      put, plus $K$ face value of bonds: $S = C - P + Ke^{-rT}$. Synthetic
+      call is long put, long share, short $Ke^{-rT}$ of bonds. The working
+      use is always the same: price the synthetic from the other three
+      legs, compare it to the direct quote, and trade whichever side is out
+      of line, since the whole package is delta-flat by construction — its
+      value does not move with small moves in $S_T$.
+
+      Two named combinations recur constantly. A conversion is long share,
+      long put, short call at one strike and expiry — a package worth
+      exactly $K$ at expiry no matter what $S_T$ does, functioning as a
+      synthetic riskless bond; a reversal is its exact opposite. Combine a
+      conversion at one strike with a reversal at a higher strike and the
+      two option legs cancel down to a box spread: riskless, and paying
+      exactly the gap between the two strikes at expiry — which is why
+      desks use boxes to lend or borrow through the options market rather
+      than through a bank.
+    worked: >
+      Price a box spread from strikes $K_1 = 90$ and $K_2 = 100$, $r = 5\%$,
+      $T = 1$: its fair value is the discounted spread, $(K_2 - K_1)e^{-rT}
+      = 10e^{-0.05} \approx 9.51$, and its certain payoff at expiry is
+      $10$. If the box is quoted at $9.00$, buy it, funding the purchase by
+      borrowing at $5\%$: repay $9.00e^{0.05} \approx 9.46$ at $T$, collect
+      the guaranteed $10$, and keep $10 - 9.46 = 0.54$ — so the answer is
+      $0.54$.
+    interview: >
+      "Build synthetic stock from options" or "price a box spread" are both
+      standard prompts — the fast answer rearranges $C - P = S - Ke^{-rT}$
+      live rather than reciting a memorized synthetic formula, since every
+      synthetic is the same one identity solved for a different variable.
+    pitfalls: >
+      Forgetting that a box's fair value is the discounted strike spread,
+      not the raw spread — comparing a quoted box price to $K_2 - K_1$
+      directly instead of to $(K_2-K_1)e^{-rT}$ misjudges every box as
+      mispriced. Also, mismatching strikes or expiries between the
+      conversion and reversal legs, which breaks the option cancellation
+      that makes the box riskless.
+    recap: >
+      Any one of call, put, stock and bond is replicable from the other
+      three by rearranging parity — conversions and reversals synthesize a
+      bond from options and stock, and two of them at different strikes
+      combine into a riskless box worth the discounted strike spread.
+  - node: quant-finance.arbitrage.parity-dividends
+    hook: >
+      An interviewer who adds "and the stock pays a dividend" to a parity
+      question is testing whether you know which side of the identity
+      moves, and by how much.
+    explanation: >
+      Dividends paid before expiry move value from the call side of parity
+      to the put side. With dividends of known present value
+      $\operatorname{PV}(D)$, $C - P = S - \operatorname{PV}(D) - Ke^{-rT}$;
+      with a continuous yield $q$ instead, $C - P = Se^{-qT} - Ke^{-rT}$.
+      The reasoning traces straight back to the replicating portfolio: the
+      share leg of that portfolio collects the dividends along the way, so
+      only the ex-dividend part of the spot needs to be funded by the bond
+      leg — the call holder, who owns no share yet, never sees that income.
+
+      The tidiest way to hold every case in one formula is to write parity
+      in terms of the forward price itself: $C - P = (F - K)e^{-rT}$, since
+      $F$ already embeds whatever dividend, yield or storage adjustment
+      applies. This is the version worth defaulting to once the forward is
+      known, because it never needs re-deriving for a new carry structure.
+    worked: >
+      $S = 200$, $K = 190$, $r = 5\%$, $T = 1$, continuous dividend yield
+      $q = 3\%$: $C - P = 200e^{-0.03} - 190e^{-0.05} \approx 194.09 -
+      180.73 = 13.36$ — so the answer is $13.36$, below the no-dividend gap
+      of $200 - 190e^{-0.05} \approx 19.27$ by roughly the value of the
+      yield.
+    interview: >
+      Whenever a parity question mentions a dividend or an index yield, the
+      expected move is to substitute into
+      $C - P = S - \operatorname{PV}(D) - Ke^{-rT}$ or the yield form
+      immediately, and being able to fall back on $C - P = (F-K)e^{-rT}$
+      when the forward is already given saves a step.
+    pitfalls: >
+      Applying the discrete-dividend form and the continuous-yield form to
+      the same problem, or forgetting the dividend altogether and reusing
+      the no-dividend identity — the gap always shrinks once real income is
+      subtracted from the share side. Also, discounting the dividend at $T$
+      instead of at its own payment date.
+    recap: >
+      Dividends or yield shrink the call–put gap by moving value to the put
+      side — $C - P = S - \operatorname{PV}(D) - Ke^{-rT}$ for known
+      dividends, $Se^{-qT} - Ke^{-rT}$ for a continuous yield, or
+      $(F-K)e^{-rT}$ in forward terms covering both at once.
+  - node: quant-finance.arbitrage.option-bounds
+    hook: >
+      "Without a pricing model, what can you say about this option's
+      price?" is answered entirely by these bounds — no volatility, no
+      distribution, just arbitrage.
+    explanation: >
+      For European options on a non-dividend stock, four inequalities hold
+      with nothing more than no-arbitrage: $0 \le C \le S$ and
+      $C \ge (S - Ke^{-rT})^{+}$; symmetrically $0 \le P \le Ke^{-rT}$ and
+      $P \ge (Ke^{-rT} - S)^{+}$. The upper bounds are the easy direction: a
+      call can never be worth more than the stock itself, since owning the
+      stock outright dominates the right to buy it, and a put can never be
+      worth more than $Ke^{-rT}$, the most it could ever pay discounted to
+      today.
+
+      The lower bounds fall straight out of put–call parity plus the fact
+      that option prices cannot be negative: from $C = P + S - Ke^{-rT}$ and
+      $P \ge 0$, immediately $C \ge S - Ke^{-rT}$, and the same substitution
+      with $C \ge 0$ gives the put's floor. Since $C \ge 0$ always as well,
+      the two lower bounds combine into the stated $(\cdot)^{+}$ form —
+      whichever of the two terms is larger.
+
+      American options only add value on top of these: $C_A \ge \max(C,
+      S-K)$ and $P_A \ge \max(P, K-S)$, since the American holder has every
+      right the European holder has plus the option to exercise early.
+    worked: >
+      $S = 70$, $K = 80$, $r = 3\%$, $T = 0.5$: $Ke^{-rT} = 80e^{-0.015}
+      \approx 78.81$. The call's floor is $(70 - 78.81)^{+} = 0$ — since
+      the stock is well below the discounted strike, the ordinary
+      $C \ge 0$ bound is the one that actually binds, not the parity-based
+      floor — while its ceiling stays $C \le 70$. The put's floor is
+      $(78.81 - 70)^{+} = 8.81$, so the put must trade between $8.81$ and
+      $78.81$ — so the answer is a put no cheaper than $8.81$.
+    interview: >
+      Given a spot, strike, rate and expiry with no volatility mentioned,
+      the interviewer wants both bounds stated and, ideally, which one is
+      binding — an out-of-the-money option like the call above has its
+      lower bound collapse to the trivial $0 \ge \dots$, and noticing that
+      is the actual test.
+    pitfalls: >
+      Quoting the parity-derived lower bound as if it always binds — when
+      the stock is well below the discounted strike, plain nonnegativity is
+      the tighter floor for the call, and the reverse for the put. Also,
+      applying these bounds to American options directly; American values
+      need the separate, looser inequalities.
+    recap: >
+      Every European option price sits in a box fixed purely by arbitrage
+      — $0 \le C \le S$ with floor $(S-Ke^{-rT})^{+}$, and symmetrically for
+      the put — with no model or volatility involved.
+  - node: quant-finance.arbitrage.no-early-exercise
+    hook: >
+      "Would you ever exercise an American call early on a stock with no
+      dividends?" has one correct answer, and the arbitrage bound proves it
+      in two lines.
+    explanation: >
+      For an American call on a non-dividend stock with $r > 0$, early
+      exercise is never optimal, so the American call is worth exactly what
+      the European call is worth. The proof is immediate from the option
+      bounds: $C_A \ge C \ge S - Ke^{-rT} > S - K$ whenever $r>0$ and
+      $T>0$, and $S - K$ is all that exercising the option collects. Since
+      the option alive is worth strictly more than the option exercised,
+      selling it always beats exercising it.
+
+      Two equivalent economic readings are worth having ready. Exercising
+      early pays the strike a full period ahead of when it is actually
+      owed, forfeiting the interest that deferral is worth — exactly the
+      gap between $Ke^{-rT}$ and $K$. And by parity, giving up the option
+      early also throws away the protective put embedded in it, worth
+      $P \ge 0$, for nothing in return.
+
+      The argument depends entirely on there being no dividend before
+      expiry — a dividend transfers value out of the stock the option
+      holder doesn't own yet, and exercising just before a large enough
+      dividend can genuinely be the better choice.
+    worked: >
+      $S = 90$, $K = 80$, $r = 6\%$, $T = 0.5$: exercising now collects the
+      intrinsic value $S - K = 10$. The arbitrage floor is
+      $S - Ke^{-rT} = 90 - 80e^{-0.03} \approx 90 - 77.64 = 12.36$, strictly
+      above $10$ — so the answer is that holding is worth at least $12.36$
+      against only $10$ from exercising, a $2.36$ loss avoided by not
+      exercising.
+    interview: >
+      The expected answer names the inequality $C \ge S - Ke^{-rT} > S - K$
+      directly rather than an intuition-only argument, and immediately
+      flags that a dividend breaks it — interviewers often follow up by
+      asking exactly that.
+    pitfalls: >
+      Reasoning from intuition alone, "why give up time value," without
+      being able to produce the actual inequality — interviewers want the
+      arbitrage bound, not just the conclusion. Also, forgetting the
+      no-dividend hypothesis is doing all the work; stating the result as
+      universally true for American calls is wrong.
+    recap: >
+      An American call on a non-dividend stock is never worth exercising
+      early, because its arbitrage floor $S - Ke^{-rT}$ already exceeds the
+      intrinsic value $S-K$ that exercising collects — so it is worth
+      exactly the European call.
+  - node: quant-finance.arbitrage.american-put-early
+    hook: >
+      This is the one clean exception in the whole unit — the single case
+      where "never exercise early" flips to "sometimes you must," and
+      interviewers ask for it specifically because it is the exception.
+    explanation: >
+      The argument for calls reverses for puts because of a
+      cash-versus-time-value asymmetry: exercising an American put
+      immediately pays $K - S$ in cash right now, while a European put can
+      never be worth more than $Ke^{-rT}$, the present value of its single
+      best possible outcome, since even the maximum payoff $K$ itself only
+      arrives at $T$, discounted back.
+
+      Deep in the money, with $S$ near zero, exercising collects close to
+      the full strike $K$ today, but the European put is capped at
+      $Ke^{-rT}$, strictly less than $K$. Since the American put must be
+      worth at least what immediate exercise pays, $P_A \ge K - S$, while
+      $P \le Ke^{-rT} < K$, there is a stock price low enough that $P_A$
+      strictly exceeds $P$ — early exercise becomes optimal below some
+      critical boundary, and that boundary has no closed form.
+
+      The interview-ready summary pairs directly with the call result: an
+      American call on a non-dividend stock equals the European call, but
+      an American put can be strictly more valuable than the European put.
+      On a non-dividend stock, parity itself degrades from an equality to
+      the two-sided band $S - K \le C_A - P_A \le S - Ke^{-rT}$ once early
+      exercise is a live possibility.
+    worked: >
+      $K = 50$, $r = 4\%$, $T = 2$, and $S = 2$ — deep in the money.
+      Exercising now collects $K - S = 48$ in cash. The European put's
+      ceiling is $Ke^{-rT} = 50e^{-0.08} \approx 46.16$, strictly below the
+      $48$ available from exercising — so the answer is that the American
+      put must be worth at least $48$, strictly more than any European put
+      on the same terms could be.
+    interview: >
+      "Does the no-early-exercise result apply to puts?" is a near-automatic
+      follow-up after stating it for calls — the correct answer names the
+      asymmetry directly: exercising a put realizes cash now, exercising a
+      call gives up cash it would otherwise still owe, and that difference
+      is why the results are not symmetric.
+    pitfalls: >
+      Assuming the no-early-exercise argument for calls transfers to puts
+      by symmetry — it does not, precisely because a put's exercise value
+      is cash received rather than cash deferred. Also, expecting a
+      closed-form exercise boundary for the American put; none exists in
+      general, only the qualitative fact that one exists below some
+      critical stock price.
+    recap: >
+      Deep in the money, exercising an American put now for $K-S$ in cash
+      can beat any European put, which is capped at $Ke^{-rT} < K$ — the
+      one case where early exercise survives, unlike the American call.
+  - node: quant-finance.arbitrage.fx-triangular
+    hook: >
+      Triangular FX arbitrage is the law of one price wearing a currency
+      costume, and the mechanical trade — three legs, one loop — is asked
+      almost verbatim across trading desks.
+    explanation: >
+      Three currencies give three exchange rates, and the law of one price
+      demands they multiply to exactly one around the loop — otherwise
+      converting through all three and back is not a neutral round trip, it
+      is a source of free money. Given rates for currency A into B, B into
+      C, and a direct quote for A into C, the implied cross from the first
+      two legs is the product of those two rates; whenever the direct quote
+      disagrees with that implied cross, one path through the loop is
+      strictly cheaper than the other.
+
+      The trade itself has no distribution of anything in it and no
+      position held afterward — it is three simultaneous conversions,
+      ending back in the starting currency with strictly more of it than
+      you began with. Which direction to run the loop is read straight off
+      which side of the implied cross the direct quote sits on; the
+      round-trip spread on all three legs is the real-world hurdle, and
+      shaving it thin enough to trade profitably is a latency business
+      rather than an analytical one.
+    worked: >
+      Quotes: GBP/USD $= 1.30$, EUR/USD $= 1.05$, and a direct GBP/EUR
+      quote of $1.26$. The implied cross from the first two legs is
+      $1.30/1.05 \approx 1.2381$, so the direct quote of $1.26$ makes the
+      pound rich against the euro. Starting with $1{,}000{,}000$ USD:
+      convert to GBP at $1.30$ to get $769{,}230.77$ GBP; sell those for
+      EUR at the rich quoted $1.26$ to get $969{,}230.77$ EUR; convert back
+      to USD at $1.05$ to get $1{,}017{,}692.31$ USD — a riskless profit of
+      $17{,}692.31$ USD, about $1.77\%$, with no position held at the end.
+    interview: >
+      "Given these three FX quotes, is there an arbitrage, and how would
+      you trade it?" expects the implied-cross comparison stated first,
+      then the specific three-leg loop in the correct direction — naming
+      which leg is mispriced, not just noticing the rates disagree.
+    pitfalls: >
+      Getting a quote convention backwards — dividing instead of
+      multiplying, or inverting which currency is the base — flips the
+      direction of the whole loop and turns a profitable trade into a
+      loss. Also, ignoring the three round-trip spreads: a cross a few
+      basis points off the implied rate is often entirely inside
+      transaction cost and not tradeable at all.
+    recap: >
+      Three FX rates must multiply to one around any loop; when they do
+      not, converting through all three legs and back turns a fixed
+      starting amount into strictly more of the same currency, riskless.

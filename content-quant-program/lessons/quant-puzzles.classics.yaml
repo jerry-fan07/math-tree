@@ -1,0 +1,987 @@
+unit: quant-puzzles.classics
+opening: >
+  Classic brainteasers reward a different skill than most of the tree: the
+  interviewer already assumes you may have met the puzzle before, so the score
+  is not the final number but whether you can rebuild the winning idea live
+  and name the family it belongs to. This unit opens with the one distinction
+  that governs how every puzzle here should be read — a guaranteed worst case
+  is not an average — then groups the rest by the move that cracks them:
+  information-counting for weighing and searching, rate-and-phase reasoning
+  for scheduling puzzles, protocol design for players who cannot communicate,
+  and invariants for reachability questions. Work the sequence once, then
+  treat each lesson as a standalone entry: know which family a new puzzle
+  belongs to and the specific numbers fall out fast.
+lessons:
+  - node: quant-puzzles.classics.guarantee-vs-average
+    hook: >
+      Interviewers routinely ask "how many" twice in the same sitting — once
+      wanting a guarantee, once wanting an average — and answering the wrong
+      question, however cleanly reasoned, earns no credit.
+    explanation: >
+      A guarantee is a claim about the worst outcome an adversary can arrange
+      against a fixed procedure; an average is a claim about a stated random
+      process. The two demand entirely different proofs: a guarantee needs a
+      lower bound (why no scheme can do better) and a matching scheme (one
+      that actually attains the bound), while an average needs nothing but a
+      probability model and direct summation.
+
+      The lower bound for a guarantee is almost always a counting argument:
+      count how many final answers a procedure must distinguish, count how
+      many distinct outcomes your available moves can produce, and note that
+      the second number must reach the first. This is the same move whether
+      the "moves" are weighings, questions, or guesses, and it's what turns "I
+      found a scheme with three steps" into "three steps is also provably
+      necessary."
+
+      Worst-case thinking additionally means imagining an adversary who sees
+      your entire deterministic plan in advance and then picks the hidden
+      configuration to hurt you most — a plan that's fast on most inputs and
+      slow on one is scored at its slowest branch, full stop. An average
+      question instead needs an actual distribution stated or assumed, and any
+      answer given without one is not wrong so much as incomplete.
+    interview: >
+      The tell is the phrase itself: "what's the minimum number of weighings
+      that always works" wants a guarantee, "what's the expected number of
+      guesses" wants an average — state out loud which one you're answering
+      before touching arithmetic, since interviewers deliberately phrase some
+      questions ambiguously to see if you ask.
+    pitfalls: >
+      Computing an average number of steps and presenting it as the answer to
+      a stated guarantee question (or the reverse) is the single most common
+      miss in this whole family of puzzles. Supplying only the scheme half of
+      a guarantee answer, with no argument for why fewer steps cannot possibly
+      work, leaves the harder half unanswered.
+    recap: >
+      Guarantee answers need a lower bound and a matching scheme under an
+      adversary; average answers need a stated distribution — never let one
+      stand in for the other.
+
+  - node: quant-puzzles.classics.coin-weighing
+    hook: >
+      This is the single most-recycled puzzle in the whole interview canon, so
+      the actual scoring event is never "do you know the answer is three" —
+      it's whether you can rebuild the counting bound and the pan-splitting
+      scheme from scratch under a clock.
+    explanation: >
+      Each weighing has exactly three possible outcomes — left pan down,
+      right pan down, balanced — so $w$ weighings can in principle distinguish
+      $3^{w}$ final states. The unknown here is a pair (which of twelve coins,
+      heavy or light), so there are $24$ states to separate; since
+      $3^{2}=9<24$ but $3^{3}=27\ge 24$, three is the first weighing count
+      that could possibly work, and the whole puzzle becomes proving a scheme
+      actually reaches that ceiling.
+
+      The scheme has to make every weighing worth close to its full three
+      outcomes of information, which is why the first split is four against
+      four rather than six against six: leaving four coins off the scale
+      keeps the balanced branch informative (narrowing to four suspects,
+      still requiring real work) instead of wasting most of the outcome space
+      on a lopsided partition.
+
+      The second-weighing trick — moving specific coins between the two pans
+      and pulling in known-genuine coins to pad — is what makes the scheme,
+      not just the count, work: reshuffling suspects between pans is what
+      lets a single weighing simultaneously test "is coin X heavy" and "is
+      coin Y light," separating all the surviving cases with one three-way
+      split.
+    worked: >
+      Nine coins, one heavier than the rest, direction already known — two
+      weighings. Split into three groups of three, A, B, C, and weigh A
+      against B. A balance puts the heavy coin in C; an imbalance puts it in
+      whichever pan went down. Either way you're left with three suspects and
+      one weighing: weigh any two of the three against each other — a balance
+      names the third as heavy, an imbalance names the heavier pan. Nine
+      coins collapse to one in exactly two weighings, matching $3^{2}=9$
+      exactly.
+    interview: >
+      The disguise is almost always a change to what's unknown: "direction
+      known" cuts the state count per suspect in half, while "no known-genuine
+      coins available as reference" removes the padding trick and can force an
+      extra weighing. Listen for whether the interviewer states the direction
+      as known or unknown before committing to a group size.
+    pitfalls: >
+      Forgetting that an unknown direction doubles the state count (twenty-four,
+      not twelve) is the most common miscount, and it silently invalidates a
+      plan built for the direction-known version. Splitting into unequal
+      groups, or reusing the exact same coins in the same pans on the second
+      weighing, wastes the informative branches the first weighing bought.
+    recap: >
+      Three weighings suffice for twelve coins because $3^{3}=27$ just clears
+      the $24$ states to separate, and the scheme earns that bound by
+      reshuffling suspects across pans rather than repeating the same split.
+
+  - node: quant-puzzles.classics.coin-weighing-scaling
+    hook: >
+      The interviewer's natural follow-up to the twelve-coin puzzle is "and
+      with four weighings?" — answering instantly from the formula, rather
+      than re-deriving the whole scheme, is what separates having solved the
+      puzzle from having understood it.
+    explanation: >
+      The counting bound from three weighings generalises directly: $n$
+      weighings distinguish at most $3^{n}$ outcomes, but three of those are
+      wasted. Two are lost because the all-left and all-right tilt sequences
+      each need to single out a specific coin with no counterpart, which
+      symmetry forbids; a third is lost because the all-balanced sequence only
+      says "no fake found among the suspects weighed," carrying no direction
+      information at all. Net usable capacity is $3^{n}-3$ states, and since
+      each of the two directions needs its own state, the coin count is
+      $(3^{n}-3)/2$.
+
+      A reference coin fixes the other wasted pair, not the all-balanced one:
+      the all-balanced sequence can only ever mean "no counterfeit found
+      among the coins actually weighed," which never carries a direction and
+      stays wasted regardless. What's actually unusable without a reference
+      is a coin whose codeword rides one pan every single weighing, since
+      such a coin would leave that pan permanently one coin ahead of the
+      other in count, violating the requirement that both pans hold equally
+      many coins each round. One known-genuine reference coin can pad the
+      opposite pan on every such round, legalising that one extra coin's two
+      possible states and recovering exactly the two outcome sequences that
+      were otherwise off-limits, pushing the bound from $3^{n}-3$ to
+      $3^{n}-1$.
+
+      The scheme achieving this bound doesn't need to be adaptive — you don't
+      need to see weighing one's result before planning weighing two. Assign
+      each coin a fixed length-$n$ code over left, right, and off in advance,
+      place it on the left or right pan (or aside) exactly as its code says on
+      each weighing, and read the sequence of three tilts as one base-$3$
+      number that names the fake and its direction directly.
+    worked: >
+      Five weighings, no reference coin: $(3^{5}-3)/2 = (243-3)/2 = 120$
+      coins. Adding one known-genuine reference coin to pad whichever pan
+      would otherwise fall short legalises the one coin whose codeword rides
+      a single pan every round, and pushes the bound to
+      $(3^{5}-1)/2 = (243-1)/2 = 121$ coins — one extra coin identified for
+      the cost of borrowing a coin you already trust.
+    interview: >
+      A common trap question is "so doubling the weighings doubles the coins
+      you can check" — it doesn't; the bound is exponential in the number of
+      weighings, not linear, so going from three to four weighings jumps from
+      twelve to thirty-nine coins. Expect to be asked to justify the $-3$ or
+      $-1$ correction rather than just quote the formula.
+    pitfalls: >
+      Using $3^{n}/2$ without subtracting the wasted states overcounts by
+      exactly the amount the all-balanced and all-tilted-one-way sequences
+      fail to distinguish. Forgetting that a reference coin only buys back the
+      all-tilted-one-way pair, and never the all-balanced sequence, is the
+      other common overreach.
+    recap: >
+      The information bound $(3^{n}-3)/2$, or $(3^{n}-1)/2$ with one
+      reference coin, is tight and achieved by a fixed, non-adaptive base-$3$
+      coding of every coin across all $n$ weighings.
+
+  - node: quant-puzzles.classics.mislabeled-jars
+    hook: >
+      This puzzle is over in one draw, and the entire interview is about
+      whether you can explain why zero draws fail and why any other single
+      draw might not — not about performing the arithmetic.
+    explanation: >
+      Before any fruit is drawn, count how many labelings are still
+      consistent with "every label is wrong": with three categories, the
+      number of ways to assign contents so that no jar's true content matches
+      its label is the number of derangements of three items, exactly two.
+      Zero draws leaves both possibilities open, so some information is
+      unavoidably required — the guarantee's lower bound is this count of
+      surviving worlds, not a physical argument about jars.
+
+      A single well-chosen draw eliminates one of the two worlds outright only
+      if it's taken from the jar labelled "mixed," because that jar's true
+      content is forced away from "mixed" by the constraint, leaving exactly
+      two possible contents for it — whichever one the drawn fruit reveals
+      collapses both derangements to one immediately. A draw from a jar
+      labelled with an actual fruit name doesn't have this property: that jar
+      could still hold either of the other fruits or the mix, so a single
+      fruit doesn't always separate the two surviving worlds.
+
+      Once the "mixed"-labelled jar's true content is known, the rest cascades
+      by elimination rather than more draws: the jar labelled with the fruit
+      you just identified cannot hold that fruit and cannot be mixed either,
+      so its content is forced, and the third jar's follows by exhaustion.
+    worked: >
+      With two categories instead of three — say two jars holding only red or
+      only blue marbles, both labels swapped — there's only one derangement
+      of two items, so "all labels wrong" already pins the full assignment:
+      the jar labelled red holds blue and vice versa, with zero draws needed.
+      Contrast four categories: the derangement count jumps to nine, and a
+      single draw, with at most four distinguishable outcomes, can no longer
+      guarantee collapsing all nine surviving worlds to one, so the three-jar
+      puzzle's "one draw always suffices" doesn't extend to four labels
+      without a second draw.
+    interview: >
+      The question is almost always asked with the constraint stated exactly
+      as here — every label wrong — so watch for a weakened version ("at
+      least one jar is correctly labelled") where the surviving-worlds count
+      differs and one draw may no longer suffice; naming the derangement count
+      out loud is the fast way to check.
+    pitfalls: >
+      Drawing from a jar whose label names an actual fruit, rather than the
+      jar labelled "mixed," can leave more than one world consistent with what
+      you see — an orange from the jar labelled "apples" leaves that jar as
+      either oranges or mixed. Assuming the one-draw answer generalises
+      unchanged to more than three categories ignores that the number of
+      surviving worlds grows far faster than what a single draw can
+      distinguish.
+    recap: >
+      One draw from the jar labelled "mixed" collapses the two consistent
+      derangements to one, and every other jar's true label then follows by
+      elimination.
+
+  - node: quant-puzzles.classics.egg-drop
+    hook: >
+      This is the purest test of working backwards from a budget rather than
+      searching forward through drop sequences, and the interviewer is
+      listening for the triangular-number argument, not just a memorised
+      fourteen.
+    explanation: >
+      Frame the state as a budget: with a given number of eggs and drops
+      remaining, ask how many floors that budget can certify. Once the first
+      egg breaks on some drop, only one egg is left, and it must sweep the
+      untested floors below it one at a time — no shortcuts, since a second
+      break with the last egg tells you nothing further. So a jump of $s$
+      floors costs $s$ drops in the worst case, whether the egg breaks
+      immediately or survives.
+
+      Working backwards from a total budget of $n$ drops: the very first drop
+      can go no higher than floor $n$, because a break there must still be
+      resolved by sweeping $n-1$ remaining floors one at a time, using up the
+      rest of the budget exactly. If it survives, the budget for the next jump
+      is $n-1$, forcing the next jump height down by exactly one, and so on —
+      the jump heights must be $n, n-1, n-2, \ldots, 1$, summing to
+      $n(n+1)/2$ floors covered for a budget of $n$ drops.
+
+      Solving $n(n+1)/2 \ge \text{floor count}$ for the smallest integer $n$
+      gives the answer directly, with no simulation of individual drop
+      sequences required.
+    worked: >
+      A $200$-floor building, two eggs: solve $n(n+1)/2 \ge 200$. At $n=19$,
+      $19 \cdot 20/2 = 190 < 200$; at $n=20$, $20 \cdot 21/2 = 210 \ge 200$, so
+      $20$ drops suffice and $19$ do not. The schedule is floors
+      $20, 39, 57, 74, 90, 105, 119, 132, 144, 155, 165, 174, 182, 189, 195,
+      200$, from jumps shrinking $20, 19, 18, \ldots$; a break anywhere costs
+      at most $19$ more one-floor sweeps, and no branch exceeds $20$ drops
+      total.
+    interview: >
+      Expect the floor count to change, or the egg count to change to three,
+      which needs a genuinely different two-dimensional recursion rather than
+      a simple triangular sum — naming that the two-egg formula doesn't extend
+      by the same argument is itself a signal you understand why it worked.
+    pitfalls: >
+      Reusing the same jump size after a surviving drop, rather than shrinking
+      it by one, silently assumes an unlimited egg budget and produces a
+      schedule that fails on the worst branch. Treating this like binary
+      search and halving the remaining floors each time ignores that a second
+      break with the last egg is fatal to the search, not just uninformative.
+    recap: >
+      Two eggs and a budget of $n$ drops cover $n(n+1)/2$ floors via jump
+      sizes that shrink by one after every survival, so the minimum drops for
+      $100$ floors is $14$ and for $200$ floors is $20$.
+
+  - node: quant-puzzles.classics.phase-scheduling
+    hook: >
+      Any puzzle that asks for the minimum total time or cost of a sequence of
+      moves is quietly asking you to find a rate, not to search over
+      orderings — missing this reframe is why these puzzles feel
+      combinatorial when they're actually arithmetic.
+    explanation: >
+      The reframe is to stop asking which sequence of moves is fastest and
+      instead ask what progress costs per unit, and whether that cost ever
+      changes. Cut the process into phases inside which the marginal cost per
+      unit of progress is constant, count how many units each phase must
+      cover, and let the only real decision be where the phase boundaries
+      fall.
+
+      This works because listing the rates does two jobs at once: it turns
+      the optimization into comparing a handful of numbers instead of
+      searching a combinatorial space of orderings, and it supplies the
+      matching lower bound for free — no schedule can beat the best available
+      rate in whichever phase it's currently in, so a schedule that matches
+      the rate in every phase is automatically optimal.
+
+      The skill is spotting where the rate actually changes. It's rarely
+      announced explicitly; it's usually a hidden threshold in the problem's
+      physical setup — a resource crossing a capacity boundary, a group's
+      bottleneck member changing, a process switching from parallel to serial
+      effort.
+    worked: >
+      A battery charges at $2\%$ per minute while its charge is below $80\%$,
+      then drops to $0.5\%$ per minute above that; find the minimum time from
+      empty to $95\%$. Phase one covers $0$ to $80\%$ at the fast rate:
+      $80/2=40$ minutes. Phase two covers the remaining $15$ points at the
+      slow rate: $15/0.5=30$ minutes. Total: $40+30=70$ minutes, with the
+      phase boundary sitting exactly where the rate itself changes.
+    interview: >
+      The bridge, camel, and fuse puzzles are literally this technique
+      applied to three different resources — time, banana inventory, and burn
+      length — so once you're asked any "minimum time or cost" puzzle, naming
+      the phases and their rates out loud before computing anything is the
+      expected first move.
+    pitfalls: >
+      Searching over move orderings by hand, rather than identifying the rate
+      structure first, wastes time and tends to land on a locally-good but
+      globally suboptimal schedule. Missing a rate change — treating the
+      whole process as one phase when a threshold is crossed partway through —
+      silently uses the wrong constant and gives a wrong total.
+    recap: >
+      Split the process into constant-rate phases, size each phase, and
+      optimize only the boundaries — the rate list is simultaneously the
+      schedule and its own lower-bound proof.
+
+  - node: quant-puzzles.classics.bridge-crossing
+    hook: >
+      The instinctive plan — let the fastest person ferry everyone else
+      across one at a time — is a trap that costs extra minutes here, and the
+      interviewer is watching for whether you notice before committing to it.
+    explanation: >
+      The naive plan pays for the two slowest people separately, once each,
+      as they cross alone with an escort. The fix is a rate-phase reframe:
+      instead of asking who escorts whom, ask how many times you have to pay
+      for your slowest people, and whether you can pay for both at once.
+      Sending the two slowest across together in the same trip pays their
+      cost exactly once — the price of that trip is set by whichever of the
+      two is slower, not by adding both times.
+
+      That saving isn't free: pairing the two slow people together requires
+      the torch to already be on their side and to get back afterward, which
+      costs two extra fast round trips. The trade is worth it exactly when the
+      second-slowest person's solo crossing cost exceeds what those extra fast
+      trips cost — true whenever the two slow times are large next to the fast
+      ones.
+
+      The optimality argument mirrors the rate-and-phase lower bound
+      directly: whichever single crossing carries the slowest person either
+      carries the second-slowest along too, paying for both at once, or it
+      doesn't, forcing a separate crossing — and the second structure is
+      provably worse whenever the fast pair is cheap enough to shuttle twice.
+    worked: >
+      Crossing times $1, 2, 8, 9$ minutes. Fastest-ferries-everyone:
+      $2+1+8+1+9=21$ minutes. Pairing the two slowest: the two fastest cross
+      first ($2$), the fastest returns ($1$), the two slowest cross together
+      ($9$), the second-fastest returns ($2$), the two fastest cross again
+      ($2$) — total $2+1+9+2+2=16$ minutes, five minutes faster than the
+      naive plan.
+    interview: >
+      Expect the numbers to be swapped in, or the party size to grow to five
+      or six — the same pairing logic extends, but the optimal grouping among
+      more than two slow people needs checking case by case rather than a
+      single formula.
+    pitfalls: >
+      Assuming the fastest person should personally escort every crossing
+      overlooks that the point isn't who's fastest, it's how many times the
+      slow times get paid. Sending the two slowest across in separate trips
+      rather than together is the single most common suboptimal choice, even
+      when candidates correctly identify that the fast pair should shuttle
+      the torch.
+    recap: >
+      Pair the two slowest people into one crossing so their cost is paid
+      once, not twice — the same reframe that generalizes to any four
+      crossing times.
+
+  - node: quant-puzzles.classics.camel-bananas
+    hook: >
+      The answer isn't a single division — the cost per mile itself falls in
+      steps as the pile shrinks, and missing a threshold crossing is the
+      single most common way to get this puzzle's number wrong.
+    explanation: >
+      Treat the banana stock as the state variable that sets the rate. Moving
+      the entire stock forward one mile needs $\lceil \text{stock} /
+      \text{capacity} \rceil$ loaded trips and one fewer return trip, since
+      the final forward trip never needs to come back, so the cost is
+      $2\lceil \text{stock}/\text{capacity}\rceil - 1$ bananas per mile. That
+      cost only changes at the exact miles where the stock crosses a multiple
+      of the capacity, so those crossings are the phase boundaries, and
+      everywhere between them the rate is constant.
+
+      The number of phases scales with how many multiples of the capacity the
+      starting stock exceeds — a stock more than twice the capacity needs an
+      expensive first phase, a cheaper middle phase once it's below twice
+      capacity, and a final, cheapest phase once it's down to a single load.
+      A larger starting stock relative to capacity just adds more phases at
+      the top, each cheaper than the last.
+
+      Within any one phase, the arithmetic is just distance covered equals
+      bananas burned divided by that phase's per-mile rate — the same rate
+      bookkeeping as any other rate-and-phase puzzle, just with a resource
+      pile instead of a clock.
+    worked: >
+      $2000$ bananas, capacity $1000$, target only $400$ miles. The stock
+      starts inside the three-bananas-per-mile phase (between $1000$ and
+      $2000$) and stays there until it burns down to $1000$, which takes
+      $(2000-1000)/3 \approx 333.33$ miles. The remaining
+      $400-333.33\approx 66.67$ miles are covered at one banana per mile,
+      burning $66.67$ more bananas. Delivered at mile $400$:
+      $1000-66.67 \approx 933.33$ bananas.
+    interview: >
+      A common extension asks for the largest distance reachable at all with
+      a given stock and capacity, or how many phases a stock of several
+      capacities' worth requires — the pattern is one phase per multiple of
+      capacity the stock starts above, each cheaper than the last.
+    pitfalls: >
+      Using $2\lceil \text{stock}/\text{capacity}\rceil$ instead of
+      subtracting the one saved return trip overcounts every phase's cost by
+      one trip's worth. Applying a single phase's rate across the whole
+      journey, without checking whether the stock crosses a capacity
+      threshold partway through, silently uses the wrong constant for part of
+      the distance.
+    recap: >
+      The cost per mile is $2\lceil \text{stock}/\text{capacity}\rceil - 1$
+      bananas, constant within each capacity-multiple band and cheaper in
+      every band below it — sum distance covered phase by phase until the
+      stock or the distance runs out.
+
+  - node: quant-puzzles.classics.fuses
+    hook: >
+      The whole puzzle turns on one fact worth having ready cold — lighting a
+      fuse at both ends always halves its total burn time, no matter how
+      unevenly it burns — and the rest is just applying that fact twice.
+    explanation: >
+      A fuse lit from one end has a well-defined total burn time $T$ purely
+      by definition — however uneven its rate along the length, "burns for
+      $T$ minutes from one end" is just what $T$ means. Lighting it from both
+      ends at once puts two flame fronts consuming the same total length
+      between them, and because they advance concurrently from opposite
+      directions, they must meet at exactly $T/2$: any uneven segment slowing
+      one front down is being attacked from the other direction too, so the
+      irregular rate cancels out of the meeting time even though it doesn't
+      cancel out of where the two fronts physically meet.
+
+      The same fact applies recursively to any unburned remainder, not just a
+      whole fresh fuse — a partially-burned stretch, considered on its own,
+      still has a well-defined remaining one-end burn time, and lighting its
+      free end while it's already burning from the other end again halves
+      whatever time was left. Chaining this twice is exactly the classic
+      trick: burn one fuse from both ends to measure $T/2$, then use that
+      elapsed time to identify how much single-end time remains on a second
+      fuse, then halve that remainder too.
+
+      This is the rate-and-phase idea in a different costume: burning both
+      ends is a rate change, doubling the consumption rate for as long as
+      it's applied, and choosing when to apply it is choosing a phase
+      boundary exactly as in the bridge or camel puzzles.
+    worked: >
+      Two fresh $40$-minute fuses, measure $30$ minutes. Light fuse A at both
+      ends and fuse B at one end at time $0$. A finishes at $t=20$ (half of
+      $40$), at which point B — burning normally the whole time — has
+      $40-20=20$ minutes of single-end burn time left. Light B's free end
+      now: its remaining stretch finishes in half of that remaining time,
+      $10$ more minutes, landing at $t=20+10=30$ — exactly the target, and
+      $3/4$ of the original $40$.
+    interview: >
+      Expect the fuse lengths to change so the target is some other multiple
+      of a quarter of the total time — the technique always lands on $T/2$
+      after the first both-ends burn and $3T/4$ after the second, so a target
+      that isn't a quarter-fraction of the fuse length signals you need a
+      third fuse or a different combination.
+    pitfalls: >
+      Conflating "half the elapsed clock time so far" with "half of a fuse's
+      own remaining burn time" causes errors once more than one fuse is in
+      play — the halving fact is always about a fuse's own total or remaining
+      time. Relighting the end that's already burning, instead of the fuse's
+      unlit free end, doesn't create a second flame front and doesn't halve
+      anything.
+    recap: >
+      Lighting a fuse at both ends always consumes it in exactly half its
+      normal single-end time regardless of profile, and applying that fact
+      twice reaches $45$ minutes from two $60$-minute fuses, or $30$ from two
+      $40$-minute ones.
+
+  - node: quant-puzzles.classics.protocol-design
+    hook: >
+      Every "no communication after this point" puzzle is secretly the same
+      design problem — build every player's action off one shared public
+      statistic — and recognising that shape immediately is worth more than
+      knowing any single puzzle's answer.
+    explanation: >
+      These puzzles share a rigid shape: the players agree a strategy while
+      still together, are then separated, and each must act using only their
+      own private observation plus whatever was agreed in advance. That makes
+      each player's action a fixed, pre-committed function of their private
+      view — nothing adaptive can happen once the private observations are
+      revealed, since there's no channel left to be clever through.
+
+      The design goal that actually matters is almost never "make each
+      individual more likely to be right" — for many of these puzzles that
+      number is fixed by symmetry and can't be moved. The goal instead is to
+      make the players' mistakes coincide rather than scatter: independent
+      guessers each fail independently, so a group succeeds only with the
+      product of each person's success chance, which collapses fast;
+      correlated guessers can be arranged so the wrongness concentrates onto a
+      single predictable player or event, rather than spreading across the
+      group.
+
+      The recipe is to find some function of the full joint configuration — a
+      parity, a residue, a count, a signal one designated player controls —
+      that each individual can approximately reconstruct from their own
+      private view plus the agreed rule, and have every player act as if that
+      shared statistic is exactly true. When it holds for everyone
+      simultaneously, correctness is a shared event, not many separate coin
+      flips.
+    worked: >
+      Two prisoners, each seeing only the other's hat colour, must
+      simultaneously guess their own. Agree: player one guesses the same
+      colour they see, player two guesses the opposite. Checking all four hat
+      combinations: whenever the hats match, player one guesses correctly
+      (seeing the same colour as their own hat); whenever the hats differ,
+      player two guesses correctly (the opposite of what they see is exactly
+      their own hat). Every combination has at least one correct guess, even
+      though each player alone is still right only half the time.
+    interview: >
+      The tell is a phrase like "design a strategy so that at least one of
+      you is right" or "so that all but one of you survive" — the
+      interviewer is checking whether you reach for correlating errors
+      immediately, rather than trying to make each individual's private
+      reasoning better, which for most of these puzzles is a dead end.
+    pitfalls: >
+      Spending effort trying to improve any one player's individual odds, when
+      the structure of the puzzle fixes that number by symmetry no matter the
+      strategy, wastes time that should go into the correlation design
+      instead. Assuming any real-time signalling is available during the
+      separated phase, beyond what the puzzle explicitly grants, breaks the
+      whole premise these puzzles are built on.
+    recap: >
+      Pre-agreed protocols win by correlating who's wrong, not by improving
+      anyone's individual chance — every scheme in this family reduces to
+      finding one shared statistic every player can act on.
+
+  - node: quant-puzzles.classics.hat-parity
+    hook: >
+      The rearmost prisoner's job is to spend his own life broadcasting one
+      bit of parity, and the interviewer wants to see you name that trade
+      explicitly, not just recite the announce-and-decode mechanics.
+    explanation: >
+      The rearmost prisoner sees every hat ahead of him and nothing else, so
+      he's the only one with enough information to compute a global parity of
+      the whole line — the number of black hats among everyone in front of
+      him, reduced mod $2$. He announces that parity directly as a colour
+      word, spending his own guess on pure noise with respect to his own hat.
+      That's exactly why he only survives with probability $1/2$: whether the
+      announced parity happens to also match his own hat colour is
+      essentially a coin flip.
+
+      Every later prisoner recovers his own hat by combining three things:
+      the original announced parity, the hats he can see ahead of himself,
+      and the true colours of everyone already correctly identified behind
+      him, trustworthy by induction since every prisoner after the first is
+      proven correct. Whatever parity is missing once those known pieces are
+      accounted for must be supplied by his own hat, which pins it exactly.
+
+      This is protocol design's shared-statistic idea in its cleanest form:
+      parity is the one bit every subsequent prisoner can reconstruct from
+      public information plus what he personally sees, so correctness for the
+      rest of the line is not many independent coin flips — it's a single
+      chain, unbroken as long as the first transmission and every following
+      deduction are correct.
+    worked: >
+      Three prisoners in a line, hats front to back $B, W, W$. The rearmost
+      (hat $W$) sees $B, W$ ahead — one black, odd — and announces "black."
+      The middle prisoner hears "black," sees $B$ ahead of himself, so his own
+      hat must contribute zero more blacks to keep the count at one: he
+      guesses white, correctly. The front prisoner hears "black," knows the
+      middle prisoner's hat is white from the correct guess just made, sees
+      nothing ahead, so his own hat must supply the missing black: he guesses
+      black, correctly. Two of three survive with certainty; the rearmost's
+      own guess of "black" happens to be wrong here, since his real hat was
+      white — the expected number saved is $n-1/2 = 2.5$.
+    interview: >
+      A frequent twist swaps which end goes first — starting from the front
+      instead of the back breaks the scheme immediately, since the front
+      prisoner sees nobody and has no parity to broadcast, so listen for
+      which end announces before you commit to a direction.
+    pitfalls: >
+      Confusing which direction "ahead" points is fatal to the whole scheme:
+      the announcer must be the one with maximal visibility, not minimal.
+      Losing track of exactly one prisoner's correctly-deduced hat colour
+      breaks every deduction behind that point in the chain, since each guess
+      depends on all previously revealed colours being right, not just the
+      original broadcast parity.
+    recap: >
+      One sacrificed parity bit from the prisoner who sees everyone else
+      saves the remaining $n-1$ with certainty, for an expected total of
+      $n-1/2$ survivors.
+
+  - node: quant-puzzles.classics.hat-mod-n
+    hook: >
+      Making everyone guess at once, with no order to lean on, forces a
+      completely different trick than sacrificing one announcer — mixing the
+      two up mid-interview is the fastest way to stall.
+    explanation: >
+      With simultaneous guessing there's no "first mover" who can broadcast a
+      bit for everyone else to decode, so no one can sacrifice themselves the
+      way the line puzzle's rearmost prisoner does. The fix is to have every
+      prisoner bet on a different value instead: label the colours $0$
+      through $n-1$, and have prisoner $i$ assume the hat-colour total,
+      summed mod $n$, equals $i$, then compute what his own hat would have to
+      be for that to hold, given what he can see of everyone else's.
+
+      The true sum has exactly one residue mod $n$, so exactly one prisoner's
+      assumption is correct, and that prisoner's computed guess is
+      automatically right too — the others', built on a false assumed total,
+      are automatically wrong. Guaranteeing "at least one correct" no longer
+      needs anyone to broadcast anything; it's built into the fact that $n$
+      people betting on $n$ different residues necessarily cover the one
+      that's actually true.
+
+      Individually, each prisoner is still only right with probability $1/n$,
+      exactly what a blind guess would achieve. What the protocol buys is not
+      individual accuracy but the guarantee that the $n$ individual failures
+      can never all occur together, since one of the $n$ mutually exclusive
+      assumed totals must hold.
+    worked: >
+      Three prisoners, colours labelled $0,1,2$; true hats $h_0=1, h_1=2,
+      h_2=0$, summing to $3 \equiv 0 \pmod 3$. Prisoner $0$ assumes the total
+      is $0$: seeing $h_1+h_2=2$, he guesses $g_0 = 0-2 \equiv 1 \pmod 3$ —
+      correct. Prisoner $1$ assumes the total is $1$: seeing $h_0+h_2=1$, he
+      guesses $g_1=1-1=0$ — wrong. Prisoner $2$ assumes the total is $2$:
+      seeing $h_0+h_1=3 \equiv 0$, he guesses $g_2=2-0=2$ — wrong. Exactly
+      prisoner $0$ is right, matching the true residue $0$.
+    interview: >
+      A standard follow-up asks what happens if the number of prisoners
+      doesn't match the number of colours — the scheme needs exactly $n$
+      prisoners for $n$ colours, since it relies on the $n$ assumed residues
+      exactly covering every value once each; naming that limitation
+      unprompted reads as understanding rather than memorisation.
+    pitfalls: >
+      Assuming more than one prisoner can be correct in a favourable
+      configuration is a common misreading — the structure guarantees exactly
+      one correct guess in every configuration, never zero and never more
+      than one. Applying the scheme when prisoner count and colour count
+      differ silently breaks the residue-covering argument the guarantee
+      depends on.
+    recap: >
+      Each prisoner bets on a distinct residue of the hat total mod $n$;
+      exactly one bet matches the true total, guaranteeing one correct guess
+      from $n$ individually-blind ones.
+
+  - node: quant-puzzles.classics.light-bulb
+    hook: >
+      The correctness of this protocol is exact and easy to see; the part
+      worth rehearsing is the timing argument, since the interviewer's real
+      question is almost always how long this takes, roughly.
+    explanation: >
+      Correctness rests on giving exactly one prisoner a bookkeeping role no
+      one else touches: every non-counter turns the lamp on only the first
+      time they ever find it off, and never touches it again; the counter is
+      the only one who ever turns it off, incrementing a private tally each
+      time. Because each of the other prisoners contributes exactly one
+      on-switch over the whole process, the counter's tally reaching that
+      exact number is a certainty, not a probabilistic near-guarantee.
+
+      Timing has two separate components that need to be added, not
+      conflated. With $j$ non-counters still to signal, the expected wait
+      until one of them finds the lamp off is roughly $n/j$ days, since only
+      about $j$ of the $n$ prisoners are still "live" signalers. Once a signal
+      is waiting to be cleared, the expected wait for the counter specifically
+      to be drawn next is $n$ days, since the counter is just one prisoner
+      among $n$ chosen uniformly at random.
+
+      The counter's own waits dominate the total: there are $n-1$ of them,
+      each costing $n$ days in expectation, for $n(n-1)$ days total, while the
+      signalers' waits sum to only $n H_{n-1}$, a harmonic sum that grows far
+      more slowly. Almost the entire multi-year duration is spent waiting for
+      the counter specifically to be drawn next, not waiting for a signal to
+      be ready.
+    worked: >
+      Fifty prisoners instead of a hundred, same rules. Total expected days
+      is $n(n-1) + n H_{n-1}$ with $n=50$: the counter-wait term is
+      $50 \cdot 49=2450$ days, and the signal-wait term is
+      $50 H_{49} \approx 50 \times 4.479 \approx 224$ days, for a total of
+      about $2674$ days, roughly $7.3$ years — noticeably shorter than the
+      hundred-prisoner version's $28$ years, since both terms shrink with $n$.
+    interview: >
+      A frequent extension asks whether two counters could split the work to
+      go faster — they can't safely, since simultaneous clearing risks a
+      double count or a missed signal with no way for either counter to know
+      the other's tally, so the design needs exactly one prisoner in that
+      role.
+    pitfalls: >
+      Letting more than one prisoner turn the lamp off breaks the exact-count
+      guarantee outright — the counter's tally is only trustworthy because no
+      one else ever touches the switch in that direction. Treating the
+      $n(n-1)$ and $n H_{n-1}$ terms as comparable in size misses that the
+      counter-wait term dominates almost entirely once $n$ is more than a
+      handful.
+    recap: >
+      One designated counter and a one-shot signal per prisoner make the
+      count exact, at an expected cost of $n(n-1)+nH_{n-1}$ days, dominated
+      by the counter's $n-1$ waits of $n$ days each.
+
+  - node: quant-puzzles.classics.prisoners-boxes
+    hook: >
+      The jump from vanishingly small to roughly one in three is the single
+      most quoted number in this puzzle family, and the interviewer is
+      testing whether you can explain why correlating the searches, not
+      making any individual search smarter, is what buys it.
+    explanation: >
+      Independent random searching fails because each prisoner's success is
+      its own coin flip, and a hundred independent flips of probability $1/2$
+      succeed jointly with probability $2^{-100}$ — the protocol-design
+      lesson that correlated failure beats independent failure applies here
+      at its most dramatic scale. Cycle-following correlates every prisoner's
+      search through the single hidden object they all share: the
+      permutation itself.
+
+      Prisoner $i$ opening box $i$, then the box named by whatever he finds,
+      and repeating, is exactly walking the cycle of the permutation that
+      contains $i$ — he finds his own name within the opening limit precisely
+      when that cycle is short enough. Since every prisoner does this
+      simultaneously against the same permutation, either every cycle is
+      short enough and everyone succeeds together, or some cycle is too long
+      and everyone whose name lives in it fails together — there's no
+      in-between case where some searches are doomed independently of the
+      others.
+
+      At most one cycle can exceed the halfway length, because two disjoint
+      cycles both longer than that would need more elements than the
+      permutation has. That fact plus a direct count of how many permutations
+      contain a $k$-cycle turns "does everyone succeed" into a single tail
+      sum, $\sum_{k=51}^{100} 1/k = H_{100}-H_{50}$, for the failure
+      probability.
+    worked: >
+      Eight prisoners, eight boxes, each opening four. Failure is "some cycle
+      exceeds length four," with probability $\sum_{k=5}^{8} 1/k = H_8-H_4$.
+      Numerically $H_8 \approx 2.7179$ and $H_4 \approx 2.0833$, so failure
+      $\approx 0.6345$ and the escape probability is $\approx 0.3655$, about
+      $36.5\%$ — noticeably higher than the eventual limit near $30.7\%$,
+      since the harmonic tail approaches that limit only as the prisoner
+      count grows large.
+    interview: >
+      A common variant changes how many boxes each prisoner opens relative to
+      the total — opening more than half shifts the threshold in the tail sum
+      and raises the escape probability; the interviewer is checking whether
+      you re-derive the sum with the new threshold rather than reusing the
+      memorised $31\%$.
+    pitfalls: >
+      Confusing "expected number of prisoners who find their own name"
+      (always exactly half, by linearity, regardless of strategy) with
+      "probability that everyone finds their name" (close to $31\%$ under the
+      best strategy) is the most common conflation — these are genuinely
+      different quantities and both get asked. Forgetting that at most one
+      cycle can exceed the opening limit is what makes the tail-sum count
+      exact rather than an overcount.
+    recap: >
+      Cycle-following turns a hundred coin flips into one shared event —
+      does any cycle exceed length fifty — lifting the escape probability
+      from $2^{-100}$ to about $31\%$.
+
+  - node: quant-puzzles.classics.prisoners-boxes-optimality
+    hook: >
+      Two follow-ups always come after the headline number — does it get
+      worse at scale, and can any cleverer strategy beat it — and having sharp
+      one-line answers to both separates having solved this puzzle from
+      having merely memorised it.
+    explanation: >
+      The scale-invariance follows from treating the harmonic tail sum as an
+      integral: $H_{2n}-H_n = \sum_{k=n+1}^{2n} 1/k$ approximates
+      $\int_{n}^{2n} dx/x = \ln 2$, and the approximation error shrinks as $n$
+      grows, so the failure probability converges to exactly $\ln 2 \approx
+      0.6931$ regardless of scale — a genuinely different qualitative
+      behaviour from independent search, whose success probability collapses
+      toward zero as $2^{-n}$.
+
+      The optimality claim is a cited result rather than something to
+      re-derive live, but the intuition worth having ready is this: the only
+      randomness in the whole problem is the hidden permutation, and
+      cycle-following is the one strategy that aligns every prisoner's search
+      directly with that permutation's own structure; any strategy ignoring
+      the permutation's cycle structure is throwing away the one piece of
+      shared structure correlation could be built on.
+
+      The individual-fairness fact is a short, self-contained argument worth
+      keeping separate from the joint-probability number: from any single
+      prisoner's own perspective, before conditioning on anyone else, their
+      own name is equally likely to sit in any box, so any fixed set of half
+      the boxes opened catches it with probability exactly $1/2$ — true for
+      cycle-following and for independent random search alike. The joint
+      probability differs wildly between strategies; the marginal probability
+      does not move at all.
+    worked: >
+      A thousand prisoners, five hundred boxes opened each. Estimating
+      $H_{1000}-H_{500}$ via $H_m \approx \ln m + \gamma + 1/(2m)$ gives
+      $H_{1000}\approx 7.4855$ and $H_{500}\approx 6.7928$, a difference of
+      about $0.6926$, within a few thousandths of $\ln 2 \approx 0.6931$.
+      Escape probability $\approx 0.3074$, already indistinguishable in
+      practice from the limiting $1-\ln 2 \approx 0.3069$.
+    interview: >
+      "Does the probability decay as the number of prisoners grows" is
+      answered immediately with the limit $1-\ln 2 \approx 30.7\%$, not with
+      an appeal to any specific size; "why can't a smarter strategy do
+      better" is answered by citing the optimality result and adding the
+      marginal-probability argument as the intuition that makes it plausible.
+    pitfalls: >
+      Assuming this probability shrinks toward zero the way the naive
+      independent-search probability does is the most common wrong instinct,
+      and it's exactly backward — this is the qualitative point of the whole
+      puzzle. Treating the roughly $1/2$ individual chance and the roughly
+      $31\%$ joint chance as if they should move together, rather than as
+      genuinely independent facts about the same protocol, blurs two
+      different quantities the interviewer is testing separately.
+    recap: >
+      The escape probability converges to $1-\ln 2 \approx 30.7\%$ at any
+      scale and is provably unbeatable, even though every individual
+      prisoner's own chance stays fixed at exactly $1/2$ regardless of
+      strategy.
+
+  - node: quant-puzzles.classics.ants-stick
+    hook: >
+      You never actually need to track a single collision to answer this
+      puzzle — the entire trick is recognising that the observable state
+      doesn't care whether ants bounce or walk through each other.
+    explanation: >
+      Two identical ants that collide and reverse are, from the outside,
+      indistinguishable from two ants that walk straight through each other
+      and swap names — both pictures produce the exact same set of occupied
+      positions at every instant, because the two ants involved are
+      physically identical and moving at the same speed either way. Since
+      "when is the stick clear" is a question purely about occupied
+      positions over time, not about which specific ant is where, the two
+      pictures give the same answer even though they disagree about which
+      ant ends up where.
+
+      Under the pass-through picture, every phantom ant walks in a straight
+      line at constant speed toward whichever end its own original direction
+      points, completely ignorant of any other ant, and leaves within
+      length-over-speed seconds no matter where it started. So the real,
+      colliding stick clears by that same time bound — the worst case is one
+      ant starting at an end and walking the full length, and the bound
+      doesn't depend on how many ants there are or where they started.
+
+      The same relabeling computes the clearing time for a specific
+      configuration directly, not just the universal bound: each real ant's
+      exit time equals its own phantom counterpart's straight-line exit time,
+      so the clearing time for any particular arrangement is the maximum,
+      over all ants, of the distance to the end that ant's own direction
+      points toward, divided by the speed — no simulation of any collision
+      required.
+    worked: >
+      A $100$ cm stick, ants at $10$ cm facing right, $50$ cm facing left, and
+      $80$ cm facing right. Phantom exit times: the ant at $10$ exits after
+      $100-10=90$ s; the ant at $50$ exits after $50$ s; the ant at $80$ exits
+      after $100-80=20$ s. The stick clears at $t=90$ s, set by the leftmost
+      ant's long walk to the right end, even though relabeling means the
+      actual ant that exits there by then carries a different identity than
+      the one that started at $10$.
+    interview: >
+      A frequent extension asks how many collisions occur, or when the first
+      one happens — genuinely different questions the pass-through trick
+      still answers cleanly: each collision corresponds to exactly one pair
+      of a right-facing and a left-facing ant with the right-facing one
+      starting to the left of the left-facing one, and the first collision
+      happens at half the smallest such gap.
+    pitfalls: >
+      Using the relabeling trick to claim which specific ant exits which end
+      is a direct misuse — identity is genuinely scrambled by the argument,
+      only positions and timing survive it. Applying the same reasoning when
+      the ants move at different speeds breaks it immediately, since "bounce
+      equals pass-through swap" only holds for identical, equal-speed
+      particles.
+    recap: >
+      Collisions are just relabelings of identical particles, so the stick
+      clears by the time the slowest-to-exit phantom would take walking
+      straight to its own end — at most the stick length divided by the
+      speed, whatever the starting configuration.
+
+  - node: quant-puzzles.classics.chameleons
+    hook: >
+      The state space here is far too large to search by hand, which is
+      exactly the signal to look for a single number every move leaves
+      untouched, rather than trying to plan a sequence of meetings.
+    explanation: >
+      Any meeting changes the three colour counts by $-1, -1, +2$ in some
+      order — two colours each lose one chameleon to the meeting, the third
+      gains two. Track what this does to a pairwise difference: the
+      difference between the two colours that met changes by $0$, since both
+      dropped by exactly one, while the difference between either of those
+      and the colour that gained changes by $2-(-1)=3$. So every pairwise
+      difference shifts by a multiple of $3$ on every single move, regardless
+      of which two colours happen to meet — the residue of each difference
+      mod $3$ is an invariant.
+
+      A monochrome island needs two of the three counts to be exactly zero,
+      which forces the difference between those two colours to be exactly
+      zero, and in particular $\equiv 0 \pmod 3$. So checking whether any
+      pairwise difference among the starting counts is already $\equiv 0
+      \pmod 3$ is a complete test: if no pair agrees mod $3$, monochrome is
+      impossible from that starting count, no search required.
+
+      This is the invariant strategy in its cleanest form — a numeric
+      certificate replaces a search over an enormous space of meeting
+      sequences, and it works because it's checked once against the moves'
+      structure rather than against any particular sequence of them.
+    worked: >
+      Reds $11$, greens $16$, blues $20$. Mod $3$: $11 \equiv 2$,
+      $16 \equiv 1$, $20 \equiv 2$ — red and blue share residue $2$, while
+      green's residue $1$ disagrees with both. Since it's the pair sharing a
+      residue whose difference can reach zero, red and blue are the two
+      counts that could simultaneously hit zero, leaving green as the colour
+      not excluded from becoming the island's monochrome colour — unlike
+      $13, 15, 17$, where all three residues were distinct and no pairwise
+      difference could ever reach zero.
+    interview: >
+      A common follow-up asks for the smallest change to the starting counts
+      — add or remove one chameleon of a chosen colour — that would make
+      monochrome achievable; that's answered by checking which single change
+      makes two residues agree, not by searching for a meeting sequence.
+    pitfalls: >
+      Checking only one of the three pairwise differences mod $3$, rather
+      than all three, risks missing the one pair that actually agrees, since
+      a move could occur between any two of the colours. Assuming any
+      recolouring you like is achievable in one step ignores that every legal
+      move is constrained to exactly the $-1, -1, +2$ pattern on the counts.
+    recap: >
+      Every meeting shifts each pairwise colour-count difference by a
+      multiple of $3$, so monochrome is only reachable when some pair of
+      starting counts already agrees mod $3$ — a one-line check that replaces
+      any search.
+
+  - node: quant-puzzles.classics.water-jugs
+    hook: >
+      The same certificate move as the chameleons applies here with number
+      theory standing in for modular colour-counting — checking one gcd tells
+      you instantly whether an amount is reachable at all, before you plan a
+      single pour.
+    explanation: >
+      Every legal move with two jugs of sizes $a$ and $b$ — filling one from
+      the tap, emptying one down the drain, or pouring between them until the
+      source empties or the target fills — changes each jug's content by a
+      whole multiple of $a$ or $b$. That means at every intermediate moment,
+      both jugs' contents are expressible as integer combinations $ax+by$ for
+      some integers $x,y$, and by Bézout's identity the full set of integers
+      reachable this way is exactly the multiples of $\gcd(a,b)$, capped by
+      whichever jug is being read.
+
+      When $\gcd(a,b)=1$, every whole number up to the larger jug's capacity
+      is reachable, and the exact recipe comes straight out of Bézout's
+      identity: writing the target as $ax-by$ for integers $x,y \ge 0$ tells
+      you to perform $x$ fills of one jug and $y$ empties of the other,
+      interleaved with the forced pours between them, to land on exactly that
+      amount.
+
+      When $\gcd(a,b)>1$, the obstruction is exactly as sharp as the
+      chameleons' mod-$3$ check — no sequence of moves, however long, reaches
+      an amount that isn't a multiple of the gcd, because every move
+      preserves that property from the very first fill.
+    worked: >
+      A $4$-gallon and a $7$-gallon jug, target $5$ gallons; $\gcd(4,7)=1$ so
+      it's reachable, via $4 \times 3 - 7 \times 1 = 5$. Fill $4$: $(4,0)$.
+      Pour into $7$: $(0,4)$. Fill $4$: $(4,4)$. Pour into $7$, which takes
+      $3$ before it's full: $(1,7)$. Empty $7$: $(1,0)$. Pour the $1$ across:
+      $(0,1)$. Fill $4$: $(4,1)$. Pour into $7$, which has room for all $4$:
+      $(0,5)$ — the $7$-gallon jug now holds exactly $5$, using three fills
+      of the $4$-jug and one emptying of the $7$-jug, matching the identity
+      exactly.
+    interview: >
+      A direct follow-up asks which amounts are unreachable with a given pair
+      of jug sizes, answered instantly by gcd without searching pour
+      sequences, while a harder one asks for the minimum number of moves to
+      reach a specific reachable amount, which the gcd alone doesn't
+      determine.
+    pitfalls: >
+      Assuming any amount up to the larger jug's capacity is reachable with
+      any two jug sizes ignores the gcd obstruction entirely — $6$- and
+      $8$-gallon jugs, gcd $2$, can never measure an odd amount. Trying to
+      "pour half" or otherwise create a fractional intermediate amount isn't
+      a legal move at all — every move is exactly fill-to-top, empty-to-zero,
+      or pour-until-one-jug-hits-a-limit.
+    recap: >
+      Reachable amounts with jugs $a$ and $b$ are exactly the multiples of
+      $\gcd(a,b)$, with Bézout's identity supplying both the proof and the
+      actual fill-and-empty recipe.
