@@ -46,6 +46,17 @@ enum Typeface {
         return .custom(serifFamily, fixedSize: size).weight(weight)
     }
 
+    /// The maths variable face. Every serif this app can resolve to — Source Serif 4, and
+    /// New York as the fallback — ships a real italic, so this is a face selection rather
+    /// than a slant applied to the roman.
+    static func serifItalic(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
+        serif(size, weight).italic()
+    }
+
+    static func sansItalic(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
+        sans(size, weight).italic()
+    }
+
     /// Letter-spacing the way the design writes it: a multiple of the font size.
     /// `0.18em` at 10 pt is 1.8 pt of tracking.
     static func tracking(_ em: CGFloat, at size: CGFloat) -> CGFloat { em * size }
@@ -69,6 +80,25 @@ enum Typeface {
         let base = NSFont.systemFont(ofSize: size, weight: weight)
         let descriptor = base.fontDescriptor.withDesign(.serif) ?? base.fontDescriptor
         return NSFont(descriptor: descriptor, size: size) ?? base
+    }
+
+    /// The same three roles slanted, for the offscreen maths layout — `MathBox` draws
+    /// through Core Text and cannot ask SwiftUI for a face.
+    static func nsItalic(_ font: NSFont) -> NSFont {
+        let traits = font.fontDescriptor.symbolicTraits.union(.italic)
+        let descriptor = font.fontDescriptor.withSymbolicTraits(traits)
+        if let italic = NSFont(descriptor: descriptor, size: font.pointSize),
+            italic.fontDescriptor.symbolicTraits.contains(.italic)
+        {
+            return italic
+        }
+        // A family with no italic face: slant the roman rather than silently setting
+        // variables upright, which would erase the one distinction the italic exists for.
+        // The matrix carries the point size, so the font is then asked for at size 0.
+        var slant = AffineTransform(scale: font.pointSize)
+        slant.append(AffineTransform(m11: 1, m12: 0, m21: 0.21, m22: 1, tX: 0, tY: 0))
+        let sheared = font.fontDescriptor.withMatrix(slant)
+        return NSFont(descriptor: sheared, size: 0) ?? font
     }
 
     private static func resolved(_ family: String?, size: CGFloat, weight: NSFont.Weight)

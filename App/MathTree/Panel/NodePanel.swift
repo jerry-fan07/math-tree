@@ -526,6 +526,7 @@ enum NodePanelPreviewData {
 
     /// The rendered statement, straight from the pure attributed-string API — present so the
     /// preview exercises `MathText.attributedString` and not only the `Text` path.
+    @MainActor
     static var mvtStatementAttributed: AttributedString {
         MathText.attributedString(mvt.statement ?? "", baseSize: 12)
     }

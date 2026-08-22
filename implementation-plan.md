@@ -753,8 +753,102 @@ Brilliant blocks the next screen until the check is answered. This app does not,
 **D13.7 — `check-unparsable-answer` earned its keep on the second unit, and markdown never rendered.**
 Two authoring findings worth recording because neither was predictable from the schema. First, the parser rule caught two real checks on the expectation unit — "what is $\Pr(A_i)$?" answered `1/n`, and the records lesson's `1/i`. Both are *symbolic*, and the whole class of "the answer is a formula in $n$" is unrepresentable as a typed check; both became multiple choice, which is the right instrument for them anyway. A validator that only checked *shape* would have shipped them and told a correct reader they were wrong. Second, `*emphasis*` reaches the reader as literal asterisks — `MathText` is LaTeX-lite and has never read markdown, and nothing in the corpus check flags it because asterisks are legal prose characters. This is pre-existing across 14 of the 58 lesson files and both older corpora (~105 spans); the pilot units were cleaned, the rest left alone as a corpus-wide call, and the majority convention (44 of 58 files) is already to avoid it.
 
-**D13.8 — Known gaps.**
+**D13.8 — Known gaps (renderer entries superseded by Phase 14).**
 Derived cards split `explanation` on paragraph breaks, so a lesson whose explanation is one long paragraph derives one long card — the fallback is honest but not clever, and the fix is authoring `steps`. A typed check accepts only a single number: "give both roots" cannot be asked as a typed check and is authored as multiple choice instead. The player has no keyboard shortcut for choice selection (click or tab), and no animation between cards beyond a crossfade. Mastery problems open in `ProblemSheet` over the player, which means the player's card position survives but the sheet's own diagnosis flow does not know it was reached from a lesson — a miss localizes exactly as it does from the rail, which is correct behaviour but loses the chance to say "reread card 4". Check feedback is authored per *choice* for multiple choice but only once for a typed answer, so a typed near-miss gets the same words as a wild guess.
+
+### Phase 14
+
+Not a planned phase: the corpus outgrew the renderer Phase 4 chose for it, and this is
+the repayment.
+
+**D14.1 — Phase 4's decision is reversed on the display side only, and `plainText` is frozen.**
+Phase 4 evaluated "`NSAttributedString`-based LaTeX-lite vs. bundling a math-layout
+approach" and picked LaTeX-lite because it was the smallest thing that rendered the seed
+content *acceptably*. At 416 nodes that was true. At 1,441 nodes, 108 problems and 958
+lessons it is not: `\frac` and its variants appear ~880 times, `\sqrt` ~1,180, `\binom`
+~410, and every one of them was linearising — `(f(b) - f(a))/(b - a)`, set in the same
+roman as the prose around it, which is not a fraction and does not read as one.
+
+So `MathText` now emits **two channels from one pass**. The linear one is unchanged and
+non-negotiable: `plainText` still produces `(a)/(b)`, `√(x)` and combining-mark accents,
+because `MathText.Check`, every accessibility label and the wrong-answer read-back consume
+it. The display one gains `Run.box` — a small closed set of two-dimensional constructs
+(fraction, binomial, radical, over/underline, accent, paired delimiters) laid out and drawn
+by `MathBox.swift`. `Emitter.discardingRuns` is the seam: a construct runs the old code
+path for the plain buffer and throws away the runs it produced, then appends one box run.
+
+Verified rather than asserted, and over *every* field rather than the statements the
+self-check prints: `plainText` was dumped for all 11,289 samples before and after, from a
+worktree at the previous commit reading the same artifacts. 2,405 fields differ. 2,341 are
+the U+2212 minus alone, 64 involve emphasis, and **0 are unexplained** — with the asterisks
+counted separately rather than normalised away, so a misfiring emphasis span could not hide
+inside the comparison. Exactly 144 asterisks were consumed for exactly 72 spans, and the 112
+fields that still carry one carry it as multiplication or as a superscript star, which is
+where the rule must not fire.
+
+Two parsers over two macro tables was the alternative and was rejected: the tables would
+rot apart on the first macro the corpus invented.
+
+**D14.2 — Variables are italic, and that is the larger half of the fix.**
+The boxes are the visible change; this is the one that made the corpus read as
+mathematics. TeX's rule, kept to the part that matters — a variable is italic and nothing
+else is. `Style.isUpright` carries `\text`/`\mathrm`/`\operatorname`/`\mathbb` (~1,630
+uses between them), the atom class keeps `\sin`/`\lim`/`\Pr` upright, digits and
+punctuation stay roman, and lower-case Greek slants with the Latin. Deliberately the
+font's *italic trait*, never the Mathematical Alphanumeric codepoints: those would leak
+into `plainText` and corrupt the self-check, the accessibility labels and the answer
+reveal in one stroke.
+
+Two spacing changes ride along, both of which do move `plainText`: `-` inside maths becomes
+U+2212 (a hyphen in a serif is a third of the width and sits off the axis), and `∑`/`∫`/`∏`
+are set 1.32× and centred on the maths axis, as every maths face sets them.
+
+**D14.3 — Per construct, never per span.**
+A `$…$` span rasterised whole would be one unbreakable glyph, and the panel is 360 points
+wide. So only the two-dimensional construct becomes an image; the text around it stays live
+`Text`, which keeps wrapping, selection and the type scale exactly as they were. Verified by
+spike before any layout code was written — `Text(Image(nsImage:))` honours
+`.baselineOffset`, a template `NSImage` takes `foregroundStyle` (so one image serves every
+theme and tint), a drawing-handler image is crisp at any scale, and a paragraph with several
+of them still wraps. Had that failed, the fallback was `NSTextView` + `NSTextAttachment`
+behind an `NSViewRepresentable`.
+
+**D14.4 — D13.7 is reversed: `*emphasis*` renders, as italic prose.**
+D13.7 recorded ~105 emphasis spans reaching readers as literal asterisks and chose to clean
+the pilot units and leave the rest. Seventy-two survive in rendered text, and the reason the
+rule existed — "it does not render" — was a fact about the renderer, not about the writing.
+Emphasis in running prose *is* italic in every book this corpus imitates, and a rule the
+renderer honours cannot rot the way a rule only the style guide knows about does. Scoped
+conservatively: the span must open and close against a *letter or digit*, stay on one line,
+and stay outside `$…$`. Non-space would have been the loose version of that rule and would
+italicise `(a+b)` out of `x*(a+b)*c`; every one of the corpus's 72 spans opens and closes on
+a letter, so the strict rule costs nothing. `_underscores_` were surveyed at the same time
+and the corpus has none in prose — all 441 hits are subscripts inside `$…$`. `content-quant-program/style.md`
+is updated to match; markdown otherwise still does not render.
+
+**D14.5 — Geometry is checked by a specimen frame, because the self-check structurally cannot see it.**
+`MathText.Check` reads the *linearised* form. A fraction rule half a point off the maths
+axis, an accent centred on the wrong glyph, a radical index drawn outside its own box —
+none of those exist in that read-out at all, and all three happened during this work. So
+`MathSpecimen` renders every construct through the real `MathTextView` at 16 pt and again at
+11 pt, and `PanelShot` writes it beside the panels in both theme directions. It is a frame
+to *look at*, not a gate. What the self-check did gain is the structural half: a box run that
+also carries text, or a construct with an empty part (`\frac{}{2}`, `\sqrt{}`), is now a
+finding over all 11,289 fields.
+
+Found by looking at that frame and by nothing else: `\vec{v}` and `\tilde{f}` were drawing
+as macrons, because an `em * 0.11` accent at body size is under two points tall and the
+stroke that draws it is one — the shape did not survive its own line width.
+
+**D14.6 — Known gaps.**
+`\mathcal`/`\mathfrak`/`\mathbf` still select no face — the argument renders upright in the
+body serif — because none of the three resolvable serifs ships script or fraktur, and the
+Unicode blocks that do would leak into `plainText` (D14.2). Limits sit beside `∑` and `∫`
+rather than above and below: that is TeX's *text style*, which is correct for a corpus that
+is inline-only by authoring rule, but a display-math mode would want the other convention.
+Matrices and `align` environments are unimplemented and unwritten — `content-quant/style.md`
+forbids environments outright. A line carrying a fraction is taller than its neighbours, the
+same as in any book with inline quotients, and no attempt is made to even the leading.
 
 ---
 

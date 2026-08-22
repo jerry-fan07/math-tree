@@ -136,6 +136,12 @@
                 quantLesson(NodeID(target), into: root)
             }
 
+            // The maths specimen (see `MathSpecimen`): every two-dimensional construct
+            // the renderer draws, in one frame. `MathText.Check` reads the linearised
+            // form and cannot see geometry at all, so without this frame a fraction
+            // rule off the axis or an accent over the wrong glyph passes every gate.
+            MathSpecimen.write(into: root)
+
             assessment(document: document, scores: scores, into: root)
 
             if let target = environment["MATHTREE_PANEL_SHOT_REPORT"] {

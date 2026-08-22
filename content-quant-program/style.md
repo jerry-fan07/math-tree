@@ -160,12 +160,19 @@ node from paged prose to a checked lesson.
 - Checks are formative and record nothing (D13.2). Do not write a card that
   claims otherwise, and do not narrate the app ("click continue").
 
-## No markdown, anywhere
+## Emphasis, and nothing else
 
-`*emphasis*`, `**bold**`, `_underscores_` and backticks are **not** rendered —
-`MathText` is LaTeX-lite, and asterisks reach the reader as asterisks. Carry
-emphasis with word order instead. (Some older lesson files still contain these;
-they are a known defect, not a precedent.)
+`*emphasis*` **is** rendered, as italic prose. This reverses the earlier rule:
+the corpus kept writing it — some sixty times across the lessons and the bank —
+and emphasis in running prose *is* italic in every book this corpus is
+imitating, so the renderer now honours it rather than the linter policing it.
+The span must open and close against a word character and stay on one line and
+outside `$…$`, so `2 * 3` and a lone asterisk are untouched, and an asterisk
+inside mathematics still means multiplication.
+
+Nothing else is markdown. `**bold**`, `_underscores_`, backticks, headings and
+lists are **not** rendered and reach the reader as themselves. Use emphasis
+sparingly — a paragraph with four italic words has none.
 
 ## Before you finish
 

@@ -74,7 +74,58 @@ extension MathText {
             if rendered.runs.contains(where: { $0.sizeMultiplier <= 0 }) {
                 report("non-positive run size")
             }
+            // The two-dimensional channel. It leaves no trace in `plainText` — that is
+            // the whole point of it — so nothing above can see a fraction whose
+            // numerator vanished or a box that also carries text. Structural rather
+            // than geometric: whether the rule sits on the axis is a question for the
+            // specimen frame, but whether there is anything to draw is a question with
+            // a right answer, and the answer is checkable over the whole corpus.
+            if let issue = boxIssue(in: rendered.runs) {
+                report(issue)
+            }
             return found
+        }
+
+        /// The first structural fault among a rendering's box runs, if any.
+        private static func boxIssue(in runs: [MathText.Run]) -> String? {
+            for run in runs {
+                guard let box = run.box else { continue }
+                if !run.text.isEmpty {
+                    return "box run also carries text — the two are exclusive"
+                }
+                if let issue = boxIssue(in: box) { return issue }
+            }
+            return nil
+        }
+
+        private static func boxIssue(in box: MathText.Box) -> String? {
+            /// A part that renders to nothing at all — `\frac{}{2}`, `\sqrt{}` — draws as
+            /// a bare rule or an empty hook, which reads as a rendering bug rather than
+            /// as the authoring slip it is.
+            func check(_ parts: [(String, [MathText.Run])], of construct: String) -> String? {
+                for (name, runs) in parts where runs.isEmpty {
+                    return "empty \(name) in \(construct)"
+                }
+                return parts.lazy.compactMap { boxIssue(in: $0.1) }.first
+            }
+            switch box {
+            case let .fraction(numerator, denominator):
+                return check(
+                    [("numerator", numerator), ("denominator", denominator)], of: "a fraction")
+            case let .binomial(top, bottom):
+                return check([("top", top), ("bottom", bottom)], of: "a binomial")
+            case let .radical(degree, radicand):
+                // An absent degree is a square root, not a fault; an absent radicand is.
+                return check([("radicand", radicand)], of: "a radical")
+                    ?? boxIssue(in: degree)
+            case let .rule(_, content):
+                return check([("content", content)], of: "an over/underline")
+            case let .accent(_, content, _):
+                return check([("nucleus", content)], of: "an accent")
+            case let .delimited(_, content, _):
+                // `\left.` and `\right.` are legitimately empty; the content is not.
+                return check([("content", content)], of: "a delimited group")
+            }
         }
 
         /// The eyeball half of the check. Mechanical flags catch crashes; only reading the
