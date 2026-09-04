@@ -883,6 +883,57 @@ A mastery set is hardest-first because the node was taught a minute ago (D13.6).
 **D15.6 — The content campaign: one author per unit, checked in isolation, committed per batch.**
 Phase 12's shape (D12.7) again, with two additions. `check-lesson-file.py` infers the tree from the unit id and refuses a single-check lesson; `check-problem-file.py` is new — the bank had no isolated pre-flight, so 71 problem authors would have contended on the Swift build or shipped unchecked. Both mirror the validators plus the *coverage bar* the course needs: every node with ≥2 problems, one `demanding` and one not, `work`/`decide` machine-checked. Every author is told to show the computation that produces `expects` inside `feedback`/`answer`, because a bare number is the one thing no pre-flight can verify and a shown computation is checkable at a glance. The math course's guide drops `interview` and asks for `steps` on every lesson; a mathematics course's answers are mostly not numbers, so it says so and steers authors to `choices`.
 
+**D15.7 — State at the cutoff, and how to resume.**
+The content campaign ran 60 authoring agents before the account's monthly
+spend limit terminated the last wave mid-write (HTTP 429, resets 06:00
+New York; raise the limit to resume sooner). Everything that finished passed
+its pre-flight check, then `ContentBuild validate` for its tree, then the
+rendering self-check (clean over 32,621 fields), and was committed per batch.
+Where it stands:
+
+- **Quant tree** — 34 of 58 units carry cards: 634 of 958 lessons, 1,883
+  checks (from 38 / 78). Banks for 8 units (413 problems over 191 nodes) meet
+  the mastery bar; `quant-probability.continuous`, `discrete` and `joint` are
+  part-written (valid, coverage short by 8 / 7 / 13 nodes). Unauthored
+  cards: quant-mental.approximation and fermi; all of quant-games except
+  ev-games; all of quant-finance, quant-puzzles and quant-programming (24
+  units). Unauthored banks: 48 units.
+- **Math tree** — the spine (82 units, 4 declared forward references) and
+  lessons with cards for all of Foundations and Single-Variable Calculus: 9
+  of the 15 authored units, 211 of 322 nodes, 625 checks. Three files were
+  cut off mid-write and are parked in `program/drafts/` (a directory the
+  loader does not read, so the tree validates): `analysis.sequences` (10 of
+  27 lessons), `linear-algebra.systems` (5 of 25), `number-theory.divisibility`
+  (5 of 27). Not started: `analysis.mvc` and `foundations.real` (2 nodes
+  each) and `algebra.groups` (28). No math bank was upgraded or added — the
+  three pre-Phase-13 banks still fail `check-problem-file.py`'s bar, which is
+  the intended state until the math problem agents run; `PlacementFixtureTests`'
+  manifest is unchanged for the same reason.
+- **The app, model, tooling, tests and docs are complete**: 335 tests pass;
+  the course renders over the real math program in both themes.
+
+To resume: move a draft back into `program/lessons/` and run its checker —
+the missing-lesson list is the remaining work; launch the remaining unit
+agents from the prompts in this session's transcript (one per unit, sonnet
+for quant cards, opus for math lessons and every bank; never `swift` or
+`git stash` inside an agent; scratch scripts uniquely named); validate and
+math-check per batch; when the math banks land, extend `placementReady` in
+`PlacementFixtureTests` to every authored subbranch. The exit criterion's
+content half is therefore *not yet met*; every other clause is.
+
+**D15.8 — Known gaps.**
+Unit numbering on the course home skips where unauthored units collapse
+(units 13–18 are the six analysis units not yet authored), which is honest
+but reads oddly until the outline fills. A unit test has no probe
+(micro-problem) path — a miss localizes directly, without §5.4's follow-up
+question — because `ProblemSheet`'s probe replaces the current problem and a
+paper has no slot for a substitution. The player has no keyboard shortcut
+for "next skill". The chapter reader is unchanged from Phase 12 except for
+its rung labels. Two content corrections were made in passing on the authors'
+findings (a reversed interval direction in the Slutsky worked example; power
+0.80 as a one-in-five miss), which suggests the older prose would repay a
+review pass with the cards' checks as the instrument.
+
 ---
 
 ## Risks (top three, with mitigations already embedded above)

@@ -27,3 +27,10 @@ page listing its skills in teaching order, the lesson player, and a unit test
 drawn from `problems/`. 67 of the 82 units are outlined but not yet authored
 (`content/README.md` tracks which); the course states that per part rather
 than listing empty chapters.
+
+## Drafts
+
+`drafts/` holds lessons files cut off mid-write (D15.7); the loader reads
+only `lessons/`, so a draft never reaches the build. To resume one, move it
+back into `lessons/` and run `check-lesson-file.py` — its missing-lesson
+list is the remaining work.

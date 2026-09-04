@@ -84,9 +84,14 @@ holds the problems whose primary target lives in that unit. Ids are
 
 ## Coverage
 
-Phase 13 shipped two units (76 problems); Phase 15 fills in the other 56, so
-every lesson in the quant tree ends on a real mastery set and every unit has a
-unit test. `ContentBuild validate` prints the corpus-wide number on every run.
+Phase 13 shipped two units (76 problems); Phase 15 is filling in the other
+56 so every lesson ends on a real mastery set and every unit has a unit test.
+At the Phase 15 cutoff (D15.7): eight units meet the bar — the two pilots,
+`quant-tools.series-calculus` (44), `linear-algebra` (48), `optimization`
+(43), `quant-probability.counting` (47), `conditional` (46) and
+`random-variables` (43) — and `continuous`, `discrete` and `joint` are
+part-written and valid; 413 problems cover 191 nodes. `ContentBuild
+validate` prints the corpus-wide number on every run.
 
 Placement readiness is *not* declared per unit for the quant tree.
 `problems/README.md`'s manifest and `PlacementFixtureTests` cover the math
