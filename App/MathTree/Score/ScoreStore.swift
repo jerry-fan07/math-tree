@@ -56,6 +56,11 @@ final class ScoreStore {
     /// §6.5: every branch with how much of it is held — the list a subject is
     /// chosen from, kept on the snapshot so it shares the snapshot's clock.
     private(set) var subjects: [SubjectSummary] = []
+    /// §6.8's ladder needs one fact the folded state does not carry — which
+    /// nodes a problem has *proven* — so it is read off the log at every refold,
+    /// beside the state, and never stored anywhere else (§6.6: the program keeps
+    /// no state of its own).
+    private(set) var masteryEvidence = MasteryEvidence()
     /// Log corruption and fold defects, surfaced rather than swallowed (D5.8).
     private(set) var diagnostics: [String] = []
     /// The instant this snapshot was evaluated at. Every colour, due flag and
@@ -155,6 +160,7 @@ final class ScoreStore {
 
         let folded = ScoreFold.fold(events, graph: graph, config: config)
         state = folded.state
+        masteryEvidence = MasteryEvidence(events: events)
         diagnostics += folded.defects.map(\.description)
         self.diagnostics = diagnostics
         evaluate()
@@ -240,6 +246,25 @@ final class ScoreStore {
     /// This node's review history, for the panel's sparkline.
     func history(of id: NodeID) -> [ScoreFold.ReviewPoint] {
         ScoreFold.trajectory(of: .node(id), in: events, config: config)
+    }
+
+    // MARK: - Mastery (§6.8)
+
+    /// The node's rung on the ladder, at the snapshot's clock.
+    func level(of id: NodeID) -> MasteryLevel {
+        Mastery.level(of: id, state: state, evidence: masteryEvidence, at: evaluatedAt, config: config)
+    }
+
+    /// The ladder over a set of skills — a unit, a course.
+    func masterySummary(of ids: [NodeID]) -> MasterySummary {
+        Mastery.summary(
+            of: ids, state: state, evidence: masteryEvidence, at: evaluatedAt, config: config)
+    }
+
+    /// Every problem the log holds an attempt at, for the unit test's
+    /// preference against re-asking.
+    var attemptedProblems: Set<ProblemID> {
+        Set(events.compactMap { $0.problem }.map { ProblemID($0) })
     }
 
     // MARK: - Writing

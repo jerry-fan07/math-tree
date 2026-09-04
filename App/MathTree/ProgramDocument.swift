@@ -14,6 +14,7 @@ import GraphCore
 struct ProgramDocument: Sendable {
     private struct ProgramFile: Decodable {
         let version: Int
+        let title: String?
         let parts: [ProgramSpine.Part]
         let forward: [ProgramSpine.ForwardReference]?
         let units: [LessonUnit]
@@ -61,7 +62,8 @@ struct ProgramDocument: Sendable {
             }
             return ProgramDocument(
                 program: Program(
-                    spine: ProgramSpine(parts: file.parts, forward: file.forward ?? []),
+                    spine: ProgramSpine(
+                        title: file.title, parts: file.parts, forward: file.forward ?? []),
                     lessonUnits: file.units),
                 unavailable: nil, loadFailure: nil)
         } catch {

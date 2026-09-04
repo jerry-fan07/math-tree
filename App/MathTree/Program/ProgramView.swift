@@ -1,111 +1,149 @@
 import GraphCore
 import SwiftUI
 
-/// §6.6's program: the authored curriculum over a whole tree, read as a book.
+/// Where the program opens, from outside: the course home, one unit's page, or
+/// the chapter reader scrolled to one node (the panel's "read the lesson").
+enum ProgramEntry: Equatable {
+    case course
+    case unit(NodeID)
+    case chapter(NodeID)
+}
+
+/// §6.6's program, restructured as §6.8's **course**.
 ///
-/// Two panes under one header, in turn 1's grammar. The left pane is the table
-/// of contents — parts as eyebrows, units as rows with their met-of-total — and
-/// the right pane is the open unit as a *chapter*: its opening paragraph, then
-/// every step in the plan's teaching order as title · statement · lesson, with
-/// the self-report action at each lesson's foot so the loop closes without
-/// leaving the page.
+/// Phase 12 shipped the program as a book: a table-of-contents rail beside one
+/// long chapter. Read as a course it had no front door — nothing said *where
+/// you are*, *what to do next*, or *how a unit is going* before you were inside
+/// a scroll of prose. This is the same data (spine, lessons, evidence log) with
+/// the hierarchy every course app puts first:
 ///
-/// Two starting points, one derivation (§6.6): "show everything" renders every
-/// step in full; the default adapts to what the user knows by compressing met
-/// steps to one quiet line each — expandable, because compression is an answer
-/// to "where do I start", never a lock. The bookmark (`ProgramPlan.resume`) is
-/// the first *never-learned* step, deliberately not the first unmet one: decay
-/// re-enters the work by un-compressing, not by moving the bookmark.
+/// - **Course home** — the continue action at the top, the mastery measure over
+///   the whole course, then every part with its units as rows carrying their
+///   own mastery bar. Units nobody has authored are stated per part in one
+///   quiet line rather than listed as 67 dashes.
+/// - **Unit page** — the unit's opening, its ladder, and its skills in teaching
+///   order, each with its rung and its actions; the unit test at the foot.
+/// - **Chapter reader** — Phase 12's reader, unchanged, one click away as
+///   "read as a chapter".
 ///
-/// The view recomputes its plan whenever the score snapshot changes, so grading
-/// a lesson visibly compresses it away (in adaptive mode), advances the
-/// bookmark, and moves every progress read-out — the product's loop, closed
-/// inside one screen.
+/// Navigation state is view state; position and progress are still derived
+/// from the evidence log alone (§6.6), and the view recomputes its plan on
+/// every score change so a graded problem moves every read-out it is under.
 struct ProgramView: View {
     let program: Program
     let document: GraphDocument
     let scores: ScoreStore
-    /// A node to open the program *at* — the panel's "read the lesson" jump.
-    var target: NodeID?
-    /// Open the node panel over the reader (details, history, prerequisites).
+    /// The window's name, used when the spine carries no title of its own.
+    var fallbackTitle = "The Program"
+    var entry: ProgramEntry = .course
+    /// Open the node panel over the course (details, history, prerequisites).
     var onSelect: (NodeID) -> Void
-    /// §6.7: play this step as cards instead of reading it. The reader keeps its
-    /// place — the player is a way *into* a step, not a replacement for the
-    /// chapter around it.
+    /// §6.7: play this step as cards.
     var onPlay: ((NodeID) -> Void)?
+    /// §5.2: open a problem targeting this node.
+    var onPractice: ((NodeID) -> Void)?
+    /// §6.8: sit this unit's test.
+    var onUnitTest: ((NodeID) -> Void)?
     var onExit: () -> Void
 
-    /// nil until the reader navigates: the open unit follows the bookmark.
-    @State private var openUnit: NodeID?
-    /// Met steps the user chose to reread in adaptive mode.
-    @State private var expanded: Set<NodeID> = []
-    /// Scroll request for the chapter pane, consumed after layout.
-    @State private var reveal: NodeID?
-    /// §6.6's "from the beginning" — every step in full, no compression.
-    @AppStorage("MathTree.program.showEverything") private var showEverything = false
+    enum Page: Equatable {
+        case course
+        case unit(NodeID)
+        case chapter(unit: NodeID, target: NodeID?)
+    }
+
+    @State private var page: Page = .course
 
     var body: some View {
         // Read on purpose: registers observation of the snapshot, so a recorded
-        // review recomputes the plan (compression, bookmark, progress).
+        // review recomputes the plan and every read-out under it.
         _ = scores.revision
         let theme = ThemeStore.shared.theme
         let plan = ProgramPlan.compute(
             spine: program.spine, graph: scores.graph, state: scores.state,
             at: scores.evaluatedAt, config: scores.config)
-        let unit = currentUnit(plan)
 
         return VStack(spacing: 0) {
-            header(plan, unit: unit, theme)
+            header(plan, theme)
             Rule()
-            HStack(spacing: 0) {
-                contents(plan, open: unit, theme)
-                Rectangle().fill(theme.hairline.color).frame(width: 1)
-                if let unit {
-                    chapter(plan, unit: unit, theme)
+            switch page {
+            case .course:
+                CourseHome(
+                    program: program, plan: plan, document: document, scores: scores,
+                    onOpenUnit: { open(.unit($0)) },
+                    onPlay: onPlay)
+            case let .unit(id):
+                if let unit = plan.unit(id) {
+                    UnitPage(
+                        program: program, plan: plan, unit: unit, document: document,
+                        scores: scores,
+                        onSelect: onSelect, onPlay: onPlay, onPractice: onPractice,
+                        onUnitTest: onUnitTest,
+                        onReadChapter: { open(.chapter(unit: id, target: nil)) })
                 } else {
-                    Text("The program has no units.")
-                        .font(Typeface.sans(13))
-                        .foregroundStyle(theme.inkMuted.color)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    missing(theme)
+                }
+            case let .chapter(id, target):
+                if let unit = plan.unit(id) {
+                    ChapterReader(
+                        program: program, plan: plan, unit: unit, target: target,
+                        document: document, scores: scores,
+                        onSelect: onSelect, onPlay: onPlay)
+                } else {
+                    missing(theme)
                 }
             }
-            progress(plan, theme)
+            foot(plan, theme)
         }
         .background(theme.canvasEdge.color)
         .background(.ultraThinMaterial)
-        .onAppear {
-            if let target, let step = plan.step(for: target) {
-                openUnit = step.unit
-                expanded.insert(target)
-                reveal = target
-            } else if let resume = plan.resume {
-                openUnit = resume.unit
-                reveal = resume.id
-            }
+        .onAppear { page = resolved(entry, plan: plan) }
+        .onChange(of: entry) { page = resolved(entry, plan: plan) }
+    }
+
+    private func resolved(_ entry: ProgramEntry, plan: ProgramPlan) -> Page {
+        switch entry {
+        case .course: return .course
+        case let .unit(id): return .unit(id)
+        case let .chapter(target):
+            guard let step = plan.step(for: target) else { return .course }
+            return .chapter(unit: step.unit, target: target)
         }
     }
 
-    private func currentUnit(_ plan: ProgramPlan) -> ProgramPlan.Unit? {
-        if let openUnit, let unit = plan.unit(openUnit) { return unit }
-        if let resume = plan.resume { return plan.unit(resume.unit) }
-        return plan.units.first
+    private func open(_ next: Page) {
+        withAnimation(.easeInOut(duration: 0.2)) { page = next }
     }
 
     private func title(of id: NodeID) -> String {
         document.index(of: id).map { document[$0].title } ?? id.rawValue
     }
 
+    private var courseTitle: String { program.spine.title ?? fallbackTitle }
+
+    private func missing(_ theme: Theme) -> some View {
+        Text("That unit is not in this program.")
+            .font(Typeface.sans(13))
+            .foregroundStyle(theme.inkMuted.color)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     // MARK: - Header
 
-    private func header(_ plan: ProgramPlan, unit: ProgramPlan.Unit?, _ theme: Theme) -> some View {
-        HStack(alignment: .bottom, spacing: 24) {
+    /// The breadcrumb is the eyebrow: COURSE › UNIT 04 · TITLE › CHAPTER, each
+    /// earlier crumb a way back. Under it, the name of where you are.
+    private func header(_ plan: ProgramPlan, _ theme: Theme) -> some View {
+        let unit: ProgramPlan.Unit? = {
+            switch page {
+            case .course: return nil
+            case let .unit(id), let .chapter(id, _): return plan.unit(id)
+            }
+        }()
+        return HStack(alignment: .bottom, spacing: 24) {
             VStack(alignment: .leading, spacing: theme.isDark ? 9 : 10) {
-                Text("PROGRAM")
-                    .font(Typeface.mono(10.5))
-                    .tracking(Typeface.tracking(0.18, at: 10.5))
-                    .foregroundStyle(theme.eyebrow.color)
+                crumbs(plan, unit: unit, theme)
                 MathTextView(
-                    source: unit.map { title(of: $0.id) } ?? "The Program",
+                    source: unit.map { title(of: $0.id) } ?? courseTitle,
                     size: theme.isDark ? 26 : 28,
                     weight: theme.isDark ? .light : .regular,
                     color: theme.inkStrong.color,
@@ -116,22 +154,12 @@ struct ProgramView: View {
             Spacer(minLength: 0)
             HStack(spacing: 22) {
                 if let unit {
-                    Text("unit \(unit.index + 1) / \(plan.units.count)")
+                    Text("unit \(unit.index + 1) of \(plan.units.count)")
+                } else {
+                    let summary = scores.masterySummary(of: plan.steps.map(\.id))
+                    Text("\(summary.count(.mastered)) mastered")
+                    Text("\(summary.metCount) / \(plan.stepCount) proficient")
                 }
-                Text("\(plan.metCount) / \(plan.stepCount) mastered")
-                // The other starting point, one click away — a mode, not a fork.
-                Button {
-                    showEverything.toggle()
-                } label: {
-                    Text(showEverything ? "adapt to what I know" : "show everything")
-                        .foregroundStyle(theme.statEmphasis.color)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help(
-                    showEverything
-                        ? "Compress the steps you already hold to one line each"
-                        : "Show every step in full, from the beginning")
                 Button(action: onExit) {
                     Text("esc — full map")
                         .foregroundStyle(theme.statEmphasis.color)
@@ -149,405 +177,302 @@ struct ProgramView: View {
         .padding(.bottom, theme.isDark ? 22 : 24)
     }
 
-    // MARK: - Contents
-
-    /// The table of contents: every part, every unit, the whole tree at a
-    /// glance. This is where "learn specific topics at whatever time" lives —
-    /// any unit is one click, whatever the bookmark says.
-    private func contents(
-        _ plan: ProgramPlan, open: ProgramPlan.Unit?, _ theme: Theme
-    ) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                ForEach(Array(plan.parts.enumerated()), id: \.offset) { _, part in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Eyebrow(title: part.title)
-                        VStack(alignment: .leading, spacing: 1) {
-                            ForEach(part.units) { unit in
-                                unitRow(
-                                    unit, isOpen: unit.id == open?.id,
-                                    isBookmarked: unit.id == plan.resume?.unit, theme: theme)
-                            }
-                        }
-                    }
+    private func crumbs(_ plan: ProgramPlan, unit: ProgramPlan.Unit?, _ theme: Theme) -> some View {
+        HStack(spacing: 8) {
+            crumb("COURSE", isCurrent: unit == nil, theme) { open(.course) }
+            if let unit {
+                separator(theme)
+                let isChapter: Bool = {
+                    if case .chapter = page { return true }
+                    return false
+                }()
+                crumb(
+                    "UNIT \(String(format: "%02d", unit.index + 1)) · "
+                        + title(of: unit.id).uppercased(),
+                    isCurrent: !isChapter, theme
+                ) { open(.unit(unit.id)) }
+                if isChapter {
+                    separator(theme)
+                    crumb("CHAPTER", isCurrent: true, theme) {}
                 }
             }
-            .padding(.horizontal, theme.isDark ? 20 : 22)
-            .padding(.vertical, 22)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(width: theme.railWidth + 24)
+        .font(Typeface.mono(10.5))
+        .tracking(Typeface.tracking(0.16, at: 10.5))
     }
 
-    private func unitRow(
-        _ unit: ProgramPlan.Unit, isOpen: Bool, isBookmarked: Bool, theme: Theme
+    private func crumb(
+        _ text: String, isCurrent: Bool, _ theme: Theme, action: @escaping () -> Void
     ) -> some View {
-        Button {
-            openUnit = unit.id
-            reveal = nil
-        } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(String(format: "%02d", unit.index + 1))
-                    .font(Typeface.mono(10))
-                    .foregroundStyle(
-                        (isBookmarked ? theme.attention : theme.eyebrowCount).color)
-                MathTextView(
-                    source: title(of: unit.id), size: 12.5,
-                    color: (isOpen ? theme.inkStrong : theme.rowTitle).color)
+        Button(action: action) {
+            Text(text)
+                .foregroundStyle((isCurrent ? theme.trailCurrent : theme.trail).color)
                 .lineLimit(1)
-                Spacer(minLength: 8)
-                Text(readout(of: unit))
-                    .font(Typeface.mono(10))
-                    .foregroundStyle(
-                        (unit.isComplete ? theme.statEmphasis : theme.rowTrailing).color)
-            }
-            .padding(.vertical, 2.5)
-            .padding(.horizontal, 6)
-            .background(isOpen ? theme.rowHighlight.color : .clear)
-            .contentShape(Rectangle())
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(unit.id.rawValue)
-        .accessibilityLabel(
-            "Unit \(unit.index + 1), \(title(of: unit.id)), \(readout(of: unit))"
-        )
+        .disabled(isCurrent)
+        .help(isCurrent ? "" : "Back to \(text.capitalized)")
     }
 
-    private func readout(of unit: ProgramPlan.Unit) -> String {
-        guard unit.isAuthored else { return "—" }
-        if unit.isComplete { return "✓" }
-        return "\(unit.metCount)/\(unit.steps.count)"
+    private func separator(_ theme: Theme) -> some View {
+        Text("›").foregroundStyle(theme.trailSeparator.color)
     }
 
-    // MARK: - Chapter
+    // MARK: - Foot
 
-    private func chapter(_ plan: ProgramPlan, unit: ProgramPlan.Unit, _ theme: Theme) -> some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    chapterHead(plan, unit: unit, theme)
-                    if unit.isAuthored {
-                        let compressed = compressedCount(unit)
-                        if compressed > 0 {
-                            Text(
-                                "\(compressed) step\(compressed == 1 ? "" : "s") you already hold "
-                                    + "\(compressed == 1 ? "is" : "are") compressed — open one to "
-                                    + "reread it"
-                            )
-                            .font(Typeface.mono(10))
-                            .foregroundStyle(theme.inkFaint.fading(0.7).color)
-                            .padding(.bottom, 14)
-                        }
-                        ForEach(Array(unit.steps.enumerated()), id: \.element.id) { index, step in
-                            stepView(step, number: index + 1, theme: theme)
-                                .id(step.id)
-                        }
-                    } else {
-                        Text(
-                            "\(title(of: unit.id)) is outlined but has no content authored yet, "
-                                + "so there is nothing to teach here."
-                        )
-                        .font(Typeface.sans(theme.isDark ? 14 : 15))
-                        .foregroundStyle(theme.inkMuted.color)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: 560, alignment: .leading)
-                    }
-                }
-                .padding(.horizontal, theme.isDark ? 40 : 44)
-                .padding(.top, 26)
-                .padding(.bottom, 34)
-                .frame(maxWidth: 760, alignment: .leading)
-                .frame(maxWidth: .infinity, alignment: .center)
+    /// The course foots on its mastery points; a unit on its own ladder. Both
+    /// carry the bookmark, one click from wherever you are.
+    private func foot(_ plan: ProgramPlan, _ theme: Theme) -> some View {
+        let ids: [NodeID] = {
+            switch page {
+            case .course: return plan.steps.map(\.id)
+            case let .unit(id), let .chapter(id, _): return plan.unit(id)?.steps.map(\.id) ?? []
             }
-            .onChange(of: reveal) {
-                guard let reveal else { return }
-                withAnimation(.easeInOut(duration: 0.3)) { proxy.scrollTo(reveal, anchor: .top) }
-            }
-            .onAppear {
-                // Layout has to settle before the anchor exists to scroll to.
-                if let reveal {
-                    DispatchQueue.main.async {
-                        proxy.scrollTo(reveal, anchor: .top)
-                    }
-                }
-            }
-        }
-    }
-
-    private func chapterHead(
-        _ plan: ProgramPlan, unit: ProgramPlan.Unit, _ theme: Theme
-    ) -> some View {
-        let part = plan.parts.first { $0.units.contains(where: { $0.id == unit.id }) }
-        return VStack(alignment: .leading, spacing: 12) {
-            Text("UNIT \(unit.index + 1) · \(part?.title.uppercased() ?? "")")
-                .font(Typeface.mono(10))
-                .tracking(Typeface.tracking(0.16, at: 10))
-                .foregroundStyle(theme.eyebrow.fading(0.7).color)
-            ForEach(paragraphs(program.opening(of: unit.id) ?? summary(of: unit.id)), id: \.self) {
-                MathTextView(
-                    source: $0, size: theme.isDark ? 14.5 : 15.5,
-                    color: theme.ink.color, face: theme.isDark ? .sans : .serif)
-                .lineSpacing(theme.isDark ? 6 : 7)
-            }
-            if unit.isAuthored {
-                HStack(spacing: 14) {
-                    MeasureBar(
-                        value: Double(unit.metCount) / Double(unit.steps.count), height: 2,
-                        tint: unit.isComplete ? theme.action : nil
-                    )
-                    .frame(width: 160)
-                    Text("\(unit.metCount) / \(unit.steps.count) mastered")
-                        .font(Typeface.mono(10.5))
-                        .foregroundStyle(theme.stat.color)
-                        .fixedSize()
-                }
-                .padding(.top, 4)
-            }
-        }
-        .padding(.bottom, 22)
-    }
-
-    private func summary(of id: NodeID) -> String {
-        document.index(of: id).flatMap { document[$0].summary } ?? ""
-    }
-
-    private func compressedCount(_ unit: ProgramPlan.Unit) -> Int {
-        guard !showEverything else { return 0 }
-        return unit.steps.count { isCompressed($0) }
-    }
-
-    private func isCompressed(_ step: ProgramPlan.Step) -> Bool {
-        !showEverything && step.isMet && !expanded.contains(step.id)
-    }
-
-    // MARK: - Steps
-
-    @ViewBuilder
-    private func stepView(_ step: ProgramPlan.Step, number: Int, theme: Theme) -> some View {
-        if isCompressed(step) {
-            compressedRow(step, number: number, theme: theme)
-        } else {
-            lessonView(step, number: number, theme: theme)
-        }
-    }
-
-    /// §6.2's compression, applied to a chapter: a met step is present, small
-    /// and quiet — one line saying it is held — and one click reopens it.
-    private func compressedRow(
-        _ step: ProgramPlan.Step, number: Int, theme: Theme
-    ) -> some View {
-        Button {
-            expanded.insert(step.id)
-        } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 9) {
-                Text(String(format: "%02d", number))
-                    .font(Typeface.mono(9.5))
-                    .foregroundStyle(theme.eyebrowCount.fading(0.8).color)
-                ScoreDot(id: step.id, scores: scores, diameter: 5)
-                    .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 4 }
-                MathTextView(source: title(of: step.id), size: 12, color: theme.inkMuted.color)
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                Text(scoreReadout(step))
-                    .font(Typeface.mono(10))
-                    .foregroundStyle(theme.eyebrowCount.color)
-            }
-            .padding(.vertical, 3)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help("Mastered — open to reread")
-    }
-
-    private func scoreReadout(_ step: ProgramPlan.Step) -> String {
-        switch ScoreFormat.state(of: step.id, in: scores) {
-        case let .learned(retrievability):
-            return "\(Int((min(max(retrievability, 0), 1) * 100).rounded()))"
-        case .frontier: return "ready"
-        case .attempted: return "missed"
-        case .unlearned: return "new"
-        }
-    }
-
-    private func stateLabel(_ step: ProgramPlan.Step) -> String {
-        if step.isMet { return "MET · \(scoreReadout(step))" }
-        if step.isDecayed { return "DECAYED · \(scoreReadout(step))" }
-        return scoreReadout(step).uppercased()
-    }
-
-    /// One step, in full: what to know (the node), then how to come to know it
-    /// (the lesson), then the action that records that you now do.
-    private func lessonView(_ step: ProgramPlan.Step, number: Int, theme: Theme) -> some View {
-        let node = document.index(of: step.id).map { document[$0] }
-        let lesson = program.lesson(for: step.id)
-        return VStack(alignment: .leading, spacing: 0) {
-            Rule()
-            VStack(alignment: .leading, spacing: 14) {
-                Text(
-                    "STEP \(String(format: "%02d", number)) · "
-                        + "\(node?.kind.rawValue.uppercased() ?? "") · \(stateLabel(step))"
-                )
-                .font(Typeface.mono(10))
-                .tracking(Typeface.tracking(0.14, at: 10))
-                .foregroundStyle(
-                    (step.isDecayed ? theme.attention : theme.eyebrow).fading(0.85).color)
-                .padding(.top, 20)
-
-                MathTextView(
-                    source: node?.title ?? step.id.rawValue,
-                    size: theme.isDark ? 18 : 20,
-                    color: theme.inkStrong.color,
-                    face: theme.isDark ? .sans : .serif)
-
-                if let statement = node?.statement, !statement.isEmpty {
-                    MathTextView(
-                        source: statement, size: theme.isDark ? 13.5 : 14.5,
-                        color: theme.ink.color, face: theme.isDark ? .sans : .serif
-                    )
-                    .lineSpacing(theme.isDark ? 6 : 7)
-                    .textSelection(.enabled)
-                }
-
-                if let lesson {
-                    lessonBody(lesson, theme: theme)
-                } else {
-                    // Stated rather than hidden: the statement above is real
-                    // content, and pretending the step is not in the program
-                    // would make coverage gaps invisible exactly where they bite.
-                    Text("No lesson authored for this step yet — the statement is the content.")
-                        .font(Typeface.mono(10.5))
-                        .foregroundStyle(theme.inkFaint.color)
-                }
-
-                actions(step, theme: theme)
-            }
-            .padding(.bottom, 22)
-        }
-    }
-
-    /// The lesson, §6.6's rhythm: the hook as a lead, the explanation as body
-    /// prose, then the labelled sections — worked, interview, pitfalls — and the
-    /// recap last. Only what is authored renders; no empty eyebrows.
-    private func lessonBody(_ lesson: Lesson, theme: Theme) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ForEach(paragraphs(lesson.hook), id: \.self) {
-                MathTextView(
-                    source: $0, size: theme.isDark ? 13 : 14,
-                    color: theme.inkMuted.color, face: theme.isDark ? .sans : .serif)
-                .lineSpacing(5)
-            }
-            ForEach(paragraphs(lesson.explanation), id: \.self) {
-                MathTextView(source: $0, size: 13, color: theme.ink.color)
-                    .lineSpacing(theme.isDark ? 5 : 6)
-                    .textSelection(.enabled)
-            }
-            section("Worked example", lesson.worked, theme)
-            section("In the interview", lesson.interview, theme)
-            section("Pitfalls", lesson.pitfalls, theme)
-            section("Recap", lesson.recap, theme)
-        }
-        .padding(.top, 2)
-    }
-
-    @ViewBuilder
-    private func section(_ label: String, _ text: String?, _ theme: Theme) -> some View {
-        let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !trimmed.isEmpty {
-            VStack(alignment: .leading, spacing: 7) {
-                Text(label.uppercased())
-                    .font(Typeface.mono(9.5, .medium))
-                    .tracking(Typeface.tracking(0.16, at: 9.5))
-                    .foregroundStyle(theme.eyebrow.fading(0.75).color)
-                ForEach(paragraphs(trimmed), id: \.self) {
-                    MathTextView(source: $0, size: 13, color: theme.ink.color)
-                        .lineSpacing(theme.isDark ? 5 : 6)
-                        .textSelection(.enabled)
-                }
-            }
-            .padding(.top, 4)
-        }
-    }
-
-    /// The step's foot: record what just happened, or step out to the panel.
-    /// Same three confidence words as everywhere else (D6.3 governs their shape);
-    /// grading recomputes the plan, so in adaptive mode the step compresses away
-    /// and the bookmark advances — visibly.
-    private func actions(_ step: ProgramPlan.Step, theme: Theme) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 16) {
-            // §6.7's entry from the reader's side. It takes the accent because a
-            // step's foot is exactly where "I have read this, now make me do it"
-            // is the next thing a reader wants — the self-report words stay
-            // beside it, quiet, as they were.
-            if let onPlay, program.lesson(for: step.id) != nil {
-                TextAction(
-                    title: "Play this step →", size: 11.5,
-                    accessibilityHint:
-                        "Teaches this step one card at a time, ending in problems"
-                ) { onPlay(step.id) }
-            }
-            Text(step.isLearned ? "review:" : "got it?")
-                .font(Typeface.sans(11))
-                .foregroundStyle(theme.inkFaint.color)
-            ForEach(SelfReportConfidence.allCases, id: \.self) { confidence in
-                TextAction(
-                    title: confidence.title.lowercased(), size: 11.5, isQuiet: true,
-                    accessibilityHint: confidence.detail
-                ) {
-                    if scores.record(confidence, on: step.id) {
-                        expanded.remove(step.id)
-                    }
-                }
-            }
-            Spacer(minLength: 12)
-            TextAction(
-                title: "details →", size: 11, weight: .regular, isQuiet: true,
-                accessibilityHint: "Opens the node panel: score, history, prerequisites"
-            ) { onSelect(step.id) }
-        }
-        .padding(.top, 6)
-    }
-
-    // MARK: - Progress
-
-    private func progress(_ plan: ProgramPlan, _ theme: Theme) -> some View {
-        HStack(spacing: 16) {
-            MeasureBar(
-                value: plan.stepCount == 0
-                    ? 0 : Double(plan.metCount) / Double(plan.stepCount),
-                height: 2, tint: theme.measure)
-            if let resume = plan.resume {
+        }()
+        let summary = scores.masterySummary(of: ids)
+        return HStack(spacing: 16) {
+            MasteryBar(summary: summary, height: 2)
+            if let resume = plan.resume, let onPlay {
                 Button {
-                    openUnit = resume.unit
-                    reveal = resume.id
+                    onPlay(resume.id)
                 } label: {
-                    Text("resume — \(title(of: resume.unit))")
+                    Text("continue — \(title(of: resume.id))")
                         .font(Typeface.mono(10.5))
                         .foregroundStyle(theme.attention.color)
+                        .lineLimit(1)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Jump to the first step you have not learned yet")
-                .fixedSize()
+                .help("Play the first lesson you have not learned yet")
+                .frame(maxWidth: 360, alignment: .trailing)
             }
-            Text("\(plan.metCount) / \(plan.stepCount) mastered")
-                .font(Typeface.mono(10.5))
-                .foregroundStyle(theme.stat.color)
-                .fixedSize()
+            Text(
+                page == .course
+                    ? "\(MasteryFormat.points(summary)) · \(MasteryFormat.percent(summary))"
+                    : "\(summary.metCount) / \(summary.total) proficient"
+            )
+            .font(Typeface.mono(10.5))
+            .foregroundStyle(theme.stat.color)
+            .fixedSize()
         }
         .padding(.horizontal, theme.isDark ? 40 : 44)
         .padding(.top, 8)
         .padding(.bottom, theme.isDark ? 26 : 28)
-        .accessibilityLabel("\(plan.metCount) of \(plan.stepCount) mastered")
+        .accessibilityLabel("\(summary.metCount) of \(summary.total) proficient")
+    }
+}
+
+// MARK: - Course home
+
+/// The course's front door: continue, the measure, the map of parts and units.
+struct CourseHome: View {
+    let program: Program
+    let plan: ProgramPlan
+    let document: GraphDocument
+    let scores: ScoreStore
+    var onOpenUnit: (NodeID) -> Void
+    var onPlay: ((NodeID) -> Void)?
+
+    var body: some View {
+        let theme = ThemeStore.shared.theme
+        ScrollView {
+            VStack(alignment: .leading, spacing: 30) {
+                continueBlock(theme)
+                measure(theme)
+                ForEach(Array(plan.parts.enumerated()), id: \.offset) { index, part in
+                    partSection(part, number: index + 1, theme)
+                }
+            }
+            .padding(.horizontal, theme.isDark ? 40 : 44)
+            .padding(.top, 28)
+            .padding(.bottom, 34)
+            .frame(maxWidth: 760, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
     }
 
-    // MARK: - Helpers
+    private func title(of id: NodeID) -> String {
+        document.index(of: id).map { document[$0].title } ?? id.rawValue
+    }
 
-    /// Folded YAML scalars keep a blank line as `\n`, so a lesson's paragraphs
-    /// arrive newline-separated; `MathTextView` draws one paragraph.
-    private func paragraphs(_ text: String) -> [String] {
-        text.split(separator: "\n")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
+    /// The one thing a returning reader wants: where they got to, and a way back
+    /// in. The bookmark is the first never-learned step (D12.2), which is what
+    /// "where I got to" means — a decayed node from three units back is owed in
+    /// the rail, not here.
+    @ViewBuilder
+    private func continueBlock(_ theme: Theme) -> some View {
+        VStack(alignment: .leading, spacing: 11) {
+            if let resume = plan.resume, let unit = plan.unit(resume.unit) {
+                let position = (unit.steps.firstIndex { $0.id == resume.id } ?? 0) + 1
+                Eyebrow(title: scores.state.nodes.isEmpty ? "Start here" : "Continue")
+                MathTextView(
+                    source: title(of: resume.id), size: theme.isDark ? 19 : 21,
+                    color: theme.inkStrong.color, face: theme.isDark ? .sans : .serif)
+                Text(
+                    "Unit \(unit.index + 1) of \(plan.units.count) · \(title(of: unit.id)) · "
+                        + "skill \(position) of \(unit.steps.count)"
+                )
+                .font(Typeface.mono(10.5))
+                .foregroundStyle(theme.stat.color)
+                HStack(alignment: .firstTextBaseline, spacing: 18) {
+                    if let onPlay {
+                        TextAction(
+                            title: scores.state.nodes.isEmpty
+                                ? "Start the course →" : "Continue the lesson →",
+                            size: 13,
+                            accessibilityHint: "Plays the next lesson, one card at a time"
+                        ) { onPlay(resume.id) }
+                    }
+                    TextAction(
+                        title: "Open the unit", size: 12, weight: .regular, isQuiet: true,
+                        accessibilityHint: "The unit this lesson belongs to"
+                    ) { onOpenUnit(unit.id) }
+                }
+                .padding(.top, 2)
+            } else if plan.stepCount > 0 {
+                Eyebrow(title: "Every skill learned")
+                Text(
+                    "You have been through every lesson in the course at least once. "
+                        + "What has decayed is owed in the rail; any unit below reopens."
+                )
+                .font(Typeface.sans(theme.isDark ? 13.5 : 14.5))
+                .foregroundStyle(theme.inkMuted.color)
+                .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Eyebrow(title: "Nothing authored yet")
+                Text("The outline is in place, but no unit of this course has content to teach.")
+                    .font(Typeface.sans(theme.isDark ? 13.5 : 14.5))
+                    .foregroundStyle(theme.inkMuted.color)
+            }
+        }
+    }
+
+    /// Khan Academy's course measure: points over possible, then the ladder.
+    private func measure(_ theme: Theme) -> some View {
+        let summary = scores.masterySummary(of: plan.steps.map(\.id))
+        return VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .firstTextBaseline, spacing: 14) {
+                Text("COURSE MASTERY")
+                    .font(Typeface.mono(10, .medium))
+                    .tracking(Typeface.tracking(0.18, at: 10))
+                    .foregroundStyle(theme.eyebrow.color)
+                Spacer(minLength: 0)
+                Text("\(MasteryFormat.points(summary)) · \(MasteryFormat.percent(summary))")
+                    .font(Typeface.mono(10.5))
+                    .foregroundStyle(theme.statEmphasis.color)
+            }
+            MasteryBar(summary: summary, height: 4)
+            HStack(alignment: .firstTextBaseline) {
+                MasteryLegend(summary: summary)
+                Spacer(minLength: 0)
+                Text("\(summary.total) skills · \(plan.units.count(where: \.isAuthored)) units")
+                    .font(Typeface.mono(10))
+                    .foregroundStyle(theme.eyebrowCount.color)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// One part: its authored units as rows, and its unauthored ones as one
+    /// sentence. A part with nothing authored says so and takes two lines.
+    private func partSection(_ part: ProgramPlan.Part, number: Int, _ theme: Theme) -> some View {
+        let authored = part.units.filter(\.isAuthored)
+        let outlined = part.units.filter { !$0.isAuthored }
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text("PART \(number)")
+                    .font(Typeface.mono(10))
+                    .foregroundStyle(theme.eyebrowCount.color)
+                Eyebrow(title: part.title, count: authored.isEmpty ? nil : authored.count)
+            }
+            if !authored.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(authored) { unit in
+                        UnitRow(
+                            unit: unit,
+                            title: title(of: unit.id),
+                            summary: scores.masterySummary(of: unit.steps.map(\.id)),
+                            isBookmarked: unit.id == plan.resume?.unit,
+                            onOpen: { onOpenUnit(unit.id) })
+                    }
+                }
+                .padding(.horizontal, -8)
+            }
+            if !outlined.isEmpty {
+                Text(
+                    (authored.isEmpty ? "Outlined, not yet authored: " : "\(outlined.count) more outlined, not yet authored: ")
+                        + outlined.map { title(of: $0.id) }.joined(separator: ", ") + "."
+                )
+                .font(Typeface.mono(10))
+                .foregroundStyle(theme.inkFaint.fading(0.75).color)
+                .fixedSize(horizontal: false, vertical: true)
+                .lineSpacing(3)
+            }
+        }
+    }
+}
+
+/// One unit on the course home: number, title, its ladder as a bar, and the
+/// count. The number takes the attention colour on the bookmarked unit.
+private struct UnitRow: View {
+    let unit: ProgramPlan.Unit
+    let title: String
+    let summary: MasterySummary
+    let isBookmarked: Bool
+    let onOpen: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        let theme = ThemeStore.shared.theme
+        Button(action: onOpen) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(String(format: "%02d", unit.index + 1))
+                    .font(Typeface.mono(10))
+                    .foregroundStyle((isBookmarked ? theme.attention : theme.eyebrowCount).color)
+                    .frame(width: 20, alignment: .leading)
+                MathTextView(
+                    source: title, size: theme.isDark ? 14 : 14.5,
+                    color: (isHovering ? theme.inkStrong : theme.ink).color,
+                    face: theme.isDark ? .sans : .serif)
+                .lineLimit(1)
+                Spacer(minLength: 12)
+                MasteryBar(summary: summary, height: 3)
+                    .frame(width: 120)
+                    .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 3 }
+                if isHovering {
+                    Text("open →")
+                        .font(Typeface.sans(10.5, .medium))
+                        .foregroundStyle(theme.action.color)
+                        .frame(width: 92, alignment: .trailing)
+                } else {
+                    Text(readout)
+                        .font(Typeface.mono(10))
+                        .foregroundStyle(
+                            (summary.count(.mastered) == summary.total
+                                ? theme.action : theme.rowTrailing).color)
+                        .frame(width: 92, alignment: .trailing)
+                }
+            }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .background(isHovering ? theme.rowHighlight.color : .clear)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .help(unit.id.rawValue)
+        .accessibilityLabel(
+            "Unit \(unit.index + 1), \(title), \(summary.metCount) of \(summary.total) proficient")
+    }
+
+    private var readout: String {
+        if summary.count(.mastered) == summary.total { return "mastered" }
+        if summary.metCount == 0 && summary.count(.familiar) == 0 && summary.count(.attempted) == 0 {
+            return "\(summary.total) skills"
+        }
+        return "\(summary.metCount) / \(summary.total)"
     }
 }
 
@@ -555,32 +480,28 @@ struct ProgramView: View {
 
 #if DEBUG
 
-#Preview("Program") {
+#Preview("Course") {
     ProgramView(
         program: Program(
-            spine: ProgramSpine(parts: [
-                .init(title: "Analysis", units: ["analysis.svc"])
-            ]),
+            spine: ProgramSpine(
+                title: "A Course",
+                parts: [.init(title: "Analysis", units: ["analysis.svc"])]),
             lessonUnits: [
                 LessonUnit(
                     unit: "analysis.svc",
-                    opening: "One chapter, to preview the reader.",
+                    opening: "One chapter, to preview the course.",
                     lessons: [
                         Lesson(
                             node: "analysis.svc.mvt",
                             hook: "The bridge from local slope to global change.",
-                            explanation:
-                                "Rolle's theorem plus a tilt.\nThe second paragraph.",
-                            worked: "With $f(x) = x^2$ on $[0,2]$: $c = 1$.",
-                            interview: "State the hypotheses before the formula.",
-                            pitfalls: "Continuity on the closed interval, "
-                                + "differentiability on the open one.",
+                            explanation: "Rolle's theorem plus a tilt.\nThe second paragraph.",
                             recap: "Average slope is attained somewhere inside.")
                     ])
             ]),
         document: NodePanelPreviewData.document,
         scores: NodePanelPreviewData.scores(),
         onSelect: { print("select \($0)") },
+        onPlay: { print("play \($0)") },
         onExit: { print("exit") }
     )
     .frame(width: 1280, height: 800)

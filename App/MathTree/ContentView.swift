@@ -20,8 +20,11 @@ struct ContentView: View {
     @State private var isPlacing = false
     /// §6.6's program, when the tree has one and it is open.
     @State private var isProgramOpen = false
-    /// The node the program should open at — the panel's "read the lesson" jump.
-    @State private var programTarget: NodeID?
+    /// Where the program opens: the course home, a unit page, or the chapter
+    /// reader at one node (the panel's "read the lesson" jump).
+    @State private var programEntry: ProgramEntry = .course
+    /// §6.8's unit test, while one is being sat.
+    @State private var unitTest: UnitTestSession?
     /// §6.7's player. Non-nil while one node's lesson is being played card by
     /// card; it covers the program reader when both are open, because the player
     /// is a way *into* a step and closing it should return to the chapter.
@@ -42,6 +45,21 @@ struct ContentView: View {
         var problem: Problem
         var subject: NodeID
         var id: String { problem.id.rawValue }
+    }
+
+    /// One sitting of a unit's test: the paper, the question being answered, and
+    /// what has been graded so far. The grades are already in the log by the
+    /// time they are listed here — the session is view state, never evidence.
+    struct UnitTestSession {
+        var unit: NodeID
+        var paper: UnitTest.Paper
+        var index = 0
+        var results: [(node: NodeID, outcome: ProblemOutcome)] = []
+
+        var current: UnitTest.Question? {
+            paper.questions.indices.contains(index) ? paper.questions[index] : nil
+        }
+        var isDone: Bool { index >= paper.questions.count }
     }
 
     var body: some View {
@@ -74,6 +92,7 @@ struct ContentView: View {
                 // Assessment sits above everything: a problem sheet and the
                 // placement flow are modal by nature, and both are dismissible.
                 .overlay { problemOverlay(scene: scene) }
+                .overlay { unitTestOverlay(scene: scene) }
                 .overlay { placementOverlay(scene: scene, renderer: renderer) }
                 .onAppear {
                     band = renderer.band
@@ -161,6 +180,8 @@ struct ContentView: View {
     private func escape() {
         if attempt != nil {
             attempt = nil
+        } else if unitTest != nil {
+            unitTest = nil
         } else if isPlacing {
             isPlacing = false
         } else if selection != nil {
@@ -169,7 +190,6 @@ struct ContentView: View {
             closePlayer()
         } else if isProgramOpen {
             withAnimation(.easeInOut(duration: 0.3)) { isProgramOpen = false }
-            programTarget = nil
         } else if focus != nil, let renderer = store.renderer {
             exitFocus(renderer: renderer)
         }
@@ -233,8 +253,9 @@ struct ContentView: View {
 
     // MARK: - Program
 
-    /// §6.6's reader, over the map the way focus mode is. Present only when the
-    /// tree ships a program and there is user state to adapt it to.
+    /// §6.6's program as §6.8's course, over the map the way focus mode is.
+    /// Present only when the tree ships a program and there is user state to
+    /// adapt it to.
     @ViewBuilder
     private func programOverlay(scene: GraphScene) -> some View {
         if isProgramOpen, let scores = store.scores, store.program.isAuthored {
@@ -242,22 +263,84 @@ struct ContentView: View {
                 program: store.program.program,
                 document: scene.document,
                 scores: scores,
-                target: programTarget,
+                fallbackTitle: store.tree.subdirectory == nil ? "Knowledge Tree" : "Quant Interview Tree",
+                entry: programEntry,
                 onSelect: { id in selection = id },
                 onPlay: { id in openPlayer(id) },
+                onPractice: scores.bank.isEmpty ? nil : { id in review(id) },
+                onUnitTest: scores.bank.isEmpty ? nil : { unit in startUnitTest(unit) },
                 onExit: {
                     withAnimation(.easeInOut(duration: 0.3)) { isProgramOpen = false }
-                    programTarget = nil
                 }
             )
             .transition(.opacity)
         }
     }
 
-    private func openProgram(at target: NodeID? = nil) {
-        programTarget = target
+    private func openProgram(_ entry: ProgramEntry = .course) {
+        programEntry = entry
         selection = nil
         withAnimation(.easeInOut(duration: 0.3)) { isProgramOpen = true }
+    }
+
+    private var plan: ProgramPlan? {
+        guard let scores = store.scores, store.program.isAuthored else { return nil }
+        return ProgramPlan.compute(
+            spine: store.program.program.spine, graph: scores.graph, state: scores.state,
+            at: scores.evaluatedAt, config: scores.config)
+    }
+
+    // MARK: - Unit test (§6.8)
+
+    /// One problem per skill through §5.2's sheet, each graded into the log as
+    /// it goes; a summary at the end reads the ladder back.
+    private func startUnitTest(_ unit: NodeID) {
+        guard let scores = store.scores, let plan, let steps = plan.unit(unit)?.steps else { return }
+        let paper = UnitTest.paper(
+            for: steps, bank: scores.bank, level: { scores.level(of: $0) },
+            attempted: scores.attemptedProblems)
+        guard !paper.isEmpty else { return }
+        selection = nil
+        withAnimation(.easeInOut(duration: 0.25)) {
+            unitTest = UnitTestSession(unit: unit, paper: paper)
+        }
+    }
+
+    @ViewBuilder
+    private func unitTestOverlay(scene: GraphScene) -> some View {
+        if let session = unitTest, let scores = store.scores, attempt == nil, !isPlacing {
+            if let question = session.current {
+                ProblemSheet(
+                    problem: question.problem,
+                    subject: question.node,
+                    document: scene.document,
+                    scores: scores,
+                    progress: "UNIT TEST · \(session.index + 1) OF \(session.paper.questions.count)",
+                    onGrade: { outcome, localized in
+                        scores.record(outcome, on: question.problem, localizedTo: localized)
+                        unitTest?.results.append((question.node, outcome))
+                        withAnimation(.easeInOut(duration: 0.2)) { unitTest?.index += 1 }
+                    },
+                    onDismiss: { unitTest = nil }
+                )
+                .id(question.id)
+                .transition(.opacity)
+            } else {
+                UnitTestSummary(
+                    unitTitle: scene.document.index(of: session.unit).map { scene.document[$0].title }
+                        ?? session.unit.rawValue,
+                    results: session.results,
+                    document: scene.document,
+                    scores: scores,
+                    onOpenUnit: {
+                        unitTest = nil
+                        openProgram(.unit(session.unit))
+                    },
+                    onDismiss: { unitTest = nil }
+                )
+                .transition(.opacity)
+            }
+        }
     }
 
     // MARK: - Lesson player
@@ -276,6 +359,7 @@ struct ContentView: View {
                 node: scene.document[index],
                 lesson: lesson,
                 unitTitle: unitTitle(of: playing, in: scene.document),
+                context: lessonContext(of: playing, in: scene.document),
                 document: scene.document,
                 scores: scores,
                 mastery: scores.bank.masterySet(for: playing),
@@ -286,10 +370,20 @@ struct ContentView: View {
                 // different place: the reader opens at the same node.
                 onRead: { id in
                     self.playing = nil
-                    openProgram(at: id)
+                    openProgram(.chapter(id))
+                },
+                onUnit: { unit in
+                    self.playing = nil
+                    openProgram(.unit(unit))
+                },
+                // §6.8's loop: the next skill replaces this one in place. The
+                // view is re-identified so the card position starts over.
+                onNext: { next in
+                    withAnimation(.easeInOut(duration: 0.25)) { self.playing = next }
                 },
                 onExit: { closePlayer() }
             )
+            .id(playing)
             .transition(.opacity)
         }
     }
@@ -299,6 +393,22 @@ struct ContentView: View {
             let unit = document.index(of: parent)
         else { return nil }
         return document[unit].title
+    }
+
+    /// Where this lesson sits in the course, from the plan — `nil` outside a
+    /// spine, which is what makes the player usable on a tree with no program.
+    private func lessonContext(of id: NodeID, in document: GraphDocument) -> LessonContext? {
+        guard let plan, let step = plan.step(for: id), let unit = plan.unit(step.unit),
+            let position = unit.steps.firstIndex(where: { $0.id == id })
+        else { return nil }
+        let next = unit.steps.indices.contains(position + 1) ? unit.steps[position + 1].id : nil
+        func title(_ id: NodeID) -> String {
+            document.index(of: id).map { document[$0].title } ?? id.rawValue
+        }
+        return LessonContext(
+            unit: unit.id, unitTitle: title(unit.id), unitIndex: unit.index,
+            unitCount: plan.units.count, skillIndex: position, skillCount: unit.steps.count,
+            next: next, nextTitle: next.map(title))
     }
 
     private func openPlayer(_ id: NodeID) {
@@ -324,6 +434,9 @@ struct ContentView: View {
                 document: scene.document,
                 scores: scores,
                 onSelect: { id in selection = id },
+                // §6.8: a step with a lesson is learned from the path directly.
+                onPlay: store.program.isAuthored ? { id in openPlayer(id) } : nil,
+                canPlay: { canPlay($0) },
                 onExit: { exitFocus(renderer: renderer) }
             )
             .transition(.opacity)
@@ -358,9 +471,11 @@ struct ContentView: View {
                 // §6.5's entry point that does not require finding a hub on the
                 // map first: pick the subject by name, get the path.
                 onLearnSubject: { enterFocus(.subject($0), renderer: renderer) },
-                // §6.6's entry point: the program, resumable from the rail.
+                // §6.8's entry points: the course home, and the next lesson
+                // directly — the rail is where a returning reader lands.
                 program: store.program.isAuthored ? store.program.program : nil,
                 onOpenProgram: store.program.isAuthored ? { openProgram() } : nil,
+                onContinueLesson: store.program.isAuthored ? { id in openPlayer(id) } : nil,
                 onClose: { isSidebarVisible = false }
             )
             .frame(width: theme.railWidth)
@@ -390,7 +505,7 @@ struct ContentView: View {
             onReview: { review($0) },
             // §6.6's connective tissue: any node on the map, straight to its
             // lesson in the program.
-            onLesson: canPlay(node.id) ? { id in openProgram(at: id) } : nil,
+            onLesson: canPlay(node.id) ? { id in openProgram(.chapter(id)) } : nil,
             // §6.7's: the same node, taught rather than read.
             onPlay: canPlay(node.id) ? { id in openPlayer(id) } : nil
         )

@@ -57,7 +57,10 @@
                 AnyView(
                     ReviewSidebar(
                         document: document, scores: scores, onSelect: { _ in },
-                        onLearnSubject: { _ in }, onClose: {}
+                        onLearnSubject: { _ in },
+                        program: SceneStore.shared.program.isAuthored
+                            ? SceneStore.shared.program.program : nil,
+                        onOpenProgram: {}, onContinueLesson: { _ in }, onClose: {}
                     )
                     .background(theme.canvasEdge.color)),
                 to: root.appendingPathComponent("sidebar.png"),
@@ -108,18 +111,45 @@
             // taxonomy plus one hand-authored chapter — so the contents rail,
             // the chapter head, a full lesson, the compression of met steps and
             // the missing-lesson state are all in one frame.
+            // The real program where one is authored (Phase 15 gives the math
+            // tree its own), else the fixture — the fixture proves the view
+            // draws every state, the real one proves the content survives it.
+            let program = SceneStore.shared.program.isAuthored
+                ? SceneStore.shared.program.program : fixtureProgram(document: document)
             write(
                 AnyView(
                     ProgramView(
-                        program: fixtureProgram(document: document),
+                        program: program,
                         document: document, scores: scores,
-                        target: "analysis.svc.ftc-part-2",
-                        onSelect: { _ in }, onExit: {})),
+                        entry: .chapter("analysis.svc.ftc-part-2"),
+                        onSelect: { _ in }, onPlay: { _ in }, onExit: {})),
                 to: root.appendingPathComponent("program.png"),
                 // Taller than the design frame on purpose: the chapter scrolls,
                 // and a shot cropped above the first authored lesson would pass
                 // without ever showing the lesson body render.
                 size: CGSize(width: 1280, height: 3800))
+
+            // Phase 15: §6.8's course — the home with its continue action, the
+            // measure and the parts; and one unit page with its ladder, its
+            // skills and the unit test. Both over the fixture user, so the rungs
+            // are mixed rather than all "not started".
+            write(
+                AnyView(
+                    ProgramView(
+                        program: program, document: document, scores: scores, entry: .course,
+                        onSelect: { _ in }, onPlay: { _ in }, onPractice: { _ in },
+                        onUnitTest: { _ in }, onExit: {})),
+                to: root.appendingPathComponent("course.png"),
+                size: CGSize(width: 1280, height: 1600))
+            write(
+                AnyView(
+                    ProgramView(
+                        program: program, document: document, scores: scores,
+                        entry: .unit("analysis.svc"),
+                        onSelect: { _ in }, onPlay: { _ in }, onPractice: { _ in },
+                        onUnitTest: { _ in }, onExit: {})),
+                to: root.appendingPathComponent("unit.png"),
+                size: CGSize(width: 1280, height: 1500))
 
             // Phase 13: §6.7's player. Five frames because the states it adds are
             // *interactive* ones, and input cannot be driven offscreen — the seams
@@ -285,8 +315,18 @@
                     LessonPlayer(
                         node: document[index], lesson: lesson,
                         unitTitle: document.index(of: "analysis.svc").map { document[$0].title },
+                        // §6.8's position and next step, so the finish card
+                        // shows the loop rather than a dead end.
+                        context: LessonContext(
+                            unit: "analysis.svc",
+                            unitTitle: document.index(of: "analysis.svc").map { document[$0].title }
+                                ?? "Single-Variable Calculus",
+                            unitIndex: 9, unitCount: 82, skillIndex: 6, skillCount: 18,
+                            next: "analysis.svc.rolle",
+                            nextTitle: document.index(of: "analysis.svc.rolle").map { document[$0].title }),
                         document: document, scores: scores,
                         mastery: scores.bank.masterySet(for: id),
+                        onUnit: { _ in }, onNext: { _ in },
                         onExit: {}, startCard: card, startResolved: resolved))
             }
 
@@ -300,6 +340,7 @@
                 ("lesson-choice-resolved", "analysis.svc.mvt", 3, true),
                 // One past the last card: the mastery set and the self-report.
                 ("lesson-mastery", "analysis.svc.mvt", 99, false),
+                ("lesson-finish", "analysis.svc.ftc-part-2", 99, false),
                 // D13.1's fallback, which is what every unauthored node shows.
                 ("lesson-derived", "analysis.svc.ftc-part-2", 0, false),
             ]

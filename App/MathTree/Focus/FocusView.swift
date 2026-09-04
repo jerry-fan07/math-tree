@@ -35,6 +35,10 @@ struct FocusView: View {
     let document: GraphDocument
     let scores: ScoreStore
     var onSelect: (NodeID) -> Void
+    /// §6.8: a step with a lesson is learned from the path directly, rather
+    /// than through the panel. `nil` on a tree with no program.
+    var onPlay: ((NodeID) -> Void)?
+    var canPlay: (NodeID) -> Bool = { _ in false }
     var onExit: () -> Void
 
     var body: some View {
@@ -49,6 +53,7 @@ struct FocusView: View {
         return VStack(spacing: 0) {
             if let plan {
                 header(plan, theme)
+                if !plan.placed.isEmpty { guide(plan, theme) }
                 Rule()
                 if plan.placed.isEmpty {
                     emptyPlan(plan, theme)
@@ -124,6 +129,63 @@ struct FocusView: View {
         .padding(.horizontal, theme.isDark ? 40 : 44)
         .padding(.top, theme.isDark ? 30 : 32)
         .padding(.bottom, theme.isDark ? 22 : 24)
+    }
+
+    /// One plain sentence under the title saying what the columns are, and the
+    /// first thing to do. The stage grammar (left to right, each stage needs
+    /// the ones before it) is the design's whole idea, and it was never said
+    /// on the screen that used it.
+    private func guide(_ plan: FocusPlan, _ theme: Theme) -> some View {
+        let ready = readyList(plan)
+        return HStack(alignment: .firstTextBaseline, spacing: 18) {
+            Text(guideText(plan, readyCount: ready.count))
+                .font(Typeface.sans(theme.isDark ? 12.5 : 13))
+                .foregroundStyle(theme.inkMuted.color)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 640, alignment: .leading)
+            Spacer(minLength: 0)
+            if let first = ready.first {
+                let title = document.index(of: first).map { document[$0].title } ?? first.rawValue
+                TextAction(
+                    title: "Start here: \(title) →", size: 12.5,
+                    accessibilityHint: "The first step whose prerequisites you already hold"
+                ) {
+                    if let onPlay, canPlay(first) { onPlay(first) } else { onSelect(first) }
+                }
+                .frame(maxWidth: 360, alignment: .trailing)
+            }
+        }
+        .padding(.horizontal, theme.isDark ? 40 : 44)
+        .padding(.bottom, theme.isDark ? 18 : 20)
+    }
+
+    private func guideText(_ plan: FocusPlan, readyCount: Int) -> String {
+        let steps = plan.syllabus.count
+        let imported = plan.importedSteps.count
+        var text: String
+        if focus.isSubject {
+            text = "\(steps) step\(steps == 1 ? "" : "s") to learn \(title)"
+            if imported > 0 {
+                text += ", \(imported) of them prerequisites from other subjects"
+            }
+            text += ". "
+        } else {
+            text = steps == 0
+                ? "Nothing stands between you and \(title). "
+                : "\(steps) prerequisite\(steps == 1 ? "" : "s") stand\(steps == 1 ? "s" : "") between you and \(title). "
+        }
+        text += "Work left to right — each stage needs the ones before it"
+        if readyCount > 0 {
+            text += "; \(readyCount) step\(readyCount == 1 ? " is" : "s are") ready now."
+        } else {
+            text += "."
+        }
+        return text
+    }
+
+    /// Ready steps in stage order, so "start here" is the leftmost one.
+    private func readyList(_ plan: FocusPlan) -> [NodeID] {
+        plan.columns.flatMap { $0.filter { scores.isFrontier($0) && plan.placed[$0]?.role != .metBoundary } }
     }
 
     // MARK: - Stages
@@ -203,17 +265,17 @@ struct FocusView: View {
     /// different problem from one that is new.
     private func stageLabel(_ plan: FocusPlan, ids: [NodeID]) -> String {
         if !focus.isSubject, ids.contains(plan.goal) { return "GOAL" }
-        if ids.allSatisfy({ plan.placed[$0]?.role == .metBoundary }) { return "MET" }
+        if ids.allSatisfy({ plan.placed[$0]?.role == .metBoundary }) { return "ALREADY HELD" }
         // A subject stage made entirely of steps borrowed from elsewhere is the
         // detour D11.5 insists on naming, and naming it on the stage as well as on
         // the row is what makes the shape of the path readable at a glance.
-        if focus.isSubject, ids.allSatisfy({ !plan.isTarget($0) }) { return "IMPORTED" }
+        if focus.isSubject, ids.allSatisfy({ !plan.isTarget($0) }) { return "FROM OTHER SUBJECTS" }
         let decayed = ids.contains { id in
             guard plan.placed[id]?.role != .metBoundary else { return false }
             if case .learned = ScoreFormat.state(of: id, in: scores) { return true }
             return false
         }
-        return decayed ? "DECAYED" : "UNMET"
+        return decayed ? "NEEDS REVIEW" : "TO LEARN"
     }
 
     @ViewBuilder
@@ -229,6 +291,7 @@ struct FocusView: View {
                 // §6.5: a step inside the subject is the work; a step from another
                 // branch is the toll on the way to it. Same row, quieter.
                 origin: origin(plan, of: id),
+                onPlay: (onPlay != nil && canPlay(id)) ? onPlay : nil,
                 onSelect: onSelect)
         }
     }
@@ -280,7 +343,7 @@ struct FocusView: View {
     }
 
     private func goalSubtitle(_ plan: FocusPlan) -> String {
-        if plan.goalIsMet { return "goal · mastered" }
+        if plan.goalIsMet { return "goal · held" }
         let steps = plan.syllabus.count
         if steps == 0 { return "goal · ready to learn" }
         return "goal · \(steps) node\(steps == 1 ? "" : "s") away"
@@ -319,10 +382,10 @@ struct FocusView: View {
                 + "through it to draw."
         }
         if focus.isSubject {
-            return "Mastered — all \(plan.targets.count) nodes in \(title) are above the threshold."
+            return "Complete — all \(plan.targets.count) nodes in \(title) are proficient or better."
         }
         return plan.goalIsMet
-            ? "Mastered — every prerequisite is met, and so is the goal."
+            ? "Complete — every prerequisite is held, and so is the goal."
             : "Every prerequisite is met. This is ready to learn — open it and report how it goes."
     }
 
@@ -341,7 +404,7 @@ struct FocusView: View {
         if total > 0 {
             HStack(spacing: 16) {
                 MeasureBar(value: Double(met) / Double(total), height: 2, tint: theme.measure)
-                Text(focus.isSubject ? "\(met) / \(total) mastered" : "\(met) / \(total) met")
+                Text(focus.isSubject ? "\(met) / \(total) proficient" : "\(met) / \(total) held")
                     .font(Typeface.mono(10.5))
                     .foregroundStyle(theme.stat.color)
                     .fixedSize()
@@ -349,7 +412,7 @@ struct FocusView: View {
             .padding(.horizontal, theme.isDark ? 40 : 44)
             .padding(.bottom, theme.isDark ? 26 : 28)
             .padding(.top, 8)
-            .accessibilityLabel("\(met) of \(total) mastered")
+            .accessibilityLabel("\(met) of \(total) proficient")
         }
     }
 
@@ -373,6 +436,8 @@ private struct FocusRow: View {
     /// §6.5: the branch this step was imported from, when it is not part of the
     /// subject being learned. Present is the signal — the row sets itself quiet.
     var origin: String?
+    /// §6.8: present when the step has a lesson to play.
+    var onPlay: ((NodeID) -> Void)?
     let onSelect: (NodeID) -> Void
 
     @State private var isHovering = false
@@ -406,9 +471,20 @@ private struct FocusRow: View {
                     }
                 }
                 Spacer(minLength: 8)
-                Text(readout)
-                    .font(Typeface.mono(isCompressed ? 10 : 10.5))
-                    .foregroundStyle((isCompressed ? theme.eyebrowCount : theme.rowTrailing).color)
+                if isHovering, let onPlay, !isCompressed {
+                    Button { onPlay(id) } label: {
+                        Text("learn →")
+                            .font(Typeface.sans(10.5, .medium))
+                            .foregroundStyle(theme.action.color)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Play this step's lesson, one card at a time")
+                } else {
+                    Text(readout)
+                        .font(Typeface.mono(isCompressed ? 10 : 10.5))
+                        .foregroundStyle((isCompressed ? theme.eyebrowCount : theme.rowTrailing).color)
+                }
             }
             .padding(.horizontal, 4)
             .padding(.vertical, 2)

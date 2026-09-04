@@ -117,9 +117,21 @@ public struct AnswerCheck: Hashable, Sendable {
             let want = NumericAnswer.value(of: expects),
             let got = NumericAnswer.value(of: typed)
         else { return false }
-        let allowed = tolerance ?? max(abs(want) * Self.defaultRelativeTolerance, 1e-12)
+        if let tolerance { return abs(got - want) <= tolerance }
+        // D15.4: no authored tolerance means "the value, exactly" — *at the
+        // precision the reader chose*. An author writes `7/15`; a reader who
+        // computed it types `0.4667`, and that is the right answer correctly
+        // rounded, not a near miss. So a decimal with at least three places is
+        // compared as a rounding: right if `want` rounds to it. Fewer places
+        // stay strict (`0.5` for $7/15$ is a guess), and a fraction is exact.
+        let exact = max(abs(want) * Self.defaultRelativeTolerance, 1e-12)
+        let allowed = max(exact, NumericAnswer.roundingTolerance(of: typed) ?? 0)
         return abs(got - want) <= allowed
     }
+
+    /// The finest precision a reader's rounding is honoured at: fewer places than
+    /// this and a decimal is compared exactly.
+    public static let roundingPlacesFloor = 3
 
     /// The feedback to show for a resolved choice: the row's own words where the
     /// author wrote them, and the check's otherwise.
@@ -306,6 +318,32 @@ public enum NumericAnswer {
 
         guard let magnitude = rational(text) else { return nil }
         return isPercent ? magnitude / 100 : magnitude
+    }
+
+    /// Half a unit in the last place of a typed decimal — the slack that makes
+    /// `0.4667` a correct answer to `7/15` (D15.4). `nil` for a fraction, an
+    /// exponent form, or a decimal with fewer than `roundingPlacesFloor` places,
+    /// all of which are compared exactly. A percentage's places count from the
+    /// value: `46.67%` is `0.4667`, four places.
+    public static func roundingTolerance(of source: String) -> Double? {
+        var text = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        text = text.replacingOccurrences(of: "$", with: "")
+        text = text.replacingOccurrences(of: ",", with: "")
+        text = text.replacingOccurrences(of: " ", with: "")
+        var shift = 0
+        if text.hasSuffix("%") {
+            shift = 2
+            text.removeLast()
+        }
+        guard !text.contains("/"), !text.contains("e"), !text.contains("E"),
+            let point = text.firstIndex(of: ".")
+        else { return nil }
+        let places = text.distance(from: text.index(after: point), to: text.endIndex) + shift
+        guard places >= AnswerCheck.roundingPlacesFloor else { return nil }
+        // Slightly over half a unit, so a value that sits exactly on the
+        // rounding boundary (`0.4665` for $0.46650…$) is not lost to binary
+        // floating point.
+        return 0.5 * pow(10, -Double(places)) * (1 + 1e-9)
     }
 
     /// A single fraction or a plain decimal. One `/` at most: `3/4/5` is not an

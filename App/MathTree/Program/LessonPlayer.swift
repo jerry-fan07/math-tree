@@ -25,11 +25,28 @@ import SwiftUI
 /// - **Every lesson plays** (D13.1). `Lesson.cards` falls back to a paging derived
 ///   from the prose, so a node nobody has authored cards for is still bite-sized —
 ///   it just cannot check anything, which the player says rather than hides.
+/// Where a lesson sits in its course (§6.8): the eyebrow's "unit 4 of 58 ·
+/// skill 3 of 18", and the step the finish card offers next. `nil` for a node
+/// played outside any spine.
+struct LessonContext: Equatable {
+    var unit: NodeID
+    var unitTitle: String
+    var unitIndex: Int
+    var unitCount: Int
+    var skillIndex: Int
+    var skillCount: Int
+    /// The next step of the unit in teaching order; `nil` on the last.
+    var next: NodeID?
+    var nextTitle: String?
+}
+
 struct LessonPlayer: View {
     let node: Node
     let lesson: Lesson
     /// The chapter this node is taught in, for the eyebrow. `nil` outside a spine.
     var unitTitle: String?
+    /// §6.8's position in the course, and what comes next.
+    var context: LessonContext?
     let document: GraphDocument
     let scores: ScoreStore
     /// §6.7's mastery set — `ProblemBank.masterySet(for:)`, hardest first (D13.6).
@@ -41,6 +58,10 @@ struct LessonPlayer: View {
     var onAttempt: ((Problem, NodeID) -> Void)?
     /// §6.6's reader, for the whole chapter around this one step.
     var onRead: ((NodeID) -> Void)?
+    /// §6.8: the unit page this lesson belongs to.
+    var onUnit: ((NodeID) -> Void)?
+    /// §6.8: play the next step of the unit — the loop a course is built on.
+    var onNext: ((NodeID) -> Void)?
     var onExit: () -> Void
     /// Offscreen-render seams, the same ones `ProblemSheet` needed and for the same
     /// reason: input cannot be driven headlessly, so the only way to *look at* a
@@ -145,6 +166,15 @@ struct LessonPlayer: View {
             Spacer(minLength: 0)
             HStack(spacing: 22) {
                 Text(counter)
+                if let onUnit, let context {
+                    Button { onUnit(context.unit) } label: {
+                        Text("back to the unit")
+                            .foregroundStyle(theme.statEmphasis.color)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("The unit page: every skill of \(context.unitTitle), in order")
+                }
                 if let onRead {
                     Button { onRead(node.id) } label: {
                         Text("read the chapter")
@@ -173,6 +203,11 @@ struct LessonPlayer: View {
 
     private var eyebrowText: String {
         let kind = node.kind.rawValue.uppercased()
+        if let context {
+            return "UNIT \(String(format: "%02d", context.unitIndex + 1)) OF \(context.unitCount) · "
+                + "\(context.unitTitle.uppercased()) · SKILL \(context.skillIndex + 1) OF "
+                + "\(context.skillCount) · \(kind)"
+        }
         guard let unitTitle else { return "LESSON · \(kind)" }
         return "LESSON · \(kind) · \(unitTitle.uppercased())"
     }
@@ -316,7 +351,7 @@ struct LessonPlayer: View {
                 // `MathTextView`, so a math span here would reach the reader as
                 // literal dollar signs — which the corpus check would never catch,
                 // because the string is in the app rather than in the corpus.
-                Text("A fraction, a decimal or a percentage — 7/15, 0.4667 and 46.67% all read alike.")
+                Text("A fraction, a decimal to three or more places, or a percentage — 7/15, 0.4667 and 46.67% all read alike.")
                     .font(Typeface.mono(9.5))
                     .foregroundStyle(theme.inkFaint.fading(0.7).color)
                     .padding(.top, 6)
@@ -452,6 +487,57 @@ struct LessonPlayer: View {
 
             Rule()
             selfReport(theme)
+            if context != nil || onUnit != nil {
+                Rule()
+                next(theme)
+            }
+        }
+    }
+
+    /// §6.8's loop: where you stand on the ladder now, and the next skill. The
+    /// rung reads the snapshot, so passing a mastery problem above moves it
+    /// while you watch — the one place the ladder and the instrument share a
+    /// screen.
+    private func next(_ theme: Theme) -> some View {
+        let level = scores.level(of: node.id)
+        return HStack(alignment: .top, spacing: 24) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("YOUR LEVEL")
+                    .font(Typeface.mono(10, .medium))
+                    .tracking(Typeface.tracking(0.18, at: 10))
+                    .foregroundStyle(theme.eyebrow.color)
+                HStack(spacing: 7) {
+                    MasteryDot(level: level)
+                    Text(level.title)
+                        .font(Typeface.sans(13.5, .medium))
+                        .foregroundStyle(level.tint(theme).color)
+                }
+                Text(climb(level))
+                    .font(Typeface.mono(10))
+                    .foregroundStyle(theme.inkFaint.fading(0.8).color)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 12)
+            VStack(alignment: .trailing, spacing: 8) {
+                if let context, let next = context.next, let onNext {
+                    TextAction(
+                        title: "Next: \(context.nextTitle ?? next.rawValue) →", size: 13,
+                        accessibilityHint: "Plays the next skill of the unit"
+                    ) { onNext(next) }
+                    Text("skill \(context.skillIndex + 2) of \(context.skillCount)")
+                        .font(Typeface.mono(10))
+                        .foregroundStyle(theme.eyebrowCount.color)
+                } else if let context, let onUnit {
+                    TextAction(
+                        title: "Unit complete — back to the unit →", size: 13,
+                        accessibilityHint: "The unit page, and its test"
+                    ) { onUnit(context.unit) }
+                    Text("the last skill of \(context.unitTitle)")
+                        .font(Typeface.mono(10))
+                        .foregroundStyle(theme.eyebrowCount.color)
+                        .lineLimit(1)
+                }
+            }
         }
     }
 
@@ -482,6 +568,25 @@ struct LessonPlayer: View {
             .font(Typeface.mono(9.5))
             .foregroundStyle(theme.inkFaint.fading(0.7).color)
             .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// What climbs the ladder from here — said at the foot of the lesson, where
+    /// the instruments that climb it are one scroll up.
+    private func climb(_ level: MasteryLevel) -> String {
+        switch level {
+        case .notStarted, .attempted:
+            return mastery.isEmpty
+                ? "Nothing recorded yet — report how it landed to hold this."
+                : "Nothing recorded yet — pass a problem above, or report how it landed."
+        case .familiar:
+            return "Learned once and decayed — a pass or a report brings it back."
+        case .proficient:
+            return mastery.isEmpty
+                ? "Held and fresh. No problem in the bank can prove it yet."
+                : "Held and fresh. Pass a problem above to master it."
+        case .mastered:
+            return "Held, fresh, and proven by a problem."
         }
     }
 

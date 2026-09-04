@@ -45,11 +45,17 @@ public struct ProgramSpine: Codable, Hashable, Sendable {
         }
     }
 
+    /// The course's name — "Undergraduate Mathematics", "Quant Interview
+    /// Preparation". Authored, because a program is a course and a course has a
+    /// name; `nil` on a spine authored before Phase 15, and the app falls back
+    /// to the window's.
+    public let title: String?
     public let parts: [Part]
     /// Accepted forward references, usually empty. See `ForwardReference`.
     public let forward: [ForwardReference]
 
-    public init(parts: [Part], forward: [ForwardReference] = []) {
+    public init(title: String? = nil, parts: [Part], forward: [ForwardReference] = []) {
+        self.title = title
         self.parts = parts
         self.forward = forward
     }
@@ -60,19 +66,21 @@ public struct ProgramSpine: Codable, Hashable, Sendable {
     public var isEmpty: Bool { parts.allSatisfy(\.units.isEmpty) }
 
     enum CodingKeys: String, CodingKey {
-        case parts, forward
+        case title, parts, forward
     }
 
-    // Hand-written so a spine with no forward references encodes without the
-    // key: the quant tree's `program.json` stays byte-identical (ground rule 5).
+    // Hand-written so a spine with no title and no forward references encodes
+    // without either key (ground rule 5's `encodeIfPresent` discipline).
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        title = try c.decodeIfPresent(String.self, forKey: .title)
         parts = try c.decode([Part].self, forKey: .parts)
         forward = try c.decodeIfPresent([ForwardReference].self, forKey: .forward) ?? []
     }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(title, forKey: .title)
         try c.encode(parts, forKey: .parts)
         if !forward.isEmpty { try c.encode(forward, forKey: .forward) }
     }
