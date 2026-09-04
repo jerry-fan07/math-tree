@@ -168,6 +168,10 @@ def problem_errors(problem, index, nodes, memo, seen_ids):
             if end not in tagged:
                 errors.append(f"{where}: connects `{key}` but neither targets nor exercises `{end}`")
         a, b = ends
+        if not a <= b:
+            errors.append(
+                f"{where}: connects `{key}` is not canonical — RelatesEdge sorts its ends, write `{b} ~ {a}`"
+            )
         relates = {r.get("id") if isinstance(r, dict) else r for r in nodes.get(a, {}).get("relates") or []}
         relates_b = {r.get("id") if isinstance(r, dict) else r for r in nodes.get(b, {}).get("relates") or []}
         if b not in relates and a not in relates_b:

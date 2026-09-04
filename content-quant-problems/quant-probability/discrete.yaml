@@ -795,3 +795,651 @@ problems:
         Evaluates $e^{-2}\lambda^{2}/2!$ with the factorial in place.
     targets:
       - quant-probability.discrete.poisson-limit
+
+  # --- merging and splitting streams -----------------------------------------
+
+  - id: qdisc-poisson-additivity-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Monitor A raises alerts as a Poisson count with rate $1.5$ per hour and
+      monitor B, independently, at rate $2.5$ per hour. An hour passes with
+      exactly five alerts in total. What is the probability that at least four
+      of them came from A? Give four decimal places.
+    answer: >
+      $\approx 0.0692$. Conditional on the total, the split is not Poisson:
+      given five alerts, each one came from A independently with probability
+      $\lambda/(\lambda+\mu) = 1.5/4 = 3/8$, so the A-count is
+      $\operatorname{Bin}(5, 3/8)$. Hence
+      $\Pr(\ge 4) = \binom{5}{4}\left(\tfrac{3}{8}\right)^{4}\tfrac{5}{8} +
+      \left(\tfrac{3}{8}\right)^{5} = \dfrac{5 \cdot 81 \cdot 5 + 243}{8^{5}} =
+      \dfrac{2268}{32768} \approx 0.06921$. The trap is to keep the A-count as
+      $\operatorname{Poisson}(1.5)$ and answer $\Pr(N_A \ge 4) \approx 0.0656$:
+      once the total is known the only randomness left is *which* stream each
+      alert came from, and that allocation is binomial in the rate ratio.
+    expects: "0.0692"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Conditions on the total and uses the binomial split
+        $\operatorname{Bin}(5, \lambda/(\lambda+\mu))$ rather than the
+        unconditional Poisson count.
+      - >
+        Adds both terms $k = 4$ and $k = 5$, with $p = 3/8$ and not $1/2$.
+    targets:
+      - quant-probability.discrete.poisson-additivity
+    exercises:
+      - quant-probability.discrete.binomial
+
+  - id: qdisc-poisson-additivity-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Three independent desks send cancellations as Poisson counts at rates
+      $0.8$, $1.2$ and $2.0$ per minute. What is the probability that the merged
+      stream produces exactly two cancellations in a minute? Give four decimal
+      places.
+    answer: >
+      $\approx 0.1465$. Independent Poisson counts add their rates, and the
+      two-stream statement extends to three by applying it twice, so the merged
+      count is $\operatorname{Poisson}(\lambda)$ with
+      $\lambda = 0.8 + 1.2 + 2.0 = 4$ — no convolution is needed. Then
+      $\Pr(X = 2) = e^{-\lambda}\lambda^{2}/2! = e^{-4} \times 16/2 = 8e^{-4}
+      \approx 8 \times 0.0183156 \approx 0.14653$. Averaging the three rates to
+      $\lambda = 4/3$ is the slip: rates add rather than average, so the merged
+      stream is busier than any desk on its own.
+    expects: "0.1465"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Adds the three rates to $\lambda = 4$ rather than averaging them.
+      - >
+        Evaluates $e^{-\lambda}\lambda^{2}/2!$ with the factorial in place.
+    targets:
+      - quant-probability.discrete.poisson-additivity
+
+  # --- sampling without replacement ------------------------------------------
+
+  - id: qdisc-hypergeometric-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A drawer holds $9$ red chips and $7$ blue chips. Five are drawn at once,
+      without replacement. What is the probability that at least four of them
+      are red? Give an exact fraction.
+    answer: >
+      $3/13$. The five chips are a uniformly random $5$-subset of the sixteen,
+      so the red count is hypergeometric with $N = 16$, $K = 9$, $n = 5$ and
+      $\Pr(X = k) = \binom{9}{k}\binom{7}{5-k}/\binom{16}{5}$. With
+      $\binom{16}{5} = 4368$, the case $k = 4$ contributes
+      $\binom{9}{4}\binom{7}{1} = 126 \times 7 = 882$ subsets and $k = 5$
+      contributes $\binom{9}{5}\binom{7}{0} = 126$, so the answer is
+      $(882 + 126)/4368 = 1008/4368 = 3/13 \approx 0.2308$. Pricing this as
+      $\operatorname{Bin}(5, 9/16)$ gives $\approx 0.2753$: the draws deplete the
+      drawer, so each red drawn makes the next red less likely, and ignoring that
+      inflates the upper tail.
+    expects: "3/13"
+    rubric:
+      - >
+        Counts $5$-subsets with three binomial coefficients rather than
+        multiplying a constant per-draw probability.
+      - >
+        Adds the two cases $k = 4$ and $k = 5$, rather than answering
+        $\Pr(X = 4)$ alone.
+    targets:
+      - quant-probability.discrete.hypergeometric
+    exercises:
+      - quant-probability.counting.combinations
+
+  - id: qdisc-hypergeometric-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A batch of $12$ sensors contains $4$ faulty ones. An inspector tests three
+      of the twelve at random, without replacement. What is the probability that
+      exactly one tested sensor is faulty? Give an exact fraction.
+    answer: >
+      $28/55$. Choose which one of the $4$ faulty sensors is drawn and which two
+      of the $8$ sound ones join it, over all $3$-subsets of the batch:
+      $\binom{4}{1}\binom{8}{2}/\binom{12}{3} = 4 \times 28/220 = 112/220 =
+      28/55 \approx 0.5091$. The sequential route agrees and shows the depletion
+      explicitly: $3 \times \tfrac{4}{12}\cdot\tfrac{8}{11}\cdot\tfrac{7}{10} =
+      3 \times \tfrac{224}{1320} = 28/55$, the factor $3$ counting which draw is
+      the faulty one. Treating the tests as $\operatorname{Bin}(3, 1/3)$ would
+      give $4/9 \approx 0.4444$, because a constant $1/3$ ignores that removing a
+      faulty sensor leaves the batch cleaner.
+    expects: "28/55"
+    rubric:
+      - >
+        Pairs $\binom{4}{1}$ with $\binom{8}{2}$ over $\binom{12}{3}$, or runs
+        the equivalent sequential product with its three orderings.
+      - >
+        Does not use a binomial pmf with a constant $p = 1/3$.
+    targets:
+      - quant-probability.discrete.hypergeometric
+    exercises:
+      - quant-probability.counting.combinations
+
+  - id: qdisc-hypergeometric-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      An urn holds $11$ items, five of which are successes; four items are drawn
+      without replacement and $X$ counts the successes among them. Which
+      expression gives $\Pr(X = 2)$?
+    answer: >
+      $\binom{5}{2}\binom{6}{2}/\binom{11}{4}$. Every $4$-subset of the urn is
+      equally likely, so count the favourable ones: choose which two of the five
+      successes are drawn and which two of the six failures fill the rest. That
+      is $10 \times 15 = 150$ favourable subsets out of $\binom{11}{4} = 330$,
+      giving $150/330 = 5/11 \approx 0.4545$. The denominator must be
+      $\binom{N}{n}$ with the $n$ actually drawn — using $\binom{11}{2} = 55$
+      instead returns $30/11 > 1$, which is not a probability at all, and is the
+      fastest way to catch that slip without any further arithmetic.
+    choices:
+      - text: >
+          $\binom{5}{2}\binom{6}{2}/\binom{11}{4}$
+        correct: true
+        feedback: >
+          Two of the five successes and two of the six failures, over all
+          $4$-subsets of the urn.
+      - text: >
+          $\binom{4}{2}\left(\tfrac{5}{11}\right)^{2}
+          \left(\tfrac{6}{11}\right)^{2}$
+        feedback: >
+          The binomial pmf holds the per-draw probability at $5/11$, but every
+          draw changes the urn. It gives $\approx 0.3688$, not $5/11$.
+      - text: >
+          $\binom{6}{2}\binom{5}{2}/\binom{11}{2}$
+        feedback: >
+          The denominator counts $2$-subsets while four items are drawn, so the
+          ratio exceeds $1$ and cannot be a probability.
+    rubric:
+      - >
+        Uses three binomial coefficients with $\binom{N}{n} = \binom{11}{4}$ in
+        the denominator.
+      - >
+        Rejects the binomial pmf because the draws deplete the urn rather than
+        because the numbers are wrong.
+    targets:
+      - quant-probability.discrete.hypergeometric
+
+  # --- moments without independence ------------------------------------------
+
+  - id: qdisc-hypergeometric-moments-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A standard $52$-card deck is shuffled uniformly and dealt face down. Let
+      $X$ be the number of kings sitting in positions $3$, $17$ and $40$ — three
+      named positions, not a block. What is $\operatorname{Var}(X)$? Give four
+      decimal places.
+    answer: >
+      $\approx 0.2047$. Exchangeability does the modelling: in a uniformly
+      shuffled deck any three named positions have the same joint law as any
+      other three, so scattering them changes nothing and $X$ is hypergeometric
+      with $N = 52$, $K = 4$, $n = 3$. The mean follows from three indicators,
+      each a king with probability $4/52$ however they depend on one another:
+      $\mathbb{E}[X] = nK/N = 3/13 \approx 0.2308$. The variance is the binomial
+      form times the finite-population correction,
+      $\operatorname{Var}(X) = 3 \cdot \dfrac{1}{13}\cdot\dfrac{12}{13}
+      \cdot\dfrac{52-3}{51} = \dfrac{36}{169}\cdot\dfrac{49}{51} =
+      \dfrac{588}{2873} \approx 0.20466$. Stopping at $36/169 \approx 0.2130$
+      overstates the spread; that factor $49/51$ is the only place the dependence
+      between positions ever surfaces.
+    expects: "0.2047"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Recognises three named positions as a size-$3$ sample without
+        replacement, by exchangeability, rather than as three independent draws.
+      - >
+        Multiplies $np(1-p)$ by $(N-n)/(N-1) = 49/51$ instead of stopping at the
+        binomial variance.
+    targets:
+      - quant-probability.discrete.hypergeometric-moments
+      - quant-probability.conditional.symmetry-exchangeability
+    exercises:
+      - quant-probability.expectation.linearity
+    connects:
+      - "quant-probability.conditional.symmetry-exchangeability ~ quant-probability.discrete.hypergeometric-moments"
+
+  - id: qdisc-hypergeometric-moments-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A pool of $60$ items is sampled $15$ at a time without replacement, and
+      the number of successes drawn has mean $3$. What is its variance? Give
+      four decimal places.
+    answer: >
+      $\approx 1.8305$. The mean is $nK/N$, the binomial mean in disguise, so
+      $15 \times K/60 = 3$ gives $K/N = 0.2$ and $K = 12$ — the mean alone pins
+      the success fraction, which is exactly why it cannot detect sampling
+      without replacement. The variance is where the dependence shows:
+      $\operatorname{Var}(X) = n\dfrac{K}{N}\left(1 - \dfrac{K}{N}\right)
+      \dfrac{N-n}{N-1} = 15 \times 0.2 \times 0.8 \times \dfrac{45}{59} = 2.4
+      \times 0.76271 \approx 1.83051$. Reporting $2.4$ answers the
+      with-replacement question: the sample is a quarter of the pool here, so the
+      correction strips away almost a quarter of the variance.
+    expects: "1.8305"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Recovers $K/N = 0.2$ from the mean before touching the variance.
+      - >
+        Applies the correction $(N-n)/(N-1) = 45/59$, not $(N-n)/N$.
+    targets:
+      - quant-probability.discrete.hypergeometric-moments
+
+  # --- with replacement or without -------------------------------------------
+
+  - id: qdisc-binomial-vs-hypergeometric-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A pool contains a fraction $0.4$ of successes. Drawing $20$ items from it
+      without replacement gives a success count with variance $4.32$. How large
+      is the pool?
+    answer: >
+      $N = 191$. With replacement the same draw would be
+      $\operatorname{Bin}(20, 0.4)$, of variance $np(1-p) = 20 \times 0.4 \times
+      0.6 = 4.8$. Sampling without replacement multiplies that by the
+      finite-population correction, so $4.8 \cdot \dfrac{N-20}{N-1} = 4.32$, i.e.
+      $\dfrac{N-20}{N-1} = 0.9$. Clearing denominators gives $N - 20 = 0.9N -
+      0.9$, so $0.1N = 19.1$ and $N = 191$; check $171/190 = 0.9$ exactly. The
+      mean is no help at all here — it is $8$ for every $N$ — which is the whole
+      point of this node: the pool size is invisible in the mean and legible only
+      in the variance.
+    expects: "191"
+    rubric:
+      - >
+        Writes the observed variance as $np(1-p)$ times $(N-n)/(N-1)$ and solves
+        for $N$.
+      - >
+        Notes that the mean carries no information about $N$, so the variance is
+        the only route.
+    targets:
+      - quant-probability.discrete.binomial-vs-hypergeometric
+    exercises:
+      - quant-probability.discrete.binomial-mean-variance
+      - quant-probability.discrete.hypergeometric-moments
+
+  - id: qdisc-binomial-vs-hypergeometric-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A shipment of $10{,}000$ units contains $500$ defective ones. A colleague
+      samples $40$ units without replacement but models the defective count as
+      $\operatorname{Bin}(40, 0.05)$. What does that substitution do to the mean
+      and to the standard deviation?
+    answer: >
+      It leaves the mean exactly right and overstates the standard deviation, by
+      about $0.2$ percent. Both laws have mean $nK/N = 40 \times 0.05 = 2$;
+      replacement never touches the mean, because linearity does not care that
+      the draws are dependent. The hypergeometric variance is the binomial's
+      $np(1-p) = 40 \times 0.05 \times 0.95 = 1.9$ times $(N-n)/(N-1) =
+      9960/9999 \approx 0.99610$, so the standard deviations are $\sqrt{1.9}
+      \approx 1.3784$ against $\approx 1.3757$. Since $n = 40$ is $0.4$ percent
+      of $N$, well inside the $n \le 0.05N$ rule of thumb, the substitution is
+      safe — but safe because the pool is enormous, not because the two laws
+      agree.
+    choices:
+      - text: >
+          Nothing to the mean; it overstates the standard deviation slightly
+        correct: true
+        feedback: >
+          Both laws share the mean $2$, and the binomial drops the shrinking
+          factor $\sqrt{(N-n)/(N-1)} \approx 0.998$.
+      - text: >
+          It overstates both the mean and the standard deviation
+        feedback: >
+          The means are equal at $2$. Replacement changes how much the count
+          fluctuates, never its average.
+      - text: >
+          Nothing to either — the two laws coincide as soon as $n < N$
+        feedback: >
+          They coincide only in the large-pool limit. Here they differ by the
+          factor $9960/9999$ — small, but not zero.
+      - text: >
+          Nothing to the mean; it understates the standard deviation
+        feedback: >
+          The correction $(N-n)/(N-1)$ is at most $1$, so the
+          without-replacement spread is the smaller one and the binomial
+          overstates it.
+    rubric:
+      - >
+        States that the means agree exactly and only the spread moves.
+      - >
+        Gets the direction right: the finite-population correction shrinks the
+        variance, so the binomial is the wider of the two laws.
+    targets:
+      - quant-probability.discrete.binomial-vs-hypergeometric
+
+  # --- equally likely labels -------------------------------------------------
+
+  - id: qdisc-uniform-discrete-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      $X$ is uniform on the consecutive integers $\{a, a+1, \dots, b\}$, with
+      mean $20$ and variance $30$. What is $b$?
+    answer: >
+      $b = 29$. The variance of a uniform block does not depend on where the
+      block sits, only on how many values it holds: with $m = b - a + 1$ values,
+      $(m^{2}-1)/12 = 30$ gives $m^{2} = 361$ and $m = 19$, so $b - a = 18$. The
+      mean of a symmetric block is its midpoint, $(a+b)/2 = 20$, so $a + b = 40$.
+      Adding the two linear equations gives $2b = 58$, hence $b = 29$ and
+      $a = 11$. Check: the nineteen integers from $11$ to $29$ have midpoint $20$
+      and variance $(19^{2}-1)/12 = 360/12 = 30$. The trap is putting $b$ itself
+      into $(n^{2}-1)/12$; the formula wants the *count* of values, and shifting
+      a block moves its mean while leaving its variance alone.
+    expects: "29"
+    rubric:
+      - >
+        Uses the count $m = b - a + 1$, not $b$, inside $(m^{2}-1)/12$.
+      - >
+        Solves the pair $a + b = 40$ and $b - a = 18$ rather than assuming
+        $a = 1$.
+    targets:
+      - quant-probability.discrete.uniform-discrete
+    exercises:
+      - quant-probability.expectation.variance
+
+  - id: qdisc-uniform-discrete-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A raffle ticket number is drawn uniformly at random from
+      $\{1, 2, \dots, 50\}$. What is the probability that the number drawn is a
+      multiple of $7$?
+    answer: >
+      $0.14$. A discrete uniform law is the classical equally-likely model with
+      its outcomes labelled by numbers, so probability is still favourable over
+      total, $\Pr(A) = |A|/|\Omega|$, and no pmf algebra is needed. The multiples
+      of $7$ in range are $7, 14, 21, 28, 35, 42, 49$ — that is
+      $\lfloor 50/7 \rfloor = 7$ of them — so the probability is $7/50 = 0.14$.
+      Rounding $50/7 \approx 7.14$ up to $\lceil 50/7 \rceil = 8$ is the usual
+      slip, and it counts $56$, which is out of range. As a check on the model,
+      the same law gives $\mathbb{E}[X] = (50+1)/2 = 25.5$ and
+      $\operatorname{Var}(X) = (50^{2}-1)/12 = 208.25$.
+    expects: "0.14"
+    rubric:
+      - >
+        Counts the favourable labels, $\lfloor 50/7 \rfloor = 7$, against the
+        $50$ equally likely ones.
+      - >
+        Rounds $50/7$ down rather than up.
+    targets:
+      - quant-probability.discrete.uniform-discrete
+      - quant-probability.foundations.classical
+    exercises:
+      - quant-probability.foundations.sample-space
+    connects:
+      - "quant-probability.discrete.uniform-discrete ~ quant-probability.foundations.classical"
+
+  # --- collecting the whole set ----------------------------------------------
+
+  - id: qdisc-coupon-collector-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A machine dispenses one of eight equally likely toy types on each purchase,
+      independently. A collector wants any three *distinct* types, not the whole
+      set. What is the expected number of purchases? Give four decimal places.
+    answer: >
+      $\approx 3.4762$. Split the wait by progress exactly as for a full
+      collection, then stop the sum early. Holding $i-1$ distinct types, a
+      purchase is new with probability $(8-i+1)/8$, so the wait $T_i$ for the
+      $i$-th distinct type is geometric with mean $8/(8-i+1)$, and only the first
+      three terms are wanted: $\mathbb{E}[T] = \dfrac{8}{8} + \dfrac{8}{7} +
+      \dfrac{8}{6} = 1 + 1.142857 + 1.333333 = \dfrac{73}{21} \approx 3.47619$.
+      Linearity adds the $T_i$ without needing them to be independent. For
+      contrast, the full set costs $8H_8 \approx 21.74$ purchases — six times as
+      much for less than three times the types, because the expense of the coupon
+      collector sits entirely in the last few types, which a partial target
+      skips.
+    expects: "3.4762"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Sums only the first three geometric waits, with means $8/8$, $8/7$ and
+        $8/6$.
+      - >
+        Does not compute $8H_8$, which prices the whole set rather than three
+        types.
+    targets:
+      - quant-probability.discrete.coupon-collector
+    exercises:
+      - quant-probability.discrete.geometric-moments
+      - quant-probability.expectation.linearity
+
+  - id: qdisc-coupon-collector-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Seven prize types are equally likely and independent on each draw. What is
+      the expected number of draws needed to see all seven?
+    answer: >
+      $18.15$. Write $T = T_1 + \dots + T_7$, where $T_i$ is the wait from $i-1$
+      distinct types to $i$: holding $i-1$, a draw is new with probability
+      $(7-i+1)/7$, so $\mathbb{E}[T_i] = 7/(7-i+1)$. Linearity adds these even
+      though the $T_i$ are dependent, giving $\mathbb{E}[T] = 7H_7 = 7\left(1 +
+      \tfrac{1}{2} + \dots + \tfrac{1}{7}\right) = 7 \times \dfrac{363}{140} =
+      \dfrac{363}{20} = 18.15$. Guessing something near $7$ is the standard miss:
+      the total grows like $n\ln n$, and the last type alone costs $7$ draws on
+      average — more than the first four stages put together, which come to about
+      $5.32$.
+    expects: "18.15"
+    rubric:
+      - >
+        Splits $T$ into geometric waits of mean $7/(7-i+1)$ and adds them by
+        linearity.
+      - >
+        Reports $7H_7$, not $H_7$ alone and not a number near $7$.
+    targets:
+      - quant-probability.discrete.coupon-collector
+    exercises:
+      - quant-tools.series-calculus.harmonic-numbers
+
+  - id: qdisc-coupon-collector-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      Deck A: nine distinct cards are shuffled uniformly, and $C$ is the number
+      of cycles of the resulting permutation. Deck B: draws are made uniformly
+      and independently from nine coupon types until all nine have appeared, and
+      $T$ is the number of draws. How do $\mathbb{E}[C]$ and $\mathbb{E}[T]/9$
+      compare?
+    answer: >
+      They are equal, both $H_9 = 7129/2520 \approx 2.8290$. Trace the cycle
+      through card $1$: with $m$ cards still unused the current cycle closes at
+      the next step with probability $1/m$, so $C$ is a sum of independent
+      indicators with probabilities $1/9, 1/8, \dots, 1$ and $\mathbb{E}[C] =
+      H_9$. Meanwhile $T$ splits into geometric waits of means $9/9, 9/8, \dots,
+      9/1$, so $\mathbb{E}[T] = 9H_9 \approx 25.46$ and $\mathbb{E}[T]/9 = H_9$.
+      The same harmonic sum appears because both problems add the reciprocal of a
+      pool that shrinks by one at each stage; the coupon collector carries the
+      extra factor $9$ only because each of its stages is a geometric wait rather
+      than a single indicator.
+    choices:
+      - text: >
+          They are equal — both are $H_9 \approx 2.8290$
+        correct: true
+        feedback: >
+          A pool shrinking by one at each stage contributes $1/i$ in either
+          problem, so both means are the harmonic sum $H_9$.
+      - text: >
+          $\mathbb{E}[T]/9$ is larger, because a coupon wait can run arbitrarily
+          long
+        feedback: >
+          Each coupon stage has mean $9/(9-i+1)$, so dividing by $9$ returns
+          precisely the $1/(9-i+1)$ that the cycle count contributes.
+      - text: >
+          $\mathbb{E}[C]$ is larger — a permutation of nine elements averages
+          about $4.5$ cycles
+        feedback: >
+          The mean cycle count is $H_9 \approx 2.83$, not $n/2$; cycles in a
+          random permutation are typically long, so there are few of them.
+    rubric:
+      - >
+        Identifies both quantities as $H_9$ rather than comparing them by
+        estimate.
+      - >
+        Names the shared mechanism — a pool shrinking by one at each stage —
+        instead of treating the agreement as a coincidence.
+    targets:
+      - quant-probability.discrete.coupon-collector
+      - quant-probability.counting.permutation-cycles
+    exercises:
+      - quant-tools.series-calculus.harmonic-numbers
+    connects:
+      - "quant-probability.counting.permutation-cycles ~ quant-probability.discrete.coupon-collector"
+
+  # --- reading the story -----------------------------------------------------
+
+  - id: qdisc-identify-the-law-01
+    kind: decide
+    difficulty: demanding
+    statement: >
+      A recruiter works down an effectively unlimited list, calling candidates
+      one at a time; each accepts independently with probability $0.15$. She
+      stops as soon as four have accepted. Let $X$ be the number of calls made.
+      Which law is $X$, and what is its mean?
+    answer: >
+      Negative binomial with $r = 4$ and $p = 0.15$, mean $r/p = 4/0.15 \approx
+      26.67$ calls. Run the checklist. The number of *successes* is fixed at four
+      while the number of *trials* is random — the exact inversion of the
+      binomial, which fixes $n$ in advance and lets the success count vary. It is
+      not geometric, since a geometric stops at the first acceptance with mean
+      $1/0.15 \approx 6.67$; $X$ is a sum of four such independent waits, which
+      is why the mean is four times as large. And it is not Poisson: there is a
+      genuine per-call probability here, whereas Poisson is what you reach for
+      when no trial count exists at all. The pmf, if wanted, is $\Pr(X = k) =
+      \binom{k-1}{3}(0.15)^{4}(0.85)^{k-4}$ for $k \ge 4$.
+    choices:
+      - text: >
+          Negative binomial with $r = 4$, $p = 0.15$; mean $\approx 26.67$
+        correct: true
+        feedback: >
+          Fixed successes with random trials — a sum of four geometric waits, so
+          the mean is $r/p$.
+      - text: >
+          $\operatorname{Bin}(4, 0.15)$; mean $0.6$
+        feedback: >
+          That reads $r$ as a number of trials. Four is the stopping count, and a
+          mean below $4$ is impossible when at least four calls are always made.
+      - text: >
+          Geometric with $p = 0.15$; mean $\approx 6.67$
+        feedback: >
+          A geometric stops at the first acceptance. She keeps going to the
+          fourth, so four geometric waits stack up.
+      - text: >
+          $\operatorname{Poisson}(4)$; mean $4$
+        feedback: >
+          Poisson is for counts in a window with no natural trial count. Here
+          every call is a trial carrying probability $0.15$.
+    rubric:
+      - >
+        Names the fixed-successes, random-trials shape as the tell for the
+        negative binomial rather than the binomial.
+      - >
+        Gives the mean as $r/p$, recognising $X$ as a sum of $r$ geometric waits.
+    targets:
+      - quant-probability.discrete.identify-the-law
+    exercises:
+      - quant-probability.discrete.negative-binomial
+
+  - id: qdisc-identify-the-law-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A year of daily outage counts for a service has sample mean $3.1$ and
+      sample variance $11.4$. A candidate proposes modelling the daily count as
+      Poisson. What does the data say?
+    answer: >
+      Poisson is ruled out: the counts are overdispersed. A Poisson count has
+      $\mathbb{E}[X] = \operatorname{Var}(X) = \lambda$, so fitting
+      $\operatorname{Poisson}(3.1)$ from the mean also *predicts* a variance near
+      $3.1$, and $11.4$ is more than three times that — far outside sampling
+      noise over a year of observations. The binomial fails from the other side:
+      $np(1-p) < np$ always, so a binomial is underdispersed and can never show a
+      variance above its mean. Overdispersion of this size usually means the rate
+      is not constant — outages cluster, or the daily rate itself varies — and
+      the standard repair is a mixture such as the negative binomial, not a
+      larger $\lambda$.
+    choices:
+      - text: >
+          Poisson is ruled out — the variance far exceeds the mean, so the counts
+          are overdispersed
+        correct: true
+        feedback: >
+          Mean equal to variance is the Poisson signature, and $11.4$ against
+          $3.1$ breaks it decisively.
+      - text: >
+          Poisson fits, with $\lambda = 3.1$ taken from the mean
+        feedback: >
+          The mean does fix $\lambda$, but it then predicts a variance of $3.1$
+          as well — and that prediction is contradicted by the observed $11.4$.
+      - text: >
+          Poisson is ruled out, but a binomial with $np = 3.1$ would match the
+          spread
+        feedback: >
+          A binomial has variance $np(1-p) < np = 3.1$, smaller still. No law of
+          independent constant-probability trials reaches $11.4$.
+    rubric:
+      - >
+        Compares the sample variance with the sample mean rather than fitting
+        $\lambda$ from the mean and stopping there.
+      - >
+        Gets the direction right: a variance above the mean is overdispersion,
+        which the binomial cannot produce either.
+    targets:
+      - quant-probability.discrete.identify-the-law
+    exercises:
+      - quant-probability.discrete.poisson
+
+  - id: qdisc-identify-the-law-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      A fair twelve-sided die, with faces $1$ through $12$, is rolled once and
+      the face value recorded. What law describes the value, and what is its
+      mean?
+    answer: >
+      Discrete uniform on $\{1, \dots, 12\}$, with mean $(n+1)/2 = 13/2 = 6.5$.
+      The story contains no success or failure to count and nothing to wait for —
+      just an equally likely label — which is the discrete uniform's signature
+      and the one case in this unit where the variable is a *value* rather than a
+      count or a wait. Note that fairness is stated in the problem rather than
+      assumed: uniformity is a modelling claim that has to be earned. For
+      completeness, $\operatorname{Var}(X) = (n^{2}-1)/12 = 143/12 \approx
+      11.917$, so $\sigma \approx 3.45$ — a spread of nearly a third of the
+      range.
+    choices:
+      - text: >
+          Discrete uniform on $\{1,\dots,12\}$, mean $6.5$
+        correct: true
+        feedback: >
+          Equally likely labels with no successes to count; the mean is
+          $(n+1)/2$.
+      - text: >
+          $\operatorname{Bin}(12, 1/2)$, mean $6$
+        feedback: >
+          Nothing here counts successes over twelve trials. A single roll returns
+          a label, and a binomial would pile its mass near $6$ rather than
+          spreading it evenly over the faces.
+      - text: >
+          Geometric with $p = 1/12$, mean $12$
+        feedback: >
+          Geometric answers "how many rolls until", but nothing is being waited
+          for — the die is rolled exactly once.
+    rubric:
+      - >
+        Reads "equally likely label, one roll" as uniform rather than as a count
+        or a wait.
+      - >
+        Quotes the mean as $(n+1)/2$, not as $n/2$.
+    targets:
+      - quant-probability.discrete.identify-the-law
+    exercises:
+      - quant-probability.discrete.uniform-discrete
