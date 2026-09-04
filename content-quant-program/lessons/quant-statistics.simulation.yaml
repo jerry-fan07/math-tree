@@ -69,6 +69,78 @@ lessons:
       A PRNG is a deterministic, eventually periodic map from a seed to a
       stream that merely passes the statistical tests you care about, and
       every other sampling method is a transformation of that one stream.
+    steps:
+      - teach: >
+          A computer cannot literally draw from the continuum of
+          $\mathrm{Uniform}(0,1)$ — it has no source of true randomness built in.
+          Everything downstream, however fancy, starts from a state machine built to
+          produce output that merely *looks* random.
+      - teach: >
+          The mechanism is a deterministic rule: the state advances by
+          $s_{k+1}=T(s_k)$ and each state maps to an output $U_k=g(s_k)$. Fix the seed
+          and the entire infinite sequence is fixed with it — two runs with the same
+          seed produce bit-for-bit identical output.
+      - ask: >
+          Take the generator $x_{k+1}=(7x_k+4)\bmod 10$, seeded at $x_0=3$. What is
+          $x_1$?
+        expects: "5"
+        hint: >
+          Apply the rule once: $x_1=(7\cdot3+4)\bmod10$.
+        feedback: >
+          $7\cdot3+4=25$, and $25\bmod10=5$, so $x_1=5$ and the first output is
+          $U_1=x_1/10=0.5$.
+      - teach: >
+          Because the rule maps a *finite* state space to itself, the sequence must
+          eventually revisit a state and repeat exactly — periodicity is structural,
+          not a flaw. The real lever is a rule whose period dwarfs anything you'll
+          ever draw, and the weak classical generator's flaw is exactly this: plot
+          consecutive output pairs and they fall on a few parallel lines, not fill the
+          square.
+      - ask: >
+          For that same generator, $x_{k+1}=(7x_k+4)\bmod10$ seeded at $x_0=3$, after
+          how many steps does the state first return to $x_0$?
+        expects: "4"
+        hint: >
+          Iterate: $x_1=5$, then keep applying the rule until you land back on $3$.
+        feedback: >
+          $x_1=5$, $x_2=(7\cdot5+4)\bmod10=39\bmod10=9$,
+          $x_3=(7\cdot9+4)\bmod10=67\bmod10=7$,
+          $x_4=(7\cdot7+4)\bmod10=53\bmod10=3=x_0$ — the state repeats after $4$
+          steps, well short of the $10$ states available, unlike a generator tuned to
+          hit its full period.
+      - teach: >
+          "Pseudorandom" means only "passes the statistical tests you care about" — it
+          does not mean unpredictable. Given the seed, or even enough consecutive
+          outputs to infer the state, the whole future stream is computable exactly,
+          which is why PRNGs are unsafe for cryptography.
+      - ask: >
+          What actually exposes a weak linear congruential generator's lattice defect?
+        choices:
+          - text: >
+              A histogram of single draws
+            feedback: >
+              Single draws can look perfectly uniform even from a badly structured
+              generator — the defect is invisible one draw at a time.
+          - text: >
+              Plotting consecutive output pairs or triples against each other
+            correct: true
+            feedback: >
+              This is exactly how the lattice structure shows up: the points fall on a
+              small number of parallel lines or planes instead of filling the space.
+          - text: >
+              A long period by itself
+            feedback: >
+              A long period does not prevent visible lattice structure — the two
+              properties are independent, and a generator can have both a long period and
+              a coarse lattice.
+        feedback: >
+          The lattice defect lives in the joint structure of consecutive outputs, not
+          in any single draw's distribution or in the period length alone.
+      - teach: >
+          Carry one fact into everything else in this unit: inverse transform,
+          rejection sampling, Box–Muller, the bootstrap — every one of them is a
+          deterministic function of this same stream, so any statistical weakness here
+          propagates into every sampler built on top of it.
 
   - node: quant-statistics.simulation.monte-carlo
     hook: >
@@ -125,6 +197,86 @@ lessons:
       Monte Carlo is an average of simulated $h(X_i)$'s standing in for its
       own expectation — unbiased at every $n$ by linearity, and turned into a
       probability estimate for free via the indicator trick.
+    steps:
+      - teach: >
+          "Estimate an expectation you can't integrate by just sampling it" sounds
+          like a hack until you can justify it in one line: why is the average
+          unbiased, and what licenses it to converge at all.
+      - teach: >
+          The estimator is $\hat\theta_n=\frac1n\sum h(X_i)$ for $X_i$ drawn
+          independently from $X$'s law. Unbiasedness is exact linearity,
+          $\mathbb{E}[\hat\theta_n]=\theta$, at *every* $n$ — no large-sample argument
+          required for that identity itself.
+      - ask: >
+          A fair die is rolled $20$ times to estimate $p=\Pr(X\ge5)$; $7$ of the rolls
+          land on $5$ or $6$. What is $\hat p$?
+        expects: "0.35"
+        hint: >
+          Divide the successes by the number of trials.
+        feedback: >
+          $\hat p=7/20=0.35$ — Monte Carlo with $h(X)=\mathbf1\{X\ge5\}$, reading off
+          the observed frequency directly.
+      - teach: >
+          The indicator trick folds probabilities into the same machine for free:
+          since $\Pr(A)=\mathbb{E}[\mathbf1\{A\}]$, estimating a probability is
+          nothing but running Monte Carlo with $h(X)=\mathbf1\{X\in A\}$ — no separate
+          theory needed.
+      - ask: >
+          You want to estimate $\Pr(A)$ by simulation for some event $A$. What should
+          $h(X)$ be?
+        choices:
+          - text: >
+              $X$ itself
+            feedback: >
+              Averaging $X$ estimates $\mathbb{E}[X]$, a different quantity entirely, not
+              the probability of $A$.
+          - text: >
+              $\mathbf1\{X\in A\}$
+            correct: true
+            feedback: >
+              This is the indicator trick: its expectation is exactly $\Pr(A)$, so
+              averaging it is Monte Carlo for the probability with no extra machinery.
+          - text: >
+              $\Pr(A)$ itself, computed on each draw
+            feedback: >
+              That's circular — $\Pr(A)$ is the unknown quantity you're trying to
+              estimate.
+        feedback: >
+          $h(X)=\mathbf1\{X\in A\}$ turns any probability into an ordinary Monte Carlo
+          average, since $\Pr(A)=\mathbb{E}[\mathbf1\{A\}]$.
+      - teach: >
+          Keep unbiasedness and consistency separate: unbiasedness is exact at every
+          $n$ by linearity alone, while consistency — the average settling near
+          $\theta$ with high probability — is what large $n$ actually buys, via the
+          law of large numbers.
+      - ask: >
+          A colleague says $\hat\theta_{10}$ is "only approximately unbiased" because
+          $n=10$ is small. Is that right?
+        choices:
+          - text: >
+              Yes — bias shrinks as $n$ grows
+            feedback: >
+              That describes consistency, a different property; unbiasedness doesn't
+              depend on $n$ at all.
+          - text: >
+              No — $\mathbb{E}[\hat\theta_n]=\theta$ exactly for every $n$, including
+              $n=10$
+            correct: true
+            feedback: >
+              Linearity of expectation gives this exactly, with no large-sample argument
+              needed — the estimator is unbiased at $n=1$ just as much as at $n=10{,}000$.
+          - text: >
+              Yes — the central limit theorem hasn't kicked in yet
+            feedback: >
+              The CLT governs the *shape* of the fluctuations around $\theta$, not whether
+              the mean is exactly $\theta$.
+        feedback: >
+          Unbiasedness holds exactly at every $n$; confusing it with consistency,
+          which genuinely does need large $n$, is the standard slip.
+      - teach: >
+          Reach for simulation specifically when a closed-form sum or integral is out
+          of reach: a state space too large to enumerate, a dimension too high for
+          quadrature, or a path-dependent payoff with no formula at all.
 
   - node: quant-statistics.simulation.mc-error
     hook: >
@@ -172,6 +324,57 @@ lessons:
       The Monte Carlo standard error is $\sigma/\sqrt{n}$ exactly, so
       squeezing out one more correct digit multiplies the sample size by
       $100$.
+    steps:
+      - teach: >
+          An estimate with no error bar is only half an answer, and the number every
+          simulation interview wants quoted cold is how cost scales with precision.
+      - teach: >
+          Variance-of-a-sum gives it directly: $\hat\theta_n$ is $\frac1n$ times a sum
+          of $n$ iid terms with variance $\sigma^2$ each, independence kills the cross
+          terms, so $\operatorname{Var}(\hat\theta_n)=\sigma^2/n$ exactly. The CLT
+          then makes $\hat\theta_n\pm1.96\hat\sigma/\sqrt n$ an asymptotic $95\%$
+          interval.
+      - ask: >
+          Suppose $\sigma^2=0.64$. How many draws $n$ are needed for a standard error
+          of $0.02$?
+        expects: "1600"
+        hint: >
+          Set $\sigma^2/n$ equal to the target standard error squared and solve for
+          $n$.
+        feedback: >
+          $n=\sigma^2/\mathrm{SE}^2=0.64/0.02^2=0.64/0.0004=1600$.
+      - teach: >
+          The number worth having automatic: shrinking the half-width by a factor of
+          $k$ costs $k^2$ times the samples, since the error goes like $n^{-1/2}$ —
+          the identical $\sqrt n$ logic behind every sample-mean confidence interval
+          in the tree, applied here to simulation cost.
+      - ask: >
+          If you need the confidence interval's half-width cut by a factor of $5$, by
+          what factor must $n$ grow?
+        expects: "25"
+        hint: >
+          The relationship is $n\propto k^2$ for a half-width shrunk by $k$.
+        feedback: >
+          $k=5$ gives $k^2=25$ — a five-times-tighter interval costs twenty-five times
+          the draws.
+      - teach: >
+          Doubling $n$ does *not* halve the standard error — a common slip. Since
+          $\mathrm{SE}\propto1/\sqrt n$, doubling $n$ shrinks it only by a factor of
+          $1/\sqrt2$; halving the error outright needs quadrupling $n$.
+      - ask: >
+          By what factor does the standard error shrink when $n$ is doubled, to four
+          decimal places?
+        expects: "0.7071"
+        tolerance: 0.0005
+        hint: >
+          The new-to-old ratio is $\sqrt n/\sqrt{2n}$.
+        feedback: >
+          $\sqrt n/\sqrt{2n}=1/\sqrt2\approx0.7071$ — nowhere near the $0.5$ a naive
+          "double $n$, halve the error" guess would give.
+      - teach: >
+          Report $\hat\sigma$ alongside $\hat\theta_n$ every time — it costs nothing
+          to compute and it's the only way a reader can judge how much to trust the
+          point estimate.
 
   - node: quant-statistics.simulation.dimension-independence
     hook: >
@@ -219,6 +422,70 @@ lessons:
       Grid methods pay $m^{d}$, exponential in dimension; Monte Carlo pays
       $\sigma/\sqrt{n}$ regardless of dimension, which flips the ranking past
       about four or five dimensions.
+    steps:
+      - teach: >
+          "Why simulate instead of just discretizing the integral" has a sharp numeric
+          answer, and naming the crossover dimension — not just "Monte Carlo is more
+          flexible" — is what makes the answer land.
+      - teach: >
+          A deterministic grid's cost is purely combinatorial: $m$ nodes per axis in
+          $d$ dimensions costs $n=m^d$ evaluations total, exploding exponentially in
+          $d$ with no randomness involved anywhere.
+      - ask: >
+          A grid with $m=15$ points per axis is used in $d=3$ dimensions. How many
+          evaluations does it cost?
+        expects: "3375"
+        hint: >
+          Cost is $m^d$.
+        feedback: >
+          $15^3=3375$ evaluations, purely from the grid's combinatorics.
+      - teach: >
+          Monte Carlo's cost never sees $d$ explicitly — $\sigma^2$ is just the
+          variance of $h(X)$, whatever dimension $X$ lives in — while a second-order
+          grid rule has error of order $m^{-2}=n^{-2/d}$, so the two rates cross
+          exactly where $2/d=1/2$.
+      - ask: >
+          Solve $2/d=1/2$ for $d$: at what dimension does the grid's $n^{-2/d}$ error
+          rate stop beating Monte Carlo's $n^{-1/2}$?
+        expects: "4"
+        hint: >
+          Cross-multiply and solve the equation directly.
+        feedback: >
+          $2/d=1/2\iff d=4$ — below four dimensions a good deterministic rule wins;
+          past it, Monte Carlo's dimension-blind rate takes over.
+      - teach: >
+          This isn't "Monte Carlo always wins": below about four dimensions quadrature
+          genuinely wins on cost. The practical trap is undercounting $d$ — a
+          path-dependent payoff has one axis of randomness per time step, so a
+          fifty-step path is a fifty-dimensional problem.
+      - ask: >
+          A payoff depends on $50$ simulated time steps. Which method should you reach
+          for?
+        choices:
+          - text: >
+              A deterministic product-rule grid
+            feedback: >
+              At an effective dimension of $50$, far past the crossover near $d=4$, a
+              grid's $m^{50}$ cost is hopeless.
+          - text: >
+              Monte Carlo
+            correct: true
+            feedback: >
+              Its error depends only on $\sigma$ and $n$, never on dimension, so it pays
+              nothing extra for the $50$ correlated time steps.
+          - text: >
+              Either — they cost about the same here
+            feedback: >
+              They diverge by many orders of magnitude once $d$ is this far past four; it
+              isn't close.
+        feedback: >
+          Fifty time steps means fifty dimensions of randomness, well past where grid
+          methods collapse under the curse of dimensionality — exactly where
+          simulation is the default.
+      - teach: >
+          The reading to keep: grid cost is exponential in $d$; Monte Carlo cost is
+          $\sigma/\sqrt n$ regardless of $d$ — and that flip is what makes simulation
+          the workhorse for basket payoffs and multi-factor risk.
 
   - node: quant-statistics.simulation.estimate-pi
     hook: >
@@ -264,6 +531,55 @@ lessons:
       $\hat{\pi}=4$ times the observed hit fraction is Monte Carlo with a
       circle indicator, inheriting Bernoulli variance $p(1-p)$ and paying the
       usual $\sigma/\sqrt{n}$ price, scaled by $4$.
+    steps:
+      - teach: >
+          This toy example opens every simulation course, and its real value in an
+          interview is a two-minute proof that you can set up an estimator, its
+          variance, and its required sample size entirely from scratch.
+      - teach: >
+          Draw $X,Y$ uniform on the unit square and set $h=\mathbf1\{X^2+Y^2\le1\}$;
+          since throws are uniform over an area-$1$ region, $\mathbb{E}[h]$ is exactly
+          the quarter disc's area, $\pi/4$, so $\hat\pi=4\hat p$ for the observed hit
+          fraction $\hat p$.
+      - ask: >
+          Simulate $n=2000$ darts and suppose $1550$ land inside the quarter disc.
+          What is $\hat\pi$?
+        expects: "3.1"
+        hint: >
+          First get $\hat p=$ hits$/n$, then multiply by $4$.
+        feedback: >
+          $\hat p=1550/2000=0.775$, so $\hat\pi=4\times0.775=3.1$.
+      - teach: >
+          Because $h$ is an indicator, $h(X,Y)$ is Bernoulli($p$) with $p=\pi/4$,
+          inheriting the plain Bernoulli variance $p(1-p)$ — and rescaling by $4$ to
+          get $\hat\pi$ rescales the standard error by $4$ too, giving the standing
+          approximation $1.64/\sqrt n$.
+      - ask: >
+          Using the $1.64/\sqrt n$ approximation, what standard error does $n=2000$
+          darts give, to four decimal places?
+        expects: "0.0367"
+        tolerance: 0.0005
+        hint: >
+          Divide $1.64$ by $\sqrt{2000}$.
+        feedback: >
+          $1.64/\sqrt{2000}\approx1.64/44.72\approx0.0367$.
+      - teach: >
+          Reporting $\hat\pi$ with no error bar drops exactly the information that
+          makes the precision-versus-cost tradeoff meaningful — and forgetting the
+          factor-of-$4$ rescaling on the *error*, not just the point estimate, is the
+          standard slip.
+      - ask: >
+          How many darts, using the $1.64/\sqrt n$ approximation, are needed for a
+          standard error of $0.01$?
+        expects: "26896"
+        hint: >
+          Solve $1.64/\sqrt n=0.01$ for $n$.
+        feedback: >
+          $n=(1.64/0.01)^2=164^2=26{,}896$ throws for that precision.
+      - teach: >
+          A famously terrible way to compute $\pi$ — but a clean, complete
+          illustration of the whole simulation pipeline: estimator, its inherited
+          variance, and the sample size its precision costs.
 
   - node: quant-statistics.simulation.inverse-transform
     hook: >
@@ -308,6 +624,67 @@ lessons:
       $X=q(U)$ for the quantile function $q$ of any target CDF $F$ has law
       exactly $F$, because $q(U)\le x$ and $U\le F(x)$ are the same event —
       invert the CDF, feed uniforms, done.
+    steps:
+      - teach: >
+          "Simulate from this named law, given only a uniform generator" is exactly
+          this technique, and the interview wants the map derived live, not recited
+          from memory.
+      - teach: >
+          Define the quantile function $q(u)$ as the smallest $x$ with $F(x)\ge u$,
+          and set $X=q(U)$. The proof is one line: $q(U)\le x\iff U\le F(x)$, an event
+          of probability $F(x)$ since $U$ is uniform — so $\Pr(X\le x)=F(x)$, with no
+          continuity of $F$ required.
+      - ask: >
+          For $X\sim\mathrm{Exponential}(\lambda=2)$, use $X=-\ln(U)/\lambda$ with a
+          fresh draw $U=0.2$. What is $X$, to four decimal places?
+        expects: "0.8047"
+        tolerance: 0.0005
+        hint: >
+          Plug $U=0.2$ and $\lambda=2$ into $X=-\ln(U)/\lambda$.
+        feedback: >
+          $X=-\ln(0.2)/2\approx1.6094/2\approx0.8047$.
+      - teach: >
+          Mechanically the recipe never changes: write $F$, solve $F(x)=u$ for $x$,
+          feed uniforms. It covers discrete laws too, since the "smallest $x$"
+          phrasing absorbs flat spots and jumps automatically.
+      - ask: >
+          The standard Cauchy sampler is $X=\tan(\pi(U-1/2))$. What does $U=0.75$
+          give?
+        expects: "1"
+        hint: >
+          Simplify the angle first: $\pi(0.75-0.5)=\pi/4$.
+        feedback: >
+          $\tan(\pi(0.75-0.5))=\tan(\pi/4)=1$ — one tangent per draw, the whole
+          sampler.
+      - teach: >
+          The normal is the standing counterexample: its CDF has no closed-form
+          inverse, so $F(x)=u$ can't be solved for $x$ in elementary terms.
+      - ask: >
+          Why does inverse transform sampling break down for the standard normal?
+        choices:
+          - text: >
+              Its CDF isn't monotonic
+            feedback: >
+              The normal CDF is strictly increasing everywhere — monotonicity isn't the
+              problem.
+          - text: >
+              Its CDF has no closed-form inverse
+            correct: true
+            feedback: >
+              $\Phi(x)=u$ simply can't be solved for $x$ in elementary functions, which is
+              exactly the gap Box–Muller exists to route around.
+          - text: >
+              Uniform draws can't feed a continuous target law
+            feedback: >
+              They can — every other continuous law in this unit is sampled exactly this
+              way.
+        feedback: >
+          The recipe itself never fails for the normal; only the algebraic step of
+          inverting $\Phi$ by hand does.
+      - teach: >
+          Once $F$ is written down, inversion is a one-line sampler for an enormous
+          family of laws — exponential, Cauchy, Pareto, Weibull — all clean, all the
+          identical mechanism.
 
   - node: quant-statistics.simulation.discrete-sampling
     hook: >
@@ -352,6 +729,68 @@ lessons:
       Cut $[0,1]$ into consecutive intervals of length $p_1,\ldots,p_k$ and
       report which one $U$ lands in — inverse transform applied to a step
       function, $O(\log k)$ per draw with a binary search.
+    steps:
+      - teach: >
+          This is inverse transform with $F$ replaced by a step function, and the
+          interview version usually asks you to build the cumulative table and locate
+          a specific $U$ by hand, under time pressure.
+      - teach: >
+          Build cumulative sums $c_j=p_1+\cdots+p_j$ and return $v_j$ for the smallest
+          $j$ with $U\le c_j$ — literally scanning the step function from the left
+          until you cross $U$.
+      - ask: >
+          Probabilities $(0.2, 0.1, 0.4, 0.3)$ sit on values $1,2,3,4$. Draw $U=0.55$.
+          Which value is returned?
+        expects: "3"
+        hint: >
+          Build the cumulative sums first, then find the smallest one at or above $U$.
+        feedback: >
+          Cumulative sums are $0.2, 0.3, 0.7, 1.0$. $U=0.55$ exceeds $0.2$ and $0.3$
+          but not $0.7$, so the smallest $j$ with $U\le c_j$ is $j=3$, returning value
+          $3$.
+      - teach: >
+          Two special cases are worth memorizing rather than re-deriving: a single
+          cutoff at $p$ gives Bernoulli($p$) via $\mathbf1\{U<p\}$, and $m$ equal
+          cutoffs give a fair $m$-sided die via $\lceil mU\rceil$ — both are this
+          exact mechanism collapsed to its simplest table.
+      - ask: >
+          Using $\lceil6U\rceil$ for a fair six-sided die, what does $U=0.67$ return?
+        expects: "5"
+        hint: >
+          Multiply by $6$ and round up.
+        feedback: >
+          $6\times0.67=4.02$, and $\lceil4.02\rceil=5$.
+      - teach: >
+          The trap is comparing $U$ against the raw probabilities $p_j$ instead of the
+          cumulative sums $c_j$ — the intervals no longer partition $[0,1]$ correctly,
+          and the sampler silently draws from the wrong law.
+      - ask: >
+          A candidate compares $U$ directly against each raw $p_j$ instead of against
+          the cumulative sums $c_j$. What happens?
+        choices:
+          - text: >
+              Nothing — it still samples the right law
+            feedback: >
+              The comparisons no longer partition $[0,1]$ into the correct intervals, so
+              this changes which value gets returned.
+          - text: >
+              It silently samples the wrong law
+            correct: true
+            feedback: >
+              Without accumulating the sums, the intervals compared against $U$ don't have
+              the right lengths or boundaries, and the error shows up nowhere obvious.
+          - text: >
+              It just runs an $O(k)$ scan instead of $O(\log k)$
+            feedback: >
+              The cost difference between linear scan and binary search is real but
+              separate — this mistake is about correctness, not speed.
+        feedback: >
+          Comparing against $c_j$, not $p_j$, is what makes the intervals partition
+          $[0,1]$ correctly in the first place.
+      - teach: >
+          Sort the table largest-probability-first for a linear scan — it minimizes
+          the expected comparison count $\sum_j jp_j$ — or pay an $O(k)$ setup once
+          for an $O(\log k)$ binary search on every later draw.
 
   - node: quant-statistics.simulation.alias-method
     hook: >
@@ -401,6 +840,78 @@ lessons:
       one until each of the $k$ columns holds at most two outcomes at height
       $1$, and after that setup every draw costs exactly two uniforms and no
       search.
+    steps:
+      - teach: >
+          "Can you sample from this fixed discrete law in $O(1)$ time" is the
+          follow-up once the cumulative-table answer's $O(\log k)$ per-draw cost gets
+          pushed on, and the alias method is the only standard answer.
+      - teach: >
+          Setup rescales $q_i=kp_i$ (these average $1$), then repeatedly pairs a
+          deficient cell ($q_i<1$) with a surplus cell ($q_j>1$), topping the
+          deficient one up to height $1$ with mass borrowed from the surplus one and
+          recording that donor as its alias — a one-time $O(k)$ cost. A draw then
+          needs no search at all: pick column $i=\lceil kU_1\rceil$, and a second
+          uniform $U_2$ decides between that column's own outcome and its alias.
+      - ask: >
+          A $3$-outcome law has its alias table already built: column $1$ is pure
+          outcome $1$ (retained height $1$, no alias); column $2$ retains outcome $2$
+          up to height $0.9$ and aliases the rest to outcome $1$; column $3$ retains
+          outcome $3$ up to height $0.6$ and aliases the rest to outcome $1$. Draw
+          with $U_1=0.75$, $U_2=0.5$: which outcome comes back?
+        expects: "3"
+        hint: >
+          First find the column with $i=\lceil3U_1\rceil$, then check $U_2$ against
+          that column's own retained height.
+        feedback: >
+          $i=\lceil3\times0.75\rceil=3$. Column $3$ retains its own outcome up to
+          height $0.6$, and $U_2=0.5\le0.6$, so the draw returns outcome $3$ itself,
+          no alias needed.
+      - teach: >
+          Once the table is built it encodes everything — the draw needs no search of
+          any kind, only an index and one threshold test, which is exactly why the
+          setup only pays for itself when the same fixed law is sampled many, many
+          times.
+      - ask: >
+          Same table (column $3$ retains outcome $3$ up to height $0.6$, aliasing the
+          rest to outcome $1$). With $U_1=0.75$ again but $U_2=0.85$, which outcome is
+          returned?
+        expects: "1"
+        hint: >
+          Compare $U_2$ against column $3$'s retained height, $0.6$.
+        feedback: >
+          $U_2=0.85>0.6$, so the draw falls in column $3$'s alias region and returns
+          outcome $1$ instead of outcome $3$.
+      - teach: >
+          Rebuilding the alias table for a one-off draw wastes the setup cost — the
+          plain cumulative-table search is simpler and just as fast in total for a
+          single use.
+      - ask: >
+          You need exactly one draw from a distribution you'll never sample again. Is
+          building an alias table a good idea?
+        choices:
+          - text: >
+              Yes — $O(1)$ draws always beat $O(\log k)$
+            feedback: >
+              That ignores the $O(k)$ setup cost, which a single draw never recovers.
+          - text: >
+              No — the cumulative-table search is simpler and just as fast in total for
+              one use
+            correct: true
+            feedback: >
+              The alias method's advantage only shows up once the $O(k)$ setup is
+              amortized over many draws of the same fixed law.
+          - text: >
+              It doesn't matter, both cost the same either way
+            feedback: >
+              They don't: the alias method pays extra setup cost up front that a single
+              draw never earns back.
+        feedback: >
+          The alias method is worth its setup only when the same fixed law is sampled
+          many times — for a one-off, skip it.
+      - teach: >
+          Forgetting that $q_i=kp_i$, not $p_i$ itself, is easy to drop under time
+          pressure and breaks the height-$1$ columns the entire construction depends
+          on.
 
   - node: quant-statistics.simulation.rejection
     hook: >
@@ -449,6 +960,71 @@ lessons:
       Draw under a scaled envelope $Mg$, accept with probability
       $f(Y)/(Mg(Y))$, and the accepted points are distributed exactly as
       $f$ — at a cost of $M$ attempts per acceptance.
+    steps:
+      - teach: >
+          When a density can't be inverted, or is known only up to its normalizing
+          constant — the norm for a Bayesian posterior — rejection sampling is the
+          fallback to name immediately, along with its real price: the expected number
+          of attempts.
+      - teach: >
+          Pick a proposal $g$ you can already sample and a constant $M$ with $f(x)\le
+          Mg(x)$ everywhere. Draw $Y\sim g$ and an independent uniform $U$; accept
+          $X=Y$ if $U\le f(Y)/(Mg(Y))$, otherwise discard and retry — sampling
+          uniformly under the graph of $Mg$ and keeping what also falls under $f$.
+      - ask: >
+          Target $f(x)=\frac38x^2$ on $(0,2)$, proposal $g$ uniform on $(0,2)$
+          (density $1/2$), envelope constant $M=3$. What is the acceptance threshold
+          $f(Y)/(Mg(Y))$ at $Y=1.6$?
+        expects: "0.64"
+        hint: >
+          Substitute $Y=1.6$ into $f(Y)/(Mg(Y))$ and simplify.
+        feedback: >
+          $f(1.6)=\frac38(1.6)^2=0.96$, and $Mg(1.6)=3\times0.5=1.5$, so the threshold
+          is $0.96/1.5=0.64$.
+      - teach: >
+          Each attempt succeeds independently with probability exactly $1/M$ —
+          integrate $f/(Mg)$ against $g$ and the $M$'s cancel — so the number of
+          attempts before an acceptance is geometric with mean $M$.
+      - ask: >
+          For that same envelope, $M=3$, what is the probability a single attempt is
+          accepted, as a fraction?
+        expects: "1/3"
+        hint: >
+          Acceptance probability is $1/M$.
+        feedback: >
+          $1/M=1/3$ — on average $3$ attempts per accepted draw.
+      - teach: >
+          Choosing $M$ smaller than the true maximum of $f/g$ anywhere biases every
+          accepted sample, even at one violated point; a proposal with thinner tails
+          than $f$'s forces $M$ to infinity and leaves no valid envelope at all.
+      - ask: >
+          You pick $M$ slightly smaller than the true maximum of $f(x)/g(x)$ at one
+          point. What happens to the accepted sample's distribution?
+        choices:
+          - text: >
+              Nothing — it's still exactly distributed as $f$
+            feedback: >
+              The proof that accepted points follow $f$ exactly relies on $f\le Mg$
+              holding everywhere.
+          - text: >
+              It's biased — the accept rule can never trigger where $f>Mg$, understating
+              the density there
+            correct: true
+            feedback: >
+              Wherever $f(x)>Mg(x)$, the acceptance ratio $f(x)/(Mg(x))$ exceeds $1$ and
+              can never be satisfied, so that region is systematically under-sampled.
+          - text: >
+              It only slows down the acceptance rate, without bias
+            feedback: >
+              A too-small $M$ isn't just slower — it removes mass from wherever $f$ pokes
+              above the envelope.
+        feedback: >
+          $M$ must dominate $f/g$ everywhere, not just typically — falling short at
+          even one point biases the accepted sample.
+      - teach: >
+          The whole method's cost is set by how tightly the envelope hugs the target,
+          so choosing $M$ as small as $f\le Mg$ allows is the entire art of using it
+          well.
 
   - node: quant-statistics.simulation.box-muller
     hook: >
@@ -498,6 +1074,72 @@ lessons:
       angle as uniform on $[0,2\pi)$ and the squared radius via inverse
       transform on its exponential law, then converting back to Cartesian
       coordinates.
+    steps:
+      - teach: >
+          This exists purely because the normal's CDF has no closed-form inverse, and
+          it's the standard answer to "generate a normal from a uniform generator" —
+          the interview wants the polar-coordinates reasoning, not just the two
+          formulas.
+      - teach: >
+          For independent standard bivariate normal $(Z_1,Z_2)$, symmetry makes the
+          angle uniform on $[0,2\pi)$, and the squared radius $R^2=Z_1^2+Z_2^2$ turns
+          out to be Exponential($1/2$) — running inverse transform on that exponential
+          law is exactly where $R=\sqrt{-2\ln U_1}$ comes from.
+      - ask: >
+          For $U_1=0.2$, what is $R=\sqrt{-2\ln U_1}$, to four decimal places?
+        expects: "1.7941"
+        tolerance: 0.0005
+        hint: >
+          Compute $-2\ln(0.2)$ first, then take the square root.
+        feedback: >
+          $-2\ln(0.2)\approx3.2189$, and $\sqrt{3.2189}\approx1.7941$.
+      - teach: >
+          The construction runs the polar picture backwards: sample the angle directly
+          as $\Theta=2\pi U_2$, sample the radius by inverse transform, and convert
+          back to Cartesian coordinates, $Z_1=R\cos\Theta$ and $Z_2=R\sin\Theta$ — two
+          independent standard normals for the price of two uniforms.
+      - ask: >
+          With $U_1=0.2$ (so $R\approx1.7941$) and $U_2=0.3$, what is $Z_2=R\sin(2\pi
+          U_2)$, to four decimal places?
+        expects: "1.7063"
+        tolerance: 0.0005
+        hint: >
+          First get $\Theta=2\pi\times0.3$, then compute $R\sin\Theta$.
+        feedback: >
+          $\Theta=0.6\pi\approx1.8850$ radians, $\sin(1.8850)\approx0.9511$, and
+          $1.7941\times0.9511\approx1.7063$.
+      - teach: >
+          Producing only one normal per pair of uniforms by discarding $Z_2$ wastes
+          half the draws — both coordinates are valid, independent output, unlike the
+          Marsaglia polar variant, which trades the two trig calls for an actual
+          accept/reject loop.
+      - ask: >
+          A colleague keeps only $Z_1$ from every pair of uniforms and throws away
+          $Z_2$. What's wrong with that?
+        choices:
+          - text: >
+              Nothing — $Z_2$ is redundant once you have $Z_1$
+            feedback: >
+              $Z_2$ carries no less information than $Z_1$ — both are independent standard
+              normal output from the same pair of uniforms.
+          - text: >
+              It wastes half of every generated pair — $Z_2$ is an equally valid,
+              independent standard normal
+            correct: true
+            feedback: >
+              Both $Z_1=R\cos\Theta$ and $Z_2=R\sin\Theta$ are independent $N(0,1)$ draws;
+              discarding one throws away a free sample.
+          - text: >
+              $Z_1$ and $Z_2$ are correlated, so keeping both would double-count
+            feedback: >
+              They're independent by construction — that's the entire point of the
+              polar-coordinates argument.
+        feedback: >
+          Keep both coordinates — Box–Muller accepts every pair of uniforms it draws
+          and returns two usable normals from it.
+      - teach: >
+          Rescale with $\mu+\sigma Z$ to reach any $N(\mu,\sigma^2)$ — once you have a
+          standard normal stream, every other normal law is one affine transform away.
 
   - node: quant-statistics.simulation.correlated-normals
     hook: >
@@ -555,6 +1197,73 @@ lessons:
       pushed through the Cholesky factor of the target covariance,
       $\Sigma=LL^{T}$; in two dimensions that's exactly
       $\rho Z_1+\sqrt{1-\rho^{2}}Z_2$.
+    steps:
+      - teach: >
+          "Simulate two assets with correlation $\rho$" is a common desk-adjacent ask,
+          and the one-line answer needs to come with the reason it has exactly that
+          variance, not just the formula.
+      - teach: >
+          Keep $Z_1$ as the first coordinate and set the second to $\rho
+          Z_1+\sqrt{1-\rho^2}Z_2$ for independent standard normals $Z_1,Z_2$. Its
+          variance is $\rho^2+(1-\rho^2)\operatorname{Var}(Z_2)=1$ exactly, using
+          independence to drop the cross term, and its covariance with $Z_1$ is
+          $\rho$.
+      - ask: >
+          Take $\rho=0.5$ and a draw $Z_1=-1$, $Z_2=3$. What is the correlated pair's
+          second coordinate, to four decimal places?
+        expects: "2.0981"
+        tolerance: 0.0005
+        hint: >
+          Compute $\rho Z_1+\sqrt{1-\rho^2}Z_2$ directly.
+        feedback: >
+          $0.5\times(-1)+\sqrt{1-0.25}\times3=-0.5+0.8660\times3\approx-0.5+2.5981\approx2.0981$.
+      - teach: >
+          The $d$-dimensional version is the same idea in matrix form: factor
+          $\Sigma=LL^T$ with $L$ lower-triangular, the Cholesky factor — guaranteed to
+          exist since a covariance matrix is always positive semidefinite — and set
+          $X=\mu+LZ$, giving $\operatorname{Cov}(X)=LL^T=\Sigma$.
+      - ask: >
+          By the same identity, for $\rho=0.8$, what is the exact variance of the
+          second coordinate $\rho Z_1+\sqrt{1-\rho^2}Z_2$?
+        expects: "1"
+        hint: >
+          The identity $\rho^2+(1-\rho^2)=1$ holds for every value of $\rho$.
+        feedback: >
+          $\rho^2+(1-\rho^2)=1$ regardless of $\rho$ — the construction always yields
+          a standard normal marginal, whatever correlation it's built to carry.
+      - teach: >
+          An estimated covariance matrix from real data can come back slightly
+          non-positive-semidefinite from noise, in which case Cholesky fails outright;
+          the fix is an eigendecomposition $\Sigma=Q\Lambda Q^T$, clipping negative
+          eigenvalues to zero and taking $L=Q\Lambda^{1/2}$.
+      - ask: >
+          You build the pair as $\rho Z_1+Z_2$ instead of $\rho
+          Z_1+\sqrt{1-\rho^2}Z_2$. What is the resulting variance of the second
+          coordinate?
+        choices:
+          - text: >
+              $1$
+            feedback: >
+              That's the variance of the *correct* construction — dropping
+              $\sqrt{1-\rho^2}$ changes the answer.
+          - text: >
+              $\rho^2+1$
+            correct: true
+            feedback: >
+              Without the scaling, $\operatorname{Var}(\rho Z_1+Z_2)=\rho^2+1$, which
+              exceeds $1$ for any $\rho\ne0$ — the marginal is no longer standard normal.
+          - text: >
+              $1-\rho^2$
+            feedback: >
+              This would be the variance if the $Z_1$ term were dropped entirely, not the
+              effect of the missing square root.
+        feedback: >
+          The $\sqrt{1-\rho^2}$ scaling on $Z_2$ is what keeps the second coordinate's
+          variance at exactly $1$; omitting it inflates the variance instead.
+      - teach: >
+          In two dimensions the Cholesky factor is exactly the entries $\rho$ and
+          $\sqrt{1-\rho^2}$ written out by hand — the matrix machinery is the
+          identical bilinearity argument, just carried in general form.
 
   - node: quant-statistics.simulation.bootstrap
     hook: >
@@ -614,6 +1323,78 @@ lessons:
       The bootstrap resamples the observed data with replacement in place of
       drawing from the unknown true distribution, and the scatter of the
       resulting replicated statistics estimates its real sampling error.
+    steps:
+      - teach: >
+          "You have one sample and a statistic — how do you get its standard error
+          without a formula" is answered by the bootstrap, and the interview wants the
+          substitution principle stated precisely: resample the data itself in place
+          of the unknown population.
+      - teach: >
+          The sampling distribution of $\hat\theta=T(X_1,\ldots,X_n)$ depends on the
+          unknown $F$, so substitute the empirical distribution $\hat F_n$ — mass
+          $1/n$ on each observed value — for $F$: draw $n$ values with replacement,
+          compute the statistic, and repeat $B$ times.
+      - ask: >
+          Data $\{10, 12, 14, 18, 26\}$, $n=5$. What is the empirical variance
+          $\frac1n\sum(x_i-\bar x)^2$?
+        expects: "32"
+        hint: >
+          Find the mean first, then average the squared deviations from it.
+        feedback: >
+          $\bar x=(10+12+14+18+26)/5=16$. Squared deviations are $36,16,4,4,100$,
+          summing to $160$, and $160/5=32$.
+      - teach: >
+          For the mean specifically, the bootstrap variance has a clean closed form —
+          the empirical variance divided by $n$ again — and $B$ controls only how
+          precisely that resampling distribution is approximated, pure simulation
+          noise, entirely separate from the statistical uncertainty that $n$ alone
+          sets.
+      - ask: >
+          Using that same data ($n=5$, empirical variance $32$), what is the bootstrap
+          standard error of the mean, to four decimal places?
+        expects: "2.5298"
+        tolerance: 0.0005
+        hint: >
+          Bootstrap variance of the mean is the empirical variance divided by $n$;
+          then take the square root.
+        feedback: >
+          $32/5=6.4$, and $\sqrt{6.4}\approx2.5298$.
+      - teach: >
+          Resampling without replacement just reproduces the original sample as a
+          permutation and manufactures zero new information — "with replacement" is
+          the entire mechanism, not an optional detail.
+      - ask: >
+          You increase $B$ from $1000$ to $100{,}000$ resamples, but the original
+          sample still has only $n=5$ observations. What happens to your estimate of
+          $\hat\theta$'s true standard error?
+        choices:
+          - text: >
+              It gets much more accurate, since it now reflects the true population
+            feedback: >
+              This conflates simulation noise with statistical precision — $B$ never sees
+              more of the population than the original $5$ observations already contain.
+          - text: >
+              The simulation noise in approximating the resampling distribution shrinks,
+              but the underlying statistical uncertainty, set by $n=5$, is unchanged
+            correct: true
+            feedback: >
+              $B$ only controls how precisely you've approximated $\hat F_n$'s resampling
+              distribution; no amount of resampling manufactures information the original
+              $5$ points didn't contain.
+          - text: >
+              Nothing changes at all
+            feedback: >
+              Something does change — the Monte Carlo noise in the bootstrap estimate
+              itself shrinks — just not the statistical uncertainty from having only
+              $n=5$.
+        feedback: >
+          Keep the two error sources separate: $B$ is simulation noise, driven down
+          cheaply; $n$ is statistical uncertainty, fixed by the data you actually
+          have.
+      - teach: >
+          The spread of the $B$ replicates stands in for $\hat\theta$'s true sampling
+          distribution with no variance formula ever required — their $2.5\%$/$97.5\%$
+          percentiles give an interval just as directly.
 
   - node: quant-statistics.simulation.bootstrap-caveats
     hook: >
@@ -669,6 +1450,76 @@ lessons:
       The bootstrap is trustworthy for smooth functionals of $F$ but not for
       extremes — the resampled maximum repeats the one observed maximum
       about $63.2\%$ of the time, a spike no amount of resampling removes.
+    steps:
+      - teach: >
+          Interviewers who've seen the bootstrap taught once love asking "does this
+          always work", and the sample maximum is the fastest concrete counterexample
+          to have ready.
+      - teach: >
+          The bootstrap is trustworthy for smooth functionals of $F$ — means,
+          variances, correlations, regression coefficients — but breaks when the
+          statistic is governed by the extreme edge of the data, because $\hat F_n$
+          has hard edges exactly at the observed min and max and nothing beyond them.
+      - ask: >
+          For $n=6$ observations, what is the probability a bootstrap resample of size
+          $n$ contains the true observed maximum, to four decimal places?
+        expects: "0.6651"
+        tolerance: 0.0005
+        hint: >
+          The probability it's *missed* is $(1-1/n)^n$; subtract from $1$.
+        feedback: >
+          $(1-1/6)^6=(5/6)^6\approx0.3349$, so the probability it's included is
+          $1-0.3349\approx0.6651$.
+      - teach: >
+          As $n$ grows this converges to a fixed limit rather than shrinking toward
+          $0$ or $1$ — a permanent spike in the bootstrap distribution of the maximum
+          sitting exactly at the one value already observed, never resembling the true
+          variability of an extreme.
+      - ask: >
+          As $n\to\infty$, what does the probability that a resample contains the true
+          maximum converge to, to four decimal places?
+        expects: "0.6321"
+        tolerance: 0.0005
+        hint: >
+          The limit is $1-1/e$.
+        feedback: >
+          $1-1/e\approx1-0.3679\approx0.6321$ — no amount of increasing $n$ shrinks
+          this spike away.
+      - teach: >
+          Two further, unrelated failure modes: resampling with replacement treats
+          every draw as independent, so on time-series data it silently destroys the
+          serial correlation the original data carried — the fix is a block bootstrap,
+          resampling contiguous chunks instead of single points.
+      - ask: >
+          Your data is a daily time series with strong autocorrelation, and you
+          resample individual days independently with replacement, iid style. What
+          breaks?
+        choices:
+          - text: >
+              Nothing — the bootstrap handles any data the same way
+            feedback: >
+              The plain iid bootstrap assumes exchangeable observations; a dependent time
+              series violates that assumption outright.
+          - text: >
+              The resampling destroys the serial correlation the original data carried, so
+              use a block bootstrap instead
+            correct: true
+            feedback: >
+              Independent resampling of single days scrambles whatever dependence
+              structure made the sequence informative — resampling contiguous blocks
+              preserves it.
+          - text: >
+              It automatically fixes any survivorship bias in the series
+            feedback: >
+              No version of resampling repairs a systematically biased sample — $\hat F_n$
+              faithfully reproduces whatever contamination is already in the data.
+        feedback: >
+          Dependent data needs a block bootstrap; no amount of resampling, block or
+          otherwise, can undo a biased original sample.
+      - teach: >
+          Classify the statistic before trusting the bootstrap: a smooth functional of
+          $F$ is safe, but anything living at the edge of the support or the extreme
+          tail needs a different tool entirely.
 
   - node: quant-statistics.simulation.variance-reduction
     hook: >
@@ -722,6 +1573,71 @@ lessons:
       variance alone, and antithetic variates, control variates and
       importance sampling each recover a different piece of structure the
       naive estimator throws away.
+    steps:
+      - teach: >
+          "How would you speed up this simulation" almost always means "cut the
+          variance per draw", not "run more paths", and the interview wants the
+          cost-adjusted argument for why, not just the buzzwords.
+      - teach: >
+          Since $\operatorname{Var}(\hat\theta_n)=\sigma^2/n$, halving $\sigma^2$ and
+          halving $n$ give the exact same estimator variance — so the right single
+          number to optimize is variance times cost per sample, never variance alone.
+      - ask: >
+          A budget buys $1000$ unit-cost samples. A technique quadruples the
+          per-sample cost to $4$. How many samples does the same budget now buy?
+        expects: "250"
+        hint: >
+          Divide the budget by the new per-sample cost.
+        feedback: >
+          $1000/4=250$ samples at the higher cost.
+      - teach: >
+          Each standard device recovers some structure the naive estimator throws away
+          for free: antithetic variates exploit the uniform stream's built-in
+          symmetry, control variates exploit a correlated quantity with known mean,
+          and importance sampling exploits knowing where the payoff actually lives —
+          with analytically integrating out part of the randomness, often the largest
+          win of all, costing zero draws for whatever it removes.
+      - ask: >
+          A technique cuts per-draw variance from $1$ to $0.3$ but quadruples the
+          per-sample cost to $4$. What is its variance times cost figure of merit?
+        expects: "1.2"
+        hint: >
+          Multiply the new variance by the new cost per sample.
+        feedback: >
+          $0.3\times4=1.2$ — worse than the baseline's merit of $1\times1=1$, despite
+          genuinely cutting the per-draw variance.
+      - teach: >
+          Reporting "I halved the variance" as self-evidently good, without stating
+          the change in per-sample cost, ignores that a trick can lower variance and
+          still lose on a fixed budget.
+      - ask: >
+          A technique's variance times cost figure of merit works out to $1.2$, versus
+          a baseline of $1$ (variance $1$, cost $1$). Should you adopt it?
+        choices:
+          - text: >
+              Yes — it lowers the per-draw variance, and lower variance is always better
+            feedback: >
+              Lower variance alone ignores the higher per-sample cost; on a fixed budget
+              that higher cost buys fewer samples than the variance cut saves.
+          - text: >
+              No — its variance times cost is higher, so for a fixed budget it delivers
+              worse final variance than the baseline
+            correct: true
+            feedback: >
+              $1.2>1$ means, samples-for-samples, the baseline reaches a lower final
+              variance for the same budget despite its higher per-draw variance.
+          - text: >
+              It depends on how large $n$ is
+            feedback: >
+              Variance times cost is the figure of merit precisely because it's scale-free
+              — the comparison doesn't depend on the size of the budget.
+        feedback: >
+          Variance times cost per sample is the only comparison that matters — a trick
+          can cut variance and still be a net loss.
+      - teach: >
+          Reaching for a variance-reduction trick before checking whether part of the
+          randomness can simply be integrated out analytically skips the usually
+          biggest free win available.
 
   - node: quant-statistics.simulation.antithetic
     hook: >
@@ -774,6 +1690,77 @@ lessons:
       Evaluate the payoff at both $U$ and $1-U$ and average: the pair's
       variance is $\sigma^{2}(1+\rho)/2$, a win exactly when the payoff is
       monotone enough to force $\rho$ negative.
+    steps:
+      - teach: >
+          Given one uniform draw, getting a second observation almost for free is
+          exactly antithetic variates, and the interview trap is a payoff where the
+          trick silently makes things worse instead of better.
+      - teach: >
+          Every simulated output is $Y=h(U)$ for some function of the uniform draw, so
+          it comes with a free mirror image: evaluate $h$ at $1-U$ too — which has the
+          identical marginal law, since $1-U$ is uniform — and average the pair,
+          $A=(Y_1+Y_2)/2$.
+      - ask: >
+          For $h(u)=\sqrt u$ and a fresh draw $U=0.36$, what is the antithetic paired
+          average $A=(h(U)+h(1-U))/2$?
+        expects: "0.7"
+        hint: >
+          Compute $h(0.36)$ and $h(0.64)$ separately, then average.
+        feedback: >
+          $h(0.36)=\sqrt{0.36}=0.6$ and $h(0.64)=\sqrt{0.64}=0.8$, so
+          $A=(0.6+0.8)/2=0.7$ — already close to the true mean $\mathbb{E}[\sqrt
+          U]=2/3\approx0.6667$ from a single pair.
+      - teach: >
+          The paired average's variance is $\operatorname{Var}(A)=\sigma^2(1+\rho)/2$
+          with $\rho=\operatorname{Corr}(Y_1,Y_2)$, beating two independent draws'
+          $\sigma^2/2$ exactly when $\rho<0$ — guaranteed whenever $h$ is monotone,
+          since large $U$ and small $1-U$ push $h(U)$ and $h(1-U)$ to opposite ends of
+          their range in lockstep.
+      - ask: >
+          For $\sigma^2=5$ and $\rho=-0.6$, what is
+          $\operatorname{Var}(A)=\sigma^2(1+\rho)/2$?
+        expects: "1"
+        hint: >
+          Substitute directly into the formula.
+        feedback: >
+          $5\times(1-0.6)/2=5\times0.4/2=1$ — well below the independent-pair variance
+          of $\sigma^2/2=2.5$.
+      - teach: >
+          A non-monotone payoff is the trap: something that's the same at $U$ and
+          $1-U$, like a straddle-shaped function, has $Y_1=Y_2$ moving together rather
+          than oppositely, so $\rho$ can turn positive — and $1+\rho$ then exceeds
+          $1$, actively increasing variance relative to two independent uniforms.
+      - ask: >
+          A payoff $h(u)=|u-0.5|$ is symmetric around $u=0.5$, so $h(u)=h(1-u)$
+          exactly for every $u$. What happens to antithetic pairing here?
+        choices:
+          - text: >
+              It still helps, since $U$ and $1-U$ are different draws
+            feedback: >
+              Different draws of $U$, yes — but $h(U)$ and $h(1-U)$ are *identical*
+              numbers every time, since the payoff is symmetric around $0.5$.
+          - text: >
+              $\rho=1$ exactly, since $Y_1=Y_2$ always, so pairing gives no variance
+              reduction at all
+            correct: true
+            feedback: >
+              $Y_1=Y_2$ makes $\rho=1$, so
+              $\operatorname{Var}(A)=\sigma^2(1+1)/2=\sigma^2$ — the same variance as a
+              single draw, and worse than two independent draws' $\sigma^2/2$.
+          - text: >
+              It guarantees a variance reduction, since $h$ is still a valid function of
+              $U$
+            feedback: >
+              Monotonicity is what guarantees $\rho<0$; this payoff is the opposite of
+              monotone around $u=0.5$.
+        feedback: >
+          Non-monotone, symmetric-around-the-midpoint payoffs are exactly where
+          antithetic pairing stops helping and can even hurt — check monotonicity
+          before reaching for the trick.
+      - teach: >
+          The whole trick costs one extra function evaluation per pair, not an extra
+          simulation path — cheap enough that checking monotonicity first is the only
+          real diligence it requires.
 
   - node: quant-statistics.simulation.control-variates
     hook: >
@@ -831,6 +1818,74 @@ lessons:
       quantity $C$, at the regression-slope choice
       $b^{*}=\operatorname{Cov}(Y,C)/\operatorname{Var}(C)$, and the
       variance drops by the factor $1-\rho^{2}$.
+    steps:
+      - teach: >
+          A correlated quantity whose true mean you already know in closed form is the
+          setup control variates want you to spot immediately — most desk pricing
+          problems have one sitting in plain sight, a related instrument with a known
+          formula.
+      - teach: >
+          Average $Y_i-b(C_i-\mu_C)$ instead of $Y_i$ alone: unbiased for any constant
+          $b$, since $\mathbb{E}[C_i-\mu_C]=0$. The per-draw variance is a quadratic
+          in $b$, minimized at $b^*=\operatorname{Cov}(Y,C)/\operatorname{Var}(C)$ —
+          the regression slope of $Y$ on $C$.
+      - ask: >
+          Suppose $\operatorname{Var}(Y)=10$, $\operatorname{Var}(C)=4$,
+          $\operatorname{Cov}(Y,C)=4$. What is $b^*$?
+        expects: "1"
+        hint: >
+          Divide the covariance by $\operatorname{Var}(C)$.
+        feedback: >
+          $b^*=\operatorname{Cov}(Y,C)/\operatorname{Var}(C)=4/4=1$.
+      - teach: >
+          At $b^*$ the variance collapses to $\operatorname{Var}(Y)(1-\rho^2)$ with
+          $\rho=\operatorname{Corr}(Y,C)$ — the residual left over after regressing
+          out everything $C$ explains, so the saving is exactly the $R^2$ of that
+          regression.
+      - ask: >
+          For that same setup ($\operatorname{Var}(Y)=10$,
+          $\rho^2=\operatorname{Cov}(Y,C)^2/(\operatorname{Var}(Y)\operatorname{Var}(C))=16/40=0.4$),
+          what is the controlled estimator's variance?
+        expects: "6"
+        hint: >
+          Multiply $\operatorname{Var}(Y)$ by $(1-\rho^2)$.
+        feedback: >
+          $10\times(1-0.4)=10\times0.6=6$ — a $40\%$ cut, exactly $\rho^2$.
+      - teach: >
+          Finding a $C$ both strongly correlated with $Y$ and genuinely known, not
+          just estimable, is the entire craft: weak correlation buys very little,
+          since $\rho=0.5$ removes only $25\%$ of the variance against $\rho=0.9$'s
+          $81\%$.
+      - ask: >
+          You use a $C$ that's strongly correlated with $Y$, but whose "known" mean
+          $\mu_C$ is actually itself only estimated from a pilot run rather than known
+          in closed form. What breaks?
+        choices:
+          - text: >
+              Nothing, as long as $\rho$ is high
+            feedback: >
+              The unbiasedness argument, not the variance reduction, is what depends on
+              $\mu_C$ — a high $\rho$ doesn't rescue it.
+          - text: >
+              The unbiasedness argument needs $\mu_C$ exact — if it's only estimated,
+              $\mathbb{E}[C_i-\mu_C]\ne0$ in general, and the estimator inherits that bias
+            correct: true
+            feedback: >
+              Unbiasedness of $Y_i-b(C_i-\mu_C)$ relies entirely on
+              $\mathbb{E}[C_i-\mu_C]=0$, which needs $\mu_C$ known exactly, not merely
+              estimated.
+          - text: >
+              It only affects the variance reduction, not the bias
+            feedback: >
+              It's the reverse: the choice of $b$ affects variance, but an inexact $\mu_C$
+              corrupts the unbiasedness itself.
+        feedback: >
+          The control variate's mean must be known exactly — an estimated $\mu_C$
+          silently reintroduces the bias the method is supposed to avoid.
+      - teach: >
+          In practice $b^*$ itself is estimated from a small pilot run — the exact
+          optimum isn't needed, since any $b$ near it stays unbiased and still
+          captures most of the reduction.
 
   - node: quant-statistics.simulation.importance-sampling
     hook: >
@@ -890,6 +1945,77 @@ lessons:
       by $w=f/g$ to stay unbiased for the original target — the standard
       cure for rare-event probabilities naive Monte Carlo can't see in a
       reasonable budget.
+    steps:
+      - teach: >
+          Estimating a probability so small that naive simulation would need hundreds
+          of millions of draws is the standard setup for importance sampling, and the
+          interview wants the likelihood-ratio weight written correctly, not just
+          "sample more from the tail".
+      - teach: >
+          Multiply and divide the integrand by a second density $g$ you choose freely:
+          $\mathbb{E}_f[h(X)]=\mathbb{E}_g[h(X)w(X)]$ with weight $w=f/g$. The one
+          hard requirement is $g(x)>0$ wherever $h(x)f(x)\ne0$, or that region of
+          probability mass is silently dropped.
+      - ask: >
+          $X\sim\mathrm{Exponential}(\text{rate }1)$, and you sample instead from
+          $g=\mathrm{Exponential}(\text{rate }1/5)$ with weight
+          $w(x)=f(x)/g(x)=5e^{-4x/5}$. What is $w(6)$, to four decimal places?
+        expects: "0.0411"
+        tolerance: 0.0005
+        hint: >
+          Substitute $x=6$ into $w(x)=5e^{-4x/5}$.
+        feedback: >
+          $w(6)=5e^{-24/5}=5e^{-4.8}\approx5\times0.00823\approx0.0411$.
+      - teach: >
+          The point is to put draws where $h(X)$ actually matters — the standard
+          rare-event regime: if a true probability is order $10^{-7}$, a naive sampler
+          needs on the order of $10^7$ to $10^8$ draws just to see a handful of
+          occurrences, while sampling from a law concentrated near the event and
+          reweighting needs only thousands.
+      - ask: >
+          For $X\sim\mathrm{Exponential}(\text{rate }1)$, what is the true value of
+          $\Pr(X>5)=e^{-5}$, to four decimal places?
+        expects: "0.0067"
+        tolerance: 0.0005
+        hint: >
+          Evaluate $e^{-5}$ directly.
+        feedback: >
+          $e^{-5}\approx0.0067$ — a naive sampler needs roughly $1/0.0067\approx149$
+          draws on average just to see one success, which only worsens as the
+          threshold moves further into the tail.
+      - teach: >
+          The danger runs the opposite direction from a thin proposal: if $f/g$ is
+          unbounded anywhere, the weighted estimator can have infinite variance while
+          its simulated output looks perfectly calm, so give $g$ tails at least as
+          heavy as $f$'s, never thinner.
+      - ask: >
+          You choose a proposal $g$ with lighter tails than $f$'s, to concentrate more
+          draws near the mode. What's the risk?
+        choices:
+          - text: >
+              None — lighter tails just waste a few draws near the mode
+            feedback: >
+              The danger isn't wasted draws near the mode — it's what happens far in the
+              tail, where the weight can blow up.
+          - text: >
+              The weight $f/g$ can become unbounded, and the estimator can have infinite
+              variance while a short run looks perfectly stable
+            correct: true
+            feedback: >
+              Wherever $g$'s tail is thinner than $f$'s, $f/g\to\infty$, and rare enormous
+              weights can corrupt the average with no visible warning sign in a short run.
+          - text: >
+              It's fine as long as $g$ still integrates to $1$
+            feedback: >
+              Being a valid density is necessary but says nothing about tail thickness —
+              the risk is specifically about the tails.
+        feedback: >
+          Give $g$ tails at least as heavy as $f$'s — a thinner-tailed proposal can
+          produce an estimator with infinite variance that gives no visible warning.
+      - teach: >
+          This is the standard cure for rare-event estimation: sample from a law that
+          actually visits the important region, and undo the distortion with the
+          likelihood-ratio weight.
 
   - node: quant-statistics.simulation.seeding
     hook: >
@@ -941,3 +2067,109 @@ lessons:
       seed on purpose — common random numbers — to compare two simulated
       variants far more precisely than either alone, but never tune against
       a single seed.
+    steps:
+      - teach: >
+          "How do you make sure your backtest is reproducible" and "how do you fairly
+          compare two trading strategies in simulation" are both answered by seed
+          discipline, and the second one is a genuine free efficiency gain, not just
+          hygiene.
+      - teach: >
+          Every result in this unit is only ever a deterministic function of some
+          seed, so letting the generator default to a clock-based start throws away
+          the one thing that made the exercise reproducible in the first place — the
+          seed is part of the result, not an implementation detail to omit.
+      - ask: >
+          Your backtest, run with a clock-based default seed, produced a Sharpe ratio
+          of $1.8$. Six months later a colleague reruns "the same" backtest and gets
+          $1.3$. What's the most likely explanation?
+        choices:
+          - text: >
+              The market data must have changed underneath the backtest
+            feedback: >
+              Possible in general, but the far more common culprit, given a clock-based
+              seed, is that the run isn't even reproducing the same simulated paths.
+          - text: >
+              The generator was never seeded explicitly, so a different random stream
+              drove each run
+            correct: true
+            feedback: >
+              With a clock-based default, the seed — and so the entire simulated path —
+              was never recorded, so "the same backtest" was actually run on two different
+              streams.
+          - text: >
+              The random number generator itself must be broken
+            feedback: >
+              The generator is working exactly as built — it's the missing seed record
+              that broke reproducibility, not the arithmetic.
+        feedback: >
+          A simulation result you cannot reproduce is not a result — set the seed
+          explicitly and record it with the output.
+      - teach: >
+          Give each independent component its own stream — a counter-based generator's
+          jump-ahead, or explicit separate seeds — so that adding a parallel worker
+          cannot silently overlap two streams and manufacture correlation between
+          components assumed independent.
+      - ask: >
+          You launch $8$ parallel Monte Carlo workers, each seeded from the wall-clock
+          time in milliseconds when it starts. What's the risk?
+        choices:
+          - text: >
+              None — $8$ different clock reads guarantee $8$ different, independent
+              streams
+            feedback: >
+              Workers launched close together can read nearly identical millisecond
+              timestamps, and even distinct seeds don't guarantee the underlying streams
+              don't overlap without an explicit disjoint-stream scheme.
+          - text: >
+              Workers started close together can collide or overlap in the underlying
+              stream, manufacturing correlation between components assumed independent
+            correct: true
+            feedback: >
+              Without a counter-based jump-ahead or explicitly disjoint seeds, parallel
+              workers can replay overlapping segments of the same sequence, corrupting
+              every downstream calculation that relied on independence.
+          - text: >
+              It only matters once you have more than $100$ workers
+            feedback: >
+              The collision risk depends on the seeding scheme, not on the worker count
+              crossing some threshold.
+        feedback: >
+          Parallel workers need a provably disjoint-stream scheme — a clock-based seed
+          per worker doesn't guarantee that on its own.
+      - teach: >
+          Deliberately reusing the identical seed across two runs is a genuine
+          technique, not a mistake: running two competing strategies on exactly the
+          same simulated path — common random numbers — cancels the simulation noise
+          common to both, so their difference converges far faster than either
+          strategy's own level would on its own.
+      - ask: >
+          You tune a trading strategy's parameter against $2000$ simulated paths, all
+          generated from a single fixed seed, and it looks great. Is that enough to
+          trust the result?
+        choices:
+          - text: >
+              Yes — $2000$ paths is a large enough sample
+            feedback: >
+              The path *count* isn't the issue here — every one of those $2000$ paths came
+              from the same single random realization of the seed.
+          - text: >
+              No — tuning against one seed's realization is overfitting to that particular
+              random draw; confirm the improvement holds on fresh seeds
+            correct: true
+            feedback: >
+              A parameter tuned to look good on a single seed is indistinguishable from a
+              genuine improvement until checked against seeds it wasn't tuned on.
+          - text: >
+              Yes, since the seed only affects reproducibility, not correctness
+            feedback: >
+              The seed determines exactly which random realization the tuning was
+              optimized against — that's precisely the overfitting risk, not a side issue.
+        feedback: >
+          The trap runs the opposite direction from common random numbers: reusing a
+          seed on purpose to *compare* variants is sound, but tuning against a single
+          fixed seed is overfitting to the generator.
+      - teach: >
+          Keep the two uses of a fixed seed straight: deliberate reuse to compare two
+          variants fairly is a real variance-reduction technique, while tuning any
+          single parameter against one seed's worth of paths is the trap it
+          superficially resembles.

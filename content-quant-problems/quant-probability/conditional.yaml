@@ -1,0 +1,1589 @@
+# Problems targeting quant-probability.conditional — conditioning and Bayes.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. Every instance here is fresh: no
+# problem reuses a lesson's worked example or a card's numbers. See ../README.md.
+
+problems:
+  # --- the definition --------------------------------------------------------
+
+  - id: qcond-conditional-probability-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A family has two children. Each child is independently a boy or a girl
+      with probability $1/2$, and each child's day of birth is independent and
+      uniform over the seven days of the week. You ask the parent "do you have
+      at least one boy born on a Tuesday?" and they answer truthfully: yes.
+      What is the probability that both children are boys?
+    answer: >
+      $13/27$. Describe each child by a (sex, weekday) pair, so there are $14$
+      equally likely descriptions per child and $14^{2} = 196$ for the ordered
+      pair of children. Let $T$ be "at least one child is a boy born on a
+      Tuesday". Count $T$ by its complement: a single child fails to be a
+      Tuesday boy in $13$ of $14$ ways, so $\Pr(T^{c}) = 169/196$ and
+      $\Pr(T) = 27/196$. Now the joint event. Both boys accounts for
+      $7 \times 7 = 49$ descriptions, of which $6 \times 6 = 36$ have no
+      Tuesday, leaving $49 - 36 = 13$. Hence
+      $\Pr(\text{both boys} \mid T) = (13/196)/(27/196) = 13/27 \approx 0.4815$.
+      The weekday is not decoration: without it the same question gives $1/3$,
+      and the extra detail pushes the answer most of the way to $1/2$ because it
+      makes the two-boy case, which has two chances to supply a Tuesday boy,
+      relatively easier to satisfy.
+    expects: "13/27"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Works in the $196$-outcome space of (sex, weekday) descriptions for two
+        ordered children, not in a four-outcome sex-only space.
+      - >
+        Counts the conditioning event as $196 - 169 = 27$, so a family with two
+        Tuesday boys is counted once rather than twice.
+      - >
+        Divides the joint count by the conditioning count $27$, not by $196$.
+    targets:
+      - quant-probability.conditional.conditional-probability
+
+  - id: qcond-conditional-probability-02
+    kind: work
+    difficulty: standard
+    statement: >
+      On a trading desk, $40\%$ of orders are in equities, $25\%$ are
+      algorithmic, and $12\%$ are both. Given that an order is algorithmic, what
+      is the probability it is in equities?
+    answer: >
+      $0.48$. Write $E$ for equities and $G$ for algorithmic. The conditioning
+      event goes in the denominator:
+      $\Pr(E \mid G) = \Pr(E \cap G)/\Pr(G) = 0.12/0.25 = 0.48$. Three numbers
+      in this problem are near-misses, and each is a different mistake. The
+      reverse conditional is $\Pr(G \mid E) = 0.12/0.40 = 0.30$ — the same joint
+      probability over the other marginal. The unconditional $\Pr(E) = 0.40$ is
+      what you get by ignoring the conditioning altogether. And the joint
+      $0.12$ is the answer to "what fraction of *all* orders", not "what
+      fraction of algorithmic orders". The gap between $0.48$ and $0.40$ also
+      says the two are dependent: $\Pr(E)\Pr(G) = 0.10 < 0.12$, so being
+      algorithmic is mild evidence for being an equities order.
+    expects: "0.48"
+    rubric:
+      - >
+        Puts the conditioning event $G$ in the denominator and the joint
+        probability in the numerator.
+      - >
+        Does not report $0.30$, which answers the other direction of the bar,
+        nor $0.40$, which ignores the conditioning entirely.
+    targets:
+      - quant-probability.conditional.conditional-probability
+
+  - id: qcond-conditional-probability-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      Two events satisfy $\Pr(A \mid B) = 0.9$ and $\Pr(B \mid A) = 0.3$, both
+      well defined. What does this force about the two unconditional
+      probabilities?
+    answer: >
+      $\Pr(A) = 3\Pr(B)$. Both conditionals are built from the same joint
+      probability: $\Pr(A \cap B) = \Pr(A \mid B)\Pr(B) = 0.9\Pr(B)$ and also
+      $\Pr(A \cap B) = \Pr(B \mid A)\Pr(A) = 0.3\Pr(A)$. Setting the two equal
+      gives $0.9\Pr(B) = 0.3\Pr(A)$, so $\Pr(A) = 3\Pr(B)$. The general form is
+      $\Pr(A \mid B)/\Pr(B \mid A) = \Pr(A)/\Pr(B)$ — swapping the bar rescales
+      by the ratio of the marginals, and the larger of the two conditionals is
+      always the one whose conditioning event has the *smaller* marginal. The
+      joint probability itself cancels and never needs to be known.
+    choices:
+      - text: >
+          $\Pr(A) = 3\Pr(B)$
+        correct: true
+        feedback: >
+          Both conditionals equal $\Pr(A \cap B)$ over a different marginal, so
+          $0.9\Pr(B) = 0.3\Pr(A)$.
+      - text: >
+          $\Pr(B) = 3\Pr(A)$
+        feedback: >
+          The ratio is inverted. The larger conditional, $\Pr(A \mid B) = 0.9$,
+          divides by the *smaller* marginal, so $\Pr(B)$ is the smaller one.
+      - text: >
+          Nothing, unless $\Pr(A \cap B)$ is also given
+        feedback: >
+          The joint probability cancels when the two expressions for it are set
+          equal — that cancellation is exactly what makes the identity usable.
+    rubric:
+      - >
+        Writes $\Pr(A \cap B)$ two ways and equates them, rather than trying to
+        flip a conditional directly.
+      - >
+        Gets the direction right: the event with the larger marginal is $A$.
+    targets:
+      - quant-probability.conditional.conditional-probability
+
+  # --- conditioning as renormalization ---------------------------------------
+
+  - id: qcond-reduced-sample-space-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A family has three children, each independently a boy or a girl with
+      probability $1/2$. Given that at least one is a girl, what is the
+      probability that at least two are girls?
+    answer: >
+      $4/7$. The eight birth orders are equally likely, so conditioning is
+      counting. Delete the one order with no girl, $BBB$, and seven equally
+      likely orders survive — that list *is* the new sample space. Among them,
+      "at least two girls" holds for the three orders with exactly two girls,
+      $GGB$, $GBG$, $BGG$, and for $GGG$, so four of the seven qualify:
+      $\Pr \approx 0.5714$. Two traps. Dividing by $8$ instead of $7$ forgets to
+      renormalize and gives $1/2$. Conditioning inside the coarser space
+      "number of girls" leaves the three cases $1, 2, 3$ and, if they are read
+      as equally likely, the wrong answer $2/3$ — those cases carry weights
+      $3, 3, 1$ out of the eight orders, not equal weights.
+    expects: "4/7"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Deletes $BBB$ and renormalizes over the seven surviving orders rather
+        than over all eight.
+      - >
+        Counts orders, not girl-counts, so the surviving outcomes really are
+        equally likely.
+    targets:
+      - quant-probability.conditional.reduced-sample-space
+
+  - id: qcond-reduced-sample-space-02
+    kind: work
+    difficulty: standard
+    statement: >
+      One card is drawn from a standard $52$-card deck. Given that it is a spade
+      or a face card — a jack, queen or king — what is the probability that it
+      is a face card?
+    answer: >
+      $6/11$. The conditioning event has
+      $13 + 12 - 3 = 22$ cards: the $13$ spades and the $12$ face cards, less
+      the $3$ spade face cards counted twice. Inside that reduced deck of $22$
+      equally likely cards, $12$ are face cards, so the answer is
+      $12/22 = 6/11 \approx 0.5455$. No probabilities were needed — with equally
+      likely outcomes conditioning is $|A \cap B|/|B|$, pure counting. The slip
+      to avoid is a denominator of $25$: inclusion–exclusion is required because
+      spades and face cards overlap.
+    expects: "6/11"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Sizes the conditioning event with inclusion–exclusion, getting $22$
+        rather than $25$.
+      - >
+        Counts inside the reduced deck instead of dividing two unconditional
+        probabilities.
+    targets:
+      - quant-probability.conditional.reduced-sample-space
+
+  # --- the conditional measure -----------------------------------------------
+
+  - id: qcond-conditional-measure-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Fix an event $B$ with $\Pr(B) > 0$. You are told that
+      $\Pr(A \mid B) = 0.5$, $\Pr(C \mid B) = 0.3$ and
+      $\Pr(A \cup C \mid B) = 0.6$. Given $B$, what is the probability that
+      exactly one of $A$ and $C$ occurs?
+    answer: >
+      $0.4$. Because $\Pr(\,\cdot \mid B)$ satisfies the axioms, every
+      unconditional identity holds with $\mid B$ appended throughout. So the
+      two-event union formula applies inside the conditional world:
+      $\Pr(A \cap C \mid B) = \Pr(A \mid B) + \Pr(C \mid B)
+      - \Pr(A \cup C \mid B) = 0.5 + 0.3 - 0.6 = 0.2$. "Exactly one" is the
+      disjoint union of two differences, so it has conditional probability
+      $\Pr(A \mid B) + \Pr(C \mid B) - 2\Pr(A \cap C \mid B)
+      = 0.8 - 0.4 = 0.4$ — the overlap leaves twice, once from each side.
+      Subtracting it only once would return $0.6$, the union you were already
+      given. Nothing new had to be proved: the whole computation is the
+      unconditional one with a bar carried along.
+    expects: "0.4"
+    rubric:
+      - >
+        Uses inclusion–exclusion in the left slot, citing that
+        $\Pr(\,\cdot \mid B)$ is itself a probability measure.
+      - >
+        Subtracts the conditional overlap twice for "exactly one", not once.
+    targets:
+      - quant-probability.conditional.conditional-measure
+
+  - id: qcond-conditional-measure-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A candidate is told $\Pr(A \mid B) = 0.6$ and writes down
+      $\Pr(A \mid B^{c}) = 0.4$. Which verdict is correct?
+    answer: >
+      Wrong: the complement rule works on the left of the bar, not on the right.
+      What is guaranteed is $\Pr(A^{c} \mid B) = 1 - 0.6 = 0.4$, because
+      $\Pr(\,\cdot \mid B)$ is a probability measure and $A$, $A^{c}$ partition
+      the sample space inside $B$. By contrast $\Pr(A \mid B)$ and
+      $\Pr(A \mid B^{c})$ are renormalizations of two different, unrelated
+      subsets of the sample space; nothing ties them together, and their sum can
+      be anything in $[0, 2]$. Concretely, draw a card: with $A$ = heart and
+      $B$ = red, $\Pr(A \mid B) = 1/2$ while $\Pr(A \mid B^{c}) = 0$.
+    choices:
+      - text: >
+          Wrong — the complement rule holds in the left slot, giving
+          $\Pr(A^{c} \mid B) = 0.4$, while $\Pr(A \mid B^{c})$ is unconstrained
+        correct: true
+        feedback: >
+          Conditioning on $B$ fixes one world in which the axioms hold;
+          conditioning on $B^{c}$ builds a different world entirely.
+      - text: >
+          Right — probabilities conditional on complementary events must sum to
+          $1$
+        feedback: >
+          They need not. Take $A$ = heart, $B$ = red: the two conditionals are
+          $1/2$ and $0$, summing to $1/2$.
+      - text: >
+          Right, provided $A$ and $B$ are independent
+        feedback: >
+          Independence makes it worse, not better: then
+          $\Pr(A \mid B^{c}) = \Pr(A) = \Pr(A \mid B) = 0.6$, not $0.4$.
+    rubric:
+      - >
+        Names the correct identity, $\Pr(A^{c} \mid B) = 1 - \Pr(A \mid B)$, and
+        says which slot it lives in.
+      - >
+        Produces or recognises a counterexample rather than only asserting that
+        the candidate is wrong.
+    targets:
+      - quant-probability.conditional.conditional-measure
+
+  # --- the chain rule --------------------------------------------------------
+
+  - id: qcond-chain-rule-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      An urn starts with one red ball and one blue ball. A ball is drawn
+      uniformly at random and then returned together with one extra ball of the
+      same colour; this is repeated. What is the probability that the first
+      three draws are red, then blue, then red, in that order?
+    answer: >
+      $1/12$. Walk the draws and multiply conditionals, updating the urn after
+      each. Draw one is red with probability $1/2$, leaving two red and one
+      blue. Draw two is blue with probability $1/3$, leaving two red and two
+      blue. Draw three is red with probability $2/4 = 1/2$. The chain rule gives
+      $(1/2)(1/3)(1/2) = 1/12 \approx 0.0833$. The striking part is what the
+      other orders give: $RRB$ is $(1/2)(2/3)(1/4) = 1/12$ and $BRR$ is
+      $(1/2)(1/3)(1/2) = 1/12$ as well. This urn is exchangeable — only the
+      number of reds matters, not their positions — so
+      $\Pr(\text{exactly two reds in three draws}) = 3/12 = 1/4$. Choosing a
+      different order changes every factor and none of the products.
+    expects: "1/12"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Updates both the favourable count and the total after each draw, so the
+        denominators run $2, 3, 4$.
+      - >
+        Multiplies conditionals in sequence rather than treating the draws as
+        independent.
+    targets:
+      - quant-probability.conditional.chain-rule
+
+  - id: qcond-chain-rule-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A trading strategy clears a backtest with probability $0.7$; given that it
+      clears the backtest, it clears an out-of-sample test with probability
+      $0.4$; given that it clears both, it survives a paper-trading month with
+      probability $0.75$. What is the probability it clears all three stages?
+    answer: >
+      $0.21$. The three numbers are exactly the chain rule's factors, each
+      already conditioned on everything before it, so they multiply directly:
+      $\Pr(A_1 \cap A_2 \cap A_3) = \Pr(A_1)\Pr(A_2 \mid A_1)
+      \Pr(A_3 \mid A_1 \cap A_2) = 0.7 \times 0.4 \times 0.75 = 0.21$. Two
+      things to notice. The stated $0.4$ is a conditional, not a marginal —
+      multiplying marginal survival rates would be a different and unjustified
+      calculation. And each factor conditions on the whole intersection so far,
+      not just on the immediately preceding stage, which is what the phrase
+      "given that it clears both" is telling you.
+    expects: "0.21"
+    rubric:
+      - >
+        Multiplies the three given numbers as conditionals along the stated
+        order, without converting anything to a marginal.
+      - >
+        Reads the third factor as conditioned on both earlier stages.
+    targets:
+      - quant-probability.conditional.chain-rule
+
+  # --- independence in conditional language ----------------------------------
+
+  - id: qcond-independence-conditioning-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A coin lands heads with probability $p$, where $0 < p < 1$, and is tossed
+      twice independently. Let $A$ be "the first toss is heads" and $B$ be "the
+      two tosses show different faces". For which value of $p$ are $A$ and $B$
+      independent?
+    answer: >
+      $p = 1/2$. Compute the three probabilities: $\Pr(A) = p$;
+      $\Pr(B) = \Pr(HT) + \Pr(TH) = 2p(1-p)$; and $A \cap B$ is the single
+      sequence $HT$, so $\Pr(A \cap B) = p(1-p)$. The product test reads
+      $p(1-p) = p \cdot 2p(1-p)$, and since $0 < p < 1$ both $p$ and $1-p$ are
+      nonzero and cancel, leaving $1 = 2p$, so $p = 1/2$. The conditional
+      reading makes it intuitive: given that the tosses differ, the first is
+      heads with probability $\Pr(HT)/[\Pr(HT) + \Pr(TH)] = 1/2$ for every $p$,
+      because the two sequences have identical probability. So $\Pr(A \mid B)$
+      is pinned at $1/2$ while $\Pr(A) = p$ moves, and they agree only at
+      $p = 1/2$ — the tosses are independent of each other, but $A$ and $B$ are
+      independent only for the fair coin.
+    expects: "1/2"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Applies the product test $\Pr(A \cap B) = \Pr(A)\Pr(B)$ rather than
+        arguing from the physical independence of the two tosses.
+      - >
+        Cancels $p$ and $1-p$ legitimately, using $0 < p < 1$.
+      - >
+        Notes that $\Pr(A \mid B) = 1/2$ for every $p$, which is why only one
+        value of $p$ works.
+    targets:
+      - quant-probability.conditional.independence-conditioning
+
+  - id: qcond-independence-conditioning-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      An analyst finds that a company having disclosed a data breach raises the
+      chance its stock underperforms: $\Pr(U \mid D) > \Pr(U)$. What does that
+      force about $\Pr(D \mid U)$?
+    answer: >
+      $\Pr(D \mid U) > \Pr(D)$. The three statements $\Pr(U \mid D) > \Pr(U)$,
+      $\Pr(U \cap D) > \Pr(U)\Pr(D)$ and $\Pr(D \mid U) > \Pr(D)$ are the same
+      inequality with the positive quantities $\Pr(D)$ and $\Pr(U)$ moved across
+      it, so any one of them implies the other two. Being evidence for something
+      is therefore a symmetric relation: if breaches predict underperformance
+      then underperformance predicts breaches, by exactly the same factor
+      $\Pr(U \cap D)/[\Pr(U)\Pr(D)]$. Direction of causation is a separate
+      question the arithmetic says nothing about.
+    choices:
+      - text: >
+          $\Pr(D \mid U) > \Pr(D)$
+        correct: true
+        feedback: >
+          Clearing denominators turns either statement into
+          $\Pr(U \cap D) > \Pr(U)\Pr(D)$, which is symmetric in $U$ and $D$.
+      - text: >
+          $\Pr(D \mid U) < \Pr(D)$
+        feedback: >
+          The inequality does not reverse. Positive association is mutual, not
+          a trade-off between the two directions.
+      - text: >
+          Nothing — evidence points one way, from the breach to the return
+        feedback: >
+          That is a claim about causation, not about probability. The product
+          form is symmetric, so the evidential relation is too.
+    rubric:
+      - >
+        Converts the conditional inequality into the product form before
+        reasoning about the other direction.
+      - >
+        Does not confuse the symmetric evidential relation with a causal
+        direction.
+    targets:
+      - quant-probability.conditional.independence-conditioning
+
+  # --- conditional independence ----------------------------------------------
+
+  - id: qcond-conditional-independence-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A merger closes with probability $0.3$. Two analysts each publish a
+      forecast: given that the merger closes, each says "yes" with probability
+      $0.8$; given that it does not, each says "yes" with probability $0.25$.
+      The two forecasts are conditionally independent given the outcome. The
+      first analyst says yes. What is the probability that the second also says
+      yes? Give four decimal places.
+    answer: >
+      $\approx 0.5681$. Conditional independence lets you multiply *inside each
+      case*, and total probability then reassembles the cases.
+      $\Pr(\text{both yes}) = (0.3)(0.8)^{2} + (0.7)(0.25)^{2}
+      = 0.192 + 0.04375 = 0.23575$, and
+      $\Pr(\text{first yes}) = (0.3)(0.8) + (0.7)(0.25) = 0.24 + 0.175 = 0.415$.
+      Dividing, $\Pr(\text{second yes} \mid \text{first yes})
+      = 0.23575/0.415 \approx 0.5681$. Compare the unconditional $0.415$: the
+      first analyst's call moved the second by more than fifteen points, so the
+      two forecasts are *not* independent even though they are conditionally
+      independent given the outcome. Multiplying $0.415^{2} = 0.1722$ for "both
+      yes" would have been the error — the factorisation is only legal after the
+      merger's outcome is fixed.
+    expects: "0.5681"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Factorises within each case, $(0.8)^{2}$ and $(0.25)^{2}$, and only then
+        averages with the case probabilities.
+      - >
+        Does not multiply the two unconditional probabilities $0.415$ together.
+      - >
+        Reports the conditional, dividing by $\Pr(\text{first yes})$ rather than
+        stopping at the joint probability.
+    targets:
+      - quant-probability.conditional.conditional-independence
+
+  - id: qcond-conditional-independence-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A hidden state $C$, "the machine is out of tolerance", has
+      $\Pr(C) = 0.2$. Given $C$, gauge $A$ trips with probability $0.6$ and
+      gauge $B$ trips with probability $0.4$, and the two gauges are
+      conditionally independent given $C$. Given $C$, what is the probability
+      that exactly one of the two gauges trips?
+    answer: >
+      $0.52$. Work entirely inside the world where $C$ holds. Conditional
+      independence gives
+      $\Pr(A \cap B^{c} \mid C) = \Pr(A \mid C)\Pr(B^{c} \mid C)
+      = (0.6)(0.6) = 0.36$ — the complement is taken in the left slot, where it
+      is legal — and likewise
+      $\Pr(A^{c} \cap B \mid C) = (0.4)(0.4) = 0.16$. The two cases are
+      disjoint, so they add: $0.36 + 0.16 = 0.52$. The prior $\Pr(C) = 0.2$ is
+      deliberately irrelevant here; the question never leaves the conditional
+      world, so no averaging over $C$ and $C^{c}$ is needed.
+    expects: "0.52"
+    rubric:
+      - >
+        Factorises each of the two disjoint cases using conditional
+        independence, complementing on the left of the bar.
+      - >
+        Ignores $\Pr(C) = 0.2$, which the question does not need.
+    targets:
+      - quant-probability.conditional.conditional-independence
+
+  # --- conditioning breaks independence, in both directions ------------------
+
+  - id: qcond-conditioning-breaks-independence-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A machine is well calibrated with probability $0.7$, in which case each
+      item it makes is defective with probability $0.02$; otherwise it is
+      miscalibrated and each item is defective with probability $0.2$. Given the
+      calibration state, the items are independent. The first item off the line
+      is defective. What is the probability that the second is defective too?
+      Give four decimal places.
+    answer: >
+      $\approx 0.1659$. Average over the two states.
+      $\Pr(D_1) = (0.7)(0.02) + (0.3)(0.2) = 0.014 + 0.06 = 0.074$, and
+      $\Pr(D_1 \cap D_2) = (0.7)(0.02)^{2} + (0.3)(0.2)^{2}
+      = 0.00028 + 0.012 = 0.01228$, the squares being legal only *inside* each
+      state, where the items are independent. Dividing,
+      $\Pr(D_2 \mid D_1) = 0.01228/0.074 \approx 0.1659$ — more than twice the
+      unconditional $0.074$. The items are conditionally independent given the
+      calibration and emphatically not independent without it: the first defect
+      is evidence about the hidden state, and that evidence is what raises the
+      forecast for the second. Squaring $0.074$ to get $0.0055$ for two defects
+      would understate the joint probability by a factor of more than two.
+    expects: "0.1659"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Squares the defect rate separately within each calibration state before
+        averaging, never the marginal rate $0.074$.
+      - >
+        Divides by $\Pr(D_1)$ to report a conditional rather than a joint
+        probability.
+      - >
+        Explains the lift as learning about the hidden state, not as a physical
+        link between the two items.
+    targets:
+      - quant-probability.conditional.conditioning-breaks-independence
+
+  - id: qcond-conditioning-breaks-independence-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Two fair dice are rolled; unconditionally the two values are independent.
+      Given that the sum is $6$, what is the probability that the first die
+      shows a $2$?
+    answer: >
+      $1/5$. The event "sum is $6$" contains the five equally likely ordered
+      pairs $(1,5), (2,4), (3,3), (4,2), (5,1)$, exactly one of which has a $2$
+      first, so the conditional probability is $1/5 = 0.2$ against the
+      unconditional $1/6 \approx 0.167$. The two dice, independent before the
+      constraint, are perfectly dependent after it: inside this reduced space
+      the first value determines the second. That is the general pattern — a
+      conditioning event that couples two variables, here by fixing their sum,
+      destroys independence, and independence must be rechecked inside the
+      reduced space rather than inherited from outside it.
+    expects: "1/5"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Lists the five ordered pairs summing to $6$, counting $(3,3)$ once.
+      - >
+        Compares with the unconditional $1/6$ and concludes that independence
+        has failed, rather than assuming it survives.
+    targets:
+      - quant-probability.conditional.conditioning-breaks-independence
+
+  # --- common causes and common effects --------------------------------------
+
+  - id: qcond-explaining-away-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A firm hires an applicant if they are strong at mathematics or strong at
+      communication, or both. In the applicant pool the two strengths are
+      independent, each present with probability $0.3$. Among the applicants the
+      firm hires, by how much does learning that a hire is strong at mathematics
+      *lower* the probability that they are also strong at communication? Give
+      four decimal places.
+    answer: >
+      $\approx 0.2882$. Let $M$ and $C$ be the two strengths and $E = M \cup C$
+      the hiring event, so $\Pr(E) = 0.3 + 0.3 - 0.09 = 0.51$. Because $C$
+      alone already guarantees a hire, $C \cap E = C$ and
+      $\Pr(C \mid E) = 0.3/0.51 = 10/17 \approx 0.5882$ — conditioning on the
+      common effect has raised communication strength well above its pool rate
+      of $0.3$. Now add $M$: since $M$ also guarantees a hire, $E$ becomes
+      redundant and $\Pr(C \mid E \cap M) = \Pr(C \mid M) = \Pr(C) = 0.3$ by
+      independence. The drop is $10/17 - 0.3 \approx 0.2882$. This is
+      explaining away, and as a selection effect it is Berkson's paradox: inside
+      the hired pool the two strengths are *negatively* associated purely
+      because the sample was chosen on their disjunction, and an analyst who
+      only ever sees hires would conclude that maths ability harms
+      communication.
+    expects: "0.2882"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $C \subseteq E$ and $M \subseteq E$, so both conditional
+        probabilities simplify rather than needing a fresh Bayes computation.
+      - >
+        Gets $\Pr(C \mid E) = 0.3/0.51$, not $0.3$, and
+        $\Pr(C \mid E \cap M) = 0.3$, not $0.3/0.51$.
+      - >
+        Names the mechanism as conditioning on a common effect, and the sample
+        as selected on the outcome.
+    targets:
+      - quant-probability.conditional.explaining-away
+
+  - id: qcond-explaining-away-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Across a year, ice-cream sales and drowning deaths rise and fall together,
+      although neither causes the other; both are driven by the temperature.
+      Which conditioning makes the association disappear?
+    answer: >
+      Condition on the temperature — the common cause. When a hidden $C$ drives
+      both $A$ and $B$, the two are dependent unconditionally and independent
+      given $C$: fixing the temperature compares hot days with hot days, and
+      within that stratum sales carry no information about drownings.
+      Conditioning on something *downstream* of both does the opposite. If you
+      restricted attention to days that were unusually busy at the beach — an
+      outcome that both cheap ice cream and crowded water make more likely —
+      you would be conditioning on a common effect, which manufactures
+      association rather than removing it. Upstream, condition; downstream, do
+      not.
+    choices:
+      - text: >
+          Condition on the temperature, the common cause of both
+        correct: true
+        feedback: >
+          Within a fixed temperature the two are independent — this is the
+          confounder case, and controlling for it is the correct move.
+      - text: >
+          Condition on whether the day was unusually busy at the beach, which
+          both high sales and crowded water make more likely
+        feedback: >
+          That is a common effect, a collider. Conditioning on it creates
+          association between independent causes instead of removing it.
+      - text: >
+          No conditioning helps — the correlation is real, so one variable must
+          influence the other
+        feedback: >
+          The correlation is real but not causal. A shared cause explains it
+          fully, and stratifying on that cause makes it vanish.
+    rubric:
+      - >
+        Distinguishes a common cause from a common effect, and conditions only
+        on the upstream one.
+      - >
+        Says what conditioning on the collider would do — create association —
+        rather than merely calling it unhelpful.
+    targets:
+      - quant-probability.conditional.explaining-away
+
+  # --- sampling without replacement ------------------------------------------
+
+  - id: qcond-without-replacement-chain-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A standard $52$-card deck is shuffled and dealt one card at a time. What
+      is the probability that the first ace appears on exactly the fifth card?
+      Give four decimal places.
+    answer: >
+      $\approx 0.0599$. Walk the draws. The first four cards must all be
+      non-aces and the fifth must be an ace, so the chain rule gives
+      $\dfrac{48}{52}\cdot\dfrac{47}{51}\cdot\dfrac{46}{50}\cdot\dfrac{45}{49}
+      \cdot\dfrac{4}{48}$. The first four factors are the probability of no ace
+      in four cards, $\approx 0.7187$; the last factor is the conditional
+      probability that the fifth card is an ace given that $48$ cards remain of
+      which $4$ are aces, which is $4/48 = 1/12$. The product is
+      $3243/54145 \approx 0.0599$. Two traps: the fifth factor's denominator is
+      $48$, the size of the *remaining* deck, not $52$ or $49$; and "the first
+      ace is on the fifth card" is not "the fifth card is an ace", which by
+      exchangeability is just $4/52 \approx 0.0769$.
+    expects: "0.0599"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Shrinks both numerator and denominator draw by draw, ending with a
+        denominator of $48$ on the fifth factor.
+      - >
+        Requires the first four cards to be ace-free rather than only requiring
+        an ace in position five.
+    targets:
+      - quant-probability.conditional.without-replacement-chain
+
+  - id: qcond-without-replacement-chain-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A bag holds $7$ red and $3$ green marbles. Two are drawn without
+      replacement. What is the probability that the two marbles are different
+      colours?
+    answer: >
+      $7/15$. There are two disjoint orders, and each is a two-factor chain:
+      red then green is $(7/10)(3/9) = 21/90$, and green then red is
+      $(3/10)(7/9) = 21/90$. Adding, $42/90 = 7/15 \approx 0.4667$. Forgetting
+      the second order and reporting $7/30$ is the standard slip — the question
+      is about an unordered pair, so both sequences count. The combinatorial
+      route agrees and is a good check:
+      $\binom{7}{1}\binom{3}{1}/\binom{10}{2} = 21/45 = 7/15$.
+    expects: "7/15"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Adds both orders, or equivalently doubles one of them.
+      - >
+        Shrinks the denominator from $10$ to $9$ on the second draw.
+    targets:
+      - quant-probability.conditional.without-replacement-chain
+
+  # --- exchangeability -------------------------------------------------------
+
+  - id: qcond-symmetry-exchangeability-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A standard $52$-card deck is shuffled uniformly at random. What is the
+      probability that the ace of spades is immediately followed by the king of
+      spades?
+    answer: >
+      $1/52$. By exchangeability the pair of positions occupied by two named
+      cards is uniform over all $52 \times 51 = 2652$ ordered pairs of distinct
+      positions. Of those, $51$ are "adjacent, in that order" — the ace in any
+      of positions $1$ through $51$ with the king directly behind it. So the
+      probability is $51/2652 = 1/52 \approx 0.0192$. The sequential route
+      confirms it: the ace of spades is somewhere in positions $1$ to $51$ with
+      probability $51/52$, and given its position the next card is uniform over
+      the remaining $51$ cards, so it is the king of spades with probability
+      $1/51$; the product is $1/52$. The trap is to compute $51/52^{2}$ or to
+      treat the two cards' positions as independent — they are exchangeable but
+      not independent, since they cannot coincide.
+    expects: "1/52"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Counts ordered adjacent position pairs, getting $51$, not $102$ — the
+        order of the two cards is specified.
+      - >
+        Uses $52 \times 51$ for the denominator, so the two positions are
+        distinct.
+      - >
+        Confirms with a second route, either the count or the conditional
+        argument.
+    targets:
+      - quant-probability.conditional.symmetry-exchangeability
+
+  - id: qcond-symmetry-exchangeability-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A standard deck is shuffled and the top ten cards are burned face down,
+      seen by nobody. What is the probability that the next card dealt is a
+      heart?
+    answer: >
+      $1/4$. Burning cards face down reveals nothing, so the eleventh position
+      still has the marginal law every position has in a uniformly shuffled
+      deck: it is equally likely to be any of the $52$ cards, and $13$ of them
+      are hearts, giving $13/52 = 1/4$. No chain rule and no case analysis over
+      how many hearts were burned is needed — that computation, averaged over
+      the cases by total probability, necessarily returns the same $1/4$.
+      Information, not position, is what would change the answer: had the ten
+      burned cards been turned face up, the eleventh card's law would depend on
+      what they showed.
+    expects: "1/4"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Appeals to the identical marginal law of every position rather than
+        conditioning on the burned cards.
+      - >
+        Says why unseen removals carry no information, distinguishing burning
+        face down from revealing.
+    targets:
+      - quant-probability.conditional.symmetry-exchangeability
+
+  # --- the law of total probability ------------------------------------------
+
+  - id: qcond-total-probability-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A fair die is rolled repeatedly until the first $6$ appears. What is the
+      probability that every roll strictly before that first $6$ is even? A $6$
+      on the very first roll counts, since there are then no earlier rolls at
+      all.
+    answer: >
+      $1/4$. Condition on the first roll — a three-block partition. With
+      probability $1/6$ it is a $6$ and the run has succeeded. With probability
+      $2/6 = 1/3$ it is a $2$ or a $4$, which is even and not a $6$, so the
+      problem restarts unchanged. With probability $3/6 = 1/2$ it is odd and the
+      run has failed. Writing $q$ for the answer, total probability gives
+      $q = 1/6 + (1/3)q$, so $(2/3)q = 1/6$ and $q = 1/4$. A symmetry check
+      settles it independently: the only rolls that end the run are $1, 3, 5$
+      and $6$, the even non-six rolls being invisible to the question, and the
+      first roll from $\{1, 3, 5, 6\}$ is equally likely to be any of the four,
+      so the chance it is the $6$ is $1/4$.
+    expects: "1/4"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Partitions on the first roll into three blocks — success, restart, and
+        failure — and recognises the restart as the same problem.
+      - >
+        Solves $q = 1/6 + (1/3)q$ rather than summing an unnecessary infinite
+        series.
+      - >
+        Checks the answer a second way, for instance by the symmetry of the four
+        run-ending faces.
+    targets:
+      - quant-probability.conditional.total-probability
+
+  - id: qcond-total-probability-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A trading strategy is profitable on $55\%$ of trending days and on $25\%$
+      of choppy days. $40\%$ of days are trending and the rest are choppy. On
+      what fraction of all days is the strategy profitable?
+    answer: >
+      $0.37$. The two regimes partition the days, so
+      $\Pr(\text{profit}) = (0.40)(0.55) + (0.60)(0.25)
+      = 0.22 + 0.15 = 0.37$. The sanity check is the weighted-average reading:
+      $0.37$ must lie between the two conditional rates $0.25$ and $0.55$, and
+      it does, sitting nearer the choppy rate because choppy days carry the
+      larger weight. Averaging the two rates unweighted would give $0.40$, which
+      is the answer to a different question — the one where the two regimes are
+      equally common.
+    expects: "0.37"
+    rubric:
+      - >
+        Weights each conditional rate by its regime probability rather than
+        averaging the two rates.
+      - >
+        Checks that the result lies between the smallest and largest conditional
+        rate.
+    targets:
+      - quant-probability.conditional.total-probability
+
+  - id: qcond-total-probability-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      $B_1, \dots, B_n$ partition the sample space, each with positive
+      probability. Can $\Pr(A)$ be strictly larger than every one of the
+      conditional probabilities $\Pr(A \mid B_i)$?
+    answer: >
+      No. Total probability writes $\Pr(A) = \sum_i \Pr(A \mid B_i)\Pr(B_i)$
+      with weights $\Pr(B_i)$ that are nonnegative and sum to $1$, so $\Pr(A)$
+      is a convex combination — a weighted average — of the conditional
+      probabilities. A weighted average always lies between the smallest and the
+      largest of the numbers averaged, and equals an endpoint only when all the
+      weight sits there. So $\Pr(A) \le \max_i \Pr(A \mid B_i)$ always. This is
+      the cheapest available check on any total-probability computation: an
+      answer outside the range of the conditionals is arithmetic that went
+      wrong.
+    choices:
+      - text: >
+          No — $\Pr(A)$ is a weighted average of the conditionals, so it lies
+          between the smallest and the largest of them
+        correct: true
+        feedback: >
+          The weights $\Pr(B_i)$ are nonnegative and sum to $1$, which is
+          exactly what makes the sum a convex combination.
+      - text: >
+          Yes, if the weights $\Pr(B_i)$ are extremely uneven
+        feedback: >
+          Uneven weights move the average around inside the range of the
+          conditionals; they cannot push it outside.
+      - text: >
+          Yes, if the blocks overlap
+        feedback: >
+          Overlapping blocks are not a partition, so total probability does not
+          apply at all and the sum may exceed $1$ — a different failure.
+    rubric:
+      - >
+        Identifies the sum as a convex combination, naming the weights and that
+        they total $1$.
+      - >
+        States the resulting bound as a usable check on a computed answer.
+    targets:
+      - quant-probability.conditional.total-probability
+
+  # --- pooled rates and their weights ----------------------------------------
+
+  - id: qcond-simpson-warning-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Strategy $A$ is profitable on $90\%$ of low-volatility days and $60\%$ of
+      high-volatility days, and $20\%$ of the days it traded were
+      low-volatility. Strategy $B$ is profitable on $75\%$ of low-volatility
+      days and $50\%$ of high-volatility days — worse than $A$ in each regime
+      separately. What fraction of $B$'s days must be low-volatility for $B$'s
+      pooled profitable-day rate to equal $A$'s?
+    answer: >
+      $0.64$. Each pooled rate is a weighted average of its own two conditional
+      rates, with that strategy's own regime mix as the weights, so the two
+      averages are taken over different weightings and can be compared only with
+      care. For $A$: $(0.20)(0.90) + (0.80)(0.60) = 0.18 + 0.48 = 0.66$. For
+      $B$ with a low-volatility fraction $f$:
+      $0.75f + 0.50(1 - f) = 0.50 + 0.25f$. Setting them equal,
+      $0.50 + 0.25f = 0.66$, so $f = 0.16/0.25 = 0.64$. Above that fraction $B$
+      wins the pooled comparison while losing in both regimes — the Simpson
+      reversal, produced entirely by the mix. Nothing is paradoxical: the pooled
+      numbers answer "how did each strategy do on the days it actually traded",
+      which is not the question "which is better in a given regime".
+    expects: "0.64"
+    rubric:
+      - >
+        Writes each pooled rate as a weighted average with that strategy's own
+        weights, rather than assuming a shared mix.
+      - >
+        Solves $0.50 + 0.25f = 0.66$ for the tie, and reads $f$ above it as the
+        reversal region.
+      - >
+        Says that the reversal comes from the weights, not from any within-
+        regime advantage.
+    targets:
+      - quant-probability.conditional.simpson-warning
+
+  - id: qcond-simpson-warning-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Airline $X$ is on time for $80\%$ of its $200$ flights out of a sunny
+      airport and $50\%$ of its $100$ flights out of a snowy one. Airline $Y$ is
+      on time for $90\%$ of its $50$ sunny-airport flights and $60\%$ of its
+      $250$ snowy-airport flights. What is $Y$'s pooled on-time rate?
+    answer: >
+      $0.65$. Count flights, not rates: $Y$ is on time for
+      $(0.90)(50) + (0.60)(250) = 45 + 150 = 195$ of its $300$ flights, so
+      $195/300 = 0.65$. The comparison is the point. $X$ manages
+      $(0.80)(200) + (0.50)(100) = 160 + 50 = 210$ of $300$, a pooled
+      $0.70$ — yet $Y$ beats $X$ at each airport separately, $90\%$ against
+      $80\%$ and $60\%$ against $50\%$. $Y$ simply flies five times as often out
+      of the snowy airport, where every airline does badly. Averaging $Y$'s two
+      rates unweighted would give $0.75$ and hide exactly the mix that produces
+      the reversal.
+    expects: "0.65"
+    rubric:
+      - >
+        Weights by flight counts, $50$ and $250$, rather than averaging $0.90$
+        and $0.60$.
+      - >
+        Notes that the pooled ranking reverses the two within-airport rankings.
+    targets:
+      - quant-probability.conditional.simpson-warning
+
+  # --- Bayes' theorem --------------------------------------------------------
+
+  - id: qcond-bayes-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Four closed doors hide one car and three goats. You pick door $1$. The
+      host knows where the car is, always opens doors hiding goats, and never
+      opens your door; he now opens two of the other three doors, both goats,
+      choosing uniformly at random whenever he has more than one legal pair. One
+      door other than yours is still closed. What is the probability the car is
+      behind that remaining closed door?
+    answer: >
+      $3/4$. Say the door left closed is door $2$, and enumerate the four
+      equally likely car positions. If the car is behind your door $1$
+      (probability $1/4$), the host may open any two of $\{2,3,4\}$ — three
+      equally likely pairs — and door $2$ survives only for the pair
+      $\{3,4\}$, so this branch contributes $(1/4)(1/3) = 1/12$. If the car is
+      behind door $2$ (probability $1/4$), the host is forced to open $3$ and
+      $4$, so the branch contributes $(1/4)(1) = 1/4$. If the car is behind $3$
+      or $4$, the host could not have left door $2$ closed and would have had to
+      open the car's door, so those branches contribute $0$. Bayes gives
+      $\Pr(\text{car behind } 2 \mid 2 \text{ survives})
+      = \dfrac{1/4}{1/4 + 1/12} = \dfrac{1/4}{1/3} = \dfrac{3}{4}$. Your own
+      door is unchanged at $1/4$: the host's opening was constrained never to
+      touch it, so it carried no news about it, while the whole $3/4$ that used
+      to be spread over the other three doors has been funnelled onto one.
+    expects: "3/4"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses that the host knows the layout and never opens the car's door, so
+        his choice is informative.
+      - >
+        Gets the branch where the car is behind your door right: the host has
+        three legal pairs there, contributing a factor $1/3$.
+      - >
+        Concludes that your original door stays at $1/4$ rather than rising to
+        $1/2$.
+    targets:
+      - quant-probability.conditional.bayes
+
+  - id: qcond-bayes-02
+    kind: work
+    difficulty: standard
+    statement: >
+      On a mail server, $30\%$ of messages come from senders never seen before
+      and $40\%$ of those are spam; the other $70\%$ come from known senders, of
+      which $2\%$ are spam. A message is spam. What is the probability it came
+      from a new sender?
+    answer: >
+      $60/67 \approx 0.8955$. Total probability supplies the denominator:
+      $\Pr(\text{spam}) = (0.30)(0.40) + (0.70)(0.02) = 0.12 + 0.014 = 0.134$.
+      Bayes then reverses the bar with the matching numerator:
+      $\Pr(\text{new} \mid \text{spam}) = 0.12/0.134 = 60/67 \approx 0.8955$.
+      The two conditionals point in opposite directions and must not be
+      confused: only $40\%$ of new-sender mail is spam, yet almost $90\%$ of
+      spam is from new senders, because known senders are both more numerous and
+      far cleaner. Reporting the numerator $0.12$ alone gives an unnormalized
+      score, not a probability.
+    expects: "60/67"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Builds the denominator by total probability over both sender types,
+        rather than using $\Pr(\text{new}) = 0.30$.
+      - >
+        Divides, so the answer is a probability and not the joint $0.12$.
+    targets:
+      - quant-probability.conditional.bayes
+
+  - id: qcond-bayes-03
+    kind: work
+    difficulty: routine
+    statement: >
+      Urn $1$ holds $4$ red and $1$ white ball; urn $2$ holds $1$ red and $3$
+      white. An urn is chosen by a fair coin and one ball is drawn from it: red.
+      What is the probability the ball came from urn $1$?
+    answer: >
+      $16/21 \approx 0.7619$. Score each hypothesis by prior times likelihood.
+      Urn $1$: $(1/2)(4/5) = 2/5 = 0.4$. Urn $2$: $(1/2)(1/4) = 1/8 = 0.125$.
+      The scores sum to $0.525$, which is $\Pr(\text{red})$ by total
+      probability, and dividing gives
+      $\Pr(\text{urn } 1 \mid \text{red}) = 0.4/0.525 = 16/21 \approx 0.7619$.
+      The equal priors cancel, so the posterior odds are just the ratio of the
+      two red-fractions, $(4/5) : (1/4) = 16 : 5$ — and $16/21$ falls straight
+      out of that without computing the denominator at all.
+    expects: "16/21"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Weights each urn's red-fraction by its prior before dividing.
+      - >
+        Divides by the sum of both scores, not by the larger one.
+    targets:
+      - quant-probability.conditional.bayes
+
+  # --- prior, likelihood, posterior ------------------------------------------
+
+  - id: qcond-prior-likelihood-posterior-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A supplier ships chips in batches, each batch of a single grade. $50\%$ of
+      batches are grade $1$, whose chips fail with probability $0.01$; $30\%$
+      are grade $2$, failure probability $0.05$; $20\%$ are grade $3$, failure
+      probability $0.20$. Given the grade, chips fail independently. Two chips
+      are drawn from one batch and both fail. What is the probability that the
+      batch is grade $3$?
+    answer: >
+      $10/11 \approx 0.9091$. Score each hypothesis by prior times likelihood,
+      the likelihood of "both fail" being the square of the grade's failure
+      rate because chips are independent given the grade. Grade $1$:
+      $(0.50)(0.01)^{2} = 0.00005$. Grade $2$: $(0.30)(0.05)^{2} = 0.00075$.
+      Grade $3$: $(0.20)(0.20)^{2} = 0.008$. The scores sum to $0.0088$, and
+      normalizing once at the end gives $0.008/0.0088 = 10/11$. Grade $3$ began
+      as the least likely hypothesis at a prior of $0.20$ and ends at over
+      $90\%$: two failures are $400$ times as likely under grade $3$ as under
+      grade $1$, and that likelihood ratio swamps the four-to-one prior against
+      it. Note also that the likelihoods $0.0001$, $0.0025$ and $0.04$ do not
+      sum to anything in particular — a likelihood is not a distribution over
+      hypotheses.
+    expects: "10/11"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Squares each grade's failure rate, using independence *within* a grade
+        rather than across the batch mixture.
+      - >
+        Normalizes by the sum of all three scores exactly once, at the end.
+      - >
+        Explains the reversal as a likelihood ratio large enough to overturn the
+        prior.
+    targets:
+      - quant-probability.conditional.prior-likelihood-posterior
+
+  - id: qcond-prior-likelihood-posterior-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Three mutually exclusive and exhaustive hypotheses carry priors $0.5$,
+      $0.3$ and $0.2$. The observed data has likelihood $0.2$ under the first,
+      $0.5$ under the second and $0.6$ under the third. What is the posterior
+      probability of the second hypothesis?
+    answer: >
+      $15/37 \approx 0.4054$. Use the proportional form: score each hypothesis
+      by prior times likelihood, then divide by the total once. The scores are
+      $(0.5)(0.2) = 0.10$, $(0.3)(0.5) = 0.15$ and $(0.2)(0.6) = 0.12$,
+      summing to $0.37$ — which is the marginal likelihood $\Pr(E)$, whose only
+      job is to normalize. The second hypothesis therefore has posterior
+      $0.15/0.37 = 15/37 \approx 0.4054$, up from its prior of $0.3$. The
+      likelihoods $0.2$, $0.5$ and $0.6$ sum to $1.3$, which is not an error:
+      likelihood is a function of the hypothesis for fixed data and is under no
+      obligation to be a probability distribution over hypotheses.
+    expects: "15/37"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Multiplies prior by likelihood for every hypothesis before normalizing,
+        rather than normalizing the likelihoods first.
+      - >
+        Divides by the sum of all three scores, so no hypothesis is dropped.
+    targets:
+      - quant-probability.conditional.prior-likelihood-posterior
+
+  # --- the odds form ---------------------------------------------------------
+
+  - id: qcond-bayes-odds-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      After observing evidence $E$, your posterior probability that hypothesis
+      $H$ holds is $0.75$. The likelihood ratio
+      $\Pr(E \mid H)/\Pr(E \mid H^{c})$ for that evidence was $6$. What prior
+      probability of $H$ were you using?
+    answer: >
+      $1/3$. Run the odds form backwards. The posterior probability $0.75$ is
+      posterior odds $0.75/0.25 = 3$. Since posterior odds equal prior odds
+      times the likelihood ratio, the prior odds were $3/6 = 1/2$, and
+      converting back with $p = O/(1+O)$ gives
+      $p = (1/2)/(3/2) = 1/3 \approx 0.3333$. Doing this in probabilities would
+      have meant solving
+      $0.75 = 6p/(6p + (1-p))$ for $p$ — the same answer through a rational
+      equation, because the normalizing denominator that odds cancel is exactly
+      what makes that equation awkward. The reverse question is the useful one
+      in practice: it asks what prior a stated conclusion commits you to, and it
+      is how you audit somebody else's confident number.
+    expects: "1/3"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Converts the posterior probability to odds before dividing by the
+        likelihood ratio.
+      - >
+        Divides by the likelihood ratio rather than multiplying, since the
+        update is being undone.
+      - >
+        Converts the prior odds back to a probability with $p = O/(1+O)$.
+    targets:
+      - quant-probability.conditional.bayes-odds
+
+  - id: qcond-bayes-odds-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Your prior probability of a hypothesis $H$ is $0.4$. Evidence then arrives
+      that is three times as likely under $H$ as under $H^{c}$. What is your
+      posterior probability of $H$?
+    answer: >
+      $2/3 \approx 0.6667$. Prior odds are $0.4/0.6 = 2/3$. Multiplying by the
+      likelihood ratio $3$ gives posterior odds $2$, and converting back with
+      $p = O/(1+O)$ gives $2/3$. No normalizing constant appeared anywhere: that
+      is the point of the odds form. As a check, the probability form gives
+      $(0.4)(3\lambda) / [(0.4)(3\lambda) + (0.6)\lambda] = 1.2/1.8 = 2/3$ for
+      any common scale $\lambda$, confirming that only the *ratio* of the two
+      likelihoods matters, never their individual values.
+    expects: "2/3"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Converts $0.4$ to odds $2/3$ before multiplying, rather than multiplying
+        the probability by $3$.
+      - >
+        Converts back with $p = O/(1+O)$.
+    targets:
+      - quant-probability.conditional.bayes-odds
+
+  # --- which coin am I holding -----------------------------------------------
+
+  - id: qcond-coin-from-bag-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A drawer holds $100$ coins: $99$ are fair and one has heads on both faces.
+      You pick a coin uniformly at random and toss it seven times; it lands
+      heads every time. What is the probability that you are holding the
+      two-headed coin?
+    answer: >
+      $128/227 \approx 0.5639$. Prior odds of two-headed to fair are $1 : 99$.
+      Seven heads have likelihood $1$ under the two-headed coin and
+      $(1/2)^{7} = 1/128$ under a fair one, so the likelihood ratio is $128$ and
+      the posterior odds are $128 : 99$. Converting,
+      $\Pr(\text{two-headed} \mid 7 \text{ heads}) = 128/227 \approx 0.5639$ —
+      seven straight heads is only just enough to make the rare coin the
+      favourite, and six would have left it behind at $64/163 \approx 0.393$.
+      The general rule is worth carrying: $k$ heads give posterior odds
+      $2^{k} : 99$, so the evidence must supply a factor of about $99$ before it
+      overturns the prior, which happens between $k = 6$ and $k = 7$.
+    expects: "128/227"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses prior odds $1 : 99$, not $1 : 100$.
+      - >
+        Computes the likelihood ratio as $1/(1/2)^{7} = 128$, with the certain
+        outcome on top.
+      - >
+        Converts posterior odds to a probability with $128/(128+99)$.
+    targets:
+      - quant-probability.conditional.coin-from-bag
+
+  - id: qcond-coin-from-bag-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A bag holds three coins: two fair and one with heads on both faces. You
+      draw one at random and toss it once: heads. What is the probability that
+      it is the two-headed coin?
+    answer: >
+      $1/2$. Prior odds are $1 : 2$ against the two-headed coin. One head has
+      likelihood $1$ under it and $1/2$ under a fair coin, a likelihood ratio of
+      $2$, so the posterior odds are $2 : 2 = 1 : 1$ and the probability is
+      $1/2$. Directly:
+      $\dfrac{(1/3)(1)}{(1/3)(1) + (2/3)(1/2)} = \dfrac{1/3}{2/3} = 1/2$. The
+      natural follow-up: the next toss is heads with probability
+      $(1/2)(1) + (1/2)(1/2) = 3/4$, and after $k$ straight heads the posterior
+      on the two-headed coin is $2^{k}/(2^{k} + 2)$, which climbs toward $1$
+      without ever reaching it.
+    expects: "1/2"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses prior odds $1 : 2$, reflecting the two fair coins.
+      - >
+        Gets the likelihood of heads under the two-headed coin as $1$, not
+        $1/2$.
+    targets:
+      - quant-probability.conditional.coin-from-bag
+
+  # --- what a test's numbers mean --------------------------------------------
+
+  - id: qcond-test-characteristics-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A screening tool is run on $2000$ subjects, of whom $300$ truly have the
+      condition. It flags $264$ of those $300$, and its specificity is $0.94$.
+      What is the tool's negative predictive value? Give four decimal places.
+    answer: >
+      $\approx 0.9780$. Build the whole two-by-two table. Sensitivity is
+      $264/300 = 0.88$, so the false negatives number $300 - 264 = 36$. The
+      $1700$ subjects without the condition split by specificity: true negatives
+      $(0.94)(1700) = 1598$ and false positives $(0.06)(1700) = 102$. Negative
+      predictive value conditions on a negative result, so its denominator is
+      every negative, $1598 + 36 = 1634$, giving
+      $\Pr(D^{c} \mid -) = 1598/1634 \approx 0.9780$. For contrast, the positive
+      predictive value from the same table is $264/(264 + 102) = 264/366
+      \approx 0.7213$. Sensitivity and specificity condition on the truth and
+      describe the tool; both predictive values condition on the result and
+      would change if the $300$-in-$2000$ prevalence changed, even with the tool
+      untouched.
+    expects: "0.9780"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Turns specificity into counts, $1598$ true negatives and $102$ false
+        positives out of $1700$.
+      - >
+        Uses all negatives — true negatives plus false negatives — as the
+        denominator, not the $1700$ healthy subjects.
+      - >
+        Distinguishes predictive value, which depends on prevalence, from
+        sensitivity and specificity, which do not.
+    targets:
+      - quant-probability.conditional.test-characteristics
+
+  - id: qcond-test-characteristics-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A vendor advertises its test as $95\%$ accurate, and offers no other
+      figure. Which quantity does that phrase pin down?
+    answer: >
+      None of them. "Accurate" does not say which conditional probability is
+      meant: it could be the sensitivity $\Pr(+ \mid D)$, the specificity
+      $\Pr(- \mid D^{c})$, the overall agreement rate — which mixes the two with
+      the prevalence as weights — or a predictive value $\Pr(D \mid +)$. These
+      are four different numbers, and for a rare condition they can differ by an
+      order of magnitude: a test that simply says "negative" to everyone is
+      $99\%$ accurate in the overall-agreement sense on a condition with $1\%$
+      prevalence, while having sensitivity $0$. The first move on any test
+      question is to ask which side of the bar the quoted number conditions on.
+    choices:
+      - text: >
+          Nothing on its own — sensitivity, specificity, overall agreement and
+          predictive value are four different conditionals
+        correct: true
+        feedback: >
+          A test that calls everyone negative is $99\%$ accurate at $1\%$
+          prevalence and catches nobody; the word alone settles nothing.
+      - text: >
+          The sensitivity, $\Pr(+ \mid D)$
+        feedback: >
+          That is one possible reading among several. Nothing in the phrase says
+          the number conditions on having the condition.
+      - text: >
+          The positive predictive value, $\Pr(D \mid +)$
+        feedback: >
+          Predictive value depends on the prevalence as well as the test, so it
+          is not a property a vendor could quote about the test alone.
+      - text: >
+          The overall fraction of correct results, whatever the prevalence
+        feedback: >
+          Overall agreement is itself prevalence-dependent — it is the weighted
+          average of sensitivity and specificity — so it is not a
+          prevalence-free figure either.
+    rubric:
+      - >
+        Names at least two distinct conditionals the phrase could denote and
+        says which side of the bar each conditions on.
+      - >
+        Gives or recognises the all-negative test as the case that makes a high
+        accuracy figure worthless.
+    targets:
+      - quant-probability.conditional.test-characteristics
+
+  # --- the screening test ----------------------------------------------------
+
+  - id: qcond-disease-test-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A test has sensitivity $0.98$ and specificity $0.97$. At what prevalence
+      does a positive result make the condition exactly as likely as not — that
+      is, give a positive predictive value of $0.5$?
+    answer: >
+      $3/101 \approx 0.0297$, just under $3\%$. Work in odds, where the
+      condition "as likely as not" is simply posterior odds equal to $1$. The
+      likelihood ratio of a positive result is
+      $\text{sensitivity}/(1 - \text{specificity}) = 0.98/0.03 = 98/3$, so with
+      prevalence $p$ the posterior odds are
+      $\dfrac{p}{1-p} \cdot \dfrac{98}{3} = 1$, giving prior odds
+      $\dfrac{p}{1-p} = \dfrac{3}{98}$ and hence $p = 3/101 \approx 0.0297$.
+      Read the answer as the rule of thumb it encodes: a positive is more likely
+      right than wrong exactly when the prior odds exceed the reciprocal of the
+      likelihood ratio, so a test this good still needs a base rate of about
+      $3\%$ before a positive result even reaches a coin flip. Below that, most
+      positives are false however impressive the two headline percentages look.
+    expects: "3/101"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $1 - \text{specificity}$ as the false positive rate in the
+        likelihood ratio, not the specificity itself.
+      - >
+        Sets posterior odds to $1$ rather than the posterior probability to
+        $0.5$ before solving, so no denominator has to be carried.
+      - >
+        Converts the resulting prior odds back to a prevalence.
+    targets:
+      - quant-probability.conditional.disease-test
+
+  - id: qcond-disease-test-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A condition affects $1$ person in $500$. A test for it has sensitivity
+      $0.95$ and specificity $0.98$. You test positive. What is the probability
+      you have the condition? Give four decimal places.
+    answer: >
+      $\approx 0.0869$. Prevalence is $0.002$. Total probability gives the
+      denominator:
+      $\Pr(+) = (0.002)(0.95) + (0.998)(0.02) = 0.0019 + 0.01996 = 0.02186$,
+      so $\Pr(D \mid +) = 0.0019/0.02186 = 95/1093 \approx 0.0869$. In natural
+      frequencies, out of $100\,000$ people $200$ have the condition and $190$
+      of them test positive, while $99\,800$ do not and $1996$ of them test
+      positive anyway; of the $2186$ positives, $190$ are genuine. The healthy
+      group is $499$ times larger, so even a $2\%$ false positive rate produces
+      ten times as many false alarms as there are true cases — the specificity,
+      not the sensitivity, is what governs the answer at this prevalence.
+    expects: "0.0869"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Applies the false positive rate $0.02$ to the $99.8\%$ who are healthy,
+        rather than to the whole population.
+      - >
+        Divides the true positives by all positives, not by the prevalence.
+    targets:
+      - quant-probability.conditional.disease-test
+
+  - id: qcond-disease-test-03
+    kind: work
+    difficulty: routine
+    statement: >
+      A condition has prevalence $10\%$. A test for it has sensitivity $0.9$ and
+      specificity $0.9$. A patient tests positive. What is the probability they
+      have the condition?
+    answer: >
+      $0.5$. Take $1000$ people: $100$ have the condition and $90$ of them are
+      flagged; $900$ do not and $10\%$ of them — also $90$ — are flagged. Of the
+      $180$ positives, exactly half are genuine, so $\Pr(D \mid +) = 90/180 =
+      0.5$. The coincidence is instructive: the true positives are
+      $(\text{prevalence})(\text{sensitivity})$ and the false positives are
+      $(1 - \text{prevalence})(1 - \text{specificity})$, and here
+      $(0.1)(0.9) = (0.9)(0.1)$ exactly. A test whose sensitivity and
+      specificity both equal $1$ minus the prevalence turns a positive result
+      into a coin flip, however high those two figures sound.
+    expects: "0.5"
+    rubric:
+      - >
+        Applies the $10\%$ false positive rate to the $900$ healthy people, not
+        to all $1000$.
+      - >
+        Reports $90/180$ rather than the sensitivity $0.9$.
+    targets:
+      - quant-probability.conditional.disease-test
+
+  # --- base rates ------------------------------------------------------------
+
+  - id: qcond-base-rate-neglect-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      In a city, $85\%$ of the taxis are green and $15\%$ are blue. A witness to
+      a night-time hit-and-run says the taxi was blue. Tested under the same
+      lighting, the witness identifies a taxi's colour correctly $80\%$ of the
+      time whichever colour it actually is. What is the probability the taxi was
+      blue?
+    answer: >
+      $12/29 \approx 0.4138$ — under a half, despite a witness who is right four
+      times in five. In natural frequencies, out of $1000$ taxis $150$ are blue
+      and the witness calls $120$ of them blue; $850$ are green and the witness
+      wrongly calls $170$ of them blue. Of the $290$ "blue" calls only $120$ are
+      correct, so the probability is $120/290 = 12/29$. In odds: prior odds
+      $15 : 85 = 3 : 17$, likelihood ratio $0.8/0.2 = 4$, posterior odds
+      $12 : 17$. The instinctive answer $0.8$ reports the witness's reliability,
+      $\Pr(\text{says blue} \mid \text{blue})$, in place of what was asked,
+      $\Pr(\text{blue} \mid \text{says blue})$; the green taxis are so much more
+      numerous that their $20\%$ error rate generates more blue calls than the
+      blue taxis do.
+    expects: "12/29"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses the $85 : 15$ base rate as the prior rather than starting from the
+        witness's accuracy.
+      - >
+        Counts the green taxis misidentified as blue, $170$, as part of the
+        denominator.
+      - >
+        Names the error as substituting $\Pr(\text{evidence} \mid
+        \text{hypothesis})$ for the posterior.
+    targets:
+      - quant-probability.conditional.base-rate-neglect
+
+  - id: qcond-base-rate-neglect-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Of $1\,000\,000$ travellers passing through a checkpoint, $100$ are
+      carrying contraband. A scanner alarms on $90\%$ of those who are, and on
+      $1\%$ of everyone else. How many alarms are there in total?
+    answer: >
+      $10\,089$. Count the two cells. True alarms: $90\%$ of $100$ is $90$.
+      False alarms: $1\%$ of the remaining $999\,900$ is $9999$. The total is
+      $90 + 9999 = 10\,089$. The point of doing it in people rather than
+      percentages is the ratio that falls out for free — only
+      $90/10\,089 \approx 0.9\%$ of the alarms are genuine, so a security team
+      following up every alarm searches about $111$ innocent travellers for each
+      smuggler caught. That is the base rate speaking: the innocent group is
+      nearly $10\,000$ times larger, so even a $1\%$ error rate on it swamps the
+      guilty group entirely.
+    expects: "10089"
+    rubric:
+      - >
+        Applies the $1\%$ false alarm rate to $999\,900$, not to $1\,000\,000$.
+      - >
+        Adds both cells rather than reporting either alone.
+    targets:
+      - quant-probability.conditional.base-rate-neglect
+
+  # --- swapping the bar ------------------------------------------------------
+
+  - id: qcond-transposed-conditional-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A DNA profile recovered from a crime scene matches the defendant. The
+      probability that a randomly chosen innocent person's profile would match
+      is $1$ in $500\,000$. The city has $2\,000\,000$ adults, exactly one of
+      whom is guilty, and before the DNA evidence each was equally likely to be
+      the culprit. There is no other evidence. What is the probability the
+      defendant is guilty? Give four decimal places.
+    answer: >
+      $\approx 0.2000$. Prior odds that this particular person is the culprit
+      are $1 : 1\,999\,999$. The likelihood ratio of a match is
+      $1/(1/500\,000) = 500\,000$, since the guilty person matches with
+      certainty. Posterior odds are therefore
+      $500\,000 : 1\,999\,999$, almost exactly $1 : 4$, and the probability of
+      guilt is $500\,000/2\,499\,999 \approx 0.2000$. The frequency reading is
+      the memorable one: among the $1\,999\,999$ innocent adults about four
+      match by chance, so the match narrows the field to roughly five people and
+      the defendant is one of them. The prosecutor's fallacy quotes
+      $1 - 1/500\,000 = 0.999998$ instead — it reports
+      $1 - \Pr(\text{match} \mid \text{innocent})$, which is a statement about
+      the evidence given innocence, and calls it the probability of guilt given
+      the evidence.
+    expects: "0.2"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Sets the prior odds from the size of the suspect pool rather than
+        starting from the match probability.
+      - >
+        Uses the match probability as a likelihood ratio, not as a posterior.
+      - >
+        States the fallacy precisely: $\Pr(\text{match} \mid \text{innocent})$
+        has been transposed into $\Pr(\text{innocent} \mid \text{match})$.
+    targets:
+      - quant-probability.conditional.transposed-conditional
+
+  - id: qcond-transposed-conditional-02
+    kind: work
+    difficulty: standard
+    statement: >
+      In a city, $1\%$ of residents are professional musicians, and $60\%$ of
+      professional musicians own a piano. Across all residents, $8\%$ own a
+      piano. A resident chosen at random owns a piano. What is the probability
+      they are a professional musician?
+    answer: >
+      $0.075$. The identity to use is
+      $\Pr(A \mid B) = \Pr(B \mid A)\Pr(A)/\Pr(B)$, with $A$ "professional
+      musician" and $B$ "owns a piano":
+      $\Pr(A \mid B) = (0.60)(0.01)/0.08 = 0.006/0.08 = 0.075$. Swapping the bar
+      rescaled the number by $\Pr(A)/\Pr(B) = 0.01/0.08 = 1/8$, taking $0.60$
+      down to $0.075$ — a factor of eight, entirely explained by the two base
+      rates. This is the harmless everyday form of the same error that convicts
+      people in courtrooms: most professional musicians own pianos, and almost
+      no piano owners are professional musicians, and both statements come from
+      the same joint probability $0.006$.
+    expects: "0.075"
+    rubric:
+      - >
+        Divides by $\Pr(B) = 0.08$, the marginal for piano ownership, rather
+        than reusing $0.60$.
+      - >
+        Identifies the rescaling factor as the ratio of the two base rates.
+    targets:
+      - quant-probability.conditional.transposed-conditional
+
+  # --- updating piece by piece -----------------------------------------------
+
+  - id: qcond-sequential-updating-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A condition has prevalence $4\%$. Test $A$ has sensitivity $0.9$ and
+      specificity $0.95$; test $B$ has sensitivity $0.8$ and specificity $0.98$.
+      Given the patient's true status the two tests are conditionally
+      independent. A patient tests positive on $A$ and negative on $B$. What is
+      the probability they have the condition?
+    answer: >
+      $15/113 \approx 0.1327$. Work in odds and multiply one likelihood ratio
+      per result. Prior odds are $0.04/0.96 = 1/24$. Test $A$'s positive has
+      likelihood ratio
+      $\text{sensitivity}/(1 - \text{specificity}) = 0.9/0.05 = 18$. Test $B$'s
+      *negative* has likelihood ratio
+      $(1 - \text{sensitivity})/\text{specificity} = 0.2/0.98 = 10/49
+      \approx 0.204$ — the reciprocal orientation, and the step most candidates
+      drop. Posterior odds are
+      $\dfrac{1}{24} \times 18 \times \dfrac{10}{49} = \dfrac{15}{98}$, so the
+      probability is $15/113 \approx 0.1327$. The order of the two results is
+      irrelevant, because multiplication commutes. Note the arithmetic of the
+      two ratios: $18 \times 0.204 \approx 3.7$, so the pair of results is still
+      net evidence *for* the condition, lifting $4\%$ to about $13\%$ — a
+      negative on a test with sensitivity only $0.8$ is weak exculpatory
+      evidence, and cannot undo a strong positive.
+    expects: "15/113"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $(1 - \text{sensitivity})/\text{specificity}$ for the negative
+        result, not the reciprocal of the positive likelihood ratio.
+      - >
+        Multiplies both ratios into the prior odds, then converts once with
+        $p = O/(1+O)$.
+      - >
+        Justifies multiplying at all by the stated conditional independence
+        given the true status.
+    targets:
+      - quant-probability.conditional.sequential-updating
+
+  - id: qcond-sequential-updating-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Prior odds for a hypothesis are $1$ to $99$. Two tests, conditionally
+      independent given the truth of the hypothesis, each have a likelihood
+      ratio of $15$ for a positive result, and both come back positive. What is
+      the posterior probability of the hypothesis?
+    answer: >
+      $25/36 \approx 0.6944$. Conditional independence lets the two ratios
+      multiply into a combined likelihood ratio of $15 \times 15 = 225$, so the
+      posterior odds are $(1/99) \times 225 = 225/99 = 25/11$, and
+      $p = (25/11)/(36/11) = 25/36 \approx 0.6944$. Two independent positives
+      have taken a hypothesis from $1\%$ to nearly $70\%$. The load-bearing
+      hypothesis is the conditional independence: if the two tests share a
+      failure mode — the same instrument, the same operator, the same
+      miscalibrated batch — the second positive is largely implied by the first,
+      the combined ratio is far below $225$, and multiplying anyway would
+      manufacture confidence out of one observation counted twice.
+    expects: "25/36"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Multiplies the two likelihood ratios rather than adding or averaging
+        them.
+      - >
+        Converts the final odds to a probability with $p = O/(1+O)$.
+      - >
+        Names conditional independence as the assumption that licenses the
+        product.
+    targets:
+      - quant-probability.conditional.sequential-updating
