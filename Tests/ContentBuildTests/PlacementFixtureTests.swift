@@ -125,7 +125,15 @@ private func throughDerivatives(_ graph: KnowledgeGraph) -> Persona {
 /// to end. `ContentBuild validate` prints the corpus-wide number on every run, so
 /// the gap stays a number in front of you rather than a test that was weakened.
 private let placementReady: Set<NodeID> = [
+    "foundations.logic",
+    "foundations.proof",
+    "foundations.sets",
+    "foundations.relations",
+    "foundations.functions",
+    "foundations.induction",
     "foundations.real",
+    "foundations.number-systems",
+    "foundations.cardinality",
     "analysis.svc",
     "analysis.mvc",
 ]
@@ -207,7 +215,10 @@ struct PlacementConvergenceTests {
         // would over the askable subgraph alone. Pinned at the measured value, as
         // D8.10 pinned 8: a policy regression should have to be looked at, and so
         // should the day someone decides bisection ought to ignore unaskable nodes.
-        #expect(probes.count <= 11, "took \(probes.count) probes: \(probes)")
+        // 21 at Phase 15: the askable set itself grew from 22 nodes to every node
+        // of the fifteen authored units, so the persona's boundary now has far
+        // more askable nodes on both sides of it and bisection has more to settle.
+        #expect(probes.count <= 21, "took \(probes.count) probes: \(probes)")
 
         let belief = Placement.belief(for: session, graph: graph, bank: bank)
         let askable = Set(

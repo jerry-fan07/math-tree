@@ -79,6 +79,10 @@ def latex_errors(where, text):
     # write "10 dollars" or a bare math number, never a currency sign.
     if "\\$" in text:
         errors.append(f"{where}: \\$ renders a literal $ and fails the corpus check")
+    # A folded scalar keeps a backslash literally, so \" reaches the renderer as
+    # a leftover backslash (the corpus check's "macro was not consumed").
+    if '\\"' in text or "\\'" in text:
+        errors.append(f"{where}: backslash-escaped quote — YAML keeps the backslash; write a plain quote")
     # A $ nested inside \text{...} splits the enclosing span and mangles it.
     if re.search(r"\\text\{[^}]*\$", text):
         errors.append(f"{where}: $ nested inside \\text{{...}} — un-nest the math")
