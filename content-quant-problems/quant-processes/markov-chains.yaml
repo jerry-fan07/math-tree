@@ -1,0 +1,1997 @@
+# Problems targeting quant-processes.markov-chains — memoryless state dynamics.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. Every chain here is fresh: no
+# problem reuses a lesson's worked example or a card's instance, and every
+# linear system was solved exactly before the answer was written. Transition
+# matrices are written as row lists in prose, never as a matrix environment.
+# See ../README.md.
+
+problems:
+  # --- the Markov property (landmark) -----------------------------------------
+
+  - id: qmc-markov-property-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A biased coin lands tails with probability $1/3$ on each toss,
+      independently. A game stops the first time two tails appear back to back.
+      What is the probability that the game has stopped within the first four
+      tosses?
+    answer: >
+      $7/27 \approx 0.259$. "Number of tails so far" is not a Markov state —
+      after $TH$ and after $HT$ the tally is the same, yet only the second is
+      one tail away from stopping. The state that works is the length of the
+      current trailing run of tails, capped at $2$: state $0$ (last toss a
+      head, or no toss yet), state $1$ (exactly one trailing tail), state $2$
+      (stopped). Rows: from $0$, $(2/3, 1/3, 0)$; from $1$, $(2/3, 0, 1/3)$;
+      from $2$, $(0, 0, 1)$. Push $\mu_0 = (1, 0, 0)$ forward four steps:
+      $\mu_1 = (2/3, 1/3, 0)$, $\mu_2 = (6/9, 2/9, 1/9)$,
+      $\mu_3 = (16/27, 6/27, 5/27)$ and
+      $\mu_4 = (44/81, 16/81, 21/81)$. The absorbed mass is the third
+      coordinate: $\Pr(\text{stopped by toss } 4) = 21/81 = 7/27$. Listing the
+      eight head-tail words of length four that contain $TT$ and adding their
+      probabilities gives the same $7/27$, which is the check worth doing once.
+    expects: "7/27"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Names a state that makes the process Markov — the trailing run of
+        tails — instead of declaring the tally of tails sufficient.
+      - >
+        Iterates the three-state law four times (or adds the probabilities of
+        the eight qualifying words) and reports the absorbed mass $7/27$, not
+        the probability of stopping exactly at toss $4$.
+    targets:
+      - quant-processes.markov-chains.markov-property
+    exercises:
+      - quant-probability.conditional.conditional-probability
+
+  - id: qmc-markov-property-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Cards are dealt one at a time, without replacement, from a shuffled
+      standard deck of $52$, and at each point you must predict whether the
+      next card is a heart. Which description of "where things stand" makes the
+      sequence of predictions a Markov chain?
+    answer: >
+      The pair (number of cards dealt, number of hearts among them). Given
+      those two numbers the remaining deck holds $13 - h$ hearts among
+      $52 - n$ cards, so the next card is a heart with probability
+      $(13-h)/(52-n)$ — a number that depends on nothing further back. The card
+      count alone fails: after $10$ cards two histories can leave $3$ or $9$
+      hearts in the deck, and those predict different futures from the same
+      description. The suit of the most recent card fails worse: it is a single
+      bit of a tally that needs all $n$ cards. This is the interview move in
+      miniature — the obvious summary is not Markov, and the fix is to enlarge
+      the state until it is, not to abandon the framework.
+    choices:
+      - text: >
+          The number of cards dealt so far
+        feedback: >
+          Two histories with the same count can leave very different numbers
+          of hearts in the deck, so this description predicts two different
+          futures — exactly the failure that defines a non-Markov state.
+      - text: >
+          The number of cards dealt so far together with the number of hearts
+          among them
+        correct: true
+        feedback: >
+          These two numbers determine the composition of what is left, so the
+          next-card probability is $(13-h)/(52-n)$ and no earlier fact adds
+          anything.
+      - text: >
+          The suit of the most recently dealt card
+        feedback: >
+          Recency is the wrong kind of information here; what the future
+          depends on is the whole tally of hearts removed, not the last card.
+      - text: >
+          Nothing works — sampling without replacement is never Markov
+        feedback: >
+          Dealing without replacement is Markov in the deck's remaining
+          composition; only the naive descriptions fail, which is why the state
+          gets enlarged rather than abandoned.
+    rubric:
+      - >
+        Rejects a description by exhibiting two histories that share it but
+        predict different next cards.
+      - >
+        Names the enlarged state as the deck's remaining composition, and
+        computes the next-card probability from it.
+    targets:
+      - quant-processes.markov-chains.markov-property
+
+  - id: qmc-markov-property-03
+    kind: work
+    difficulty: routine
+    statement: >
+      A fair coin is tossed repeatedly. Let $M_n$ be the length of the current
+      run of consecutive heads immediately after toss $n$, so $M_n = 0$ when
+      toss $n$ is a tail, and set $M_0 = 0$. What is $\Pr(M_3 = 2)$?
+    answer: >
+      $1/8 = 0.125$. The run length is Markov: whatever $M_n$ is, the next toss
+      raises it by one with probability $1/2$ and resets it to $0$ with
+      probability $1/2$, and that rule mentions nothing but the current value.
+      Reaching $M_3 = 2$ therefore needs exactly two rises followed by nothing
+      else — tosses $2$ and $3$ heads — and one reset immediately before them,
+      so toss $1$ must be a tail. That is the single word $THH$, of probability
+      $(1/2)^{3} = 1/8$. The trap is answering $1/4$ by requiring only
+      $HH$ on the last two tosses and forgetting that $HHH$ gives $M_3 = 3$,
+      not $2$; the run length records how long the run is, not merely that one
+      exists.
+    expects: "1/8"
+    rubric:
+      - >
+        States the transition rule of the run-length chain — up one or back to
+        zero, each with probability $1/2$ — before computing.
+      - >
+        Excludes $HHH$, which lands in state $3$, so the answer is $1/8$ and
+        not $1/4$.
+    targets:
+      - quant-processes.markov-chains.markov-property
+
+  # --- the transition matrix (landmark) ---------------------------------------
+
+  - id: qmc-transition-matrix-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A volatility regime is Low, Mid or High, and moves each day with rows
+      $(3/4, 1/4, 0)$ from Low, $(1/4, 1/2, 1/4)$ from Mid and
+      $(0, 1/2, 1/2)$ from High. Today the regime is Low or High with
+      probability $1/2$ each. What is the probability that it is High two days
+      from now?
+    answer: >
+      $7/32 \approx 0.219$. Every row sums to $1$, which is the check to do
+      before any algebra. Distributions act on the left, so with
+      $\mu_0 = (1/2, 0, 1/2)$ the first step is
+      $\mu_1 = \mu_0 P = \left(\tfrac12 \cdot \tfrac34,\;
+      \tfrac12 \cdot \tfrac14 + \tfrac12 \cdot \tfrac12,\;
+      \tfrac12 \cdot \tfrac12\right) = (3/8, 3/8, 1/4)$, whose entries again
+      sum to $1$. The second step needs only the High column:
+      $\mu_2(\text{High}) = \tfrac38 \cdot 0 + \tfrac38 \cdot \tfrac14 +
+      \tfrac14 \cdot \tfrac12 = \tfrac{3}{32} + \tfrac{4}{32} = \tfrac{7}{32}$.
+      Reading down a row instead of a column — computing
+      $\tfrac38 \cdot 0 + \tfrac38 \cdot \tfrac12 + \tfrac14 \cdot \tfrac12$ —
+      is the transposition slip, and it returns $5/16$ for a question nobody
+      asked.
+    expects: "7/32"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Checks that the three rows sum to $1$ and multiplies the distribution
+        on the left, $\mu_{n+1} = \mu_n P$.
+      - >
+        Uses the High *column* of $P$ at the second step, not the High row.
+    targets:
+      - quant-processes.markov-chains.transition-matrix
+    exercises:
+      - quant-tools.linear-algebra.matrix-algebra
+
+  - id: qmc-transition-matrix-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A colleague hands you a square table of nonnegative numbers for a
+      three-state chain. Its three columns each sum to $1$, while its rows sum
+      to $1.2$, $0.9$ and $0.9$. What is the right diagnosis?
+    answer: >
+      The table is the transpose of the transition matrix. A stochastic matrix
+      is defined by its *rows*: row $i$ is the law of the next state given
+      state $i$, so its entries must be nonnegative and sum to $1$, while the
+      columns are under no constraint at all and can sum to anything. A table
+      whose columns sum to $1$ and whose rows do not is the same numbers
+      written the other way up, and using it directly makes every subsequent
+      step run the chain backwards. The repair is to transpose it, or
+      equivalently to multiply distributions on the right of the transpose
+      instead of on the left of $P$. Note what the diagnosis is not: rows
+      summing to $1.2$ and $0.9$ is not evidence of a missing transition, since
+      a missing transition can only make a row sum to less than $1$, never more.
+    choices:
+      - text: >
+          Nothing is wrong — column sums of $1$ are the standard convention
+        feedback: >
+          The convention that makes $\mu_{n+1} = \mu_n P$ work is row sums of
+          $1$; a column of $P$ collects the ways of *arriving* at a state and
+          has no reason to sum to anything.
+      - text: >
+          The table is $P$ transposed, so the rows should be read as columns
+        correct: true
+        feedback: >
+          Exactly — the numbers are right and the orientation is wrong, and
+          using the table as written runs the chain in reverse.
+      - text: >
+          Some transitions have been left out of the rows that sum to $0.9$
+        feedback: >
+          A missing transition explains a row summing to less than $1$, but
+          not the row summing to $1.2$ — and a table with unit column sums has
+          the tell-tale signature of a transpose, not an omission.
+      - text: >
+          The chain is not time-homogeneous
+        feedback: >
+          Time-homogeneity is about whether $p_{ij}$ drifts with $n$; it says
+          nothing about whether a single table's rows sum to $1$.
+    rubric:
+      - >
+        States that stochasticity is a statement about rows, and that columns
+        carry no constraint.
+      - >
+        Diagnoses a transpose rather than a missing transition, noting that an
+        omission cannot push a row sum above $1$.
+    targets:
+      - quant-processes.markov-chains.transition-matrix
+
+  - id: qmc-transition-matrix-03
+    kind: work
+    difficulty: routine
+    statement: >
+      A support ticket sits in one of four states. From state $B$ it moves to
+      $A$ with probability $0.15$, to $C$ with probability $0.25$ and to $D$
+      with probability $0.4$; otherwise it stays in $B$. What is $p_{BB}$?
+    answer: >
+      $0.2$. Row $B$ of $P$ is the full law of tomorrow's state given $B$
+      today, so its four entries must be nonnegative and sum to exactly $1$.
+      Three of them are given, and "otherwise it stays" names the fourth as
+      whatever is left over:
+      $p_{BB} = 1 - 0.15 - 0.25 - 0.4 = 1 - 0.8 = 0.2$. Writing the row out
+      as $(0.15, 0.2, 0.25, 0.4)$ and re-adding it is the one-line check that
+      catches the commonest setup error of all — a transition quietly omitted,
+      leaving a row that sums to less than $1$ and an answer that is wrong
+      before any algebra starts.
+    expects: "0.2"
+    rubric:
+      - >
+        Uses the fact that row $B$ sums to $1$, rather than treating the
+        self-loop as an independent free parameter.
+      - >
+        Re-adds the completed row to confirm it totals $1$.
+    targets:
+      - quant-processes.markov-chains.transition-matrix
+
+  # --- Chapman–Kolmogorov -----------------------------------------------------
+
+  - id: qmc-chapman-kolmogorov-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A chain on states $1, 2, 3$ has rows $(0, 1/2, 1/2)$ from $1$,
+      $(1/3, 1/3, 1/3)$ from $2$ and $(1/2, 0, 1/2)$ from $3$. Starting at $1$,
+      what is $p^{(3)}_{11}$, the probability of being back at $1$ after
+      exactly three steps?
+    answer: >
+      $19/72 \approx 0.264$. Build $p^{(2)}_{1k}$ first by summing over the
+      one-step midpoint:
+      $p^{(2)}_{11} = \tfrac12 \cdot \tfrac13 + \tfrac12 \cdot \tfrac12 =
+      \tfrac{5}{12}$,
+      $p^{(2)}_{12} = \tfrac12 \cdot \tfrac13 + \tfrac12 \cdot 0 = \tfrac16$,
+      and $p^{(2)}_{13} = \tfrac12 \cdot \tfrac13 + \tfrac12 \cdot \tfrac12 =
+      \tfrac{5}{12}$; these sum to $1$, which is the check. Now apply
+      Chapman–Kolmogorov with $m = 2$, $n = 1$, summing over the state occupied
+      at time $2$:
+      $p^{(3)}_{11} = \tfrac{5}{12} \cdot 0 + \tfrac16 \cdot \tfrac13 +
+      \tfrac{5}{12} \cdot \tfrac12 = \tfrac{1}{18} + \tfrac{5}{24} =
+      \tfrac{4}{72} + \tfrac{15}{72} = \tfrac{19}{72}$. The identity is just
+      total probability applied at an intermediate time, which is why the same
+      number falls out of the $(1,1)$ entry of $P^{3}$.
+    expects: "19/72"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Splits the three steps at an intermediate time and sums the product of
+        the two legs over every possible midpoint state.
+      - >
+        Checks that the two-step row sums to $1$ before using it, and reports
+        $19/72$ rather than the probability of a single path.
+    targets:
+      - quant-processes.markov-chains.chapman-kolmogorov
+    exercises:
+      - quant-probability.conditional.total-probability
+
+  - id: qmc-chapman-kolmogorov-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A two-state chain has rows $(0.3, 0.7)$ from state $1$ and $(0.6, 0.4)$
+      from state $2$. Starting in state $1$, what is the probability of being in
+      state $1$ after exactly two steps?
+    answer: >
+      $0.51$. Sum over the midpoint, which is the only place the chain can be
+      after one step:
+      $p^{(2)}_{11} = p_{11}p_{11} + p_{12}p_{21}
+      = 0.3 \times 0.3 + 0.7 \times 0.6 = 0.09 + 0.42 = 0.51$. The complement
+      confirms it, since row $1$ of $P^{2}$ must itself sum to $1$:
+      $p^{(2)}_{12} = 0.3 \times 0.7 + 0.7 \times 0.4 = 0.21 + 0.28 = 0.49$,
+      and $0.51 + 0.49 = 1$. Two neighbouring wrong answers name the two
+      standard slips: $0.09$ keeps only the path that stays put, forgetting
+      that leaving and coming back also lands in state $1$; and $0.3$ answers
+      the one-step question, which is what forgetting $P^{0} = I$ and
+      miscounting steps produces.
+    expects: "0.51"
+    rubric:
+      - >
+        Adds both two-step paths, $1 \to 1 \to 1$ and $1 \to 2 \to 1$, rather
+        than only the one that stays put.
+      - >
+        Checks the row of $P^{2}$ sums to $1$.
+    targets:
+      - quant-processes.markov-chains.chapman-kolmogorov
+
+  # --- n-step probabilities by diagonalization --------------------------------
+
+  - id: qmc-matrix-powers-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A two-state chain has rows $(0.75, 0.25)$ from state $1$ and
+      $(0.5, 0.5)$ from state $2$. Using the closed form for $P^{n}$, what is
+      $p^{(3)}_{11}$?
+    answer: >
+      $43/64 = 0.671875$. Here $a = 0.25$ and $b = 0.5$ are the two leaving
+      probabilities, so the eigenvalues are $1$ and $\lambda_2 = 1 - a - b =
+      0.25$, and every entry of $P^{n}$ is a fixed combination of $1^{n}$ and
+      $\lambda_2^{n}$. The constant term is the stationary weight
+      $\pi_1 = b/(a+b) = 0.5/0.75 = 2/3$, and at $n = 0$ the entry must equal
+      $1$, which pins the coefficient of $\lambda_2^{n}$ at $1 - \pi_1 = 1/3$.
+      Hence $p^{(n)}_{11} = \tfrac23 + \tfrac13 (0.25)^{n}$, and at $n = 3$
+      that is $\tfrac23 + \tfrac13 \cdot \tfrac{1}{64} =
+      \tfrac{128}{192} + \tfrac{1}{192} = \tfrac{129}{192} = \tfrac{43}{64}$.
+      Multiplying $P$ by itself three times gives the same $43/64$, which is
+      the check; the closed form earns its keep because it also says the
+      deviation from $2/3$ is shrinking by a factor $4$ per step.
+    expects: "43/64"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Identifies the eigenvalues as $1$ and $1 - a - b$ and writes
+        $p^{(n)}_{11}$ as a combination of their $n$-th powers.
+      - >
+        Fixes the two coefficients from the limit $\pi_1 = 2/3$ and the value
+        $1$ at $n = 0$, rather than guessing them.
+    targets:
+      - quant-processes.markov-chains.matrix-powers
+    exercises:
+      - quant-tools.linear-algebra.diagonalization-powers
+
+  - id: qmc-matrix-powers-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A two-state chain has rows $(0.7, 0.3)$ from state $1$ and $(0.9, 0.1)$
+      from state $2$ — a chain that changes state far more often than it stays.
+      What is $p^{(2)}_{11}$?
+    answer: >
+      $0.76$. Directly, $p^{(2)}_{11} = 0.7 \times 0.7 + 0.3 \times 0.9 =
+      0.49 + 0.27 = 0.76$. The eigenvalue route agrees and is more informative:
+      $a = 0.3$, $b = 0.9$, so $\lambda_2 = 1 - a - b = -0.2$ and
+      $\pi_1 = b/(a+b) = 0.9/1.2 = 0.75$, giving
+      $p^{(n)}_{11} = 0.75 + 0.25(-0.2)^{n}$, which at $n = 2$ is
+      $0.75 + 0.25 \times 0.04 = 0.76$. The point worth carrying away is the
+      sign: $\lambda_2$ is negative, so the chain approaches $\pi$ from
+      alternating sides — $p^{(1)}_{11} = 0.7$ sits below $0.75$ and
+      $p^{(2)}_{11} = 0.76$ sits above it. Assuming $\lambda_2 > 0$ and
+      predicting a monotone approach is wrong for every chain that swaps more
+      readily than it stays.
+    expects: "0.76"
+    rubric:
+      - >
+        Computes the two-step entry by summing over the midpoint, or from
+        $\pi_1 + (1-\pi_1)\lambda_2^{2}$.
+      - >
+        Notes that $\lambda_2 = -0.2$ is negative, so the approach to $\pi$
+        oscillates rather than being monotone.
+    targets:
+      - quant-processes.markov-chains.matrix-powers
+    exercises:
+      - quant-tools.linear-algebra.eigen
+
+  # --- communicating classes and irreducibility -------------------------------
+
+  - id: qmc-communicating-classes-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A chain on states $1, \dots, 7$ moves as follows. From $1$ it always goes
+      to $2$. From $2$ it goes to $1$ or to $3$ with probability $1/2$ each.
+      From $3$ it always goes to $4$. From $4$ it goes to $3$, to $5$ or to $7$
+      with probability $1/3$ each. From $5$ it always goes to $6$, and from $6$
+      always back to $5$. State $7$ is absorbing. How many communicating classes
+      does the chain have?
+    answer: >
+      $4$. Communication needs reachability in both directions, so build the
+      classes by pairing states that reach each other. $1 \to 2$ and
+      $2 \to 1$, so $\{1, 2\}$ is a class; it is not closed, because
+      $2 \to 3$ leaves it. $3 \to 4$ and $4 \to 3$, so $\{3, 4\}$ is a class,
+      also not closed, because $4 \to 5$ and $4 \to 7$ leave it. Nothing
+      returns from $3$ or $4$ to $1$ or $2$, so those two classes stay
+      separate — the tempting merge is the error here, and one-directional
+      accessibility $2 \to 3$ is not communication. Then $5 \to 6$ and
+      $6 \to 5$ give the class $\{5, 6\}$, which is closed, and $\{7\}$ is a
+      closed class of size one, that is, an absorbing state. Four classes,
+      two of them closed, so the chain is very far from irreducible.
+    expects: "4"
+    rubric:
+      - >
+        Pairs states only when each is reachable from the other, so
+        $2 \to 3$ alone does not merge $\{1,2\}$ with $\{3,4\}$.
+      - >
+        Checks every outgoing transition before calling a class closed, and
+        identifies $\{5,6\}$ and $\{7\}$ as the two closed classes.
+    targets:
+      - quant-processes.markov-chains.communicating-classes
+
+  - id: qmc-communicating-classes-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A chain on $\{X, Y, Z\}$ goes from $X$ to $Y$ with probability $0.6$ and
+      to $Z$ with probability $0.4$; from $Y$ it always returns to $X$; and $Z$
+      always stays at $Z$. Is this chain irreducible?
+    answer: >
+      No — $Z$ is absorbing, so the chain has two classes. Irreducibility asks
+      that every state reach every other, and $Z$ reaches nothing but itself:
+      $p_{ZZ} = 1$ makes $\{Z\}$ a closed class of size one. The other two
+      states do communicate, since $X \to Y$ and $Y \to X$, giving the class
+      $\{X, Y\}$, which is not closed because $X \to Z$ escapes it. So the
+      state space splits as $\{X, Y\} \cup \{Z\}$: two classes, hence not
+      irreducible. The reliable trap is to check reachability in one direction
+      only — every state here is reachable *from* $X$, which sounds like
+      irreducibility and is not it, because reachability must run both ways.
+      This dichotomy sets up the rest of the unit: a chain with an absorbing
+      state is an absorption problem, not an equilibrium problem.
+    choices:
+      - text: >
+          Yes — every state is reachable from $X$
+        feedback: >
+          Reachability from one state is not communication; irreducibility
+          needs $Z \to X$ as well as $X \to Z$, and an absorbing $Z$ never
+          leaves.
+      - text: >
+          No — $Z$ is absorbing, so it cannot reach $X$ or $Y$ and the chain
+          has two classes
+        correct: true
+        feedback: >
+          Right: $\{Z\}$ is a closed class of size one, so the chain has more
+          than one class and is not irreducible.
+      - text: >
+          No — $X$ and $Y$ fail to communicate, so every state is its own class
+        feedback: >
+          $X \to Y$ and $Y \to X$ both hold directly, so those two do
+          communicate; the class that stands apart is $\{Z\}$.
+    rubric:
+      - >
+        Tests communication in both directions rather than accepting one-way
+        accessibility.
+      - >
+        Names $\{Z\}$ as a closed class of size one and concludes the chain has
+        two classes.
+    targets:
+      - quant-processes.markov-chains.communicating-classes
+
+  # --- recurrent, transient and periodic states -------------------------------
+
+  - id: qmc-classification-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A chain has transient states $1$ and $2$ and an absorbing state $A$. From
+      $1$ it moves to $2$ with probability $1/2$ and to $A$ with probability
+      $1/2$; from $2$ it moves to $1$ with probability $3/5$ and to $A$ with
+      probability $2/5$. Starting at $1$, what is the expected total number of
+      visits to state $1$, counting the visit at time $0$?
+    answer: >
+      $10/7 \approx 1.4286$. First get $f_1$, the probability of *ever*
+      returning to $1$ from $1$. There is no one-step return, since
+      $p_{11} = 0$, and once the chain reaches $A$ it never leaves, so the only
+      route back is $1 \to 2 \to 1$: $f_1 = \tfrac12 \cdot \tfrac35 =
+      \tfrac{3}{10} < 1$, and $1$ is transient. Each visit is then followed by
+      another with probability $f_1$ independently, so the number of visits is
+      geometric with success probability $1 - f_1 = 7/10$ and mean
+      $1/(1-f_1) = 10/7$. The trap the problem is built around is computing
+      $f_1$ as the one-step return probability $p_{11} = 0$, which would make
+      the expected number of visits $1$ and miss every multi-step path; the
+      other is dropping the visit at time $0$ and answering $3/7$.
+    expects: "10/7"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Computes $f_1$ as the probability of ever returning, summing over the
+        two-step route, not as $p_{11}$.
+      - >
+        Uses the geometric count $1/(1-f_1)$ with the starting visit included.
+    targets:
+      - quant-processes.markov-chains.classification
+
+  - id: qmc-classification-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A chain on $\{P, Q, R, S\}$ moves from $P$ to $Q$ or $R$ with probability
+      $1/2$ each, always from $Q$ to $P$, always from $R$ to $S$, and always
+      from $S$ to $R$. Which states are transient?
+    answer: >
+      $P$ and $Q$ only. The classes are $\{P, Q\}$, which communicate via
+      $P \to Q \to P$, and $\{R, S\}$, which communicate via $R \to S \to R$.
+      The second is closed — neither $R$ nor $S$ has an edge out of it — so on
+      a finite chain its states are positive recurrent. The first is not
+      closed, because $P \to R$ escapes it, and every visit to $P$ has
+      probability $1/2$ of leaving for good; the chance of never escaping over
+      infinitely many visits is $0$, so $f_P < 1$ and $P$ is transient.
+      Transience is a class property, so $Q$ is transient too, and the expected
+      number of visits to each is finite. A finite chain always has at least
+      one recurrent class — probability has to settle somewhere — so "all four
+      transient" is impossible on its face.
+    choices:
+      - text: >
+          $P$ and $Q$ only
+        correct: true
+        feedback: >
+          Right: $\{P, Q\}$ leaks to $R$ and never gets back, so both states
+          are visited finitely often, while the closed class $\{R, S\}$ is
+          recurrent.
+      - text: >
+          $R$ and $S$ only
+        feedback: >
+          This has it backwards — $\{R, S\}$ is the closed class, and states of
+          a closed class in a finite chain are positive recurrent, never
+          transient.
+      - text: >
+          All four states
+        feedback: >
+          A finite chain cannot have every state transient; some closed class
+          must absorb the probability, and here it is $\{R, S\}$.
+      - text: >
+          None of them — every state of a finite chain is recurrent
+        feedback: >
+          Finiteness guarantees a recurrent class, not that every state is
+          recurrent; any state in a class that leaks away is transient.
+    rubric:
+      - >
+        Sorts the states into classes and checks which classes are closed
+        before classifying any state.
+      - >
+        Uses that transience is a class property, so $P$ and $Q$ are
+        classified together.
+    targets:
+      - quant-processes.markov-chains.classification
+    exercises:
+      - quant-processes.markov-chains.communicating-classes
+
+  # --- period and aperiodicity ------------------------------------------------
+
+  - id: qmc-periodicity-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A chain has a distinguished state $v$ from which exactly two routes lead.
+      One is a directed loop of $6$ states that returns to $v$ after $6$ steps;
+      the other is a directed loop of $9$ states that returns to $v$ after $9$
+      steps. The two loops share no state except $v$, every state inside a loop
+      moves deterministically to the next state of its loop, and at $v$ the
+      chain picks a loop with probability $1/2$ each. What is the period of $v$?
+    answer: >
+      $3$. A return to $v$ is a concatenation of complete loop traversals and
+      nothing else, since the only way back to $v$ is to finish whichever loop
+      was entered, so the set of return lengths is exactly
+      $\{6a + 9b : a, b \ge 0,\ a + b \ge 1\} = \{6, 9, 12, 15, 18, \dots\}$.
+      Its greatest common divisor is $\gcd(6, 9) = 3$, so $d(v) = 3$. Note that
+      $3$ itself is *not* a return length — the gcd of a set need not belong to
+      it, and the period is defined as that gcd, not as the shortest return.
+      Two other answers are wrong for instructive reasons: $6$ takes the
+      shortest loop and ignores the $9$, and $1$ assumes aperiodicity without
+      the licence for it, which would need a self-loop or two coprime return
+      lengths — and $6$ and $9$ are not coprime.
+    expects: "3"
+    rubric:
+      - >
+        Describes the return set as all nonnegative combinations $6a + 9b$,
+        not just the two loop lengths.
+      - >
+        Takes the gcd, and says explicitly that the period need not itself be
+        an achievable return length.
+    targets:
+      - quant-processes.markov-chains.periodicity
+
+  - id: qmc-periodicity-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Three servers and three clients form the complete bipartite graph
+      $K_{3,3}$: every server is joined to every client, and there are no
+      server-to-server or client-to-client edges. A walk steps each minute to a
+      uniformly chosen neighbour. Which statement about this walk is correct?
+    answer: >
+      It is irreducible with period $2$, so $\pi$ exists and is unique but
+      $P^{n}$ does not converge. Irreducibility first: any two servers are
+      joined by a two-step path through any client, and a server reaches a
+      client in one step, so every state reaches every other and there is a
+      single class. Period next: every edge crosses from the server side to the
+      client side, so after an odd number of steps the walk is on the opposite
+      side from where it started and after an even number it is back — returns
+      happen only at even times, and $d = \gcd\{2, 4, 6, \dots\} = 2$. The
+      degrees are all $3$, so $\pi$ is uniform at $1/6$ per vertex, and it is
+      unique because uniqueness needs only irreducibility and positive
+      recurrence. What fails is convergence: $(P^{n})_{ij}$ alternates between
+      two patterns forever, one for even $n$ and one for odd.
+    choices:
+      - text: >
+          It is irreducible and aperiodic, so $P^{n}$ converges to $\pi$
+        feedback: >
+          Irreducible yes, aperiodic no: with every edge crossing sides, a
+          return to the starting vertex takes an even number of steps, so the
+          period is $2$.
+      - text: >
+          It is irreducible with period $2$, so $\pi$ is unique but $P^{n}$
+          does not converge
+        correct: true
+        feedback: >
+          Exactly — uniqueness needs only irreducibility and positive
+          recurrence, while convergence additionally needs aperiodicity, and
+          bipartite structure is what denies it.
+      - text: >
+          It is not irreducible, because no two servers are adjacent
+        feedback: >
+          Adjacency is not required for communication: two servers reach each
+          other in two steps through any client, so the whole graph is one
+          class.
+      - text: >
+          It is irreducible and periodic, so no stationary distribution exists
+        feedback: >
+          Period never destroys existence; the uniform $\pi = (1/6, \dots,
+          1/6)$ is perfectly stationary here — the walk simply never settles
+          onto it.
+    rubric:
+      - >
+        Establishes irreducibility through two-step paths rather than demanding
+        direct adjacency.
+      - >
+        Separates the two conclusions: bipartite structure blocks convergence
+        of $P^{n}$ but leaves $\pi$ existing and unique.
+    targets:
+      - quant-processes.markov-chains.periodicity
+    exercises:
+      - quant-processes.markov-chains.communicating-classes
+
+  # --- absorption probabilities by first-step analysis (landmark) -------------
+
+  - id: qmc-absorption-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A venture passes through funding stages $1$, $2$ and $3$, and ends either
+      at $W$ (acquired) or at $L$ (wound up), both absorbing. From stage $1$ it
+      advances to $2$ with probability $1/2$ and hits $L$ with probability
+      $1/2$. From stage $2$ it falls back to $1$ with probability $1/4$,
+      advances to $3$ with probability $1/2$ and hits $L$ with probability
+      $1/4$. From stage $3$ it falls back to $2$ with probability $2/3$ and is
+      acquired with probability $1/3$. Starting at stage $1$, what is the
+      probability of being acquired?
+    answer: >
+      $2/13 \approx 0.1538$. Write $h_i$ for the probability of absorption at
+      $W$ from stage $i$, with boundary values $h_W = 1$ and $h_L = 0$ — the
+      second one is what people forget, and dropping it leaves the system
+      under-determined. Conditioning on the first move gives one equation per
+      transient stage:
+      $h_1 = \tfrac12 h_2$, $h_2 = \tfrac14 h_1 + \tfrac12 h_3$ and
+      $h_3 = \tfrac23 h_2 + \tfrac13$. Substitute the first and third into the
+      second: $h_2 = \tfrac14 \cdot \tfrac12 h_2 + \tfrac12 \left(\tfrac23 h_2 +
+      \tfrac13\right) = \tfrac18 h_2 + \tfrac13 h_2 + \tfrac16$, so
+      $h_2 \left(1 - \tfrac{11}{24}\right) = \tfrac16$, that is
+      $\tfrac{13}{24} h_2 = \tfrac16$ and $h_2 = \tfrac{4}{13}$. Then
+      $h_1 = \tfrac{2}{13}$ and $h_3 = \tfrac23 \cdot \tfrac{4}{13} + \tfrac13
+      = \tfrac{7}{13}$. The ordering $h_1 < h_2 < h_3$ is the sanity check: the
+      later the stage, the better the odds.
+    expects: "2/13"
+    tolerance: 0.0005
+    rubric:
+      - >
+        States both boundary conditions, $h_W = 1$ and $h_L = 0$, before
+        writing the system.
+      - >
+        Writes one equation per transient stage and solves the three
+        simultaneously, checking that $h_1 < h_2 < h_3$.
+    targets:
+      - quant-processes.markov-chains.absorption
+    exercises:
+      - quant-tools.recurrences.first-step-analysis
+
+  - id: qmc-absorption-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A negotiation alternates between two transient positions $A$ and $B$.
+      From $A$ it closes successfully with probability $1/3$ and otherwise
+      moves to $B$; from $B$ it collapses for good with probability $1/2$ and
+      otherwise moves back to $A$. Starting at $A$, what is the probability the
+      negotiation closes successfully?
+    answer: >
+      $1/2$. Let $h_A$ and $h_B$ be the probabilities of reaching the
+      successful close, whose boundary values are $1$ at "closed" and $0$ at
+      "collapsed". First-step analysis gives
+      $h_A = \tfrac13 \cdot 1 + \tfrac23 h_B$ and
+      $h_B = \tfrac12 \cdot 0 + \tfrac12 h_A$. Substituting the second into the
+      first, $h_A = \tfrac13 + \tfrac23 \cdot \tfrac12 h_A = \tfrac13 +
+      \tfrac13 h_A$, so $\tfrac23 h_A = \tfrac13$ and $h_A = \tfrac12$; then
+      $h_B = \tfrac14$. Reporting $1/3$ answers only "closes on this very
+      step", ignoring that a trip through $B$ and back to $A$ restarts the same
+      problem — the self-reference in the equation is exactly what saves you
+      from summing an infinite series over the number of round trips.
+    expects: "1/2"
+    rubric:
+      - >
+        Writes one equation per transient position with the two absorbing
+        boundary values supplied.
+      - >
+        Solves the self-referential system rather than reporting the
+        one-step success probability $1/3$.
+    targets:
+      - quant-processes.markov-chains.absorption
+    exercises:
+      - quant-tools.recurrences.first-step-analysis
+
+  - id: qmc-absorption-03
+    kind: work
+    difficulty: routine
+    statement: >
+      A submitted paper sits in a single transient state $R$ under review. Each
+      round it is accepted with probability $0.3$, rejected with probability
+      $0.2$, and sent back for another round with probability $0.5$. What is
+      the probability it is eventually accepted?
+    answer: >
+      $3/5 = 0.6$. With $h$ the probability of eventual acceptance from $R$,
+      first-step analysis gives $h = 0.3 \cdot 1 + 0.2 \cdot 0 + 0.5 h$, since
+      another round returns to the same state $R$ and therefore to the same
+      unknown $h$. So $0.5h = 0.3$ and $h = 0.6$. The one-line reading is worth
+      internalising: conditional on something decisive happening, acceptance
+      and rejection split in the ratio $0.3 : 0.2$, so acceptance takes
+      $0.3/(0.3+0.2) = 3/5$ of the decisive outcomes and the self-loop is
+      irrelevant to *which* absorbing state is reached — it only affects how
+      long the wait is. Answering $0.3$ treats the first round as the only
+      round.
+    expects: "3/5"
+    rubric:
+      - >
+        Puts the same unknown $h$ on both sides, because the self-loop returns
+        to the identical state.
+      - >
+        Recognises the answer as the ratio of the two decisive probabilities,
+        $0.3/(0.3+0.2)$.
+    targets:
+      - quant-processes.markov-chains.absorption
+
+  - id: qmc-absorption-04
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Let $h_i = \Pr(\text{absorbed at } a \mid X_0 = i)$ for a chain with
+      absorbing state $a$. Derive the first-step equations
+      $h_i = \sum_j p_{ij} h_j$ from the law of total probability and the
+      Markov property, and state precisely where each is used.
+    answer: >
+      Fix a transient $i$ and let $H$ be the event that the chain is
+      eventually absorbed at $a$. The events $\{X_1 = j\}$, over all $j$ in the
+      state space, are disjoint and exhaust the possibilities, so the law of
+      total probability applied to the first step gives
+      $\Pr(H \mid X_0 = i) = \sum_j \Pr(X_1 = j \mid X_0 = i)\,
+      \Pr(H \mid X_0 = i, X_1 = j) = \sum_j p_{ij}\,
+      \Pr(H \mid X_0 = i, X_1 = j)$. That is the whole content of the first
+      equality, and it holds for any process, Markov or not. The Markov
+      property enters in the second factor: $H$ is an event about
+      $X_1, X_2, \dots$, and conditionally on $X_1 = j$ the law of that future
+      does not depend on $X_0$, so
+      $\Pr(H \mid X_0 = i, X_1 = j) = \Pr(H \mid X_1 = j)$. Time-homogeneity
+      then lets the chain restarted at time $1$ in state $j$ be identified with
+      a chain started at time $0$ in state $j$, so
+      $\Pr(H \mid X_1 = j) = h_j$, and substituting gives
+      $h_i = \sum_j p_{ij} h_j$. The boundary values are not derived but read
+      off the definition: $h_a = 1$ because absorption at $a$ has already
+      happened, and $h_b = 0$ at every other absorbing state $b$ because the
+      chain can never leave $b$. Finally, on a finite chain in which every
+      transient state reaches absorption, this system has a unique solution; on
+      an infinite state space it need not, and the probabilistically correct
+      answer is then the minimal nonnegative solution.
+    rubric:
+      - >
+        Uses total probability to condition on $X_1$, and says that this step
+        alone needs no Markov assumption.
+      - >
+        Invokes the Markov property to drop $X_0$ from the conditioning, and
+        time-homogeneity to identify the restarted chain's probability with
+        $h_j$.
+      - >
+        States the boundary conditions as definitional, and notes that
+        uniqueness of the solution is a finiteness claim, with the minimal
+        nonnegative solution required otherwise.
+    targets:
+      - quant-processes.markov-chains.absorption
+    exercises:
+      - quant-probability.conditional.total-probability
+      - quant-tools.recurrences.first-step-analysis
+
+  # --- winning a game from deuce ----------------------------------------------
+
+  - id: qmc-tennis-deuce-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A player at deuce wins each point independently with probability $p$ and
+      must lead by two to take the game. A coach reports that this player
+      converts deuce into a win $90\%$ of the time. What is $p$?
+    answer: >
+      $3/4 = 0.75$. Run the standard reduction forwards first: with $q = 1-p$,
+      first-step analysis at deuce gives $h = p^{2} + 2pq\,h$, because winning
+      the next two points ends it, losing both ends it the other way, and
+      either split returns the score to deuce, from which the win probability
+      is the same $h$ again. Solving,
+      $h = p^{2}/(1 - 2pq) = p^{2}/(p^{2}+q^{2})$, using
+      $1 - 2pq = p^{2} + q^{2}$ since $p + q = 1$. Now invert: setting
+      $p^{2}/(p^{2}+q^{2}) = 9/10$ gives $10p^{2} = 9p^{2} + 9q^{2}$, so
+      $p^{2} = 9q^{2}$ and, both being positive, $p = 3q$. With $p + q = 1$
+      that is $q = 1/4$ and $p = 3/4$. The number worth carrying away is the
+      amplification: a $75\%$ point-winner converts deuce $90\%$ of the time,
+      because the two-point margin compounds the per-point edge.
+    expects: "3/4"
+    rubric:
+      - >
+        Derives or quotes $h = p^{2}/(p^{2}+q^{2})$, noting that
+        $1 - 2pq = p^{2}+q^{2}$.
+      - >
+        Inverts to $p = 3q$ and uses $p + q = 1$, taking the positive root.
+    targets:
+      - quant-processes.markov-chains.tennis-deuce
+    exercises:
+      - quant-processes.markov-chains.absorption
+
+  - id: qmc-tennis-deuce-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A heavy underdog at deuce wins each point with probability $p = 0.2$ and
+      must lead by two. What is the probability of winning the game from deuce?
+    answer: >
+      $1/17 \approx 0.0588$. With $q = 0.8$, the deuce formula gives
+      $h = p^{2}/(p^{2}+q^{2}) = 0.04/(0.04 + 0.64) = 0.04/0.68 = 4/68 =
+      1/17$. Reading the three states directly reproduces it: $h_A = p + q h$
+      from advantage-for, $h_B = p h$ from advantage-against, and
+      $h = p h_A + q h_B = p^{2} + 2pq h$. The lesson of the number is the
+      mirror image of a favourite's: the two-point margin punishes a weak
+      point-winner as sharply as it rewards a strong one, dropping $20\%$ per
+      point to under $6\%$ per game. Reporting $p^{2} = 0.04$ keeps only the
+      route that wins the next two points and drops the mass that flows back
+      through deuce.
+    expects: "1/17"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $h = p^{2}/(p^{2}+q^{2})$ rather than $p^{2}$ alone.
+      - >
+        Reduces $0.04/0.68$ to $1/17$ and comments that a two-point margin
+        magnifies the per-point deficit.
+    targets:
+      - quant-processes.markov-chains.tennis-deuce
+
+  # --- expected time to absorption --------------------------------------------
+
+  - id: qmc-absorption-time-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A support ticket is Queued, on Hold or Escalated, and every hour it
+      moves. From Queued it is resolved with probability $1/2$ and otherwise
+      goes on Hold. From Hold it goes to Queued, to Escalated, or is resolved,
+      with probability $1/3$ each. From Escalated it goes back on Hold with
+      probability $3/4$ and is resolved with probability $1/4$. Starting
+      Queued, what is the expected number of hours until the ticket is
+      resolved?
+    answer: >
+      $17/7 \approx 2.4286$ hours. Let $k_Q, k_H, k_E$ be the expected times
+      to absorption, with $k = 0$ at "resolved". Every equation picks up a
+      $+1$ for the hour just spent, and the absorbing state drops out of the
+      sums because it contributes no further hours:
+      $k_Q = 1 + \tfrac12 k_H$, $k_H = 1 + \tfrac13 k_Q + \tfrac13 k_E$ and
+      $k_E = 1 + \tfrac34 k_H$. Substituting the outer two into the middle,
+      $k_H = 1 + \tfrac13\left(1 + \tfrac12 k_H\right) + \tfrac13\left(1 +
+      \tfrac34 k_H\right) = \tfrac53 + \tfrac16 k_H + \tfrac14 k_H$, so
+      $\left(1 - \tfrac{5}{12}\right)k_H = \tfrac53$, that is
+      $\tfrac{7}{12}k_H = \tfrac53$ and $k_H = \tfrac{20}{7}$. Then
+      $k_Q = 1 + \tfrac{10}{7} = \tfrac{17}{7}$ and $k_E = 1 + \tfrac{15}{7} =
+      \tfrac{22}{7}$. Dropping the $+1$ turns this into the
+      absorption-probability system and returns a pure number with no units;
+      including "resolved" in the sums double-counts hours never spent.
+    expects: "17/7"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Adds $+1$ to every equation and justifies it as the cost of the step
+        just taken, whatever it lands on.
+      - >
+        Sets $k = 0$ at the absorbing state and omits it from the sums, then
+        solves all three equations simultaneously.
+    targets:
+      - quant-processes.markov-chains.absorption-time
+    exercises:
+      - quant-tools.recurrences.first-step-analysis
+
+  - id: qmc-absorption-time-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A build pipeline is Compiling or Testing. From Compiling it moves to
+      Testing with probability $3/4$ and aborts with probability $1/4$; from
+      Testing it ships with probability $1/2$ and otherwise returns to
+      Compiling. Both aborting and shipping end the run. Starting from
+      Compiling, what is the expected number of stages until the run ends?
+    answer: >
+      $14/5 = 2.8$ stages. With $k_C$ and $k_T$ the expected remaining stages
+      and $k = 0$ at both absorbing outcomes,
+      $k_C = 1 + \tfrac34 k_T$ and $k_T = 1 + \tfrac12 k_C$; the aborting and
+      shipping branches contribute their $+1$ and nothing more. Substituting,
+      $k_C = 1 + \tfrac34\left(1 + \tfrac12 k_C\right) = \tfrac74 + \tfrac38
+      k_C$, so $\tfrac58 k_C = \tfrac74$ and $k_C = \tfrac{14}{5} = 2.8$; then
+      $k_T = 1 + 1.4 = 2.4 = \tfrac{12}{5}$. Note that the same coefficients
+      answer a completely different question — the probability of shipping
+      rather than aborting — once the $+1$ is removed and the boundary values
+      become $1$ and $0$; setting the two systems side by side is the cheapest
+      guard against mixing them up.
+    expects: "14/5"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Writes $k_C = 1 + \tfrac34 k_T$ and $k_T = 1 + \tfrac12 k_C$, with the
+        $+1$ present in both.
+      - >
+        Solves to $14/5$ and distinguishes this from the probability system,
+        which shares the coefficients but not the constant term.
+    targets:
+      - quant-processes.markov-chains.absorption-time
+    exercises:
+      - quant-processes.markov-chains.absorption
+
+  # --- mouse in a maze --------------------------------------------------------
+
+  - id: qmc-mouse-maze-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Three rooms $R$, $S$, $T$ and an exit. Room $R$ has three doors, to $S$,
+      to $T$ and to the exit. Room $S$ has two doors, to $R$ and to $T$. Room
+      $T$ is a dead end whose single door returns to $S$. Each minute the mouse
+      picks uniformly among the doors of its current room. Starting in $R$, how
+      many minutes on average until it is out?
+    answer: >
+      $10$ minutes. Read the door counts straight into probabilities — $1/3$
+      per door from $R$, $1/2$ per door from $S$, and probability $1$ back to
+      $S$ from the dead end $T$ — and write one equation per room, each with
+      its $+1$ for the minute spent moving:
+      $k_R = 1 + \tfrac13 k_S + \tfrac13 k_T$,
+      $k_S = 1 + \tfrac12 k_R + \tfrac12 k_T$ and $k_T = 1 + k_S$. Substitute
+      the dead end first, since it depends on only one other room:
+      $k_S = 1 + \tfrac12 k_R + \tfrac12(1 + k_S)$ gives
+      $\tfrac12 k_S = \tfrac32 + \tfrac12 k_R$, so $k_S = 3 + k_R$ and
+      $k_T = 4 + k_R$. Then
+      $k_R = 1 + \tfrac13(3 + k_R) + \tfrac13(4 + k_R) = \tfrac{10}{3} +
+      \tfrac23 k_R$, so $\tfrac13 k_R = \tfrac{10}{3}$ and $k_R = 10$, with
+      $k_S = 13$ and $k_T = 14$. The dead end is what makes the maze slow:
+      every visit there is a wasted round trip, and $T$ costs a full extra
+      minute over $S$ for exactly that reason.
+    expects: "10"
+    rubric:
+      - >
+        Turns door counts into uniform transition probabilities per room, and
+        sends the dead end back with probability $1$ — still a full step.
+      - >
+        Back-substitutes from the dead end inward and arrives at
+        $k_R = 10$, $k_S = 13$, $k_T = 14$.
+    targets:
+      - quant-processes.markov-chains.mouse-maze
+    exercises:
+      - quant-processes.markov-chains.absorption-time
+
+  - id: qmc-mouse-maze-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A mouse is in room $U$, which has two doors: one to the exit and one to
+      room $V$. Room $V$ is a dead end whose single door returns to $U$. Each
+      minute the mouse chooses uniformly among the doors of its room. Starting
+      in $U$, what is the expected number of minutes to the exit?
+    answer: >
+      $3$ minutes. The equations are $k_U = 1 + \tfrac12 k_V$ and
+      $k_V = 1 + k_U$, the second because the dead end has one door and taking
+      it still costs a minute. Substituting,
+      $k_U = 1 + \tfrac12(1 + k_U) = \tfrac32 + \tfrac12 k_U$, so
+      $k_U = 3$ and $k_V = 4$. A second route confirms it: the mouse leaves
+      $U$ by the exit door with probability $1/2$ each time, so the number of
+      departures from $U$ is geometric with mean $2$, and each failed attempt
+      costs two minutes (out to $V$ and back) while the last costs one, giving
+      $2 \times 2 - 1 = 3$. The dead end more than doubles what a single door
+      straight out would cost, which is the pattern rather than the number.
+    expects: "3"
+    rubric:
+      - >
+        Gives the dead end the equation $k_V = 1 + k_U$, charging a full minute
+        for a move that makes no progress.
+      - >
+        Solves to $k_U = 3$, or reaches it by counting geometric round trips.
+    targets:
+      - quant-processes.markov-chains.mouse-maze
+    exercises:
+      - quant-processes.markov-chains.absorption-time
+
+  # --- drunkard on a path with two barriers -----------------------------------
+
+  - id: qmc-drunkard-path-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      A walker on $\{0, 1, \dots, N\}$ moves $+1$ with probability
+      $p \in (0,1)$ and $-1$ with probability $q = 1-p$, with $0$ and $N$
+      absorbing. Without solving any recursion, show that every interior state
+      is transient and that absorption happens with probability $1$.
+    answer: >
+      Fix an interior state $i$, so $1 \le i \le N-1$. The event that the walk
+      never leaves the interior is the event that it is never absorbed, so it
+      suffices to bound that. From any interior state the walk can reach a
+      barrier by taking at most $N-1$ consecutive steps in one direction: from
+      $i$, exactly $i$ down-steps reach $0$ and exactly $N-i$ up-steps reach
+      $N$, and one of those two counts is at most $N-1$. That particular
+      run of steps has probability at least $\varepsilon =
+      \min(p, q)^{N-1} > 0$, so from *every* interior state,
+      $\Pr(\text{absorbed within } N-1 \text{ steps}) \ge \varepsilon$. Now cut
+      time into consecutive blocks of $N-1$ steps. Conditional on still being
+      in the interior at the start of a block, the chain fails to be absorbed
+      during that block with probability at most $1 - \varepsilon$, and the
+      bound holds uniformly over the state occupied there, so by the Markov
+      property $\Pr(\text{not absorbed after } m \text{ blocks}) \le
+      (1-\varepsilon)^{m} \to 0$ as $m \to \infty$. Hence absorption occurs
+      with probability $1$. Transience of $i$ follows: with probability $1$ the
+      walk is eventually absorbed, after which it never returns to $i$, so the
+      total number of visits to $i$ is finite almost surely, which is exactly
+      transience — equivalently $f_i < 1$, since one route out of $i$ ends at a
+      barrier without passing back through $i$. No closed form for the
+      absorption probability was needed anywhere: the class structure — two
+      absorbing singletons and one transient interior class — is what the
+      argument uses, and it is what licenses quoting the ruin formulas at all.
+    rubric:
+      - >
+        Produces a uniform positive lower bound $\varepsilon$ on absorption
+        within a fixed horizon, valid from every interior state.
+      - >
+        Iterates that bound over blocks to get $(1-\varepsilon)^{m} \to 0$,
+        rather than treating a single-block bound as the conclusion.
+      - >
+        Deduces transience from certain absorption, and notes that no
+        recursion or closed form was solved.
+    targets:
+      - quant-processes.markov-chains.drunkard-path
+    exercises:
+      - quant-processes.markov-chains.classification
+
+  - id: qmc-drunkard-path-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A walker on $\{0, 1, \dots, 9\}$ steps up with probability $0.55$ and
+      down with probability $0.45$, and the two endpoints are absorbing. How
+      many of the ten states are transient?
+    answer: >
+      $8$. Sort the states into communicating classes first. $\{0\}$ and
+      $\{9\}$ are closed classes of size one, since $p_{00} = p_{99} = 1$; the
+      eight interior states $1, \dots, 8$ all communicate with one another,
+      because from any interior state you can walk up or down one step at a
+      time to any other without touching a barrier, so they form a single
+      class. That class is not closed — state $1$ can step to $0$ and state $8$
+      to $9$ — so every state in it is transient, transience being a class
+      property. Hence three classes in all, of which the one holding all eight
+      interior states is transient. The bias does not matter to the count:
+      $p = 0.55$ changes which barrier is likely, not which states are
+      transient, and any $p \in (0,1)$ gives the same answer. Counting the
+      *classes* rather than the states is the slip to avoid — that number is
+      $3$.
+    expects: "8"
+    rubric:
+      - >
+        Identifies the interior as one communicating class and the two
+        barriers as closed classes of size one.
+      - >
+        Answers the number of transient states, $8$, not the number of classes,
+        and notes that the bias is irrelevant to it.
+    targets:
+      - quant-processes.markov-chains.drunkard-path
+    exercises:
+      - quant-processes.markov-chains.communicating-classes
+
+  # --- stationary distribution (landmark) -------------------------------------
+
+  - id: qmc-stationary-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A chain on states $1, 2, 3$ has rows $(1/2, 1/2, 0)$ from $1$,
+      $(1/4, 1/4, 1/2)$ from $2$ and $(0, 1/3, 2/3)$ from $3$. What is
+      $\pi_1$, the stationary weight of state $1$?
+    answer: >
+      $1/6 \approx 0.1667$. The three balance equations $\pi_j = \sum_i \pi_i
+      p_{ij}$ are always linearly dependent, so take two of them plus
+      normalisation. The $j = 1$ equation reads
+      $\pi_1 = \tfrac12 \pi_1 + \tfrac14 \pi_2$, giving
+      $\tfrac12 \pi_1 = \tfrac14 \pi_2$, that is $\pi_2 = 2\pi_1$. The $j = 3$
+      equation reads $\pi_3 = \tfrac12 \pi_2 + \tfrac23 \pi_3$, giving
+      $\tfrac13 \pi_3 = \tfrac12 \pi_2$, that is $\pi_3 = \tfrac32 \pi_2 =
+      3\pi_1$. Normalising, $\pi_1(1 + 2 + 3) = 1$, so
+      $\pi = (1/6, 1/3, 1/2)$. Verify by pushing it through $P$ once: the
+      second coordinate is $\tfrac16 \cdot \tfrac12 + \tfrac13 \cdot \tfrac14 +
+      \tfrac12 \cdot \tfrac13 = \tfrac{1}{12} + \tfrac{1}{12} + \tfrac16 =
+      \tfrac13$, unchanged. Two traps: using all three balance equations plus
+      normalisation over-determines the system, and reading down rows instead
+      of columns solves $P\pi = \pi$, a different equation with a different
+      answer.
+    expects: "1/6"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Solves two balance equations together with $\sum_i \pi_i = 1$, rather
+        than all three plus normalisation.
+      - >
+        Sums each *column* against $\pi$, and checks the answer by computing
+        $\pi P$ and finding $\pi$ again.
+    targets:
+      - quant-processes.markov-chains.stationary
+    exercises:
+      - quant-tools.linear-algebra.matrix-algebra
+
+  - id: qmc-stationary-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A three-state stochastic matrix $P$ has the row vector $(2, 5, 3)$ as a
+      left eigenvector for eigenvalue $1$, so that $(2,5,3)P = (2,5,3)$. What
+      is $\pi_2$, the stationary probability of state $2$?
+    answer: >
+      $1/2 = 0.5$. Stationarity is exactly the left-eigenvector equation
+      $\pi P = \pi$ for eigenvalue $1$, so any left eigenvector for that
+      eigenvalue is a scalar multiple of $\pi$ — the eigenvector is determined
+      only up to scale, and $\pi$ is the one representative that is a
+      probability vector. Normalise: $2 + 5 + 3 = 10$, so
+      $\pi = (2/10, 5/10, 3/10) = (0.2, 0.5, 0.3)$ and $\pi_2 = 1/2$.
+      Two errors live here. Reporting $(2,5,3)$ itself as the stationary
+      distribution skips the normalisation and returns something that is not a
+      distribution at all. And using the *right* eigenvector for eigenvalue $1$
+      instead is worse than useless: every stochastic matrix has the all-ones
+      column as a right eigenvector for $\lambda = 1$, so that direction
+      carries no information about the chain whatsoever.
+    expects: "1/2"
+    rubric:
+      - >
+        Identifies $\pi$ as the left eigenvector of $P$ for eigenvalue $1$,
+        normalised to sum to $1$.
+      - >
+        Distinguishes it from the right eigenvector, which is the all-ones
+        vector for every stochastic matrix and says nothing about $\pi$.
+    targets:
+      - quant-processes.markov-chains.stationary
+      - quant-tools.linear-algebra.eigen
+    connects:
+      - "quant-processes.markov-chains.stationary ~ quant-tools.linear-algebra.eigen"
+
+  - id: qmc-stationary-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      Asked for the stationary distribution of a two-state chain, a candidate
+      solves the balance equation correctly, obtains the relation
+      $\pi_1 = \tfrac32 \pi_2$, and reports $\pi = (3, 2)$. What is wrong with
+      that answer?
+    answer: >
+      The vector satisfies $\pi P = \pi$ but has not been normalised; the
+      stationary distribution is $(3/5, 2/5)$. Every definition of a stationary
+      distribution asks for a *probability* vector: nonnegative entries summing
+      to $1$. The balance equations alone can never supply that, because they
+      are linearly dependent and homogeneous — if $\pi$ solves them, so does
+      $c\pi$ for every $c$ — which is precisely why the normalisation
+      $\sum_i \pi_i = 1$ is added as the missing constraint. Here
+      $3 + 2 = 5$, so dividing through gives $\pi = (0.6, 0.4)$. This is a
+      cheap mistake to catch and an expensive one to leave: an unnormalised
+      vector makes every downstream quantity wrong, most visibly the mean
+      return time $1/\pi_i$, which would come out as $1/3$ of a step instead of
+      the correct $5/3$.
+    choices:
+      - text: >
+          Nothing — the stationary distribution is fixed only up to scale, so
+          $(3,2)$ is an acceptable answer
+        feedback: >
+          The *solution set* of the balance equations is a line, but a
+          stationary distribution is by definition a probability vector, so
+          exactly one point on that line qualifies.
+      - text: >
+          It solves the balance equations but is not normalised; the answer is
+          $(3/5, 2/5)$
+        correct: true
+        feedback: >
+          Right — the balance equations are homogeneous, so the constraint
+          $\sum_i \pi_i = 1$ is what picks out the distribution.
+      - text: >
+          The candidate solved $P\pi = \pi$ instead of $\pi P = \pi$
+        feedback: >
+          That is a different slip — a right eigenvector — and it is not this
+          one, since the reported relation $\pi_1 = \tfrac32\pi_2$ came from
+          the correct left-hand equation.
+      - text: >
+          The relation $\pi_1 = \tfrac32 \pi_2$ must itself be wrong, because
+          stationary weights cannot exceed $1$
+        feedback: >
+          A ratio between two weights is not a weight; nothing forbids
+          $\pi_1/\pi_2 = 3/2$, and normalising is what brings both below $1$.
+    rubric:
+      - >
+        States that a stationary distribution must be a probability vector, so
+        the homogeneous balance equations need $\sum_i \pi_i = 1$ added.
+      - >
+        Produces the normalised answer $(3/5, 2/5)$.
+    targets:
+      - quant-processes.markov-chains.stationary
+
+  # --- existence and uniqueness of the stationary distribution ----------------
+
+  - id: qmc-stationary-uniqueness-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      A finite chain has two disjoint closed communicating classes $C_1$ and
+      $C_2$. Show that it has infinitely many stationary distributions, and
+      name which hypothesis of the existence-and-uniqueness theorem has failed.
+    answer: >
+      Restrict the chain to $C_1$. Because $C_1$ is closed, no transition
+      leaves it, so the rows of $P$ indexed by $C_1$ put all their mass inside
+      $C_1$ and the restriction $P^{(1)}$ is itself a stochastic matrix on
+      $C_1$; being finite and, as a communicating class, irreducible, it is
+      positive recurrent and carries a stationary distribution $\rho^{(1)}$ on
+      $C_1$. Extend $\rho^{(1)}$ to the whole state space by assigning $0$
+      outside $C_1$ and call the result $\pi^{(1)}$. Then for every state $j$,
+      $(\pi^{(1)}P)_j = \sum_i \pi^{(1)}_i p_{ij} = \sum_{i \in C_1}
+      \rho^{(1)}_i p_{ij}$, which is $\rho^{(1)}_j$ when $j \in C_1$ by
+      stationarity of $\rho^{(1)}$, and is $0$ when $j \notin C_1$ because
+      $p_{ij} = 0$ for $i \in C_1$ and $j$ outside a closed class. So
+      $\pi^{(1)}P = \pi^{(1)}$. Build $\pi^{(2)}$ the same way on $C_2$. Now
+      for any $t \in [0,1]$ put $\pi^{(t)} = t\pi^{(1)} + (1-t)\pi^{(2)}$. It
+      is nonnegative and its entries sum to $t + (1-t) = 1$, and
+      $\pi^{(t)}P = t\pi^{(1)}P + (1-t)\pi^{(2)}P = \pi^{(t)}$ because
+      $\pi \mapsto \pi P$ is linear. Since $C_1$ and $C_2$ are disjoint,
+      $\pi^{(1)} \ne \pi^{(2)}$, so distinct values of $t$ give distinct
+      vectors and the family is infinite — a whole segment of stationary
+      distributions. The failed hypothesis is irreducibility, which is what
+      buys uniqueness; existence is untouched, and indeed the chain has too
+      many stationary distributions rather than none. Positive recurrence,
+      which is what buys existence, holds automatically here because the chain
+      is finite.
+    rubric:
+      - >
+        Constructs a stationary distribution supported on each closed class,
+        using closedness to see that the restricted matrix is stochastic and no
+        mass leaks out.
+      - >
+        Takes convex combinations and checks stationarity by linearity of
+        $\pi \mapsto \pi P$, concluding there are infinitely many.
+      - >
+        Names irreducibility as the failed hypothesis, and says that existence
+        (positive recurrence) is not what has gone wrong.
+    targets:
+      - quant-processes.markov-chains.stationary-uniqueness
+    exercises:
+      - quant-processes.markov-chains.communicating-classes
+
+  - id: qmc-stationary-uniqueness-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Which of these chains has exactly one stationary distribution?
+    answer: >
+      The uniform random walk on a $4$-cycle. It is finite and irreducible —
+      every vertex reaches every other around the ring — so it is
+      automatically positive recurrent, and irreducible plus positive recurrent
+      is exactly the hypothesis pair the theorem needs: there is one and only
+      one $\pi$, here the uniform $(1/4, 1/4, 1/4, 1/4)$. That the walk has
+      period $2$ is irrelevant to this question; aperiodicity appears nowhere
+      in the uniqueness statement and only governs whether $P^{n}$ converges.
+      The other two fail on opposite sides. The simple symmetric walk on
+      $\mathbb{Z}$ is irreducible and recurrent but null recurrent, with
+      infinite mean return time, so no stationary probability vector exists at
+      all — only an unnormalisable uniform measure. And a chain with two
+      absorbing states is finite and positive recurrent but not irreducible, so
+      it has infinitely many: every convex combination of the two point masses
+      is stationary.
+    choices:
+      - text: >
+          The simple symmetric random walk on $\mathbb{Z}$
+        feedback: >
+          Existence fails here: the walk is null recurrent, its mean return
+          time is infinite, and no stationary probability vector exists —
+          finiteness is what normally rules this out, and $\mathbb{Z}$ is not
+          finite.
+      - text: >
+          The uniform random walk on a $4$-cycle
+        correct: true
+        feedback: >
+          Finite and irreducible, hence positive recurrent, hence exactly one
+          $\pi$ — the uniform one. Period $2$ does not enter the uniqueness
+          statement.
+      - text: >
+          A three-state chain with two absorbing states and one transient state
+        feedback: >
+          Uniqueness fails: two closed classes support two stationary
+          distributions, and every convex combination of them is stationary
+          too.
+      - text: >
+          A two-state chain in which both states are absorbing
+        feedback: >
+          Uniqueness fails outright: two closed classes of size one mean every
+          probability vector $(x, 1-x)$ satisfies $\pi P = \pi$, so there are
+          infinitely many, not one.
+    rubric:
+      - >
+        Separates the two hypotheses: irreducibility for uniqueness, positive
+        recurrence for existence.
+      - >
+        States explicitly that aperiodicity is not part of this theorem, so
+        period $2$ does not disqualify the cycle walk.
+    targets:
+      - quant-processes.markov-chains.stationary-uniqueness
+
+  # --- convergence to equilibrium ---------------------------------------------
+
+  - id: qmc-convergence-to-equilibrium-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      A walk on the path $1$–$2$–$3$ steps to a uniformly chosen neighbour, so
+      from $1$ it always goes to $2$, from $3$ it always goes to $2$, and from
+      $2$ it goes to $1$ or $3$ with probability $1/2$ each. Show that this
+      chain has a unique stationary distribution but that $(P^{n})_{11}$ does
+      not converge to $\pi_1$, and explain exactly which hypothesis fails.
+    answer: >
+      Uniqueness first. The chain is finite and irreducible — $1$ reaches $3$
+      via $2$ and back — so it is positive recurrent and has exactly one
+      stationary distribution. Solving $\pi P = \pi$: the balance equation at
+      state $1$ reads $\pi_1 = \tfrac12 \pi_2$, and at state $3$ reads
+      $\pi_3 = \tfrac12 \pi_2$; with $\pi_1 + \pi_2 + \pi_3 = 1$ this gives
+      $\pi = (1/4, 1/2, 1/4)$. Now the failure. Split the states as
+      $\{1, 3\}$ and $\{2\}$: every transition crosses between the two sides,
+      so starting at $1$ the chain is in $\{2\}$ at every odd time and in
+      $\{1, 3\}$ at every even time. Hence $(P^{n})_{11} = 0$ for every odd
+      $n$, while for even $n \ge 2$ it equals $1/2$: at $n = 2$ the only paths
+      are $1 \to 2 \to 1$, of probability $\tfrac12$, and at $n = 4$ the paths
+      $1 \to 2 \to 1 \to 2 \to 1$ and $1 \to 2 \to 3 \to 2 \to 1$ contribute
+      $\tfrac14 + \tfrac14 = \tfrac12$, and the same alternation persists. So
+      $(P^{n})_{11}$ takes the two values $0$ and $1/2$ forever and has no
+      limit, in particular not $\pi_1 = 1/4$. The hypothesis that fails is
+      aperiodicity: the period is
+      $d = \gcd\{n : (P^{n})_{11} > 0\} = \gcd\{2, 4, 6, \dots\} = 2$,
+      forced by the bipartite split. Irreducibility and positive recurrence
+      both hold, which is exactly why $\pi$ exists and is unique even though
+      nothing converges to it. Notice what periodicity does not break: the two
+      alternating values average to $\tfrac12(0 + \tfrac12) = \tfrac14 =
+      \pi_1$, so time averages still converge, which is the ergodic theorem
+      doing the work that $P^{n}$ convergence cannot.
+    rubric:
+      - >
+        Establishes existence and uniqueness from irreducibility and
+        finiteness, and computes $\pi = (1/4, 1/2, 1/4)$.
+      - >
+        Exhibits the bipartite split and evaluates $(P^{n})_{11}$ on both
+        parities, showing the sequence has two limit points and no limit.
+      - >
+        Names aperiodicity as the failed hypothesis, distinguishing it from
+        irreducibility, and notes that the time average still equals $\pi_1$.
+    targets:
+      - quant-processes.markov-chains.convergence-to-equilibrium
+    exercises:
+      - quant-processes.markov-chains.periodicity
+
+  - id: qmc-convergence-to-equilibrium-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      For which of these finite chains does $(P^{n})_{ij}$ converge, as
+      $n \to \infty$, to the *same* limit $\pi_j$ from every starting state
+      $i$?
+    answer: >
+      The irreducible chain with a self-loop somewhere. Irreducibility gives
+      one class, and a single state with $p_{ii} > 0$ puts $1$ into the gcd set
+      for that state, so $d = 1$; since period is a class property the whole
+      chain is aperiodic. Irreducible plus aperiodic plus finite (hence
+      positive recurrent) is exactly the convergence theorem's hypothesis list,
+      so every row of $P^{n}$ tends to the same $\pi$. The other two fail one
+      hypothesis each, and the failures look different. The walk on an even
+      cycle is irreducible but bipartite, so its period is $2$ and $P^{n}$
+      alternates between two patterns forever — $\pi$ exists and is unique,
+      nothing converges to it. The chain with two absorbing states is aperiodic
+      but reducible, and here $(P^{n})_{ij}$ does converge for each fixed $i$;
+      what it converges to depends on where you started, so there is no single
+      $\pi$ that every row approaches.
+    choices:
+      - text: >
+          An irreducible chain in which some state satisfies $p_{ii} > 0$
+        correct: true
+        feedback: >
+          A single self-loop forces $d = 1$, and period is a class property, so
+          the whole irreducible chain is aperiodic and the convergence theorem
+          applies.
+      - text: >
+          A uniform random walk on a $10$-cycle
+        feedback: >
+          Irreducible, but bipartite and therefore of period $2$: $P^{n}$
+          alternates between two patterns and never settles, even though $\pi$
+          is the unique uniform distribution.
+      - text: >
+          A chain with two absorbing states, each reachable from a transient
+          state
+        feedback: >
+          Aperiodic, but not irreducible: each row of $P^{n}$ does converge,
+          to a limit that depends on the starting state, so there is no common
+          $\pi$.
+      - text: >
+          Any finite chain, since $P^{n}$ always converges on a finite state
+          space
+        feedback: >
+          Finiteness rules out null recurrence, not periodicity; the even-cycle
+          walk is a finite chain whose $P^{n}$ never converges.
+    rubric:
+      - >
+        Checks irreducibility and aperiodicity as two separate conditions, not
+        one.
+      - >
+        Distinguishes "converges to a start-dependent limit" from "does not
+        converge at all", naming which chain does which.
+    targets:
+      - quant-processes.markov-chains.convergence-to-equilibrium
+    exercises:
+      - quant-processes.markov-chains.periodicity
+
+  # --- the two-state weather chain solved -------------------------------------
+
+  - id: qmc-weather-chain-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A two-state weather chain has sunny and rainy days. A sunny day is
+      followed by rain with probability $0.1$, and in the long run it rains one
+      day in five. What is the probability that a rainy day is followed by
+      another rainy day?
+    answer: >
+      $0.6$. Write the rows as $(1-a, a)$ from sunny and $(b, 1-b)$ from rainy,
+      so $a = 0.1$ is the chance of leaving sunny and $b$ is the unknown chance
+      of leaving rainy. The two-state shortcut gives
+      $\pi = \left(\dfrac{b}{a+b}, \dfrac{a}{a+b}\right)$, so the rainy weight
+      is $\pi_R = a/(a+b)$. Setting $0.1/(0.1+b) = 1/5$ gives
+      $0.5 = 0.1 + b$, so $b = 0.4$ and the answer is
+      $1 - b = 0.6$. Sanity check the whole chain: with rows $(0.9, 0.1)$ and
+      $(0.4, 0.6)$, balance reads $0.1\pi_S = 0.4\pi_R$, so $\pi_S = 4\pi_R$
+      and $\pi = (0.8, 0.2)$, which is one rainy day in five as required. The
+      trap is swapping $a$ and $b$: using $\pi_R = b/(a+b)$ instead would give
+      $b = 0.025$ and a rainy-to-rainy probability of $0.975$, an absurdly
+      sticky rainy state that would produce far more than one wet day in five.
+    expects: "0.6"
+    rubric:
+      - >
+        Pairs each state with the *other* state's leaving probability in the
+        numerator: $\pi_R = a/(a+b)$, not $b/(a+b)$.
+      - >
+        Solves for $b$ and reports the self-loop $1-b$, checking the resulting
+        chain reproduces one rainy day in five.
+    targets:
+      - quant-processes.markov-chains.weather-chain
+    exercises:
+      - quant-processes.markov-chains.stationary
+
+  - id: qmc-weather-chain-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A network link is Healthy or Degraded, with rows $(0.85, 0.15)$ from
+      Healthy and $(0.4, 0.6)$ from Degraded. What is the long-run fraction of
+      time the link is Healthy?
+    answer: >
+      $8/11 \approx 0.727$. Here $a = 0.15$ is the probability of leaving
+      Healthy and $b = 0.4$ is the probability of leaving Degraded, so the
+      one-line shortcut gives
+      $\pi_{\text{Healthy}} = \dfrac{b}{a+b} = \dfrac{0.4}{0.55} =
+      \dfrac{8}{11}$ and $\pi_{\text{Degraded}} = \dfrac{0.15}{0.55} =
+      \dfrac{3}{11}$. Rederiving from balance is the same line of algebra:
+      $0.15\,\pi_H = 0.4\,\pi_D$, so $\pi_H = \tfrac83 \pi_D$, and normalising
+      gives the same pair. The state with the smaller leaving probability
+      carries the larger weight, which is the intuition worth keeping — Healthy
+      is stickier, so the link sits there more. Two follow-ups come free: the
+      second eigenvalue is $1 - a - b = 0.45$, so deviations from equilibrium
+      shrink by that factor per step, and Degraded recurs on average every
+      $11/3 \approx 3.67$ steps.
+    expects: "8/11"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Identifies $a$ and $b$ as the two leaving probabilities and applies
+        $\pi_1 = b/(a+b)$, or derives it from the single balance equation.
+      - >
+        Gives the larger weight to the state with the smaller leaving
+        probability, and can quote $\lambda_2 = 1 - a - b$.
+    targets:
+      - quant-processes.markov-chains.weather-chain
+    exercises:
+      - quant-processes.markov-chains.stationary
+
+  # --- long-run fraction of time equals pi ------------------------------------
+
+  - id: qmc-ergodic-fraction-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two hubs and three spokes form the complete bipartite graph $K_{2,3}$:
+      each hub is joined to each spoke, with no hub-to-hub or spoke-to-spoke
+      edge. A token steps each second to a uniformly chosen neighbour. Sitting
+      on a hub costs $10$ units per second and sitting on a spoke costs
+      nothing. What is the long-run average cost per second?
+    answer: >
+      $5$ units per second. The walk is a uniform walk on a connected
+      undirected graph, so detailed balance hands over $\pi_i \propto \deg(i)$
+      with no linear system. Degrees are $3$ for each hub and $2$ for each
+      spoke, summing to $2|E| = 2 \cdot 3 + 3 \cdot 2 = 12$, so
+      $\pi = (1/4, 1/4, 1/6, 1/6, 1/6)$, which indeed sums to
+      $\tfrac12 + \tfrac12 = 1$. The ergodic theorem then gives the long-run
+      average of any function of the state as
+      $\sum_i \pi_i f(i) = 2 \cdot \tfrac14 \cdot 10 + 3 \cdot \tfrac16 \cdot 0
+      = 5$. The subtlety worth naming: this graph is bipartite, so the walk has
+      period $2$ and $P^{n}$ never converges — the token is on a hub at every
+      step of one parity and on a spoke at every step of the other. That does
+      not touch the answer, because the ergodic theorem needs only
+      irreducibility and positive recurrence, and averaging over time smooths
+      the oscillation away. Answering $10 \cdot \tfrac25 = 4$ by weighting the
+      five vertices equally ignores that a hub, with more edges pointing at it,
+      is visited more often than a spoke.
+    expects: "5"
+    rubric:
+      - >
+        Uses $\pi_i \propto \deg(i)$ with $2|E| = 12$, rather than weighting
+        the five vertices equally.
+      - >
+        Applies $\sum_i \pi_i f(i)$ and says explicitly that periodicity does
+        not obstruct it, because the theorem requires no aperiodicity.
+    targets:
+      - quant-processes.markov-chains.ergodic-fraction
+    exercises:
+      - quant-processes.markov-chains.stationary
+
+  - id: qmc-ergodic-fraction-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A production line runs Fast, Normal or Slow, and its chain is irreducible
+      and positive recurrent with stationary distribution
+      $\pi = (1/4, 1/2, 1/4)$. The line produces $8$ units per hour when Fast,
+      $2$ when Normal and none when Slow. What is the long-run average output
+      per hour?
+    answer: >
+      $3$ units per hour. The ergodic theorem says the time average of any
+      function of the state converges almost surely to its expectation under
+      $\pi$: $\frac1n \sum_{k=0}^{n-1} f(X_k) \to \sum_i \pi_i f(i)$. Here that
+      is $\tfrac14 \cdot 8 + \tfrac12 \cdot 2 + \tfrac14 \cdot 0 = 2 + 1 + 0 =
+      3$. Two things are worth saying out loud. First, the mode changes from
+      hour to hour, so the hourly outputs are dependent, yet the long-run
+      average is computed exactly as if they were independent draws from $\pi$
+      — irreducibility is doing the work independence usually does. Second,
+      averaging the three rates directly, $(8+2+0)/3 \approx 3.33$, is wrong:
+      the line spends twice as long Normal as Fast, and $\pi$ is precisely the
+      weighting that fact demands.
+    expects: "3"
+    rubric:
+      - >
+        Weights the three rates by $\pi$, not equally.
+      - >
+        Names the result as the ergodic theorem — a long-run frequency read off
+        a stationary probability.
+    targets:
+      - quant-processes.markov-chains.ergodic-fraction
+
+  - id: qmc-ergodic-fraction-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      The strong law of large numbers says that for iid $X_1, X_2, \dots$ with
+      $\mathbb{E}|X_1| < \infty$, the running average converges almost surely
+      to $\mathbb{E}[X_1]$. The ergodic theorem for Markov chains says
+      $\frac1n \sum_{k=0}^{n-1} f(X_k) \to \sum_i \pi_i f(i)$ almost surely.
+      What is the exact relationship between the two hypotheses?
+    answer: >
+      The ergodic theorem replaces independence by irreducibility together with
+      positive recurrence, and replaces the common mean by the stationary
+      average. The strong law's data are iid, so successive terms carry no
+      information about each other and the limit is the single number
+      $\mathbb{E}[X_1]$. A chain's successive states are emphatically
+      dependent — $X_{k+1}$ has the law of row $X_k$ — and what rescues the
+      almost-sure convergence is not any weakening of the dependence but a
+      structural condition: irreducibility, which stops the trajectory getting
+      stuck in a sub-region, plus positive recurrence, which keeps mean return
+      times finite. Under those, one infinite trajectory visits state $i$ a
+      fraction $\pi_i$ of the time, so the limit is $\sum_i \pi_i f(i)$: the
+      expectation of $f$ under $\pi$ rather than under any single term's law.
+      Two things are *not* part of the exchange. Aperiodicity is not required —
+      that is the hypothesis $P^{n}$ convergence needs, and time averaging
+      smooths a periodic oscillation away by itself. And the strong law is not
+      a special case of nothing: an iid sequence is exactly the chain whose
+      every row equals the common law, and then $\pi$ is that law and the two
+      statements coincide.
+    choices:
+      - text: >
+          Independence is replaced by irreducibility and positive recurrence,
+          and the common mean by the stationary average $\sum_i \pi_i f(i)$
+        correct: true
+        feedback: >
+          Exactly — dependence is not weakened, it is compensated for by
+          structure, and the limit becomes an expectation under $\pi$.
+      - text: >
+          The ergodic theorem additionally requires aperiodicity, since a
+          periodic chain never settles
+        feedback: >
+          Aperiodicity is what $(P^{n})_{ij} \to \pi_j$ needs; a time average
+          converges regardless, because it smooths the oscillation of a
+          periodic chain away.
+      - text: >
+          The two are unrelated: the strong law needs a finite mean, and a
+          Markov chain has no mean
+        feedback: >
+          An iid sequence is the Markov chain all of whose rows are equal, and
+          then $\pi$ is the common law and the ergodic theorem reduces to the
+          strong law.
+      - text: >
+          The chain version holds only in probability, not almost surely, since
+          the terms are dependent
+        feedback: >
+          The convergence is almost sure in both statements; that is the whole
+          point of calling it the strong law for dependent data.
+    rubric:
+      - >
+        Names irreducibility and positive recurrence as what substitutes for
+        independence, and $\sum_i \pi_i f(i)$ as what substitutes for the mean.
+      - >
+        States that aperiodicity is not among the hypotheses, and that the iid
+        case is the chain with identical rows.
+    targets:
+      - quant-processes.markov-chains.ergodic-fraction
+      - quant-probability.limits.slln
+    connects:
+      - "quant-probability.limits.slln ~ quant-processes.markov-chains.ergodic-fraction"
+
+  # --- mean return time is 1/pi_i ---------------------------------------------
+
+  - id: qmc-mean-return-time-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A delivery drone is at the Depot, the Warehouse or the Field. From the
+      Depot it always flies to the Field. From the Warehouse it stays with
+      probability $1/2$ and flies to the Field with probability $1/2$. From the
+      Field it flies to the Depot with probability $1/3$ and to the Warehouse
+      with probability $2/3$. On average, how many flights pass between one
+      visit to the Depot and the next?
+    answer: >
+      $8$ flights. Solve $\pi P = \pi$ first, reading down columns. The Depot
+      column has one contributor, the Field: $\pi_D = \tfrac13 \pi_F$. The
+      Warehouse column has two: $\pi_W = \tfrac12 \pi_W + \tfrac23 \pi_F$,
+      so $\tfrac12 \pi_W = \tfrac23 \pi_F$ and $\pi_W = \tfrac43 \pi_F$.
+      Normalising, $\pi_F\left(\tfrac13 + \tfrac43 + 1\right) = 1$, that is
+      $\tfrac83 \pi_F = 1$, so $\pi_F = 3/8$, $\pi_D = 1/8$ and
+      $\pi_W = 1/2$. The chain is finite and irreducible, so the mean return
+      time is $m_D = 1/\pi_D = 8$. First-step analysis confirms it and shows
+      the trap at the same time: the mean time to *hit* the Depot from the
+      Field is $7$ and from the Warehouse is $9$, solving
+      $k_F = 1 + \tfrac23 k_W$ and $k_W = 1 + \tfrac12 k_W + \tfrac12 k_F$; and
+      indeed $m_D = 1 + k_F = 1 + 7 = 8$. So $1/\pi_D$ answers the return
+      question only — quoting $8$ for "how long until the drone first reaches
+      the Depot, starting from the Warehouse" is wrong, and that answer is $9$.
+    expects: "8"
+    rubric:
+      - >
+        Solves the balance equations column by column and normalises to
+        $\pi = (1/8, 1/2, 3/8)$.
+      - >
+        Reports $1/\pi_D$ as the return time, and says explicitly that a
+        hitting time from a different state needs its own first-step system.
+    targets:
+      - quant-processes.markov-chains.mean-return-time
+    exercises:
+      - quant-processes.markov-chains.stationary
+
+  - id: qmc-mean-return-time-02
+    kind: work
+    difficulty: standard
+    statement: >
+      An irreducible positive recurrent chain spends, in the long run, a
+      fraction $2/7$ of its steps in state $D$. What is the mean number of
+      steps between successive visits to $D$?
+    answer: >
+      $7/2 = 3.5$ steps. The ergodic theorem says the long-run fraction of time
+      at $D$ is $\pi_D$, so $\pi_D = 2/7$, and the return-time identity gives
+      $m_D = 1/\pi_D = 7/2$. The heuristic behind the identity is worth
+      repeating: over $n$ steps there are about $n/m_D$ visits to $D$, and that
+      count divided by $n$ must equal the occupancy fraction $\pi_D$, forcing
+      $\pi_D m_D = 1$. Note carefully what has been answered. This is the
+      expected gap between consecutive visits to $D$, starting *from* $D$. The
+      expected time to reach $D$ for the first time starting from some other
+      state is a different quantity, computed by its own first-step system
+      exactly like an absorption time, and it is not $7/2$ in general — it can
+      be larger or smaller. The two coincide only when the starting state is
+      $D$ itself.
+    expects: "7/2"
+    rubric:
+      - >
+        Identifies the long-run fraction with $\pi_D$ and inverts it.
+      - >
+        Distinguishes the return time from $D$ to itself from the hitting time
+        starting elsewhere.
+    targets:
+      - quant-processes.markov-chains.mean-return-time
+    exercises:
+      - quant-processes.markov-chains.ergodic-fraction
+
+  # --- detailed balance and reversibility -------------------------------------
+
+  - id: qmc-detailed-balance-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Show that if a probability vector $\pi$ satisfies detailed balance
+      $\pi_i p_{ij} = \pi_j p_{ji}$ for all $i, j$, then $\pi$ is stationary.
+      Then show the converse fails, using a chain on $\{1, 2, 3\}$ that steps
+      clockwise with probability $2/3$ and anticlockwise with probability
+      $1/3$.
+    answer: >
+      For the implication, fix a state $j$ and sum the detailed-balance
+      identity over $i$:
+      $\sum_i \pi_i p_{ij} = \sum_i \pi_j p_{ji} = \pi_j \sum_i p_{ji} =
+      \pi_j$, the last step because row $j$ of $P$ sums to $1$. Since
+      $\sum_i \pi_i p_{ij}$ is the $j$-th entry of $\pi P$, this says
+      $(\pi P)_j = \pi_j$ for every $j$, that is $\pi P = \pi$: $\pi$ is
+      stationary. Note where the work happened — it is the row-sum property of
+      $P$, applied to row $j$, that converts an edge-by-edge identity into a
+      statement about total flow into $j$.
+      Now the converse. On the $3$-cycle with $p_{12} = p_{23} = p_{31} = 2/3$
+      and $p_{13} = p_{21} = p_{32} = 1/3$, every column of $P$ contains one
+      entry $2/3$ and one entry $1/3$, so the uniform
+      $\pi = (1/3, 1/3, 1/3)$ satisfies $(\pi P)_j = \tfrac13 \cdot \tfrac23 +
+      \tfrac13 \cdot \tfrac13 = \tfrac13 = \pi_j$ for every $j$: it is
+      stationary. But detailed balance fails on every edge. On the edge
+      $(1,2)$, $\pi_1 p_{12} = \tfrac13 \cdot \tfrac23 = \tfrac29$ while
+      $\pi_2 p_{21} = \tfrac13 \cdot \tfrac13 = \tfrac19$, and $2/9 \ne 1/9$;
+      the same $2 : 1$ mismatch occurs on $(2,3)$ and $(3,1)$. So stationarity
+      does not imply detailed balance. The mechanism is visible in the numbers:
+      there is a net probability current of $\tfrac29 - \tfrac19 = \tfrac19$
+      circulating around the cycle in the clockwise direction. Aggregate
+      balance holds at every state because each state receives exactly as much
+      current as it sends on, but the flow is one-way, so the chain run
+      backwards is a different chain — it circulates the other way — and the
+      chain is therefore not reversible.
+    rubric:
+      - >
+        Sums detailed balance over $i$ and uses $\sum_i p_{ji} = 1$ to land on
+        $(\pi P)_j = \pi_j$.
+      - >
+        Verifies the uniform $\pi$ is stationary for the biased cycle by
+        checking a column, then exhibits an edge where
+        $\pi_i p_{ij} \ne \pi_j p_{ji}$.
+      - >
+        Explains the failure as a net circulating current, which aggregate
+        balance cannot see but reversibility forbids.
+    targets:
+      - quant-processes.markov-chains.detailed-balance
+    exercises:
+      - quant-processes.markov-chains.stationary
+
+  - id: qmc-detailed-balance-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A queue holds $0$, $1$, $2$ or $3$ jobs. From $0$ it always moves to $1$.
+      From $1$ or $2$ it moves up one with probability $2/3$ and down one with
+      probability $1/3$. From $3$ it always moves down to $2$. What is
+      $\pi_2$, the long-run fraction of time the queue holds two jobs?
+    answer: >
+      $3/7 \approx 0.4286$. Transitions only ever move between neighbouring
+      levels, so detailed balance is available and turns a four-unknown linear
+      system into three one-line ratios. On the edge $(0,1)$:
+      $\pi_0 \cdot 1 = \pi_1 \cdot \tfrac13$, so $\pi_1 = 3\pi_0$. On $(1,2)$:
+      $\pi_1 \cdot \tfrac23 = \pi_2 \cdot \tfrac13$, so
+      $\pi_2 = 2\pi_1 = 6\pi_0$. On $(2,3)$:
+      $\pi_2 \cdot \tfrac23 = \pi_3 \cdot 1$, so
+      $\pi_3 = \tfrac23 \cdot 6\pi_0 = 4\pi_0$. Normalising,
+      $\pi_0(1 + 3 + 6 + 4) = 1$, so $\pi_0 = 1/14$ and
+      $\pi = (1/14, 3/14, 3/7, 2/7)$, giving $\pi_2 = 6/14 = 3/7$. Because
+      detailed balance implies stationarity, no check of $\pi P = \pi$ is
+      needed — though it holds, as it must. The traps are two: reading the
+      ratio the wrong way round on an edge, which inverts the whole profile and
+      puts the mass at the empty queue; and expecting $\pi_3 > \pi_2$ because
+      the chain drifts upward, when in fact the forced return from the
+      boundary state $3$ pulls its weight back below $\pi_2$.
+    expects: "3/7"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses detailed balance edge by edge on the nearest-neighbour chain
+        rather than solving the full balance system.
+      - >
+        Normalises the four unnormalised weights $1, 3, 6, 4$ and reports
+        $\pi_2 = 3/7$.
+    targets:
+      - quant-processes.markov-chains.detailed-balance
+    exercises:
+      - quant-processes.markov-chains.stationary
+
+  # --- random walk on a small graph -------------------------------------------
+
+  - id: qmc-graph-walk-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Five vertices $V, W, X, Y, Z$ form a bowtie: $V$, $W$, $X$ make one
+      triangle and $X$, $Y$, $Z$ make another, so the two triangles meet only
+      at $X$. A walk steps to a uniformly chosen neighbour each move. On
+      average, how many steps pass between successive visits to $V$?
+    answer: >
+      $6$ steps. Count degrees rather than solving anything: $V$, $W$, $Y$ and
+      $Z$ each lie in one triangle and so have degree $2$, while $X$ lies in
+      both and has degree $4$. The degrees sum to
+      $2 + 2 + 4 + 2 + 2 = 12 = 2|E|$, consistent with the six edges $VW$,
+      $WX$, $XV$, $XY$, $YZ$, $ZX$. Detailed balance gives
+      $\pi_i = \deg(i)/(2|E|)$ instantly, so
+      $\pi = (1/6, 1/6, 1/3, 1/6, 1/6)$, and the mean return time is the
+      reciprocal: $m_V = 2|E|/\deg(V) = 12/2 = 6$, against $m_X = 12/4 = 3$ for
+      the hub, which is visited twice as often and waited for half as long. The
+      normalising constant is the trap — using $|E| = 6$ instead of
+      $2|E| = 12$ halves every $\pi_i$ and doubles every return time. One
+      condition still deserves a sentence: each triangle is an odd cycle, so
+      the graph is not bipartite, the walk is aperiodic, and $P^{n}$ genuinely
+      converges to $\pi$ from any start rather than merely averaging to it.
+    expects: "6"
+    rubric:
+      - >
+        Reads $\pi_i = \deg(i)/(2|E|)$ off the degree sequence, using
+        $2|E| = 12$ and not $|E| = 6$.
+      - >
+        Inverts to $m_V = 2|E|/\deg(V) = 6$ and checks aperiodicity by naming
+        an odd cycle.
+    targets:
+      - quant-processes.markov-chains.graph-walk
+    exercises:
+      - quant-processes.markov-chains.detailed-balance
+      - quant-processes.markov-chains.mean-return-time
+
+  - id: qmc-graph-walk-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Four vertices $A, B, C, D$ are joined to each other by all six possible
+      edges, and a fifth vertex $E$ hangs off $A$ by a single edge. A walk steps
+      to a uniformly chosen neighbour. What is $\pi_A$?
+    answer: >
+      $2/7 \approx 0.2857$. The graph has $6 + 1 = 7$ edges, so
+      $2|E| = 14$; equivalently, the degrees are $\deg(A) = 4$ — three
+      neighbours inside the clique plus the pendant $E$ — and
+      $\deg(B) = \deg(C) = \deg(D) = 3$ and $\deg(E) = 1$, which sum to
+      $4 + 3 + 3 + 3 + 1 = 14$, the same number. Detailed balance for a uniform
+      neighbour walk gives $\pi_i = \deg(i)/(2|E|)$, so
+      $\pi_A = 4/14 = 2/7$, with $\pi_B = \pi_C = \pi_D = 3/14$ and
+      $\pi_E = 1/14$. The pendant is the extreme case and the memorable one: it
+      carries the least weight and takes $2|E|/\deg(E) = 14$ steps between
+      visits, whereas $A$ recurs every $14/4 = 3.5$ steps. No linear system was
+      solved, and none is needed — the walk is undirected and uniform over
+      neighbours, which is exactly the hypothesis $\pi \propto \deg$ requires.
+    expects: "2/7"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Counts $\deg(A) = 4$, including the pendant edge, and $2|E| = 14$.
+      - >
+        Applies $\pi_i = \deg(i)/(2|E|)$ and can give the mean return times as
+        the reciprocals.
+    targets:
+      - quant-processes.markov-chains.graph-walk
+    exercises:
+      - quant-processes.markov-chains.detailed-balance
+
+  # --- PageRank as a stationary distribution ----------------------------------
+
+  - id: qmc-pagerank-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A damped random surfer runs on a network of $5$ pages with damping factor
+      $d = 0.8$: with probability $d$ it follows a uniformly chosen outgoing
+      link, and with probability $1-d$ it teleports to a uniformly chosen page
+      among all $5$. Page $i$ has exactly two outgoing links, one of them to
+      page $j$. What is $p_{ij}$ in the damped chain?
+    answer: >
+      $0.44$. The two mechanisms are alternatives, so their contributions add.
+      Following a link happens with probability $d = 0.8$, and given that, page
+      $j$ is chosen with probability $1/2$ because $i$ has two outgoing links:
+      that contributes $0.8 \times 0.5 = 0.4$. Teleporting happens with
+      probability $1 - d = 0.2$, and given that, every one of the $5$ pages is
+      equally likely, including $j$: that contributes
+      $0.2 \times 1/5 = 0.04$. Hence $p_{ij} = 0.4 + 0.04 = 0.44$. Check the
+      row: the other linked page also gets $0.44$, and each of the three
+      unlinked pages gets $0.04$, for a total of $2(0.44) + 3(0.04) =
+      0.88 + 0.12 = 1$. Reporting $0.4$ and forgetting the teleport term is the
+      slip that matters most, because that $0.04$ is not a rounding detail — it
+      is what makes *every* entry of $P$ strictly positive, and strict
+      positivity is precisely what forces irreducibility and aperiodicity, and
+      hence a unique equilibrium the power iteration can reach.
+    expects: "0.44"
+    rubric:
+      - >
+        Adds the link-following term $d/(\text{out-degree})$ to the teleport
+        term $(1-d)/N$ rather than reporting only the first.
+      - >
+        Checks the row sums to $1$, and says why the small teleport term is the
+        structurally important one.
+    targets:
+      - quant-processes.markov-chains.pagerank
+
+  - id: qmc-pagerank-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A raw link graph has several dead-end pages with no outgoing links and
+      two regions with no links between them. The damped surfer chain is built
+      on it with $d = 0.85$. How many stationary distributions does the damped
+      chain have, and does $P^{n}$ converge to one?
+    answer: >
+      Exactly one, and $P^{n}$ converges to it from every start. Teleportation
+      puts probability at least $(1-d)/N$ on every ordered pair of pages, so
+      every entry of the damped $P$ is strictly positive. That single fact
+      settles both hypotheses at once. Every state reaches every other in one
+      step, so the chain is irreducible with one communicating class; and
+      $p_{ii} > 0$ for every page, so $1$ belongs to every gcd set and the
+      chain is aperiodic. Being finite it is positive recurrent, so the
+      existence-and-uniqueness theorem gives exactly one $\pi$, and the
+      convergence theorem then gives $(P^{n})_{ij} \to \pi_j$ from any start —
+      which is what makes the power iteration $\mu \mapsto \mu P$ a legitimate
+      algorithm rather than a hopeful one, with error shrinking like $d^{n}$.
+      The dead ends and the disconnected regions are exactly what would have
+      broken irreducibility on the raw graph, and the damping is not a tuning
+      knob but the repair.
+    choices:
+      - text: >
+          Exactly one, and $P^{n}$ converges to it, because every entry of the
+          damped $P$ is strictly positive
+        correct: true
+        feedback: >
+          Strict positivity implies irreducibility and aperiodicity in one
+          stroke, so both the uniqueness theorem and the convergence theorem
+          apply.
+      - text: >
+          None, because the dead-end pages make the chain reducible
+        feedback: >
+          A dead end has no outgoing links in the raw graph, but in the damped
+          chain it teleports with probability $1-d$, so it has positive
+          probability of reaching every page.
+      - text: >
+          One per disconnected region, since probability cannot flow between
+          them
+        feedback: >
+          Teleporting crosses between regions with positive probability, so the
+          damped chain has a single communicating class, not one per region.
+      - text: >
+          Exactly one, but $P^{n}$ need not converge, since the link structure
+          may be periodic
+        feedback: >
+          Every page has a positive chance of teleporting to itself, so
+          $p_{ii} > 0$ and the chain is aperiodic no matter what the link
+          structure looks like.
+    rubric:
+      - >
+        Argues from strict positivity of every entry, rather than checking
+        irreducibility and aperiodicity separately on the link graph.
+      - >
+        Answers both halves — uniqueness and convergence — and names the
+        teleport term as the repair rather than a tuning choice.
+    targets:
+      - quant-processes.markov-chains.pagerank
+    exercises:
+      - quant-processes.markov-chains.convergence-to-equilibrium
