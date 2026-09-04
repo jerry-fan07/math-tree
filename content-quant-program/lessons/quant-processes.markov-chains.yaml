@@ -69,6 +69,91 @@ lessons:
     recap: >
       The future depends on the past only through the present state — and the
       state is whatever you must define to make that literally true.
+    steps:
+      - teach: >
+          You are rarely handed a process that already satisfies the Markov
+          property. The actual interview skill is engineering it: choosing a
+          state so that knowing it makes the past irrelevant, not checking
+          whether some obvious description already has that property.
+      - teach: >
+          Formally, the current state must be a sufficient statistic for the
+          future: once $X_n$ is known, no further fact about $X_{n-1}, X_{n-2},
+          \dots$ changes the distribution of $X_{n+1}$. That collapses an
+          arbitrarily long history down to a single number.
+      - teach: >
+          When an obvious description fails, fold the missing information into
+          a bigger state. What's usually missing is some notion of recency or
+          configuration — a running total or a raw position rarely carries
+          that, while a run length or a match-progress count often does.
+      - ask: >
+          A warehouse restocks on an irregular schedule, and tomorrow's demand
+          depends only on how many days have passed since the last restock, not
+          on the calendar date. Which description is the right Markov state for
+          predicting tomorrow's stock level?
+        choices:
+          - text: >
+              The total number of restocks since the warehouse opened
+            feedback: >
+              A running total carries no information about how much time has
+              passed since the most recent restock, which is exactly what
+              demand depends on here.
+          - text: >
+              Today's stock level and the number of days since the last restock
+            correct: true
+            feedback: >
+              This is exactly the information tomorrow's demand depends on —
+              nothing further back adds anything once these two numbers are
+              known.
+          - text: >
+              The day of the week
+            feedback: >
+              The setup says demand tracks time since restock, not the weekday,
+              so this description misses the actual driver entirely.
+        feedback: >
+          "Days since last restock" is the enlarged state that restores the
+          Markov property — a raw total or a calendar fact doesn't carry the
+          information the future actually depends on.
+      - teach: >
+          Time-homogeneity is a separate, usually-assumed convenience: the
+          transition law $p_{ij}$ itself doesn't drift with $n$. Nothing in
+          this unit uses a time-varying chain, so $p_{ij}$ stays fixed
+          throughout.
+      - ask: >
+          A chain's transition probabilities $p_{ij}(n)$ genuinely depend on
+          $n$ — day-shift and night-shift traffic patterns differ, say. Does
+          the Markov property itself fail?
+        choices:
+          - text: >
+              Yes — a process whose transitions change over time cannot be
+              Markov
+            feedback: >
+              This confuses two separate properties. The Markov property is
+              about conditioning only on the present state, not about whether
+              that conditional law stays fixed over time.
+          - text: >
+              No — it can still be Markov, just not time-homogeneous
+            correct: true
+            feedback: >
+              Exactly right: Markov and time-homogeneous are independent
+              assumptions, and only the second one is being violated here.
+          - text: >
+              No, unless $p_{ij}(n)$ eventually stops changing as $n$ grows
+            feedback: >
+              Time-homogeneity requires $p_{ij}$ to be constant in $n$ from the
+              start, not merely to settle down eventually.
+        feedback: >
+          Markov and time-homogeneous are two different claims. A chain can
+          fail the second while still satisfying the first.
+      - teach: >
+          Concluding "this isn't Markov" and stopping there misses the actual
+          interview point — nearly every such process becomes Markov once the
+          state is enlarged correctly. The positive-probability caveat matters
+          too: the defining equation says nothing about a history with
+          probability $0$.
+      - teach: >
+          Carry one line out of this: the future depends on the past only
+          through the present, and the state is whatever you had to define to
+          make that literally true — engineer it before reaching for a formula.
 
   - node: quant-processes.markov-chains.transition-matrix
     hook: >
@@ -118,6 +203,62 @@ lessons:
       $P$'s row $i$ is state $i$'s next-step law; rows sum to $1$, and
       $\mu_n=\mu_0P^{n}$ generates every future distribution from the same
       fixed matrix.
+    steps:
+      - teach: >
+          $P$ packages every state's next-step law into one object, and the
+          cheapest correctness check available on any Markov setup is verifying
+          every row sums to $1$ before trusting any downstream algebra.
+      - teach: >
+          Row $i$ holds $p_{ij} = \Pr(X_{n+1} = j \mid X_n = i)$ for every $j$,
+          so entries are nonnegative and the row totals $1$ — that's what
+          "stochastic" means. Columns carry no such constraint.
+      - ask: >
+          A row of $P$ lists probabilities $0.35$ and $0.15$ to the only two
+          other reachable states, plus an unlisted probability of staying put.
+          For $P$ to be stochastic, what must that third probability equal?
+        expects: "0.5"
+        hint: >
+          A stochastic row's three entries must add to $1$.
+        feedback: >
+          $1 - 0.35 - 0.15 = 0.5$. Leaving out this kind of entry, so the row
+          sums to less than $1$, is the single most common setup error.
+      - teach: >
+          Distributions are row vectors acting on the left: $\mu_{n+1} = \mu_n
+          P$, because the $j$-th entry of $\mu_n P$ is $\sum_i \mu_n(i) p_{ij}$
+          — total probability applied one step ahead. Iterating gives $\mu_n =
+          \mu_0 P^{n}$.
+      - ask: >
+          A fleet of devices is $40\%$ Connected and $60\%$ Disconnected. From
+          Connected, the next check finds Connected with probability $0.85$ and
+          Disconnected with probability $0.15$; from Disconnected, it finds
+          Connected with probability $0.6$ and Disconnected with probability
+          $0.4$. What fraction is Connected after one check?
+        expects: "0.7"
+        hint: >
+          Compute $\mu_1 = \mu_0 P$ using $\mu_0 = (0.4, 0.6)$.
+        feedback: >
+          $0.4 \times 0.85 + 0.6 \times 0.6 = 0.34 + 0.36 = 0.7$.
+      - teach: >
+          The same fixed matrix generates every future step: $\mu_2 = \mu_1 P$,
+          $\mu_3 = \mu_2 P$, and so on, all built from the one $P$ you wrote
+          down. Writing rows out in words first ("from $i$, go to $j$ with
+          probability ...") before touching notation is what keeps this algebra
+          error-free.
+      - ask: >
+          Continuing the device fleet from $\mu_1 = (0.7, 0.3)$, what fraction
+          is Connected after the second check?
+        expects: "0.775"
+        hint: >
+          Compute $\mu_2 = \mu_1 P$ using the same two rows.
+        feedback: >
+          $0.7 \times 0.85 + 0.3 \times 0.6 = 0.595 + 0.18 = 0.775$.
+      - teach: >
+          Writing probabilities as columns instead of rows silently transposes
+          the whole problem — always check that rows, not columns, sum to $1$.
+      - teach: >
+          $P$'s row $i$ is state $i$'s next-step law; rows sum to $1$, and the
+          single fixed matrix $P$ generates $\mu_1, \mu_2, \dots$ by repeated
+          left multiplication.
 
   - node: quant-processes.markov-chains.chapman-kolmogorov
     hook: >
@@ -165,6 +306,81 @@ lessons:
       $n$-step probabilities are entries of $P^n$ because matrix
       multiplication is exactly the law of total probability applied at an
       intermediate time.
+    steps:
+      - teach: >
+          Whenever a question wants the probability of landing in state $j$
+          after a specific number of steps, this identity turns that into a
+          matrix power instead of a fresh case-by-case recursion.
+      - teach: >
+          To go from $i$ to $j$ in $m+n$ steps the chain occupies some midpoint
+          state $k$, and the Markov property lets the two legs multiply
+          independently: summing over every possible $k$ gives $p^{(m+n)}_{ij}
+          = \sum_k p^{(m)}_{ik} p^{(n)}_{kj}$ — total probability applied at
+          one intermediate time.
+      - ask: >
+          A weather chain has rows Sunny $= (0.7, 0.3)$ and Rainy $= (0.4,
+          0.6)$. Starting Sunny, what is $p^{(2)}_{SR}$, the probability of
+          Rainy two steps out, computed by summing over the midpoint state?
+        expects: "0.39"
+        hint: >
+          Sum $p_{SS} p_{SR} + p_{SR} p_{RR}$ over the two possible midpoint
+          states.
+        feedback: >
+          $p_{SS} p_{SR} + p_{SR} p_{RR} = 0.7 \times 0.3 + 0.3 \times 0.6 =
+          0.21 + 0.18 = 0.39$.
+      - teach: >
+          That sum is, symbol for symbol, matrix multiplication, so $n$-step
+          probabilities are nothing but entries of $P^{n}$, with $P^{0} = I$
+          recording that zero steps leaves you exactly where you started.
+      - ask: >
+          For the same weather chain, what is $p^{(2)}_{SS}$, computed directly
+          as an entry of $P^{2}$?
+        expects: "0.61"
+        hint: >
+          Sum $p_{SS} p_{SS} + p_{SR} p_{RS}$.
+        feedback: >
+          $0.7 \times 0.7 + 0.3 \times 0.4 = 0.49 + 0.12 = 0.61$, and since row
+          $S$ of $P^{2}$ must sum to $1$, this forces $p^{(2)}_{SR} = 0.39$ —
+          matching the midpoint-sum computation exactly.
+      - teach: >
+          A useful corollary follows immediately: if $i$ can reach some $k$ in
+          $m$ steps with positive probability, and $k$ can reach $j$ in $n$
+          steps with positive probability, then $i$ can reach $j$ in $m+n$
+          steps with positive probability.
+      - ask: >
+          Suppose $p^{(3)}_{ik} > 0$ and $p^{(2)}_{kj} > 0$ for some state $k$.
+          What does this let you conclude about $p^{(5)}_{ij}$?
+        choices:
+          - text: >
+              It equals $p^{(3)}_{ik} \times p^{(2)}_{kj}$ exactly
+            feedback: >
+              $p^{(5)}_{ij}$ is a sum over every possible midpoint state, not
+              just $k$, so this term is only one contribution to it, not the
+              whole value.
+          - text: >
+              It is positive
+            correct: true
+            feedback: >
+              The midpoint sum $p^{(5)}_{ij} = \sum_l p^{(3)}_{il}
+              p^{(2)}_{lj}$ has at least one positive term (from $l = k$), and
+              every term is nonnegative, so the whole sum is positive.
+          - text: >
+              It is zero
+            feedback: >
+              A positive term inside a sum of nonnegative terms cannot leave
+              the sum at zero.
+        feedback: >
+          Reachability composes as a positivity statement, via the sum having
+          at least one positive term — not as an equality between
+          $p^{(5)}_{ij}$ and any single path's probability.
+      - teach: >
+          Forgetting $P^{0} = I$ causes off-by-one errors on "$n$ steps from
+          now" versus "after the $n$-th transition," and summing over the wrong
+          index silently computes a transposed product instead of $P^{m+n}$.
+      - teach: >
+          $n$-step probabilities are entries of $P^{n}$ because matrix
+          multiplication is exactly total probability applied at an
+          intermediate time.
 
   - node: quant-processes.markov-chains.matrix-powers
     hook: >
@@ -217,6 +433,74 @@ lessons:
       Diagonalizing $P$ turns $P^n$ into a combination of $\lambda^n$ terms,
       with the guaranteed eigenvalue $1$ giving the limit and the
       second-largest $|\lambda_2|$ setting the speed of approach.
+    steps:
+      - teach: >
+          When a problem wants $P^{n}$ as a formula in $n$, not a number for
+          one fixed $n$, diagonalizing $P$ is the route that avoids multiplying
+          matrices by hand $n$ times.
+      - teach: >
+          Writing $P = VDV^{-1}$ with $D$ diagonal gives $P^{n} =
+          VD^{n}V^{-1}$, so every entry of $P^{n}$ is a fixed linear
+          combination of $\lambda_1^{n}, \dots, \lambda_m^{n}$ whose
+          coefficients don't depend on $n$.
+      - ask: >
+          Which statement about the eigenvalues of any stochastic matrix $P$ is
+          always true?
+        choices:
+          - text: >
+              $\lambda = 1$ is always an eigenvalue, and every eigenvalue
+              satisfies $|\lambda| \le 1$
+            correct: true
+            feedback: >
+              The all-ones vector is a right eigenvector for $\lambda = 1$
+              since every row sums to $1$, and no eigenvalue can exceed modulus
+              $1$ for a stochastic matrix.
+          - text: >
+              All eigenvalues are strictly less than $1$
+            feedback: >
+              This directly contradicts the guaranteed eigenvalue $1$ that
+              every stochastic matrix carries.
+          - text: >
+              The eigenvalues are always real and positive
+            feedback: >
+              Eigenvalues can be negative (producing an oscillating approach)
+              or complex — only the modulus is bounded by $1$.
+        feedback: >
+          Every stochastic matrix has $\lambda = 1$ guaranteed and every
+          eigenvalue satisfies $|\lambda| \le 1$; nothing else about sign or
+          realness is guaranteed.
+      - teach: >
+          For a two-state chain with rows $(1-a, a)$ and $(b, 1-b)$, the
+          eigenvalues are always $1$ and $1 - a - b$. The mental model: the
+          second-largest eigenvalue $\lambda_2$ sets the clock for how fast the
+          chain forgets its start.
+      - ask: >
+          A two-state chain has rows $(0.7, 0.3)$ and $(0.2, 0.8)$. What is the
+          second eigenvalue $\lambda_2 = 1 - a - b$?
+        expects: "0.5"
+        hint: >
+          Here $a = 0.3$ is the row-$1$ leaving probability and $b = 0.2$ is
+          the row-$2$ leaving probability.
+        feedback: >
+          $1 - 0.3 - 0.2 = 0.5$.
+      - ask: >
+          Using $\lambda_2 = 0.5$, by roughly what factor has an initial
+          deviation from equilibrium shrunk after $3$ steps?
+        expects: "0.125"
+        hint: >
+          The deviation after $n$ steps scales like $|\lambda_2|^{n}$.
+        feedback: >
+          $0.5^{3} = 0.125$ — the chain is already within about an eighth of
+          its starting deviation after just three steps.
+      - teach: >
+          A complex or negative $\lambda_2$ makes the approach to equilibrium
+          oscillate rather than settle monotonically, and $\lambda = 1$ is
+          guaranteed for every stochastic matrix — there's no need to hunt for
+          it as if it might be absent.
+      - teach: >
+          Diagonalizing $P$ turns $P^{n}$ into a combination of $\lambda^{n}$
+          terms, with the guaranteed eigenvalue $1$ giving the limit and
+          $|\lambda_2|$ setting the speed of approach to it.
 
   - node: quant-processes.markov-chains.communicating-classes
     hook: >
@@ -269,6 +553,95 @@ lessons:
       States split into communicating classes by mutual reachability; a
       chain with more than one class is never irreducible, and a closed
       class of size one is an absorbing state.
+    steps:
+      - teach: >
+          Before writing any first-step equations, sort the states into classes
+          — the whole shape of the problem, one absorption computation versus a
+          system for equilibrium, follows from how many classes there are and
+          which are closed.
+      - teach: >
+          Accessibility ($i \to j$ if some $p^{(n)}_{ij} > 0$) is
+          one-directional; communication needs it both ways, and communication
+          is an equivalence relation, so the state space always splits cleanly
+          into disjoint communicating classes.
+      - teach: >
+          A class is closed if no transition ever leaves it, and a closed class
+          of size one is an absorbing state. Irreducibility is the single-class
+          case: every state reaches every other, with nowhere to get
+          permanently trapped.
+      - ask: >
+          A chain has states $A, B, C, D, E, F$ with transitions $A \to B$, $B
+          \to A$, $B \to C$, $C \to C$, and $D \to E$, $E \to F$, $F \to D$.
+          How many communicating classes does this chain have in total?
+        expects: "3"
+        hint: >
+          Find every pair of mutually-reachable states first, then count the
+          resulting groups.
+        feedback: >
+          Three: $\{A, B\}$ (mutual, but not closed since $B \to C$ escapes
+          it), $\{C\}$ (absorbing, a closed class of size one), and $\{D, E,
+          F\}$ (a closed cycle, since no transition leaves it).
+      - ask: >
+          In that same chain, is $\{A, B\}$ a closed class?
+        choices:
+          - text: >
+              Yes, because $A$ and $B$ communicate
+            feedback: >
+              Communicating is not the same as closed — closure requires that
+              no outgoing transition leaves the set at all.
+          - text: >
+              No, because $B \to C$ leaves the set
+            correct: true
+            feedback: >
+              Exactly: a single outgoing edge, from $B$ to $C$, is enough to
+              make the class not closed, no matter how tightly $A$ and $B$
+              communicate with each other.
+          - text: >
+              No, because $A$ and $B$ don't actually communicate
+            feedback: >
+              They do — $A \to B$ and $B \to A$ both hold directly, so this
+              pair communicates by definition.
+        feedback: >
+          Checking closure means checking every outgoing transition from every
+          state in the set, not just whether the states inside it communicate
+          with each other.
+      - teach: >
+          This classification is the fork in the road for the rest of the unit:
+          a chain with a closed proper subset, especially an absorbing state,
+          supports genuine absorption questions, while an irreducible chain has
+          nowhere to get trapped and is instead the setting for equilibrium
+          questions.
+      - ask: >
+          A chain has at least one absorbing state. Can that chain be
+          irreducible?
+        choices:
+          - text: >
+              No
+            correct: true
+            feedback: >
+              An absorbing state is a closed class of size one. Any closed
+              class smaller than the whole state space is a second class, so
+              the chain has more than one class and cannot be irreducible.
+          - text: >
+              Yes, as long as the absorbing state is reachable from every other
+              state
+            feedback: >
+              Reachability into the absorbing state doesn't help — the
+              absorbing state itself cannot reach anything else, which is
+              exactly what blocks irreducibility.
+        feedback: >
+          An absorbing state is a closed class of size one, so it is always a
+          second class alongside the rest of the chain — irreducible and "has
+          an absorbing state" are mutually exclusive.
+      - teach: >
+          Calling a class "closed" without checking every outgoing transition
+          misses classes that leak through a single low-probability edge, and
+          treating one-directional accessibility as communication merges states
+          that don't belong together.
+      - teach: >
+          States split into communicating classes by mutual reachability; a
+          chain with more than one class is never irreducible, and a closed
+          class of size one is an absorbing state.
 
   - node: quant-processes.markov-chains.classification
     hook: >
@@ -322,6 +695,72 @@ lessons:
       Recurrent means $f_i=1$ (infinitely many visits, certain); transient
       means $f_i<1$ (geometric visits, mean $1/(1-f_i)$); and recurrence,
       positive recurrence and period are shared by every state in a class.
+    steps:
+      - teach: >
+          "Is state $i$ recurrent?" wants the quantitative handle $f_i = 1$, or
+          the divergence of $\sum_n p^{(n)}_{ii}$, not an intuition about
+          whether the chain "tends to come back."
+      - teach: >
+          $f_i$ is the probability of ever returning to $i$ having started
+          there. When $f_i = 1$, the chain returns infinitely often with
+          probability $1$ (recurrent); when $f_i < 1$, the number of visits is
+          geometric with finite mean $1/(1-f_i)$ (transient).
+      - teach: >
+          The equivalent series test — $i$ is recurrent iff $\sum_{n \ge 1}
+          p^{(n)}_{ii} = \infty$ — is often easier to check directly than
+          computing $f_i$, especially on infinite state spaces like random
+          walks.
+      - ask: >
+          State $X$ transitions to itself with probability $0.25$ and to an
+          absorbing state $Y$ with probability $0.75$. What is $f_X$?
+        expects: "0.25"
+        hint: >
+          Once the chain leaves to the absorbing state, it can never return to
+          $X$.
+        feedback: >
+          The only way to return to $X$ is to stay there on the very first
+          step, so $f_X = \Pr(\text{stay}) = 0.25 < 1$: $X$ is transient.
+      - ask: >
+          For that same state $X$, what is the expected total number of visits,
+          including the starting visit?
+        expects: "4/3"
+        tolerance: 0.0005
+        hint: >
+          Use $1/(1-f_X)$.
+        feedback: >
+          $1/(1-0.25) = 1/0.75 = 4/3 \approx 1.333$.
+      - teach: >
+          Recurrence, positive recurrence, and period are all class properties,
+          shared by every state in a communicating class. On a finite chain,
+          every closed class is automatically positive recurrent, so null
+          recurrence cannot occur at all.
+      - ask: >
+          On a finite chain, can a state be null recurrent?
+        choices:
+          - text: >
+              No
+            correct: true
+            feedback: >
+              Null recurrence needs an infinite state space to spread the mean
+              return time out to infinity. Every closed class of a finite chain
+              is automatically positive recurrent.
+          - text: >
+              Yes, as long as the chain has enough states
+            feedback: >
+              No finite number of states is enough — null recurrence is
+              specifically an infinite-state-space phenomenon.
+        feedback: >
+          Finiteness alone rules out null recurrence: a closed class with
+          finitely many states cannot have an infinite mean return time.
+      - teach: >
+          Computing $f_i$ as the probability of returning on the very next step
+          alone, rather than ever, undercounts it whenever multi-step return
+          paths exist — and $f_i = 1$ alone doesn't guarantee positive
+          recurrence on an infinite state space.
+      - teach: >
+          Recurrent means $f_i = 1$; transient means $f_i < 1$ with mean
+          $1/(1-f_i)$ visits; and recurrence, positive recurrence, and period
+          are shared by every state in a class.
 
   - node: quant-processes.markov-chains.periodicity
     hook: >
@@ -371,6 +810,82 @@ lessons:
       Period is the gcd of return-path lengths; a self-loop or two coprime
       cycle lengths force aperiodicity, while bipartite structure — the case
       that keeps appearing — forces period $2$.
+    steps:
+      - teach: >
+          A chain with period $2$ is the specific trap behind "why doesn't
+          $P^{n}$ converge here" — recognizing bipartite structure on sight
+          saves you from debugging a correct computation that simply has no
+          limit.
+      - teach: >
+          The period $d(i) = \gcd\{n \ge 1 : p^{(n)}_{ii} > 0\}$ measures the
+          common divisor of every return-path length to $i$. Since period is a
+          class property, an irreducible chain has one period shared by every
+          state, and $d = 1$ is the aperiodic case where $P^{n}$ can actually
+          converge.
+      - teach: >
+          Two cheap tests: a self-loop anywhere forces $d = 1$ immediately,
+          since $1$ itself joins the gcd set; and two return paths of coprime
+          lengths through the same state do the same without any self-loop.
+      - ask: >
+          A state $i$ in an irreducible chain has $p_{ii} = 0.3 > 0$. What is
+          the period $d(i)$?
+        expects: "1"
+        hint: >
+          A self-loop is a return path of length $1$.
+        feedback: >
+          A return of length $1$ puts $1$ in the gcd set, and $\gcd$ of any set
+          containing $1$ is $1$ — so $d(i) = 1$, and since period is a class
+          property this forces the whole class aperiodic.
+      - ask: >
+          A state lies on both a length-$3$ and a length-$4$ return path, with
+          no shorter return possible. What is its period?
+        expects: "1"
+        hint: >
+          Compute $\gcd(3, 4)$.
+        feedback: >
+          $\gcd(3, 4) = 1$, since consecutive integers share no common factor
+          larger than $1$.
+      - teach: >
+          Bipartite structure is the mechanism behind essentially every
+          period-$2$ chain in interviews: split states into two sides so every
+          transition crosses sides, and a return to your starting side is only
+          possible after an even number of steps.
+      - ask: >
+          A random walk on a hexagon (a $6$-cycle) steps to a uniformly chosen
+          neighbor each move. What is the period of every state?
+        choices:
+          - text: >
+              $1$
+            feedback: >
+              That would need a self-loop or an odd return path somewhere, and
+              a pure even cycle has neither.
+          - text: >
+              $2$
+            correct: true
+            feedback: >
+              From any vertex, two neighbors both lead back in exactly $2$
+              steps (there-and-back along either edge), and every return takes
+              an even number of steps, so $d = \gcd\{2, 4, 6, \dots\} = 2$.
+          - text: >
+              $6$
+            feedback: >
+              That's the cycle length, not the gcd of all possible return
+              lengths — a $2$-step return already exists, well short of going
+              all the way around.
+        feedback: >
+          Every even cycle gives period $2$: the bipartition forces every
+          return to take an even number of steps, and $2$-step returns already
+          exist.
+      - teach: >
+          Checking only $p_{ii}$ for one small $n$ and declaring a state
+          periodic misses that a self-loop elsewhere in the same class already
+          forces aperiodicity for the whole class, this state included.
+          Irreducibility alone doesn't guarantee convergence — periodicity is a
+          separate condition.
+      - teach: >
+          Period is the gcd of return-path lengths; a self-loop or two coprime
+          cycle lengths force aperiodicity, while bipartite structure forces
+          period $2$.
 
   - node: quant-processes.markov-chains.absorption
     hook: >
@@ -419,6 +934,75 @@ lessons:
       One equation $h_i=\sum_jp_{ij}h_j$ per transient state, with $h=1$ at
       the target absorbing state and $h=0$ at every other, solved as
       ordinary linear algebra.
+    steps:
+      - teach: >
+          "Which absorbing state does this end in?" is answered by one linear
+          equation per transient state, obtained by conditioning on the very
+          next step — not by simulating or summing an infinite series of paths.
+      - teach: >
+          Fix the target absorbing state $a$ and set $h_i = \Pr(\text{absorbed
+          at } a \mid X_0 = i)$. First-step analysis gives $h_i = \sum_j p_{ij}
+          h_j$, with $h_a = 1$ and $h_b = 0$ at every other absorbing state.
+      - teach: >
+          On a finite chain where every transient state can reach absorption,
+          this system has a unique solution. The practical recipe: one unknown
+          per transient state, merged using every symmetry available, then
+          solved by substitution.
+      - ask: >
+          A counter on $\{0, 1, 2, 3\}$ absorbs at $0$ and $3$. From $1$ it
+          moves to $0$ or $2$, each with probability $0.5$; from $2$ it moves
+          to $1$ with probability $0.25$ and to $3$ with probability $0.75$.
+          What boundary values must $h_i = \Pr(\text{absorbed at } 3 \mid X_0 =
+          i)$ satisfy?
+        choices:
+          - text: >
+              $h_0 = 0$ and $h_3 = 1$
+            correct: true
+            feedback: >
+              Right: $h$ equals $1$ at the target absorbing state and $0$ at
+              every other absorbing state, since once absorbed there's no
+              escaping.
+          - text: >
+              $h_0 = 1$ and $h_3 = 0$
+            feedback: >
+              This is reversed — the target absorbing state gets $h = 1$, and
+              $3$ is the target here, not $0$.
+          - text: >
+              $h_0 = h_3 = 0.5$
+            feedback: >
+              Absorbing states have deterministic outcomes once reached, not a
+              coin-flip probability.
+        feedback: >
+          $h_0 = 0$ and $h_3 = 1$ are the boundary values; the two transient
+          states $1$ and $2$ are what the linear system actually solves for.
+      - ask: >
+          Using that same setup, what is $h_1$?
+        expects: "3/7"
+        tolerance: 0.0005
+        hint: >
+          Write $h_1 = 0.5 h_2$ and $h_2 = 0.25 h_1 + 0.75$, then substitute.
+        feedback: >
+          $h_1 = 0.5 h_2$ and $h_2 = 0.25 h_1 + 0.75$, so $h_1 = 0.5(0.25 h_1 +
+          0.75) = 0.125 h_1 + 0.375$, giving $h_1 = 0.375 / 0.875 = 3/7 \approx
+          0.429$.
+      - ask: >
+          What is $h_2$?
+        expects: "6/7"
+        tolerance: 0.0005
+        hint: >
+          Use $h_2 = 2 h_1$, which follows from $h_1 = 0.5 h_2$.
+        feedback: >
+          $h_1 = 0.5 h_2$ gives $h_2 = 2 h_1 = 2 \times 3/7 = 6/7 \approx
+          0.857$.
+      - teach: >
+          Forgetting to set $h = 0$ at every other absorbing state, not just
+          the ones that seem relevant, leaves the system under-determined — and
+          it's worth confirming every transient state can actually reach
+          absorption before trusting the answer as a genuine probability.
+      - teach: >
+          One equation $h_i = \sum_j p_{ij} h_j$ per transient state, with $h =
+          1$ at the target and $h = 0$ at every other absorbing state, solved
+          as ordinary linear algebra.
 
   - node: quant-processes.markov-chains.tennis-deuce
     hook: >
@@ -470,6 +1054,80 @@ lessons:
     recap: >
       Deuce reduces to $h=p^2+2pq\,h$, giving $h=p^2/(p^2+q^2)$ — about
       $60\%$ at $p=0.55$, and $69\%$ at $p=0.6$.
+    steps:
+      - teach: >
+          Deuce looks like it could spiral into an infinite rally of
+          advantage-back-to- deuce swings, but first-step analysis collapses it
+          to three unknowns because every un-ended trip through advantage lands
+          back at exactly the same state, $D$.
+      - teach: >
+          Writing $h = \Pr(\text{win} \mid D)$ and applying first-step analysis
+          twice — once from $D$, once from the advantage states — collapses to
+          a single self-referential equation: $h = p^{2} + 2pq\,h$.
+      - ask: >
+          Why does the equation use $2pq\,h$ rather than treating "the position
+          after one split of the next two points" as a brand-new unknown?
+        choices:
+          - text: >
+              Because any split of the next two points returns exactly to
+              deuce, and from there the problem is identical to the original
+              one, so it's again $h$
+            correct: true
+            feedback: >
+              Exactly — the position after such a split has no memory of how
+              many times this has already happened, so its win probability is
+              the same $h$ you started with.
+          - text: >
+              Because $2pq$ is the probability of losing outright
+            feedback: >
+              $2pq$ is the probability of a split that returns to deuce, not
+              the probability of losing — losing outright is the separate term
+              $q^{2}$, which doesn't appear here since it contributes $0$ to
+              $h$.
+          - text: >
+              Because deuce can only be revisited a bounded number of times
+            feedback: >
+              Deuce can recur indefinitely — the self-referential equation is
+              exactly what lets you avoid tracking how many times, rather than
+              assuming a bound.
+        feedback: >
+          A split returning to deuce is a genuine restart of the identical
+          problem, which is what licenses writing $h$ again on the right-hand
+          side instead of a fresh unknown.
+      - teach: >
+          Solving $h = p^{2} + 2pq\,h$ gives the closed form $h =
+          p^{2}/(p^{2}+q^{2})$ — a ratio of two rates, worth reading rather
+          than memorizing: winning from deuce is a race between reaching a
+          two-point lead as one side versus the other.
+      - ask: >
+          At $p = 0.65$, what is $h$, the probability of winning from deuce?
+        expects: "169/218"
+        tolerance: 0.0005
+        hint: >
+          Compute $p^{2}$ and $q^{2}$ with $q = 0.35$, then form
+          $p^{2}/(p^{2}+q^{2})$.
+        feedback: >
+          $p^{2} = 0.4225$, $q^{2} = 0.1225$, so $h = 0.4225/0.545 = 169/218
+          \approx 0.775$. A $65\%$ point-winner converts deuce almost $78\%$ of
+          the time.
+      - ask: >
+          As a sanity check, what does the formula give for $h$ at a perfectly
+          fair game, $p = q = 0.5$?
+        expects: "0.5"
+        hint: >
+          Compute $p^{2}/(p^{2}+q^{2})$ with $p = q = 0.5$.
+        feedback: >
+          $0.25/(0.25+0.25) = 0.5$ — with no per-point edge, deuce is a coin
+          flip, exactly as it should be.
+      - teach: >
+          Trying to sum an infinite series over every possible number of
+          oscillations wastes time the self-referential equation avoids
+          entirely, and reporting $h = p^{2}$ alone — forgetting the $2pq\,h$
+          term — drops most of the probability mass.
+      - teach: >
+          Deuce reduces to $h = p^{2} + 2pq\,h$, giving $h =
+          p^{2}/(p^{2}+q^{2})$ — about $78\%$ at $p = 0.65$, and $60\%$ at $p =
+          0.55$.
 
   - node: quant-processes.markov-chains.absorption-time
     hook: >
@@ -519,6 +1177,75 @@ lessons:
       $k_i=1+\sum_jp_{ij}k_j$ for transient $i$, with $k=0$ at absorption —
       the same system as for absorption probabilities, plus the $+1$ that
       accounts for the step just taken.
+    steps:
+      - teach: >
+          Every first-step expectation equation needs a $+1$ that the
+          corresponding probability equation doesn't. Forgetting it is the
+          single most common way to turn a correct absorption-probability setup
+          into a wrong expected-time one.
+      - teach: >
+          With $k_i$ the expected steps to absorption from $i$, conditioning on
+          the next step costs exactly one unit of time regardless of where it
+          lands: $k_i = 1 + \sum_{j \text{ transient}} p_{ij} k_j$, with $k_a =
+          0$ at every absorbing state.
+      - teach: >
+          The resemblance to the absorption-probability system is deliberate:
+          same states, same transition coefficients — only the constant term
+          and the boundary values change.
+      - ask: >
+          Which change turns the absorption-probability system for a chain into
+          its absorption-time system?
+        choices:
+          - text: >
+              Replace the boundary values $h_a = 1, h_b = 0$ with $k_a = 0$ at
+              every absorbing state, and add $+1$ to the right side of each
+              equation
+            correct: true
+            feedback: >
+              Right — the coefficients $p_{ij}$ stay exactly the same; only the
+              constant term and the boundary values differ.
+          - text: >
+              Multiply every transition probability by the number of steps
+            feedback: >
+              The transition probabilities themselves are untouched — only the
+              constant term added on the right side changes.
+          - text: >
+              Nothing changes; the same numbers answer both questions
+            feedback: >
+              The two questions have different units entirely — a probability
+              between $0$ and $1$ versus an expected count of steps — so the
+              same numbers can't answer both.
+        feedback: >
+          Same coefficients, different constant and boundary values: $+1$ on
+          the right for the cost of the step just taken, and $k = 0$, not $1$,
+          at every absorbing state.
+      - ask: >
+          A fair walk on $\{0, 1, 2, 3, 4\}$ absorbs at $0$ and $4$, moving to
+          each neighbor with probability $0.5$. What is $k_1$, the expected
+          number of steps to absorption starting from $1$?
+        expects: "3"
+        hint: >
+          By symmetry $k_1 = k_3$; write $k_1 = 1 + 0.5 k_2$ and $k_2 = 1 +
+          k_1$.
+        feedback: >
+          By symmetry $k_1 = k_3 = x$ and $k_2 = y$. Then $x = 1 + 0.5y$ and $y
+          = 1 + x$. Substituting, $x = 1 + 0.5(1+x) = 1.5 + 0.5x$, so $x = 3$.
+      - ask: >
+          What is $k_2$?
+        expects: "4"
+        hint: >
+          Use $k_2 = 1 + k_1$ with $k_1 = 3$.
+        feedback: >
+          $k_2 = 1 + k_1 = 1 + 3 = 4$.
+      - teach: >
+          Dropping the $+1$ collapses the equation to the probability-style
+          form and produces a number with the wrong units, and including
+          absorbing states in the sum $\sum_j p_{ij} k_j$ double-counts time
+          that was never spent.
+      - teach: >
+          $k_i = 1 + \sum_j p_{ij} k_j$ for transient $i$, with $k = 0$ at
+          absorption — the same system as for absorption probabilities, plus
+          the $+1$ for the step just taken.
 
   - node: quant-processes.markov-chains.mouse-maze
     hook: >
@@ -567,6 +1294,70 @@ lessons:
       One first-step equation per room, with a dead end contributing
       $k=1+k_{\text{previous}}$ — here $10/3$, $8/3$, and $13/3$ steps from
       $X$, $Y$, $Z$ respectively.
+    steps:
+      - teach: >
+          This is absorption-time technique applied to a maze with a genuine
+          dead end, and the dead end should make you expect a larger answer
+          than a naive average of the room count.
+      - teach: >
+          Translate "uniformly among the doors of the current room" directly
+          into transition probabilities per room, and treat a dead end as a
+          room whose single door sends the mouse back the way it came with
+          probability $1$ — still a full step.
+      - teach: >
+          Back-substitution is the efficient solving order: express the room
+          closest to being fully determined — often a dead end, since it
+          depends on only one other room — in terms of the others, then
+          substitute inward.
+      - ask: >
+          A maze has room $A$ with four doors — to $B$, to $C$, to $D$, and to
+          the exit, each with probability $1/4$. Room $D$ has two doors, back
+          to $A$ and to the exit, each with probability $1/2$. Rooms $B$ and
+          $C$ are both dead ends whose single door returns to $A$. What is
+          $k_A$, the expected number of minutes to exit starting from $A$?
+        expects: "14/3"
+        tolerance: 0.0005
+        hint: >
+          Write $k_B = k_C = 1 + k_A$ and $k_D = 1 + 0.5 k_A$, then substitute
+          all three into $k_A$'s own equation.
+        feedback: >
+          $k_A = 1 + \tfrac14 k_B + \tfrac14 k_C + \tfrac14 k_D$ with $k_B =
+          k_C = 1+k_A$ and $k_D = 1+0.5k_A$ gives $k_A = 1 + \tfrac34(1+k_A) +
+          \tfrac14(1+0.5k_A) = \tfrac74 + \tfrac58 k_A$, so $k_A = 14/3 \approx
+          4.667$.
+      - ask: >
+          What is $k_B$, starting from the dead end $B$?
+        expects: "17/3"
+        tolerance: 0.0005
+        hint: >
+          Use $k_B = 1 + k_A$ with $k_A = 14/3$.
+        feedback: >
+          $k_B = 1 + 14/3 = 17/3 \approx 5.667$ — one full wasted round trip on
+          top of $k_A$, exactly the dead-end cost.
+      - ask: >
+          What is $k_D$, starting from the two-door room $D$?
+        expects: "10/3"
+        tolerance: 0.0005
+        hint: >
+          Use $k_D = 1 + 0.5 k_A$ with $k_A = 14/3$.
+        feedback: >
+          $k_D = 1 + 0.5 \times 14/3 = 1 + 7/3 = 10/3 \approx 3.333$ — the
+          smallest of the three, since $D$ reaches the exit directly half the
+          time.
+      - teach: >
+          Every visit to a dead end is a wasted round trip — one step in, one
+          step back, with nothing gained — so a maze with a dead end always
+          takes strictly longer to escape than the same maze with that dead end
+          replaced by a direct path.
+      - teach: >
+          Giving a dead end the same multi-exit treatment as a normal room
+          misstates its whole contribution, and solving the system in an
+          arbitrary order instead of starting from the most-determined room
+          makes the algebra needlessly tangled.
+      - teach: >
+          One first-step equation per room, with a dead end contributing $k = 1
+          + k_{\text{previous}}$ — here $14/3$, $17/3$, and $10/3$ minutes from
+          $A$, $B$, and $D$ respectively.
 
   - node: quant-processes.markov-chains.drunkard-path
     hook: >
@@ -623,6 +1414,81 @@ lessons:
       singletons, with certain absorption guaranteed by a positive-probability
       straight-line path to a barrier — the ruin formulas belong to a
       different unit.
+    steps:
+      - teach: >
+          Before reaching for gambler's-ruin formulas, confirm the chain
+          actually has the absorbing structure those formulas assume — the same
+          first-step system looks completely different on a chain that never
+          gets absorbed.
+      - teach: >
+          Reading the two-barrier walk as a Markov chain exposes its class
+          structure directly: $\{0\}$ and $\{N\}$ are each closed classes of
+          size one, and $\{1, \dots, N-1\}$ is the one remaining class, not
+          closed since every interior state can eventually reach a barrier.
+      - teach: >
+          Certainty of absorption follows from a bound, not from solving
+          anything: any interior state has a path of length at most $N$
+          straight to a barrier, with some fixed positive probability.
+          Repeating that positive floor forces the probability of never being
+          absorbed down to $0$.
+      - ask: >
+          On $\{0, \dots, 6\}$ with $p = 0.6$, $q = 0.4$, starting at the
+          middle state $3$: what is a floor on $\Pr(\text{absorbed within 3
+          steps} \mid X_0 = 3)$, using only the two straight-line paths to a
+          barrier?
+        expects: "0.28"
+        hint: >
+          Three consecutive up-steps reach $6$; three consecutive down-steps
+          reach $0$. These are disjoint events.
+        feedback: >
+          $p^{3} + q^{3} = 0.6^{3} + 0.4^{3} = 0.216 + 0.064 = 0.28$.
+      - ask: >
+          What does a bound like this one actually establish?
+        choices:
+          - text: >
+              A concrete lower bound on the probability of absorption within
+              that many steps, whose repetition forces eventual absorption to
+              be certain
+            correct: true
+            feedback: >
+              Right — it's a floor on a bounded horizon, and repeating that
+              same positive floor at every later opportunity is what drives the
+              never-absorbed probability to $0$.
+          - text: >
+              The exact total probability of ever being absorbed
+            feedback: >
+              The certainty argument needs this floor repeated infinitely
+              often, not a single bounded-horizon computation, to conclude
+              absorption is certain overall.
+          - text: >
+              Nothing about absorption timing, only about class structure
+            feedback: >
+              This dismisses the actual numeric content — the bound is
+              specifically a probability of absorption within a fixed number of
+              steps.
+        feedback: >
+          It's a lower bound on absorption within a bounded horizon; certainty
+          of eventual absorption comes from repeating that same positive floor
+          over and over.
+      - ask: >
+          How many communicating classes does this chain have in total?
+        expects: "3"
+        hint: >
+          Count the two absorbing singletons plus the one transient interior
+          class.
+        feedback: >
+          Three: $\{0\}$, $\{N\}$, and the transient interior class $\{1,
+          \dots, N-1\}$.
+      - teach: >
+          Quoting gambler's-ruin closed forms without first checking that both
+          boundaries are actually absorbing — rather than, say, reflecting —
+          applies the wrong formula to a chain that isn't the one those
+          formulas describe.
+      - teach: >
+          The two-barrier walk is one transient class between two absorbing
+          singletons, with certain absorption guaranteed by a
+          positive-probability straight-line path to a barrier — the ruin
+          formulas themselves belong to a different unit.
 
   - node: quant-processes.markov-chains.stationary
     hook: >
@@ -673,6 +1539,82 @@ lessons:
       $\pi P=\pi$ defines the law the chain leaves unchanged; solve $m-1$
       balance equations plus normalization, and for an irreducible aperiodic
       chain that same $\pi$ is also the limit from any start.
+    steps:
+      - teach: >
+          "What fraction of the time is the chain in state $j$, eventually?" is
+          answered by solving $\pi P = \pi$ — a linear system, not a limit
+          computed by brute-force iteration.
+      - teach: >
+          A stationary distribution is a probability vector left unchanged by
+          one step of the chain: $\pi P = \pi$, equivalently $\pi_j = \sum_i
+          \pi_i p_{ij}$ for every $j$. Starting the chain from $\pi$ makes
+          every $X_n$ have that exact same law.
+      - teach: >
+          The $m$ balance equations are always linearly dependent, so solve any
+          $m-1$ of them together with $\sum_i \pi_i = 1$. When the chain is
+          irreducible and aperiodic, that same $\pi$ is also the actual
+          limiting law.
+      - ask: >
+          For an $m$-state chain, the $m$ balance equations $\pi_j = \sum_i
+          \pi_i p_{ij}$ are...
+        choices:
+          - text: >
+              Always linearly independent, so all $m$ must be solved together
+              with normalization
+            feedback: >
+              This over-determines the system — the balance equations always
+              have a built-in redundancy.
+          - text: >
+              Always linearly dependent, so solve any $m-1$ of them together
+              with $\sum_i \pi_i = 1$
+            correct: true
+            feedback: >
+              Right — the $m$ balance equations sum to a trivial identity, so
+              one of them is always redundant, and normalization supplies the
+              missing constraint.
+          - text: >
+              Irrelevant, since $\pi$ can only be found by computing $\lim_n
+              P^{n}$
+            feedback: >
+              $\pi$ is found by solving the linear system directly; the
+              limiting-law interpretation only applies once irreducibility and
+              aperiodicity are also known.
+        feedback: >
+          The $m$ balance equations are always linearly dependent — drop
+          exactly one and add normalization.
+      - ask: >
+          A device is On or Off. From On it stays On with probability $0.75$;
+          from Off it recovers to On with probability $0.6$. What is
+          $\pi_{\text{On}}$?
+        expects: "12/17"
+        tolerance: 0.0005
+        hint: >
+          Balance gives $\pi_{\text{On}} \times 0.25 = \pi_{\text{Off}} \times
+          0.6$; then normalize.
+        feedback: >
+          $0.25\,\pi_{\text{On}} = 0.6\,\pi_{\text{Off}}$ gives
+          $\pi_{\text{On}} = 2.4\,\pi_{\text{Off}}$. With $\pi_{\text{On}} +
+          \pi_{\text{Off}} = 1$, $3.4\,\pi_{\text{Off}} = 1$, so
+          $\pi_{\text{Off}} = 5/17$ and $\pi_{\text{On}} = 12/17 \approx
+          0.706$.
+      - ask: >
+          What is $\pi_{\text{Off}}$?
+        expects: "5/17"
+        tolerance: 0.0005
+        hint: >
+          Use $\pi_{\text{Off}} = 1 - \pi_{\text{On}}$.
+        feedback: >
+          $1 - 12/17 = 5/17 \approx 0.294$.
+      - teach: >
+          Using all $m$ balance equations plus normalization over-determines
+          the system, since the balance equations are always linearly dependent
+          — drop exactly one. Solving for $\pi$ without first checking
+          uniqueness can hand back a technically-correct vector that isn't the
+          one the problem wants.
+      - teach: >
+          $\pi P = \pi$ defines the law the chain leaves unchanged; solve $m-1$
+          balance equations plus normalization, and for an irreducible
+          aperiodic chain that same $\pi$ is also the limit from any start.
 
   - node: quant-processes.markov-chains.stationary-uniqueness
     hook: >
@@ -726,6 +1668,114 @@ lessons:
       $\pi$; drop irreducibility and uniqueness fails, drop positive
       recurrence and existence fails, and aperiodicity plays no role in this
       particular guarantee.
+    steps:
+      - teach: >
+          "Does this chain have a unique equilibrium?" splits into two separate
+          yes/no checks — irreducibility for uniqueness, positive recurrence
+          for existence — and both need naming, not a single hand-wave at
+          "well-behaved."
+      - teach: >
+          Irreducibility buys uniqueness: with more than one communicating
+          class, each closed class supports its own stationary distribution,
+          and any convex combination of those is stationary too. Irreducibility
+          leaves only one class for probability mass to settle on.
+      - teach: >
+          Positive recurrence buys existence, and it's automatic on a finite
+          chain, since finitely many states can't spread the mean return time
+          to infinity. On an infinite state space that guarantee disappears —
+          the walk on $\mathbb{Z}$ is irreducible and recurrent, yet null
+          recurrent, with no stationary probability vector at all.
+      - ask: >
+          A finite chain has two absorbing states, $A$ and $B$, and one
+          transient state $C$ that always eventually reaches $A$ or $B$. Is its
+          stationary distribution unique?
+        choices:
+          - text: >
+              No — it has two closed classes, so infinitely many stationary
+              vectors exist
+            correct: true
+            feedback: >
+              Right: any convex combination of the point-mass-at-$A$ and
+              point-mass-at-$B$ distributions is stationary here.
+          - text: >
+              Yes, because the chain is positive recurrent
+            feedback: >
+              Positive recurrence is about existence, not uniqueness — what's
+              missing here is irreducibility, since $A$ and $B$ are two
+              separate closed classes.
+          - text: >
+              Yes, because the chain is finite
+            feedback: >
+              Finiteness only guarantees positive recurrence automatically; it
+              says nothing about how many communicating classes the chain has.
+        feedback: >
+          Two absorbing states means two closed classes, so uniqueness fails
+          regardless of finiteness or positive recurrence.
+      - ask: >
+          For that same chain (absorbing $A$, $B$; transient $C$ moving to $A$
+          with probability $0.3$ and to $B$ with probability $0.7$), which of
+          these is *not* a valid stationary distribution?
+        choices:
+          - text: >
+              $(1, 0, 0)$
+            feedback: >
+              This is stationary — it's the point mass on the absorbing state
+              $A$.
+          - text: >
+              $(0, 1, 0)$
+            feedback: >
+              This is stationary too — the point mass on the absorbing state
+              $B$.
+          - text: >
+              $(0.5, 0.2, 0.3)$
+            correct: true
+            feedback: >
+              Right — a transient state can never carry nonzero weight in a
+              stationary distribution, so any vector with $\pi_C > 0$ here
+              fails to be stationary.
+        feedback: >
+          Every stationary vector on this chain has the form $(x, 1-x, 0)$ for
+          some $x \in [0,1]$ — the transient state always gets exactly zero
+          weight.
+      - ask: >
+          Which chain can be irreducible, recurrent, and yet have no stationary
+          distribution at all?
+        choices:
+          - text: >
+              A finite irreducible chain
+            feedback: >
+              Every finite irreducible chain is automatically positive
+              recurrent, so it always has a stationary distribution.
+          - text: >
+              The simple symmetric random walk on $\mathbb{Z}$
+            correct: true
+            feedback: >
+              Right — it's irreducible and recurrent, but null recurrent: its
+              mean return time is infinite, and it has no stationary
+              probability vector.
+          - text: >
+              A chain with an absorbing state
+            feedback: >
+              That's an uniqueness failure, not an existence one — such a chain
+              typically has infinitely many stationary distributions, not zero.
+        feedback: >
+          Null recurrence is specifically an infinite-state-space phenomenon;
+          the walk on $\mathbb{Z}$ is the standard example.
+      - teach: >
+          Notice what's absent from this theorem's hypotheses: aperiodicity. A
+          period-$2$ chain still has exactly one stationary $\pi$ under
+          irreducibility and positive recurrence — periodicity only affects
+          whether $P^{n}$ converges to it, a separate question.
+      - teach: >
+          Assuming irreducibility alone forces existence overlooks null
+          recurrence, which only threatens infinite chains, and treating
+          aperiodicity as part of this theorem's hypotheses confuses uniqueness
+          of $\pi$ with convergence of $P^{n}$ to it.
+      - teach: >
+          Irreducible plus positive recurrent gives exactly one stationary
+          $\pi$; drop irreducibility and uniqueness fails, drop positive
+          recurrence and existence fails, and aperiodicity plays no role in
+          this particular guarantee.
 
   - node: quant-processes.markov-chains.convergence-to-equilibrium
     hook: >
@@ -776,6 +1826,77 @@ lessons:
       Irreducible and aperiodic together force $(P^n)_{ij}\to\pi_j$ from any
       start; drop either one and the chain either converges to the wrong
       thing or never converges at all, even though $\pi$ can still exist.
+    steps:
+      - teach: >
+          "Does $P^{n}$ actually converge?" needs a yes/no distinct from "does
+          a stationary $\pi$ exist" — the two questions have different
+          hypotheses, and conflating them is the fastest way to mishandle a
+          periodic chain.
+      - teach: >
+          If a chain is irreducible, aperiodic, and positive recurrent, then
+          $(P^{n})_{ij} \to \pi_j$ for every pair of states, so $\mu_0 P^{n}
+          \to \pi$ for every initial law $\mu_0$ — the chain forgets where it
+          started.
+      - teach: >
+          The two hypotheses fail independently. Drop irreducibility: a chain
+          with two absorbing states still converges for each fixed start, but
+          to a start-dependent limit. Drop aperiodicity: the two-state swap
+          chain has a perfectly good $\pi$, yet never settles anywhere.
+      - ask: >
+          A two-state chain has rows $(0.8, 0.2)$ (state $R$) and $(0.5, 0.5)$
+          (state $S$). Starting at $R$, what is $\mu_2$'s $R$-component?
+        expects: "0.74"
+        hint: >
+          First find $\mu_1 = \mu_0 P$, then $\mu_2 = \mu_1 P$.
+        feedback: >
+          $\mu_1 = (0.8, 0.2)$, so $\mu_2(R) = 0.8 \times 0.8 + 0.2 \times 0.5
+          = 0.64 + 0.1 = 0.74$.
+      - ask: >
+          Continuing from $\mu_2 = (0.74, 0.26)$, what is $\mu_3$'s
+          $R$-component?
+        expects: "0.722"
+        hint: >
+          Compute $\mu_3(R) = \mu_2(R) \times 0.8 + \mu_2(S) \times 0.5$.
+        feedback: >
+          $0.74 \times 0.8 + 0.26 \times 0.5 = 0.592 + 0.13 = 0.722$ — visibly
+          closing in on $\pi_R = 5/7 \approx 0.714$.
+      - ask: >
+          The two-state swap chain has rows $(0, 1)$ and $(1, 0)$. It's
+          irreducible with $\pi = (0.5, 0.5)$. Does $P^{n}$ converge to the
+          matrix with both rows equal to $\pi$?
+        choices:
+          - text: >
+              No — $P^{n}$ alternates forever between the identity and the swap
+              matrix, since the chain has period $2$
+            correct: true
+            feedback: >
+              Right — irreducibility alone isn't enough; this chain fails
+              aperiodicity, so it never settles despite having a perfectly good
+              $\pi$.
+          - text: >
+              Yes, since it's irreducible and $\pi$ exists
+            feedback: >
+              This conflates existence of $\pi$ with convergence to it — the
+              swap chain has both hypotheses of the uniqueness theorem but
+              fails aperiodicity, which convergence additionally requires.
+          - text: >
+              No, because $\pi$ doesn't actually exist for this chain
+            feedback: >
+              $\pi = (0.5, 0.5)$ genuinely is stationary here — the chain just
+              never converges to it.
+        feedback: >
+          Period $2$ blocks convergence even though $\pi$ exists and is unique
+          — existence and convergence are separate statements with separate
+          hypotheses.
+      - teach: >
+          Verifying irreducibility and stopping, without separately checking
+          for period $2$, is the single most common gap. Concluding
+          "non-convergence means no stationary distribution exists" conflates
+          this theorem with the separate existence-and-uniqueness statement.
+      - teach: >
+          Irreducible and aperiodic together force $(P^{n})_{ij} \to \pi_j$
+          from any start; drop either one and the chain either converges to the
+          wrong thing or never converges, even though $\pi$ can still exist.
 
   - node: quant-processes.markov-chains.weather-chain
     hook: >
@@ -825,6 +1946,73 @@ lessons:
       For rows $(1-a,a)$ and $(b,1-b)$, $\pi=(b/(a+b),a/(a+b))$ in one line —
       here $(12/13,1/13)$ — with eigenvalues $1$ and $1-a-b$ setting both the
       ratio and the mixing speed.
+    steps:
+      - teach: >
+          This is the two-state stationary computation done so often it's worth
+          having the shortcut $\pi = (b/(a+b), a/(a+b))$ memorized, not just
+          the method to rederive it.
+      - teach: >
+          For rows $(1-a, a)$ and $(b, 1-b)$, balance reduces to one line:
+          $\pi_1 a = \pi_2 b$, so $\pi_1/\pi_2 = b/a$. Normalizing gives $\pi =
+          (b/(a+b), a/(a+b))$ directly, with no matrix ever written.
+      - teach: >
+          A state with a small leaving probability $a$ (a large self-loop) is
+          "sticky" and gets more stationary weight — and once $\pi$ is known,
+          the two-state chain hands over its eigenvalues almost for free:
+          always $1$ and $1-a-b$.
+      - ask: >
+          A signal is Strong or Weak. From Strong it fails (drops to Weak) with
+          probability $0.1$; from Weak it recovers to Strong with probability
+          $0.75$. What is $\pi_{\text{Strong}}$?
+        expects: "15/17"
+        tolerance: 0.0005
+        hint: >
+          Here $a = 0.1$ (leaving Strong) and $b = 0.75$ (leaving Weak); use
+          $\pi_1 = b/(a+b)$.
+        feedback: >
+          $\pi_{\text{Strong}} = 0.75/(0.1+0.75) = 0.75/0.85 = 15/17 \approx
+          0.882$.
+      - ask: >
+          What is the second eigenvalue, $1-a-b$, for this same chain?
+        expects: "0.15"
+        hint: >
+          Subtract both leaving probabilities from $1$.
+        feedback: >
+          $1 - 0.1 - 0.75 = 0.15$ — deviations from equilibrium shrink by this
+          factor each step.
+      - ask: >
+          For rows $(1-a, a)$ and $(b, 1-b)$, the stationary weight $\pi_1$
+          equals...
+        choices:
+          - text: >
+              $b/(a+b)$
+            correct: true
+            feedback: >
+              Right — the state's own leaving probability sits in the
+              denominator paired with the other state's leaving probability in
+              the numerator.
+          - text: >
+              $a/(a+b)$
+            feedback: >
+              This is the swapped ratio — it gives $\pi_2$, not $\pi_1$.
+          - text: >
+              $a/b$
+            feedback: >
+              This doesn't normalize to sum to $1$ across both states in
+              general.
+        feedback: >
+          $\pi_1 = b/(a+b)$ pairs the larger stationary weight with the smaller
+          leaving probability — mixing up $a$ and $b$ flips the answer for both
+          states.
+      - teach: >
+          Mixing up which probability is $a$ and which is $b$ flips the ratio
+          and swaps the two states' answers, and quoting $1-a-b$ as though it
+          were always positive misses that a chain which swaps almost every
+          step has this eigenvalue negative, making the approach oscillate.
+      - teach: >
+          For rows $(1-a, a)$ and $(b, 1-b)$, $\pi = (b/(a+b), a/(a+b))$ in one
+          line — here $(15/17, 2/17)$ — with eigenvalues $1$ and $1-a-b$
+          setting both the ratio and the mixing speed.
 
   - node: quant-processes.markov-chains.ergodic-fraction
     hook: >
@@ -880,6 +2068,82 @@ lessons:
       irreducible positive recurrent chain, no aperiodicity required —
       "long-run frequency" and "stationary probability" are the same number
       for exactly this reason.
+    steps:
+      - teach: >
+          "Long-run frequency" and "stationary probability" are the same
+          number, and this theorem is why — it licenses answering a "what
+          fraction of the time" question with $\pi_i$ even without ever proving
+          $P^{n}$ converges.
+      - teach: >
+          This is the law of large numbers for dependent data: irreducibility
+          plus positive recurrence does the job independence does classically.
+          The result, $\frac1n\sum_{k=0}^{n-1}\mathbf{1}\{X_k=i\} \to \pi_i$
+          with probability $1$, holds from any starting state.
+      - teach: >
+          What's missing from the hypotheses is aperiodicity. A period-$2$
+          chain never has $(P^{n})_{ij}$ settle to a single value, yet
+          averaging over time smooths that oscillation completely away, since
+          it spends exactly half its visits in each alternating phase.
+      - ask: >
+          A chain cycles deterministically $1 \to 2 \to 3 \to 1$ with
+          probability $1$ (period $3$), so $\pi = (1/3, 1/3, 1/3)$ by symmetry.
+          Starting at state $1$, track the first $9$ steps ($k = 0, \dots, 8$).
+          What fraction of those steps land in state $1$?
+        expects: "1/3"
+        tolerance: 0.0005
+        hint: >
+          State $1$ is visited exactly when $k$ is a multiple of $3$.
+        feedback: >
+          State $1$ occurs at $k = 0, 3, 6$: exactly $3$ of $9$ steps, giving
+          $3/9 = 1/3 = \pi_1$ exactly — even though $P^{n}$ itself never
+          settles to a single matrix.
+      - teach: >
+          The generalization $\frac1n\sum f(X_k) \to \sum_i \pi_i f(i)$ applies
+          the same idea to any bounded function of the state, not just a single
+          indicator — this is what justifies computing a long-run average
+          reward directly as an expectation under $\pi$.
+      - ask: >
+          On that same $3$-cycle, assign a reward of $6$ whenever the chain is
+          in state $1$, and $0$ otherwise. What is the long-run average reward
+          per step?
+        expects: "2"
+        hint: >
+          Compute $\sum_i \pi_i f(i)$ with $f(1)=6, f(2)=f(3)=0$.
+        feedback: >
+          $\pi_1 \times 6 + \pi_2 \times 0 + \pi_3 \times 0 = \tfrac13 \times 6
+          = 2$.
+      - ask: >
+          Does this theorem require the chain to be aperiodic?
+        choices:
+          - text: >
+              No — it holds for any irreducible positive recurrent chain,
+              periodic or not, since averaging over time smooths out the
+              oscillation
+            correct: true
+            feedback: >
+              Right — this is exactly what makes it stronger than the
+              convergence-to- equilibrium statement, which does need
+              aperiodicity.
+          - text: >
+              Yes, exactly like the convergence-to-equilibrium theorem
+            feedback: >
+              That's a different, stronger theorem with a stricter hypothesis
+              list — this one specifically doesn't need aperiodicity.
+        feedback: >
+          Time averages converge to $\pi$ regardless of periodicity — that's
+          the entire point of contrasting this theorem with $P^{n}$
+          convergence.
+      - teach: >
+          Assuming this theorem needs aperiodicity, by analogy with the
+          convergence theorem, leads to checking a condition that isn't
+          actually required, and applying the generalized version with an $f$
+          whose sum doesn't converge absolutely invalidates the conclusion
+          silently.
+      - teach: >
+          Time averages along one trajectory converge to $\pi$ for any
+          irreducible positive recurrent chain, no aperiodicity required —
+          which is exactly why "long-run frequency" and "stationary
+          probability" are the same number.
 
   - node: quant-processes.markov-chains.mean-return-time
     hook: >
@@ -927,6 +2191,70 @@ lessons:
       Mean return time to $i$ is exactly $1/\pi_i$, free once $\pi$ is
       known — but only for return to $i$ starting from $i$, not for hitting
       $i$ from anywhere else.
+    steps:
+      - teach: >
+          "How often does state $X$ recur?" is a one-line answer, $1/\pi_X$,
+          once $\pi$ is known — no separate first-step system for the return
+          time is needed.
+      - teach: >
+          The identity $m_i = 1/\pi_i$ drops out of the ergodic theorem's
+          time-average reading: the chain spends a fraction $\pi_i$ of its
+          steps at $i$, and consecutive visits are spaced $m_i$ steps apart on
+          average, forcing $\pi_i m_i = 1$.
+      - teach: >
+          Keep one distinction sharp: $m_i$ is the return time to $i$ starting
+          from $i$ itself. The expected time to hit $i$ starting from a
+          different state needs its own first-step system, exactly like an
+          absorption-time problem.
+      - ask: >
+          For the signal chain with $\pi_{\text{Strong}} = 15/17$ and
+          $\pi_{\text{Weak}} = 2/17$, what is the mean return time to Weak?
+        expects: "17/2"
+        tolerance: 0.0005
+        hint: >
+          Use $m_i = 1/\pi_i$.
+        feedback: >
+          $m_{\text{Weak}} = 1/(2/17) = 17/2 = 8.5$ steps.
+      - ask: >
+          What is the mean return time to Strong?
+        expects: "17/15"
+        tolerance: 0.0005
+        hint: >
+          Use $m_i = 1/\pi_i$ with $\pi_{\text{Strong}} = 15/17$.
+        feedback: >
+          $m_{\text{Strong}} = 1/(15/17) = 17/15 \approx 1.133$ steps — a
+          common state recurs almost immediately, exactly as expected.
+      - ask: >
+          A chain has $\pi_X = 0.01$. A colleague asks for the expected number
+          of steps to first reach $X$ starting from some other state $Y$. Can
+          you answer with $1/\pi_X = 100$?
+        choices:
+          - text: >
+              No — $1/\pi_X$ is the return time from $X$ to itself; the hitting
+              time from $Y$ needs its own first-step system
+            correct: true
+            feedback: >
+              Right — these two quantities coincide only when the starting
+              state is $X$ itself.
+          - text: >
+              Yes, hitting time and return time are always equal
+            feedback: >
+              They're only equal in the special case where the starting state
+              and the target state coincide.
+        feedback: >
+          $1/\pi_X$ answers only "how long, on average, between visits to $X$,"
+          which is a different question from "how long to first arrive at $X$
+          from somewhere else."
+      - teach: >
+          Applying $1/\pi_i$ to a hitting-time question that starts from a
+          different state confuses return time with hitting time, and using
+          this identity on a chain that isn't irreducible and positive
+          recurrent borrows a formula whose derivation assumed exactly those
+          hypotheses.
+      - teach: >
+          Mean return time to $i$ is exactly $1/\pi_i$, free once $\pi$ is
+          known — but only for return to $i$ starting from $i$, not for hitting
+          $i$ from anywhere else.
 
   - node: quant-processes.markov-chains.detailed-balance
     hook: >
@@ -984,6 +2312,82 @@ lessons:
       local condition than stationarity that always implies it but not
       conversely — and it hands over $\pi\propto\deg$ for any uniform walk
       on an undirected graph.
+    steps:
+      - teach: >
+          Checking $\pi_i p_{ij} = \pi_j p_{ji}$ edge by edge is often faster
+          than solving $\pi P = \pi$ directly, and for a walk on a graph it
+          hands over the answer, $\pi \propto \deg$, with no linear system
+          solved at all.
+      - teach: >
+          Detailed balance asks for something stronger than stationarity — flow
+          across every single edge matches in both directions. Summing this
+          edge-by-edge identity over $i$ collapses to $\sum_i \pi_i p_{ij} =
+          \pi_j$, exactly the stationarity equation, so detailed balance always
+          implies it.
+      - teach: >
+          The converse fails: a chain cycling $1 \to 2 \to 3 \to 1$ with
+          probability $1$ has $\pi = (1/3, 1/3, 1/3)$ stationary — every state
+          receives exactly the flow it sends out, in aggregate — but no
+          detailed balance on any edge, since probability only ever flows one
+          direction.
+      - ask: >
+          For that deterministic cycle $1 \to 2 \to 3 \to 1$ with $\pi = (1/3,
+          1/3, 1/3)$, does detailed balance hold on the edge $(1, 2)$?
+        choices:
+          - text: >
+              No — $\pi_1 p_{12} = 1/3$ but $\pi_2 p_{21} = 0$, since state $2$
+              never transitions directly to state $1$
+            correct: true
+            feedback: >
+              Right — the flow only runs one way around the cycle, so the two
+              sides of the balance equation can't match on any edge.
+          - text: >
+              Yes, since both states have equal stationary weight $1/3$
+            feedback: >
+              Equal stationary weight is not enough — detailed balance is about
+              the edge-level flow in each direction, and this chain only ever
+              flows $1 \to 2$, never $2 \to 1$.
+        feedback: >
+          $\pi_2 p_{21} = 0$ since $2 \to 1$ never happens directly, while
+          $\pi_1 p_{12} = 1/3 \ne 0$ — the two sides of detailed balance
+          disagree on this edge.
+      - teach: >
+          The payoff: for a walk on any connected undirected graph that steps
+          to a uniformly chosen neighbor, $\pi_i \propto \deg(i)$ solves
+          detailed balance instantly, since both $\pi_i p_{ij}$ and $\pi_j
+          p_{ji}$ reduce to the same number, $1/(2|E|)$, on every edge.
+      - ask: >
+          A star graph has a center $C$ joined to three leaves, each by one
+          edge. What is $\pi_C$?
+        expects: "1/2"
+        tolerance: 0.0005
+        hint: >
+          Degrees are $3$ for the center and $1$ for each leaf; $2|E|$ is the
+          sum of all degrees.
+        feedback: >
+          Degrees are $3, 1, 1, 1$, summing to $2|E| = 6$, so $\pi_C = 3/6 =
+          1/2$.
+      - ask: >
+          For that same star graph, what is $\pi_C\,p_{C,L_1}$, the flow from
+          $C$ to one specific leaf $L_1$?
+        expects: "1/6"
+        tolerance: 0.0005
+        hint: >
+          From $C$, each of the three leaves is chosen with probability $1/3$.
+        feedback: >
+          $\pi_C\,p_{C,L_1} = \tfrac12 \times \tfrac13 = 1/6$, which matches
+          $\pi_{L_1}\,p_{L_1,C} = \tfrac16 \times 1 = 1/6$ exactly, confirming
+          detailed balance on this edge.
+      - teach: >
+          Assuming stationarity implies detailed balance runs the implication
+          backward — the one-way cycle is the standard counterexample. Applying
+          $\pi \propto \deg$ to a directed graph, or a walk that isn't uniform
+          over neighbors, uses a formula whose derivation assumed neither.
+      - teach: >
+          Detailed balance, $\pi_i p_{ij} = \pi_j p_{ji}$, is stronger and more
+          local than stationarity, always implying it but not conversely — and
+          it hands over $\pi \propto \deg$ for any uniform walk on an
+          undirected graph.
 
   - node: quant-processes.markov-chains.graph-walk
     hook: >
@@ -1031,6 +2435,74 @@ lessons:
       and mean return time $2|E|/\deg(i)$ immediately, converging whenever
       the graph has an odd cycle and merely oscillating stationarily
       otherwise.
+    steps:
+      - teach: >
+          Once you spot "random walk on a graph, uniform neighbor choice," the
+          stationary distribution is degrees, normalized — the fastest possible
+          finish to this entire class of question.
+      - teach: >
+          $\pi_i = \deg(i)/(2|E|)$ needs nothing but a degree count and an edge
+          count, both visible directly from the graph. Mean return times come
+          for free too: $1/\pi_i = 2|E|/\deg(i)$.
+      - teach: >
+          Periodicity is still worth checking before quoting convergence: $\pi$
+          itself doesn't care about bipartiteness, but $P^{n}$'s convergence to
+          it does. Any odd cycle anywhere forces aperiodicity for the whole
+          connected walk, while a purely bipartite graph leaves $P^{n}$
+          oscillating forever.
+      - ask: >
+          A graph has vertices $P, Q, R, S, T$ with edges $PQ$, $QR$, $RP$ (a
+          triangle), plus $RS$ and $ST$ (a tail hanging off $R$). What is
+          $\pi_T$?
+        expects: "0.1"
+        hint: >
+          Degrees are $P{:}2, Q{:}2, R{:}3, S{:}2, T{:}1$; sum them for $2|E|$.
+        feedback: >
+          Degrees sum to $2+2+3+2+1=10=2|E|$, so $\pi_T = 1/10 = 0.1$.
+      - ask: >
+          For the same graph, what is $\pi_R$?
+        expects: "0.3"
+        hint: >
+          $R$ has degree $3$, connecting to $P$, $Q$, and $S$.
+        feedback: >
+          $\pi_R = \deg(R)/(2|E|) = 3/10 = 0.3$ — the largest weight, matching
+          $R$ being the highest-degree vertex.
+      - ask: >
+          Does $P^{n}$ converge to $\pi$ for the walk on this graph?
+        choices:
+          - text: >
+              Yes — the triangle $P$-$Q$-$R$ is an odd cycle, forcing the whole
+              connected graph to be aperiodic
+            correct: true
+            feedback: >
+              Right — a single odd cycle anywhere in a connected graph is
+              enough to force aperiodicity for every state, tail included.
+          - text: >
+              No — the tail $R$-$S$-$T$ is bipartite, which blocks convergence
+              everywhere
+            feedback: >
+              Periodicity is a class property of the whole (irreducible) chain
+              — one odd cycle anywhere overrides any bipartite-looking piece
+              elsewhere.
+          - text: >
+              It's impossible to tell without computing eigenvalues
+            feedback: >
+              An odd cycle is a directly checkable, sufficient condition for
+              aperiodicity — no eigenvalues needed.
+        feedback: >
+          The triangle supplies an odd cycle, so the whole connected graph is
+          aperiodic and $P^{n}$ genuinely converges to $\pi$ from any start.
+      - teach: >
+          Forgetting that $2|E|$, not $|E|$, is the normalizing constant
+          undercounts the total by a factor of $2$, since each edge contributes
+          to two vertices' degrees. Declaring a graph aperiodic just because it
+          "doesn't look bipartite," without finding an actual odd cycle, is a
+          guess.
+      - teach: >
+          A uniform random walk on a connected graph has $\pi_i =
+          \deg(i)/(2|E|)$ and mean return time $2|E|/\deg(i)$ immediately,
+          converging whenever the graph has an odd cycle and merely oscillating
+          stationarily otherwise.
 
   - node: quant-processes.markov-chains.pagerank
     hook: >
@@ -1087,3 +2559,81 @@ lessons:
       with the teleport term chosen specifically to force every transition
       probability strictly positive, which guarantees the irreducibility
       and aperiodicity that convergence to equilibrium needs.
+
+    steps:
+      - teach: >
+          "How would you rank web pages by importance" is really asking whether
+          you can turn a vague notion of importance into the equilibrium of a
+          Markov chain you get to design.
+      - teach: >
+          The raw idea — importance is the fraction of time a link-following
+          surfer spends on a page — is broken on a real link graph, because
+          dead-end pages and disconnected regions make the naive chain neither
+          irreducible nor reliably aperiodic.
+      - teach: >
+          The fix: with probability $d \approx 0.85$ follow a uniformly chosen
+          outgoing link, and with probability $1-d$ teleport to a uniformly
+          chosen page anywhere. That makes every entry of the transition matrix
+          strictly positive, which implies both irreducibility and aperiodicity
+          at once.
+      - ask: >
+          Suppose the damping factor is $d = 0.9$ instead of the standard
+          $0.85$. What is the teleport probability, $1-d$?
+        expects: "0.1"
+        hint: >
+          Subtract $d$ from $1$.
+        feedback: >
+          $1 - 0.9 = 0.1$.
+      - teach: >
+          Once irreducibility and aperiodicity are secured this mechanically,
+          convergence to equilibrium is exactly the theorem already established
+          for any such chain, computed in practice by power iteration $\mu
+          \mapsto \mu P$, with error shrinking roughly like $d^{n}$.
+      - ask: >
+          With $d = 0.9$, by what factor has the power-iteration error shrunk
+          after $3$ iterations?
+        expects: "0.729"
+        hint: >
+          Use the error scaling $d^{n}$ with $n=3$.
+        feedback: >
+          $0.9^{3} = 0.729$.
+      - ask: >
+          Why does the teleport term guarantee both irreducibility and
+          aperiodicity, rather than merely fixing dead ends?
+        choices:
+          - text: >
+              Because it makes every entry of the transition matrix strictly
+              positive, so every state reaches every other in one step, and a
+              positive chance of an immediate return rules out any periodic
+              rotation
+            correct: true
+            feedback: >
+              Right — strict positivity of every entry is a single, stronger
+              fact that implies both hypotheses mechanically, without checking
+              either one directly.
+          - text: >
+              Because it removes all dead-end pages from the graph entirely
+            feedback: >
+              Teleporting doesn't delete any page — it patches the transition
+              out of a dead end rather than removing the dead end itself.
+          - text: >
+              Because it forces $d = 1$ so the chain always follows links
+            feedback: >
+              This is backward — $d=1$ would mean no teleporting at all, which
+              is exactly what breaks irreducibility and aperiodicity on a real
+              link graph.
+        feedback: >
+          Strict positivity of every transition probability is what buys both
+          hypotheses at once, since every state then reaches every other in
+          exactly one step.
+      - teach: >
+          Describing the random-surfer model without explaining why the
+          teleport term is necessary misses the actual interview point, and
+          treating $d$ as an arbitrary tuning knob undersells the trade-off it
+          actually controls: trust the link structure versus guarantee
+          convergence.
+      - teach: >
+          PageRank is the stationary distribution of a damped random surfer,
+          and the transferable idea is broader: any "importance" score is the
+          equilibrium of a flow you define, patched wherever it breaks
+          irreducibility or aperiodicity.

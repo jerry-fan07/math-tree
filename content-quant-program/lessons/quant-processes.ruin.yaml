@@ -66,6 +66,93 @@ lessons:
       Gambler's ruin is a $\pm 1$ walk started at $k$ and stopped the instant
       it touches $0$ or $N$, with $R(k)$ and $W(k)$ tracking which wall it
       hits first.
+    steps:
+      - teach: >
+          Take the plain $\pm1$ walk and bolt on two absorbing walls: the
+          moment the running total touches $0$ or $N$, play stops for good,
+          and nothing about the walk before that instant changes.
+      - teach: >
+          $R(k)$ is the probability of hitting $0$ before $N$ starting from
+          $k$, and $W(k)=1-R(k)$ is the probability of hitting $N$ first. Both
+          are written as functions of $k$ because solving this needs one
+          unknown attached to every interior state at once, not a single
+          number.
+      - ask: >
+          Which pair of boundary values is correct, for any $p$, $k$, and $N$?
+        choices:
+          - text: >
+              $R(0)=1$, $R(N)=0$
+            correct: true
+            feedback: >
+              Starting already ruined means ruin has already happened, and
+              starting already at the target means the target has already been
+              hit — both read straight off the definitions, no algebra needed.
+          - text: >
+              $R(0)=0$, $R(N)=1$
+            feedback: >
+              This swaps the two conditions. $R$ tracks hitting $0$, and $k=0$
+              means the walk is already there.
+          - text: >
+              $R(0)=1$, $R(N)=1$
+            feedback: >
+              $R(N)=1$ would say the target is also ruin, which contradicts
+              the target being the other barrier.
+        feedback: >
+          The two boundary values come straight from the definitions of
+          "already ruined" and "already at target" — every later formula must
+          reduce to them at the edges, a fast check on any derivation.
+      - teach: >
+          $k$ measures your own stack and $N-k$ the opponent's, and $R$, $W$
+          are not symmetric in the two — which side is $k$ matters as much as
+          its value.
+      - ask: >
+          A series ends the moment either player reaches $5$ wins; the score
+          is currently $2$ wins for player A. Writing this as gambler's ruin
+          with $N=5$ and $k$ tracking player A's progress toward $5$, what is
+          $k$?
+        expects: "2"
+        hint: >
+          $k$ is how far along the walk toward the target the state already is
+          — not how many wins remain.
+        feedback: >
+          $k=2$: player A already has $2$ of the $5$ wins needed, exactly the
+          state variable in the two-barrier picture, with $N-k=3$ still needed
+          by the opponent.
+      - teach: >
+          Barriers absorb, not reflect: contact with $0$ or $N$ ends the game
+          outright, so no path ever bounces off a wall and continues.
+      - ask: >
+          A market maker's inventory has a hard stop-loss at $-50$ and a
+          target size of $+50$, but a risk system nudges the inventory back
+          toward $0$ whenever it nears $-50$ rather than closing the book. Is
+          this the gambler's-ruin picture?
+        choices:
+          - text: >
+              Yes, both levels are still fixed numbers
+            feedback: >
+              Fixed levels aren't the point — absorption is. A level that
+              pushes the walk back rather than ending it is reflecting, and
+              that's a different problem.
+          - text: >
+              No, because $-50$ isn't the same number as $0$
+            feedback: >
+              Relabeling the barriers to $0$ and $100$ fixes that instantly;
+              the real issue is what happens on contact, not the labels.
+          - text: >
+              No, because the stop-loss is reflecting rather than absorbing
+            correct: true
+            feedback: >
+              Right — the moment a barrier can be touched and play continues,
+              this is a different, reflecting problem, however the barriers
+              are labeled.
+        feedback: >
+          Spotting the picture means checking two things: fixed levels, and
+          that contact with either one ends play for good.
+      - teach: >
+          Every node ahead — fair play, an edge, an unlimited opponent,
+          doubling your stack — reuses exactly this picture with different
+          numbers for $p$, $k$, and $N$; get the setup right once and the rest
+          is arithmetic.
 
   - node: quant-processes.ruin.absorption-certain
     hook: >
@@ -117,6 +204,78 @@ lessons:
       $N$-round blocks each absorb with probability at least
       $\min(p,q)^{N}>0$, forcing the chance of never stopping to $0$ and
       making the expected duration finite.
+    steps:
+      - teach: >
+          Every later derivation solves the first-step recursion and simply
+          keeps the bounded solution; this node is why that's legitimate
+          rather than wishful thinking — a path that wanders forever would
+          leak probability out of $R(k)+W(k)=1$.
+      - teach: >
+          Group rounds into blocks of $N$. From any interior state, $N$
+          consecutive wins alone reach the top barrier, so each block absorbs
+          with probability at least $\min(p,q)^{N}$, wherever inside $(0,N)$
+          it starts.
+      - ask: >
+          Take $p=0.4$ (so $q=0.6$) and $N=3$. What is the guaranteed lower
+          bound $\min(p,q)^{N}$ on the probability that one block of $3$
+          rounds ends the game?
+        expects: "0.064"
+        hint: >
+          $\min(p,q)$ is the smaller of $p$ and $q$ — here that's $p$ itself.
+        feedback: >
+          $\min(0.4,0.6)=0.4$, and $0.4^{3}=0.064$: at least a $6.4\%$ chance
+          that any given block of $3$ rounds absorbs, regardless of the
+          starting state inside $(0,3)$.
+      - teach: >
+          Surviving $m$ such blocks unabsorbed then has probability at most
+          $(1-\min(p,q)^{N})^{m}$, and that shrinks to $0$ as $m\to\infty$, so
+          absorption happens with probability exactly $1$.
+      - ask: >
+          Continuing that instance, what upper bound does the same reasoning
+          give for surviving $2$ full blocks ($6$ rounds) unabsorbed?
+        expects: "0.8761"
+        tolerance: 0.0005
+        hint: >
+          Square the single-block survival probability $1-0.064$.
+        feedback: >
+          $(1-0.064)^{2}=0.936^{2}\approx0.8761$ — still likely to survive
+          after just $2$ blocks, but visibly less than $1$, and the bound
+          keeps shrinking with every further block.
+      - teach: >
+          The same geometric bound does more than settle $R+W=1$: because the
+          number of blocks needed is itself geometrically tailed, every moment
+          of the duration is finite too, including its expectation.
+      - ask: >
+          Why does the bound use $\min(p,q)^{N}$ rather than $p^{N}$ alone?
+        choices:
+          - text: >
+              $p^{N}$ is always the right bound, since $p$ is the probability
+              of moving up
+            feedback: >
+              If $q>p$, using $p^{N}$ overstates how likely a run purely of
+              wins is; the walk could just as easily run $N$ straight losses
+              to the bottom barrier.
+          - text: >
+              The argument needs a bound that works whichever barrier the
+              block reaches, so it takes whichever of $p$, $q$ is smaller
+            correct: true
+            feedback: >
+              Right — either $N$ straight wins or $N$ straight losses ends the
+              block, and the guaranteed lower bound on either uses the smaller
+              of the two.
+          - text: >
+              $\min(p,q)$ is used only because $p=q$ in the fair case
+            feedback: >
+              The bound is used for any $p$, not just the fair case —
+              $\min(p,q)^{N}$ equals $p^{N}$ only when $p\le q$.
+        feedback: >
+          $\min(p,q)^{N}$ is the guaranteed floor: whichever direction is less
+          likely still reaches a barrier in $N$ straight rounds, and that's
+          the weakest link the argument can rely on.
+      - teach: >
+          This argument needs $0<p<1$ strictly — at $p=0$ or $p=1$ every round
+          moves the same way, and absorption is certain for the trivial reason
+          that the walk marches straight to one wall.
 
   - node: quant-processes.ruin.ruin-equation
     hook: >
@@ -170,6 +329,74 @@ lessons:
       Conditioning on one round gives $R(k)=p\,R(k+1)+q\,R(k-1)$ and
       $D(k)=1+p\,D(k+1)+q\,D(k-1)$, one equation per interior state, closed
       by the two boundary values.
+    steps:
+      - teach: >
+          First-step analysis is the one substitution behind every closed form
+          ahead; being able to set it up and solve it on a small case beats
+          reaching for a formula pulled from memory.
+      - teach: >
+          Condition on the first round from interior $k$: it lands at $k+1$
+          with probability $p$ or $k-1$ with probability $q$, and by the
+          restart property the ruin probability from there is again $R(k+1)$
+          or $R(k-1)$, giving $R(k)=p\,R(k+1)+q\,R(k-1)$.
+      - teach: >
+          The same template answers a different question with almost no
+          change: $D(k)$ pays for the round just taken before restarting, so
+          $D(k)=1+p\,D(k+1)+q\,D(k-1)$ — identical structure, one extra
+          constant term.
+      - teach: >
+          At the two ends the system self-closes: the equation at $k=1$ uses
+          $R(0)=1$ as a known number substituted directly, not a third unknown
+          — that's what turns the recursion into a finite, solvable linear
+          system.
+      - ask: >
+          Take $N=3$ and $p=0.4$ (so $q=0.6$). The two interior equations are
+          $R(1)=0.4\,R(2)+0.6\cdot1$ and $R(2)=0.4\cdot0+0.6\,R(1)$.
+          Substituting the second into the first, solve for $R(1)$.
+        expects: "15/19"
+        tolerance: 0.0005
+        hint: >
+          Substitute $R(2)=0.6\,R(1)$ into the first equation and collect the
+          $R(1)$ terms on one side.
+        feedback: >
+          $R(1)=0.4(0.6\,R(1))+0.6=0.24\,R(1)+0.6$, so $0.76\,R(1)=0.6$ and
+          $R(1)=0.6/0.76=15/19\approx0.7895$.
+      - ask: >
+          Same setup — what is $R(2)$?
+        expects: "9/19"
+        tolerance: 0.0005
+        hint: >
+          $R(2)=0.6\,R(1)$ once $R(1)$ is known.
+        feedback: >
+          $R(2)=0.6\,R(1)=0.6\times15/19=9/19\approx0.4737$.
+      - ask: >
+          Which is the correctly conditioned equation at interior state $k$?
+        choices:
+          - text: >
+              $R(k)=q\,R(k+1)+p\,R(k-1)$
+            feedback: >
+              This swaps which probability attaches to which direction —
+              moving up happens with probability $p$, so $p$ belongs with
+              $R(k+1)$.
+          - text: >
+              $R(k)=p\,R(k+1)+q\,R(k-1)$
+            correct: true
+            feedback: >
+              Right — the walk moves up, toward $R(k+1)$, with probability
+              $p$, and down, toward $R(k-1)$, with probability $q$.
+          - text: >
+              $R(k)=p\,R(k+1)+q\,R(k-1)+1$
+            feedback: >
+              That extra $+1$ belongs to the duration equation $D(k)$, which
+              pays for the round just played — $R(k)$ itself carries no such
+              term.
+        feedback: >
+          Keep the direction and the constant term straight: $R$ has no $+1$,
+          and $p$ always multiplies the up-neighbor.
+      - teach: >
+          The boundary values substitute directly into the equations nearest
+          them, which is what turns $N-1$ equations in $N-1$ unknowns into a
+          system you can actually close by hand.
 
   - node: quant-processes.ruin.fair
     hook: >
@@ -218,6 +445,72 @@ lessons:
       With a fair coin, $R(k)=1-k/N$ and $W(k)=k/N$ — the second difference
       of $R$ vanishes, forcing a straight line pinned by the two boundary
       values.
+    steps:
+      - teach: >
+          This is the single most quoted number in the subbranch, and it's
+          worth being able to rebuild it, not just recite it — the derivation
+          is three lines long.
+      - teach: >
+          Set $p=q=1/2$ in the first-step equation and rearrange: the second
+          difference $R(k+1)-2R(k)+R(k-1)$ vanishes at every interior state,
+          and a sequence with zero second difference increases by the same
+          amount every step — it's a straight line, $R(k)=A+Bk$.
+      - teach: >
+          Only two conditions are needed to pin down a line, and the
+          boundaries supply exactly two: $R(0)=1$ gives $A=1$, $R(N)=0$ gives
+          $B=-1/N$, so $R(k)=1-k/N$ and $W(k)=k/N$ for every interior $k$ at
+          once.
+      - ask: >
+          A fair coin, $k=18$ against a combined pot of $N=40$. What is
+          $W(18)$?
+        expects: "0.45"
+        hint: >
+          $W(k)=k/N$ directly.
+        feedback: >
+          $W(18)=18/40=0.45$ — your share of the $40$-unit pot, exactly.
+      - ask: >
+          Same pot, $N=40$: what does the formula give for $R(40)$, the ruin
+          probability starting already at the target?
+        expects: "0"
+        hint: >
+          Plug $k=N$ into $R(k)=1-k/N$.
+        feedback: >
+          $R(40)=1-40/40=0$ — the formula reproduces its own boundary
+          condition at $k=N$, a fast sanity check on any derivation.
+      - teach: >
+          Read it as a pot share: in a fair game your odds of winning
+          everything equal the fraction of the combined money you personally
+          brought, no more and no less — exact, not an approximation.
+      - ask: >
+          A desk plays at $p=0.505$, a tiny edge. Can $W(k)=k/N$ still be
+          used?
+        choices:
+          - text: >
+              Yes, $0.505$ is close enough to $1/2$ that the fair formula is a
+              fine approximation
+            feedback: >
+              The formula is exact only at $p=1/2$; any deviation, however
+              small, gives a wrong answer, not an approximately right one.
+          - text: >
+              No — $p\ne1/2$ means the second difference of $R$ no longer
+              vanishes, so $R$ is no longer a straight line
+            correct: true
+            feedback: >
+              Right — the whole derivation rests on the second difference
+              being exactly $0$, which only happens at $p=q$.
+          - text: >
+              No, because $N$ would also need to change
+            feedback: >
+              $N$ is unrelated to whether the fair formula applies — the issue
+              is entirely that $p\ne1/2$.
+        feedback: >
+          $R(k)=1-k/N$ is exact at $p=1/2$ and wrong, not approximately right,
+          for any other $p$ — the biased formula ahead is what a nonzero edge
+          actually needs.
+      - teach: >
+          $R$ and $W$ trade places easily: $R(k)=1-k/N$ is the chance of going
+          broke, $W(k)=k/N$ the chance of winning, and mixing them up silently
+          swaps the answer.
 
   - node: quant-processes.ruin.expectation-check
     hook: >
@@ -264,6 +557,76 @@ lessons:
       Expected fortune in equals expected fortune out: instantly $W(k)=k/N$
       when fair, and $N\,W(k)-k=(p-q)D(k)$ links ruin probability to expected
       duration whenever there's an edge.
+    steps:
+      - teach: >
+          This is the fastest route to the fair-game answer, and its extension
+          to a biased game hands you a second equation linking ruin
+          probability and expected duration for free.
+      - teach: >
+          Because absorption is certain and the expected duration is finite,
+          the expected fortune when play stops is a well-defined number, and
+          in a fair game it has to equal the starting fortune $k$: no round of
+          a fair coin moves the average, so no sequence of them can either.
+      - teach: >
+          The stopping fortune only ever takes two values, $0$ or $N$, so its
+          expectation is $0\cdot R(k)+N\cdot W(k)$ — setting that equal to $k$
+          gives $N\,W(k)=k$ without ever touching the second-difference
+          recursion.
+      - ask: >
+          Fair game, $k=14$ against $N=40$. Using $0\cdot R(k)+N\cdot W(k)=k$
+          directly, what is $W(14)$?
+        expects: "0.35"
+        hint: >
+          Solve $40\,W(14)=14$ for $W(14)$.
+        feedback: >
+          $W(14)=14/40=0.35$ — the same answer the second-difference
+          derivation gives, reached in one line instead.
+      - teach: >
+          With an edge the bookkeeping still works but expected fortune isn't
+          conserved: each round shifts it by $p-q$ on average, so over an
+          expected $D(k)$ rounds the total movement is $(p-q)D(k)$, giving
+          $N\,W(k)-k=(p-q)\,D(k)$ — either quantity hands you the other.
+      - ask: >
+          A desk has already established $N=30$, $k=6$, an edge of $p-q=0.04$,
+          and (from other work) $W(6)\approx0.419371$. What does the drift
+          identity give for the expected duration $D(6)$?
+        expects: "164.5282"
+        tolerance: 0.0005
+        hint: >
+          Solve $N\,W(k)-k=(p-q)\,D(k)$ for $D(k)$.
+        feedback: >
+          $30\times0.419371\approx12.5811$, so $12.5811-6=6.5811$, and
+          $6.5811/0.04\approx164.5282$ rounds — longer than the fair-game
+          $D(6,30)=6\times24=144$, exactly as an edge should make it.
+      - ask: >
+          A trader applies $0\cdot R(k)+N\cdot W(k)=k$ directly to a game with
+          $p=0.53$ and reports $W(k)=k/N$. What's wrong?
+        choices:
+          - text: >
+              Nothing — the identity holds regardless of $p$
+            feedback: >
+              The identity that expected stopping fortune is $0\cdot
+              R(k)+N\cdot W(k)$ always holds, but that quantity equals $k$
+              only in a fair game.
+          - text: >
+              The drift term $(p-q)D(k)$ was dropped, so this recovers the
+              fair-game answer for a game that isn't fair
+            correct: true
+            feedback: >
+              Right — skipping the drift correction silently assumes $p-q=0$,
+              exactly the case that doesn't apply here.
+          - text: >
+              $D(k)$ can't be computed until $W(k)$ is known
+            feedback: >
+              The two are linked, but that's not the error here — the error is
+              dropping the drift term outright.
+        feedback: >
+          The conservation argument needs the drift correction the instant
+          $p\ne q$ — without it, it silently answers the fair-game question.
+      - teach: >
+          This bookkeeping is only valid because absorption is certain and the
+          expected duration is finite; invoking it for a process whose
+          stopping time might not have finite expectation would be circular.
 
   - node: quant-processes.ruin.fair-example
     hook: >
@@ -310,6 +673,72 @@ lessons:
       Bringing $10$ of a $100$ pot to a fair coin gives a $90\%$ bust rate
       with exactly zero expected profit — the asymmetry is bankroll, never
       the coin.
+    steps:
+      - teach: >
+          A $90\%$ bust rate looks exactly like what a house edge would
+          produce — untangling why it isn't is a favorite follow-up in its own
+          right.
+      - teach: >
+          Nothing about $p$ moved here — it's still exactly $1/2$. The entire
+          asymmetry comes from bringing a small share of the combined pot,
+          precisely what $W(k)=k/N$ predicts and nothing more.
+      - ask: >
+          Fair coin, $k=20$ against $N=80$. What is $W(20)$?
+        expects: "0.25"
+        hint: >
+          $W(k)=k/N$.
+        feedback: >
+          $W(20)=20/80=0.25$ — a one-in-four shot at the pot, purely from
+          bringing a quarter of it.
+      - teach: >
+          The zero-expectation check confirms there's no hidden edge: expected
+          profit is $R(k)\cdot(-k)+W(k)\cdot(N-k)$, and a genuinely biased
+          game would not zero out here — any real edge shows up as a nonzero
+          expected loss even after correctly weighting how rarely the short
+          stack wins.
+      - ask: >
+          Same instance, $k=20$, $N=80$: compute the expected profit
+          $R(20)\cdot(-20)+W(20)\cdot(N-20)$.
+        expects: "0"
+        hint: >
+          $R(20)=1-W(20)=0.75$, and $N-20=60$.
+        feedback: >
+          $0.75\times(-20)+0.25\times60=-15+15=0$ — exactly fair, despite the
+          lopsided $75\%$ bust rate.
+      - teach: >
+          The practical reading: the only two levers on $W(k)$ in a fair game
+          are the two stack sizes, never the odds of any single round — no
+          amount of skillful play at $p=1/2$ moves it otherwise.
+      - ask: >
+          You're the short stack, $k=20$ of $N=80$, fair coin. Is this
+          evidence of a house edge?
+        choices:
+          - text: >
+              Yes — losing $75\%$ of the time is what an edge looks like
+            feedback: >
+              A lopsided win probability and a biased coin are different
+              things — $p=1/2$ here is fixed by the setup, not inferred from
+              the outcome frequency.
+          - text: >
+              No — $W(k)=k/N$ predicts exactly this from bankroll alone, and
+              the zero-expectation check confirms it
+            correct: true
+            feedback: >
+              Right — the fairness of the coin and the fairness of your
+              bankroll share are entirely separate questions.
+          - text: >
+              It depends on how many rounds are played
+            feedback: >
+              The number of rounds doesn't enter $W(k)$ at all; only $k$ and
+              $N$ do.
+        feedback: >
+          Win probability and fairness answer different questions — check
+          fairness with the zero-expectation identity, not with how often the
+          short stack loses.
+      - teach: >
+          Bringing more capital or finding a smaller opponent are the only two
+          ways to move $W(k)$ in a fair game; there is no third lever hiding
+          in strategy.
 
   - node: quant-processes.ruin.biased
     hook: >
@@ -358,6 +787,88 @@ lessons:
       For $p\ne q$, the characteristic roots $1$ and $r=q/p$ give
       $R(k)=(r^{k}-r^{N})/(1-r^{N})$, collapsing to the fair formula as
       $r\to1$.
+    steps:
+      - teach: >
+          Everyone remembers "$k/N$" for the fair case — the differentiator is
+          whether $(q/p)^{k}$ can be rebuilt from the recursion under time
+          pressure rather than recited from memory.
+      - teach: >
+          Rearranged, the first-step equation reads
+          $p\,R(k+1)-R(k)+q\,R(k-1)=0$, with characteristic polynomial
+          $px^{2}-x+q$. Its roots are $x=1$ (check: $p-1+q=0$ always) and
+          $x=r=q/p$, distinct exactly when $p\ne q$.
+      - teach: >
+          With two distinct roots every solution is a combination
+          $R(k)=A+Br^{k}$; fitting $R(0)=1$, $R(N)=0$ gives
+          $R(k)=(r^{k}-r^{N})/(1-r^{N})$ and $W(k)=(1-r^{k})/(1-r^{N})$.
+      - ask: >
+          Take $k=4$, $N=10$, $p=0.55$ (so $q=0.45$,
+          $r=q/p=9/11\approx0.8182$). What is $R(4)$?
+        expects: "0.3624"
+        tolerance: 0.0005
+        hint: >
+          $r^{4}\approx0.4481$ and $r^{10}\approx0.1344$; plug into
+          $(r^{k}-r^{N})/(1-r^{N})$.
+        feedback: >
+          $(0.4481-0.1344)/(1-0.1344)\approx0.3137/0.8656\approx0.3624$.
+      - teach: >
+          The fair formula isn't a separate fact to memorize: taking $r\to1$
+          in $(1-r^{k})/(1-r^{N})$ recovers $k/N$ exactly, since near $r=1$
+          that ratio tends to $k/N$ — the fair and biased formulas are the
+          same object viewed at two different roots.
+      - ask: >
+          Which mistake drops half the general solution and can't satisfy both
+          boundary conditions at once?
+        choices:
+          - text: >
+              Writing $R(k)=Br^{k}$ with no constant term $A$
+            correct: true
+            feedback: >
+              Right — the constant root $1$ contributes a genuine, independent
+              piece of the solution; dropping it leaves only one free constant
+              for two boundary conditions.
+          - text: >
+              Using $r=q/p$ instead of $r=p/q$
+            feedback: >
+              That's a real but different mistake — it doesn't drop a term, it
+              uses the wrong ratio.
+          - text: >
+              Forgetting to check $p\ne q$ before using this formula
+            feedback: >
+              Also a real pitfall, but it's about when the formula applies,
+              not about dropping a term.
+        feedback: >
+          $R(k)=A+Br^{k}$ needs both constants; the two boundary conditions
+          are two equations, and two unknowns are exactly what's needed to
+          close them.
+      - ask: >
+          This formula is applied at $p=q$ exactly. What happens?
+        choices:
+          - text: >
+              It still works, just less precisely
+            feedback: >
+              It doesn't degrade gracefully — the denominator $1-r^{N}$ is
+              exactly $0$ at $p=q$, since $r=1$ there.
+          - text: >
+              It divides by zero, since $r=1$ makes $1-r^{N}=0$
+            correct: true
+            feedback: >
+              Right — $p=q$ is exactly where the two characteristic roots
+              collide, and the fair-game formula has to be used instead, not a
+              careless limit taken inside this one.
+          - text: >
+              It gives $R(k)=0$ automatically
+            feedback: >
+              The formula becomes undefined, not zero — $0/0$, not a clean
+              value.
+        feedback: >
+          $p=q$ isn't a special case of this formula — it's the case the
+          fair-game derivation handles separately, with a genuinely different
+          route to a straight line.
+      - teach: >
+          Name the characteristic-equation route out loud in an interview:
+          root $1$ is always present, root $q/p$ comes from the quadratic, and
+          the fair formula is what's left when the two collide.
 
   - node: quant-processes.ruin.edge-sensitivity
     hook: >
@@ -412,6 +923,74 @@ lessons:
       Ruin probability is exponential in edge times distance to the barrier —
       a three-point disadvantage on a $25$-unit pot at $1$-to-$4$ already
       collapses a $20\%$ shot to about $4.3\%$.
+    steps:
+      - teach: >
+          The real question behind "why does even a tiny edge matter so much"
+          is whether you understand that ruin probability is exponentially,
+          not linearly, sensitive to $p$.
+      - teach: >
+          Write $p=1/2+\varepsilon$; then $r=q/p\approx1-4\varepsilon$ for
+          small $\varepsilon$, so $r^{m}\approx e^{-4\varepsilon m}$ — a
+          linear nudge to $p$ becomes an exponential factor once raised to a
+          power, and since $N$ is typically much larger than $k$, the term
+          $r^{N}$ swings by far the most for a fixed $\varepsilon$.
+      - ask: >
+          Hold $k=4$ against $N=20$ (a $1$-to-$4$ stake ratio) and check the
+          fair baseline first: what is $W$ at $p=0.5$?
+        expects: "0.2"
+        hint: >
+          Fair game, so $W=k/N$.
+        feedback: >
+          $W=4/20=0.2$ — the baseline the edge is about to move.
+      - ask: >
+          Same $k=4$, $N=20$, now with $p=0.46$ — a modest $4$-point
+          disadvantage. What does $W$ become?
+        expects: "0.0379"
+        tolerance: 0.0005
+        hint: >
+          $r=q/p=0.54/0.46\approx1.1739$; compute $r^{4}$ and $r^{20}$ and
+          plug into $(1-r^{k})/(1-r^{N})$.
+        feedback: >
+          $r^{4}\approx1.8991$, $r^{20}\approx24.7012$, giving
+          $W=(1-1.8991)/(1-24.7012)\approx0.0379$ — the $20\%$ shot collapses
+          more than fivefold from a $4$-point edge.
+      - teach: >
+          The same reasoning explains why the effect is far weaker at small
+          $N$: with fewer rounds needed to reach either barrier, there's less
+          room for the exponential in $r^{N}$ to compound.
+      - ask: >
+          Is the sensitivity of $W$ to $p$ roughly linear — half the edge,
+          half the effect?
+        choices:
+          - text: >
+              Yes, a smaller $\varepsilon$ always produces a proportionally
+              smaller change in $W$
+            feedback: >
+              That holds only while $\varepsilon N$ stays small; once it
+              isn't, the true exponential dependence can move $W$ by an order
+              of magnitude for a small change in $p$.
+          - text: >
+              No — the dependence is exponential in $\varepsilon N$, so
+              equal-sized changes in $p$ have very different effects depending
+              on $N$
+            correct: true
+            feedback: >
+              Right — the edge sits inside an exponent multiplied by the
+              distance to the barrier, which is exactly why the same edge
+              matters far more against a deep bankroll.
+          - text: >
+              No, because $W$ depends only on $k/N$, not on $p$ at all
+            feedback: >
+              $W$ depends on $p$ through $r=q/p$ raised to powers of $k$ and
+              $N$ — very much $p$-dependent, just not linearly.
+        feedback: >
+          Ruin probability is exponential in edge times distance to the
+          barrier — never treat a percentage-point change in $p$ as a
+          proportionally small change in $W$.
+      - teach: >
+          A fixed edge matters enormously more against a deep bankroll than a
+          shallow one, and a fixed bankroll depth matters enormously more
+          against a real edge than a coin-flip's worth of noise.
 
   - node: quant-processes.ruin.doubling-your-money
     hook: >
@@ -460,6 +1039,78 @@ lessons:
       Doubling a stack of $k$ succeeds with probability $1/(1+r^{k})$,
       $r=q/p$ — a coin flip when fair, and exponentially better or worse than
       that in $k$ once there's any edge.
+    steps:
+      - teach: >
+          "Double or bust" comes up often enough as its own question that
+          $1/(1+r^{k})$ is worth having memorized separately from the general
+          two-barrier result it specializes.
+      - teach: >
+          Setting $N=2k$ and factoring $1-r^{2k}=(1-r^{k})(1+r^{k})$ cancels a
+          common factor from $W(k)=(1-r^{k})/(1-r^{2k})$, collapsing it to
+          $W=1/(1+r^{k})$; at $r=1$ this is $1/2$, matching $k/(2k)$.
+      - teach: >
+          The only quantity that matters now is $r^{k}$ — everything about $N$
+          disappeared because $N$ was always exactly twice $k$, which is why
+          this is the version to reach for the moment a question says "double
+          your money" rather than "reach some target $N$".
+      - ask: >
+          At $p=0.55$ (so $q=0.45$, $r=9/11\approx0.8182$), a stack of $k=15$
+          tries to double. What is $W$?
+        expects: "0.9530"
+        tolerance: 0.0005
+        hint: >
+          $r^{15}\approx0.0493$; plug into $1/(1+r^{15})$.
+        feedback: >
+          $1/(1+0.0493)\approx0.9530$ — a favorable edge compounds sharply in
+          your favor as $k$ grows, well above the $50\%$ fair baseline.
+      - teach: >
+          The dependence on $k$ is geometric, not linear: with $r>1$ (an edge
+          against you), doubling a deeper stack is dramatically harder, not
+          easier, even though fair-game intuition — "bigger bankroll, same
+          $50\%$" — suggests no change at all.
+      - ask: >
+          At $p=0.48$ (a $2$-point disadvantage, $r=13/12\approx1.0833$), a
+          stack of $k=10$ tries to double. What is $W$?
+        expects: "0.3099"
+        tolerance: 0.0005
+        hint: >
+          $r^{10}\approx2.2265$; plug into $1/(1+r^{10})$.
+        feedback: >
+          $r^{10}\approx2.2265$, so $W=1/(1+2.2265)\approx0.3099$ — well below
+          the $50\%$ fair baseline, the mirror image of the $p=0.55$
+          favorable case: an edge against you collapses $W$ the same way an
+          edge for you inflates it.
+      - ask: >
+          This collapsed formula is used for a target of $N=1.5k$ instead of
+          $2k$. What goes wrong?
+        choices:
+          - text: >
+              Nothing — $1/(1+r^{k})$ works for any target, not just doubling
+            feedback: >
+              The cancellation that produced $1/(1+r^{k})$ used
+              $1-r^{2k}=(1-r^{k})(1+r^{k})$ specifically — it relies on $N$
+              being exactly $2k$.
+          - text: >
+              The formula silently answers the wrong question, since it only
+              holds when the target is exactly double the starting stack
+            correct: true
+            feedback: >
+              Right — for $N\ne2k$ the general $(1-r^{k})/(1-r^{N})$ formula
+              is needed instead; the collapsed version isn't a general
+              shortcut.
+          - text: >
+              The exponent should be $N$ instead of $k$
+            feedback: >
+              That coincides only at $N=2k$ where $k$ and $N$ relate simply —
+              the exponent is $k$ by construction, not a substitute for $N$.
+        feedback: >
+          $1/(1+r^{k})$ is a specialization, not a shortcut for arbitrary
+          targets — check that the target really is double the stack before
+          reaching for it.
+      - teach: >
+          Playing a slightly unfavorable game longer with a bigger stack
+          riding on it does not average out toward the fair result; it moves
+          further from it, geometrically.
 
   - node: quant-processes.ruin.duration
     hook: >
@@ -506,6 +1157,68 @@ lessons:
     recap: >
       In a fair game, expected duration is $k(N-k)$, the product of the two
       stacks, maximized at $N^{2}/4$ when they're equal.
+    steps:
+      - teach: >
+          "How long does this take on average" is asked as often as "who
+          wins", and $k(N-k)$ is short enough to say cold, surprising enough
+          that interviewers watch whether you sanity-check it.
+      - teach: >
+          $D(k)=1+\tfrac12D(k+1)+\tfrac12D(k-1)$ forces a second difference of
+          exactly $-2$ rather than $0$; the ansatz $D(k)=-k^{2}$ checks out,
+          so the general solution is $D(k)=A+Bk-k^{2}$.
+      - teach: >
+          Fitting $D(0)=0$ forces $A=0$, $D(N)=0$ forces $B=N$, giving
+          $D(k)=k(N-k)$: the product of the two stack sizes, in bet units.
+      - ask: >
+          Fair coin, $k=12$ against $N=50$. What is the expected duration
+          $D(12)$?
+        expects: "456"
+        hint: >
+          $D(k)=k(N-k)$.
+        feedback: >
+          $D(12)=12\times(50-12)=12\times38=456$ rounds.
+      - teach: >
+          $D$ is symmetric and maximized at $k=N/2$, matching the diffusive
+          scaling of a $\pm1$ walk — covering a distance of order $d$ takes on
+          the order of $d^{2}$ steps, applied once toward each barrier and
+          multiplied.
+      - ask: >
+          Same $N=50$, now with the pot split evenly, $k=25$. What is $D(25)$?
+        expects: "625"
+        hint: >
+          $D(25)=25\times(50-25)$.
+        feedback: >
+          $D(25)=25\times25=625=50^{2}/4$ — noticeably longer than the
+          $12$-against-$38$ split's $456$ rounds, despite the same combined
+          pot: a fair coin takes longest to settle an evenly matched pair.
+      - ask: >
+          A quick memory check gives $D(k)=k^{2}(N-k)$ instead of $k(N-k)$.
+          What catches the error fastest?
+        choices:
+          - text: >
+              Checking that $D(0)=0$
+            feedback: >
+              Both the correct and the wrong formula give $0$ at $k=0$ — this
+              check doesn't distinguish them.
+          - text: >
+              Checking the symmetric case $k=N/2$ still gives $N^{2}/4$
+            correct: true
+            feedback: >
+              Right — $k^{2}(N-k)$ at $k=N/2$ gives $(N/2)^{2}(N/2)=N^{3}/8$,
+              not $N^{2}/4$, exposing the wrong exponent immediately.
+          - text: >
+              Checking that $D(N)=0$
+            feedback: >
+              Both formulas also vanish at $k=N$ — this doesn't catch the
+              exponent error either.
+        feedback: >
+          The symmetric case is the fast sanity check: $k(N-k)$ at $k=N/2$
+          gives exactly $N^{2}/4$, and any misremembered exponent fails it
+          immediately.
+      - teach: >
+          This exact formula is fair-game only; an edge changes both how the
+          game ends and how quickly, so $k(N-k)$ cannot simply be reused once
+          $p\ne1/2$.
 
   - node: quant-processes.ruin.duration-biased
     hook: >
@@ -554,6 +1267,85 @@ lessons:
       With an edge, expected duration is $D(k)=(k-N\,W(k))/(q-p)$ — reusing
       the biased win probability rather than solving a fresh system, and
       generally longer than intuition about "safer means faster" suggests.
+    steps:
+      - teach: >
+          "Does an edge make the game shorter or longer" is a favorite trick
+          question, and this node is the two-sided fact: an edge makes the
+          game both safer and, in expectation, considerably longer.
+      - teach: >
+          $D(k)=1+p\,D(k+1)+q\,D(k-1)$ has the same extra constant as the fair
+          case, but now the natural particular-solution guess is linear,
+          $D(k)=ck$; substituting forces $1+c(p-q)=0$, so $c=1/(q-p)$.
+      - teach: >
+          The general solution adds this to the homogeneous piece, which has
+          the same characteristic roots $1$ and $r=q/p$ as the ruin
+          probability; fitting $D(0)=D(N)=0$ lands on
+          $D(k)=(k-N\,W(k))/(q-p)$, reusing $W(k)$ rather than solving fresh
+          constants.
+      - ask: >
+          At $k=8$, $N=40$, $p=0.47$ (so $q=0.53$), the biased formula gives
+          $W(8)\approx0.013321$. What does $D(k)=(k-N\,W(k))/(q-p)$ give for
+          $D(8)$?
+        expects: "124.4527"
+        tolerance: 0.0005
+        hint: >
+          $q-p=0.06$; compute $8-40\times0.013321$ first.
+        feedback: >
+          $40\times0.013321\approx0.5328$, so
+          $(8-0.5328)/0.06\approx124.4527$ rounds — shorter than the
+          fair-game $D(8,40)=8\times32=256$, since this is a disadvantage,
+          not an edge.
+      - teach: >
+          Read the middle identity — $N\,W(k)-k=(p-q)D(k)$ — as conservation
+          of expectation carried all the way to the absorption time rather
+          than one round: expected net displacement equals drift per round
+          times expected number of rounds, which is why a favorable edge
+          lengthens the game even as it makes it safer.
+      - ask: >
+          At $k=5$, $N=25$, $p=0.52$ (a genuine edge, $q-p=-0.04$), the biased
+          formula gives $W(5)\approx0.381383$. What does $D(5)$ come out to?
+        expects: "113.3644"
+        tolerance: 0.0005
+        hint: >
+          $(5-25\times0.381383)/(0.52-0.48)$.
+        feedback: >
+          $25\times0.381383\approx9.5346$, so
+          $(5-9.5346)/(-0.04)\approx113.3644$ rounds — longer than the
+          fair-game $D(5,25)=5\times20=100$, this time because the edge
+          genuinely favors the player.
+      - ask: >
+          The denominator $q-p$ changes sign depending on who holds the edge.
+          What breaks if that sign is dropped and $|q-p|$ is used instead?
+        choices:
+          - text: >
+              Nothing — duration is always positive, so the sign doesn't
+              matter
+            feedback: >
+              The sign is what keeps $D(k)$ positive in the first place, since
+              $k-N\,W(k)$ also changes sign with the edge; dropping just one
+              flips the answer.
+          - text: >
+              The formula degenerates only at $p=q$, so the sign elsewhere is
+              irrelevant
+            feedback: >
+              That degeneracy is a separate issue — the sign of $q-p$ still
+              matters for every $p\ne q$.
+          - text: >
+              $k-N\,W(k)$ and $q-p$ flip sign together, so dropping the sign
+              on one but not the other gives a wrong-signed or wrong-magnitude
+              $D(k)$
+            correct: true
+            feedback: >
+              Right — both numerator and denominator track which side has the
+              edge; they have to be carried together, sign included.
+        feedback: >
+          Track the sign of $q-p$ explicitly rather than reasoning about
+          magnitudes alone — it's doing real bookkeeping, not just fixing an
+          orientation.
+      - teach: >
+          This formula degenerates exactly as $p\to q$, right where the
+          fair-game formula $k(N-k)$ takes over, so it can't be naively
+          limited into the fair case the way the ruin-probability formula can.
 
   - node: quant-processes.ruin.infinite-opponent
     hook: >
@@ -605,6 +1397,76 @@ lessons:
     recap: >
       Against an unlimited opponent, ruin is certain whenever $p\le1/2$; with
       an edge, lifetime bust probability is the strictly positive $(q/p)^{k}$.
+    steps:
+      - teach: >
+          "What if the house has infinite money" is a favorite interview
+          escalation, and the answer splits sharply on whether you actually
+          have an edge — a fair game is not a safe game against an unlimited
+          opponent.
+      - teach: >
+          Send $N\to\infty$ with $k$ fixed. In $R(k)=1-k/N$, any fixed $k$
+          becomes negligible next to a diverging $N$, so $R(k)\to1$. The same
+          holds for any $p\le1/2$, since then $r=q/p\ge1$ and $r^{N}$ never
+          shrinks, sending $R(k)\to1$ in the biased formula too.
+      - teach: >
+          Once $p>1/2$ strictly, $r<1$, so $r^{N}\to0$ and the biased
+          formula's boundary term drops out entirely, leaving $R(k)\to
+          r^{k}=(q/p)^{k}$: a genuine positive lifetime bust probability with
+          no bankroll ceiling in it at all.
+      - ask: >
+          At $p=0.55$ against an unlimited opponent, what is the lifetime bust
+          probability for a stack of $k=8$?
+        expects: "0.2008"
+        tolerance: 0.0005
+        hint: >
+          $r=q/p=0.45/0.55=9/11\approx0.8182$; the answer is $r^{8}$.
+        feedback: >
+          $r^{8}\approx0.2008$ — about a $20\%$ eventual bust probability,
+          purely from a $5$-point edge and a modest bankroll.
+      - teach: >
+          Against an opponent who can absorb unlimited losses, breaking even
+          isn't a safe strategy, it's a losing one with probability $1$; an
+          edge is what buys a real floor under bust probability, and that
+          floor still decays as $k$ grows.
+      - ask: >
+          At exactly $p=1/2$ against an unlimited opponent, is the game safe?
+        choices:
+          - text: >
+              Yes — a fair game has no edge against you, so it should be safe
+            feedback: >
+              $R(k)\to1$ holds at $p=1/2$ too, since $r=1$ there and $r^{N}=1$
+              for every $N$ — a fair game against an unlimited bank is still
+              certain ruin.
+          - text: >
+              No — ruin is certain at $p=1/2$ exactly, the same as for any
+              $p<1/2$
+            correct: true
+            feedback: >
+              Right — the boundary case $p=1/2$ belongs with $p\le1/2$, not
+              with $p>1/2$; only a strict edge changes the outcome.
+          - text: >
+              It depends on $k$
+            feedback: >
+              $k$ affects nothing here — $R(k)\to1$ at $p\le1/2$ regardless of
+              how large $k$ is.
+        feedback: >
+          The dividing line is strict: $p\le1/2$ gives certain ruin against an
+          unlimited bank, and only $p>1/2$ buys a genuine floor.
+      - ask: >
+          At $p=0.6$ (a real edge), what's the lifetime bust probability for a
+          stack of $k=5$?
+        expects: "32/243"
+        tolerance: 0.0005
+        hint: >
+          $r=q/p=0.4/0.6=2/3$; the answer is $r^{5}$.
+        feedback: >
+          $r^{5}=(2/3)^{5}=32/243\approx0.1317$ — even a modest stack against
+          a real $10$-point edge already survives forever with better than
+          $85\%$ probability.
+      - teach: >
+          The bust probability $(q/p)^{k}$ is strictly positive for any finite
+          $k$, however large — a real edge with a real finite bankroll is
+          safer than break-even, never perfectly safe.
 
   - node: quant-processes.ruin.unequal-steps
     hook: >
@@ -663,6 +1525,105 @@ lessons:
       For a general upward jump with no downward jump past $1$, bust
       probability against an unlimited bank is still geometric, $\theta^{k}$,
       with $\theta$ the nontrivial root of $\mathbb{E}[\theta^{X}]=1$.
+    steps:
+      - teach: >
+          Interviewers love perturbing the classic $\pm1$ walk into "win $2$,
+          lose $1$" or similar; recognizing that the same geometric bust
+          probability survives with a different root is the difference between
+          re-deriving everything and reusing the machinery.
+      - teach: >
+          Against an unlimited opponent, the bust probability from any
+          interior state satisfies $R(k)=\mathbb{E}[R(k+X)]$. Trying
+          $R(k)=\theta^{k}$ turns this into
+          $\theta^{k}=\theta^{k}\,\mathbb{E}[\theta^{X}]$, and since
+          $\theta^{k}\ne0$ this forces $\mathbb{E}[\theta^{X}]=1$.
+      - teach: >
+          Plugging in $X=\pm1$ recovers $p\theta+q/\theta=1$, roots $\theta=1$
+          and $\theta=q/p$. The root $\theta=1$ isn't special to this case —
+          it solves $\mathbb{E}[\theta^{X}]=1$ for any jump distribution,
+          since probabilities sum to $1$; the real work is dividing that
+          trivial root out and finding the other one in $(0,1)$.
+      - ask: >
+          A round wins $3$ units with probability $p=0.3$ and loses $1$ unit
+          with probability $q=0.7$ ($\mathbb{E}[X]=0.2>0$). The equation
+          $\mathbb{E}[\theta^{X}]=1$ becomes $0.3\,\theta^{3}+0.7/\theta=1$,
+          or $0.3\,\theta^{4}-\theta+0.7=0$. Dividing out the root $\theta=1$
+          leaves a cubic with a single root in $(0,1)$, $\theta\approx0.8795$.
+          What is the bust probability for a stack of $k=5$ against an
+          unlimited opponent?
+        expects: "0.5262"
+        tolerance: 0.0005
+        hint: >
+          The answer is $\theta^{k}=\theta^{5}$.
+        feedback: >
+          $0.8795^{5}\approx0.5262$ — despite the positive drift, over half of
+          stacks this shallow eventually go broke against an unlimited bank.
+      - teach: >
+          The requirement that no downward jump exceed one unit is what keeps
+          the answer this clean — it means the walk can never jump straight
+          over $0$, so hitting $(-\infty,0]$ for the first time means landing
+          exactly on $0$, preserving the ladder structure that made the $\pm1$
+          case solvable.
+      - ask: >
+          Reporting $\theta=1$ itself as the bust-probability root, rather
+          than the other one in $(0,1)$, gives what?
+        choices:
+          - text: >
+              The meaningless statement that bust probability is $1^{k}=1$ for
+              every $k$
+            correct: true
+            feedback: >
+              Right — $\theta=1$ is always a root of
+              $\mathbb{E}[\theta^{X}]=1$ by construction, and it carries no
+              information; the content is in the other root.
+          - text: >
+              A bust probability that's too low
+            feedback: >
+              It's not merely too low — $1^{k}=1$ regardless of $k$ is a
+              constant, uninformative answer, not a numerically off one.
+          - text: >
+              The correct answer whenever $\mathbb{E}[X]>0$
+            feedback: >
+              The trivial root $\theta=1$ never depends on the sign of
+              $\mathbb{E}[X]$ — it's algebraically forced regardless, which is
+              exactly why it carries no content.
+        feedback: >
+          Always divide out $\theta=1$ before reporting an answer — it's a
+          structural root of the equation, not a candidate answer.
+      - ask: >
+          The same jump distribution is modified so a downward move of $2$ is
+          also possible. What breaks in this argument?
+        choices:
+          - text: >
+              $\mathbb{E}[\theta^{X}]=1$ no longer has a root in $(0,1)$
+            feedback: >
+              The equation can still have such a root — the issue isn't its
+              existence, it's whether $\theta^{k}$ is still the right form for
+              the bust probability.
+          - text: >
+              The walk can now jump straight over $0$ without landing on it,
+              breaking the argument that first hitting $(-\infty,0]$ means
+              landing exactly on $0$
+            correct: true
+            feedback: >
+              Right — the whole geometric-form argument leans on landing
+              exactly on the barrier; once a jump can skip past it, that
+              structure fails.
+          - text: >
+              Nothing breaks, since $\mathbb{E}[\theta^{X}]=1$ was derived for
+              a general $X$ from the start
+            feedback: >
+              The general derivation of $\mathbb{E}[\theta^{X}]=1$ still
+              holds, but the clean form $R(k)=\theta^{k}$ specifically relied
+              on never overshooting $0$.
+        feedback: >
+          The no-larger-than-one downward jump condition is what keeps
+          first-passage to ruin equivalent to landing exactly on the barrier —
+          lose that, and the geometric form no longer applies.
+      - teach: >
+          $\theta$ solving $\mathbb{E}[\theta^{X}]=1$ is the general
+          adjustment-coefficient equation of ruin theory; the $\pm1$ walk's
+          $q/p$ is just its answer for the simplest jump distribution.
 
   - node: quant-processes.ruin.stake-scaling
     hook: >
@@ -715,6 +1676,80 @@ lessons:
     recap: >
       Only $k/b$ and $N/b$ matter: bet size is irrelevant to $W$ when fair,
       helps the underdog against an edge, and hurts the favorite.
+    steps:
+      - teach: >
+          "Does bet size matter" sounds like a throwaway question, and the
+          honest two-part answer — irrelevant in a fair game, enormous with an
+          edge — is exactly the kind interviewers reward.
+      - teach: >
+          Every formula in this unit only ever sees the stacks in units of a
+          single bet, since the walk moves by one bet-sized unit per round.
+          Betting $b$ units per round is the same walk relabeled in coarser
+          units, with effective barriers $k/b$ and $N/b$ and $p$ itself
+          untouched.
+      - teach: >
+          In a fair game $W=k/N$ is completely unaffected, since
+          $(k/b)/(N/b)=k/N$ exactly — bet size can never change whether you
+          double up in a fair game, only how long it takes, since
+          $D=(k/b)(N/b)=kN/b^{2}$ shrinks like $1/b^{2}$.
+      - ask: >
+          A $4$-point underdog, $p=0.46$, holds $k=8$ against $N=40$, betting
+          one unit at a time. What is $W$?
+        expects: "0.0043"
+        tolerance: 0.0005
+        hint: >
+          $r=q/p=0.54/0.46\approx1.1739$; compute $(1-r^{8})/(1-r^{40})$.
+        feedback: >
+          $W\approx0.0043$ — well under half a percent, a steep collapse from
+          the fair baseline $8/40=0.2$.
+      - ask: >
+          Same odds, but now betting $b=8$ units per round, so the effective
+          barriers become $k/b=1$ and $N/b=5$. What does $W$ become?
+        expects: "0.1415"
+        tolerance: 0.0005
+        hint: >
+          Use the same biased formula with $k=1$, $N=5$ instead.
+        feedback: >
+          $W\approx0.1415$ — over thirty times better than the
+          one-unit-at-a-time result, purely from betting in larger chunks,
+          with $p$ completely unchanged.
+      - teach: >
+          Raising $b$ shrinks the effective barriers toward $0$, and
+          $r^{k/b}\to1$ as $b$ grows, pushing $W$ toward the fair value $k/N$
+          from whichever side of $1$ $r$ sits on — a real improvement for the
+          underdog, whose $W$ sat below $k/N$.
+      - ask: >
+          The same rescaling trick is applied by the favored side, $p>1/2$.
+          Should they bet bigger or smaller to maximize $W$?
+        choices:
+          - text: >
+              Bigger — rescaling always pushes $W$ toward $k/N$, and that's an
+              improvement for anyone
+            feedback: >
+              It pushes $W$ toward $k/N$ regardless of who's favored, but the
+              favorite's true $W$ already sits above $k/N$ — pushing toward it
+              is a step down, not up.
+          - text: >
+              Smaller — shrinking $b$ keeps $W$ elevated above the fair value
+              $k/N$ rather than regressing toward it
+            correct: true
+            feedback: >
+              Right — the same rescaling that helps the underdog by pulling
+              $W$ up toward $k/N$ hurts the favorite by pulling their
+              already-higher $W$ back down toward it.
+          - text: >
+              It makes no difference to the favored side
+            feedback: >
+              It makes exactly the same magnitude of difference as it does for
+              the underdog, just in the opposite direction.
+        feedback: >
+          One rescaling, two opposite effects: bigger bets help whoever is
+          behind, and hurt whoever is ahead, because both are pulled toward
+          the same fair-game value $k/N$.
+      - teach: >
+          Win probability and expected duration respond completely differently
+          to bet size, with duration moving even in the fair game where $W$
+          never does at all.
 
   - node: quant-processes.ruin.bold-play
     hook: >
@@ -769,3 +1804,72 @@ lessons:
       Behind on a fair-money target, bet as big and as rarely as possible;
       ahead of one, bet as small and as often as possible — both because
       every round is one more shot for the edge to act.
+    steps:
+      - teach: >
+          This is the punchline of the whole subbranch and a real interview
+          question: if the odds are against you, should you bet big or small
+          to hit a target — and the answer runs opposite to textbook
+          risk-management instinct.
+      - teach: >
+          Stake-scaling already showed that larger bets push a subfair game's
+          success probability up toward, and past, the fair value; bold play
+          takes that to the extreme, staking the smaller of your current
+          fortune and the amount still needed on every round. Pushed all the
+          way to one round, doubling a stack of $k$ via a single bet succeeds
+          with probability exactly $p$, the raw single-round win probability.
+      - ask: >
+          A $2$-point house disadvantage, $p=0.47$, betting one unit at a time
+          to double a stack of $k=8$. What is $W$?
+        expects: "0.2766"
+        tolerance: 0.0005
+        hint: >
+          $r=q/p=0.53/0.47\approx1.1277$; use $1/(1+r^{8})$.
+        feedback: >
+          $W\approx0.2766$ — well below the fair-game $50\%$.
+      - ask: >
+          Same $p=0.47$, same target — but now a single all-in bet for the
+          whole target. What is $W$?
+        expects: "0.47"
+        hint: >
+          One round, one coin flip for the target: $W=p$ directly.
+        feedback: >
+          $W=p=0.47$ — nearly double the one-unit-at-a-time result, and much
+          closer to the fair-game benchmark.
+      - teach: >
+          Against an edge that favors you, the incentive reverses completely —
+          shrinking the stake toward $1$ unit per round, rather than growing
+          it, pushes success probability toward $1$ with no ceiling and no
+          optimal finite bet size, since spreading a favorable edge over more
+          independent rounds is what lets it compound.
+      - ask: >
+          The edge now favors you, $p=0.53$. Should you bet big and rarely, or
+          small and often, to maximize the chance of doubling your stack?
+        choices:
+          - text: >
+              Big and rarely — the same bold-play logic that helped against a
+              house edge
+            feedback: >
+              Bold play is specific to being behind: it minimizes how many
+              times an edge against you gets to act. With the edge in your
+              favor, minimizing rounds also minimizes how many times it gets
+              to help.
+          - text: >
+              Small and often — maximizing the number of independent rounds
+              lets the law of large numbers grind out a favorable edge
+            correct: true
+            feedback: >
+              Right — every round is one more independent application of the
+              edge; against you, minimize that count, for you, maximize it.
+          - text: >
+              It makes no difference once you have any edge at all
+            feedback: >
+              It makes exactly the same order-of-magnitude difference as it
+              does against an edge, just favoring the opposite strategy.
+        feedback: >
+          The single idea underneath both directions: every round played is
+          another shot for whatever edge is on the table to act — minimize
+          rounds against you, maximize them for you.
+      - teach: >
+          This result is specific to the objective "reach a target before
+          ruin"; it isn't a general claim that big bets reduce risk in every
+          framing of the problem.
