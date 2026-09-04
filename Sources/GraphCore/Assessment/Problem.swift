@@ -79,6 +79,20 @@ public struct Problem: Codable, Hashable, Sendable, Identifiable {
     /// Roughly how demanding the problem is, used only to order a probe ladder.
     public let difficulty: Difficulty
     public let tags: [String]
+    /// §6.7's machine-checkable final value, when the problem has one: the reader
+    /// types their answer and the app compares it numerically before the reveal.
+    /// Additive rather than a new `kind` (D13.3) — a `work` problem keeps its
+    /// rubric and its self-grade, and merely stops taking the solver's word for
+    /// what the number was.
+    public let expects: String?
+    /// Absolute tolerance for `expects`; `nil` is effectively exact.
+    public let tolerance: Double?
+    /// The alternative to `expects` for a problem whose answer is not a number —
+    /// `decide` problems, mostly, where "which hypothesis fails" is a choice.
+    public let choices: [AnswerChoice]
+    /// Why the answer is the answer, shown with the reveal. Distinct from
+    /// `answer`, which is the worked solution: this is the one-line "because".
+    public let feedback: String?
 
     /// Authoring-time difficulty, distinct from FSRS's fitted per-node difficulty —
     /// this one is a property of the *problem*, and never enters the memory model.
@@ -111,7 +125,11 @@ public struct Problem: Codable, Hashable, Sendable, Identifiable {
         exercises: [NodeID] = [],
         connects: [String] = [],
         difficulty: Difficulty = .standard,
-        tags: [String] = []
+        tags: [String] = [],
+        expects: String? = nil,
+        tolerance: Double? = nil,
+        choices: [AnswerChoice] = [],
+        feedback: String? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -123,7 +141,22 @@ public struct Problem: Codable, Hashable, Sendable, Identifiable {
         self.connects = connects
         self.difficulty = difficulty
         self.tags = tags
+        self.expects = expects
+        self.tolerance = tolerance
+        self.choices = choices
+        self.feedback = feedback
     }
+
+    /// §6.7's check, when the problem carries one. `nil` means the problem
+    /// self-grades against its rubric, which is every problem authored before
+    /// Phase 13 and every `justify` problem after it.
+    public var check: AnswerCheck? {
+        AnswerCheck(
+            choices: choices, expects: expects, tolerance: tolerance,
+            feedback: feedback ?? answer)
+    }
+
+    public var isChecked: Bool { check != nil }
 
     /// Every node the problem touches, targets first. Deduplicated, order stable.
     public var taggedNodes: [NodeID] {
@@ -133,6 +166,7 @@ public struct Problem: Codable, Hashable, Sendable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id, kind, statement, answer, rubric, targets, exercises, connects, difficulty, tags
+        case expects, tolerance, choices, feedback
     }
 
     // Hand-written for the same reason `Node`'s is: absent collections decode as
@@ -149,6 +183,10 @@ public struct Problem: Codable, Hashable, Sendable, Identifiable {
         connects = try c.decodeIfPresent([String].self, forKey: .connects) ?? []
         difficulty = try c.decodeIfPresent(Difficulty.self, forKey: .difficulty) ?? .standard
         tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
+        expects = try c.decodeIfPresent(String.self, forKey: .expects)
+        tolerance = try c.decodeIfPresent(Double.self, forKey: .tolerance)
+        choices = try c.decodeIfPresent([AnswerChoice].self, forKey: .choices) ?? []
+        feedback = try c.decodeIfPresent(String.self, forKey: .feedback)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -163,6 +201,10 @@ public struct Problem: Codable, Hashable, Sendable, Identifiable {
         if !connects.isEmpty { try c.encode(connects, forKey: .connects) }
         try c.encode(difficulty, forKey: .difficulty)
         if !tags.isEmpty { try c.encode(tags, forKey: .tags) }
+        try c.encodeIfPresent(expects, forKey: .expects)
+        try c.encodeIfPresent(tolerance, forKey: .tolerance)
+        if !choices.isEmpty { try c.encode(choices, forKey: .choices) }
+        try c.encodeIfPresent(feedback, forKey: .feedback)
     }
 }
 
@@ -226,4 +268,26 @@ public struct ProblemBank: Sendable {
     /// coverage, so this is reported rather than assumed (`Placement` skips
     /// unprobeable nodes and says so).
     public var probeableNodes: Set<NodeID> { Set(problemsByTarget.keys) }
+
+    /// §6.7's mastery set: the hardest problems that test this node, hardest
+    /// first.
+    ///
+    /// This is `problems(targeting:)` read backwards, and it is a separate
+    /// accessor rather than a flag on that one for exactly that reason (D13.6).
+    /// Easiest-first is right for a probe ladder — a placement run should not open
+    /// with the hardest problem in the bank — and precisely wrong at the end of a
+    /// lesson, where a `routine` problem tests nothing the lesson has not just
+    /// handed over. Two orderings that are each other's inverse, distinguishable
+    /// at a call site only by which name was typed.
+    public func masterySet(for node: NodeID, limit: Int = 3) -> [Problem] {
+        guard limit > 0 else { return [] }
+        return problems(targeting: node)
+            .sorted { left, right in
+                left.difficulty == right.difficulty
+                    ? left.id < right.id
+                    : left.difficulty > right.difficulty
+            }
+            .prefix(limit)
+            .map { $0 }
+    }
 }

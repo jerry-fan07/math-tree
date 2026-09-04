@@ -74,7 +74,58 @@ extension MathText {
             if rendered.runs.contains(where: { $0.sizeMultiplier <= 0 }) {
                 report("non-positive run size")
             }
+            // The two-dimensional channel. It leaves no trace in `plainText` — that is
+            // the whole point of it — so nothing above can see a fraction whose
+            // numerator vanished or a box that also carries text. Structural rather
+            // than geometric: whether the rule sits on the axis is a question for the
+            // specimen frame, but whether there is anything to draw is a question with
+            // a right answer, and the answer is checkable over the whole corpus.
+            if let issue = boxIssue(in: rendered.runs) {
+                report(issue)
+            }
             return found
+        }
+
+        /// The first structural fault among a rendering's box runs, if any.
+        private static func boxIssue(in runs: [MathText.Run]) -> String? {
+            for run in runs {
+                guard let box = run.box else { continue }
+                if !run.text.isEmpty {
+                    return "box run also carries text — the two are exclusive"
+                }
+                if let issue = boxIssue(in: box) { return issue }
+            }
+            return nil
+        }
+
+        private static func boxIssue(in box: MathText.Box) -> String? {
+            /// A part that renders to nothing at all — `\frac{}{2}`, `\sqrt{}` — draws as
+            /// a bare rule or an empty hook, which reads as a rendering bug rather than
+            /// as the authoring slip it is.
+            func check(_ parts: [(String, [MathText.Run])], of construct: String) -> String? {
+                for (name, runs) in parts where runs.isEmpty {
+                    return "empty \(name) in \(construct)"
+                }
+                return parts.lazy.compactMap { boxIssue(in: $0.1) }.first
+            }
+            switch box {
+            case let .fraction(numerator, denominator):
+                return check(
+                    [("numerator", numerator), ("denominator", denominator)], of: "a fraction")
+            case let .binomial(top, bottom):
+                return check([("top", top), ("bottom", bottom)], of: "a binomial")
+            case let .radical(degree, radicand):
+                // An absent degree is a square root, not a fault; an absent radicand is.
+                return check([("radicand", radicand)], of: "a radical")
+                    ?? boxIssue(in: degree)
+            case let .rule(_, content):
+                return check([("content", content)], of: "an over/underline")
+            case let .accent(_, content, _):
+                return check([("nucleus", content)], of: "an accent")
+            case let .delimited(_, content, _):
+                // `\left.` and `\right.` are legitimately empty; the content is not.
+                return check([("content", content)], of: "a delimited group")
+            }
         }
 
         /// The eyeball half of the check. Mechanical flags catch crashes; only reading the
@@ -193,6 +244,13 @@ extension MathText {
                             id: problem.id.rawValue, field: "rubric[\($0.offset)]",
                             source: $0.element)
                     }
+                    // §6.7's check fields. `expects` is included on purpose even
+                    // though it is compared numerically rather than read: the
+                    // player *shows* it on reveal, so a `\frac` that does not
+                    // render is as visible here as in a statement.
+                    + (problem.check?.renderableFields ?? []).map {
+                        Sample(id: problem.id.rawValue, field: $0.field, source: $0.source)
+                    }
             }
         }
 
@@ -220,6 +278,18 @@ extension MathText {
                             guard let source else { continue }
                             samples.append(
                                 Sample(id: lesson.node.rawValue, field: field, source: source))
+                        }
+                        // §6.7's cards. `steps` rather than `cards` on purpose:
+                        // derived cards are slices of the prose already sampled
+                        // above, so checking them again would double every
+                        // finding and report the same defect twice.
+                        for (index, card) in lesson.steps.enumerated() {
+                            for (field, source) in card.renderableFields {
+                                samples.append(
+                                    Sample(
+                                        id: lesson.node.rawValue,
+                                        field: "steps[\(index)].\(field)", source: source))
+                            }
                         }
                     }
                     return samples
@@ -250,18 +320,21 @@ extension MathText {
         /// into `NSUserDefaults` and the window silently never appears.
         @MainActor
         static func runIfRequested(
-            document: GraphDocument, problems: ProblemDocument,
+            document: GraphDocument, problems: [ProblemDocument],
             additionalDocuments: [GraphDocument] = [],
             programs: [ProgramDocument] = []
         ) {
             guard isRequested else { return }
             let all =
-                samples(for: document) + samples(for: problems.bank)
+                samples(for: document)
+                + problems.flatMap { Self.samples(for: $0.bank) }
                 + additionalDocuments.flatMap { Self.samples(for: $0) }
                 + programs.flatMap { Self.samples(for: $0.program) }
             print(report(for: all))
-            if let reason = problems.unavailable {
-                print("note: problem bank not checked — \(reason)")
+            for problems in problems {
+                if let reason = problems.unavailable {
+                    print("note: problem bank not checked — \(reason)")
+                }
             }
             for program in programs {
                 if let reason = program.unavailable {

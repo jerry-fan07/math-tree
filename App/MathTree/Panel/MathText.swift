@@ -1,21 +1,37 @@
 import Foundation
 
-/// LaTeX-lite: the smallest thing that renders the content corpus acceptably.
+/// The corpus's LaTeX, in two read-outs: a **linear** one for text, and a **two-dimensional**
+/// one for display.
 ///
-/// Phase 4 of implementation-plan.md asks for an evaluation of "`NSAttributedString`-based
-/// LaTeX-lite vs. bundling a math-layout approach" and says the smallest thing that renders
-/// the seed content wins. This is that thing: a single-pass scanner over `$…$` spans that
-/// emits **styled runs** — text plus a font-size multiplier and a baseline shift — which is
-/// exactly the expressive power an `NSAttributedString` (or a concatenated SwiftUI `Text`)
-/// has. There is no box model, no fraction bar, no radical rule. Fractions linearise to
-/// `(a)/(b)`; super/subscripts are the only two-dimensional construct, and they are done
-/// with baseline offsets.
+/// Phase 4 asked for the smallest thing that rendered the seed content acceptably and got a
+/// single-pass scanner over `$…$` spans emitting styled runs — text plus a font-size
+/// multiplier and a baseline shift, which is all a concatenated SwiftUI `Text` can express.
+/// That is still the spine of this file, and it is still what `plainText` produces: a
+/// fraction linearises to `(a)/(b)`, a radical to `√(x)`, an accent to a combining mark.
+/// Accessibility labels, the corpus self-check and the answer read-back all consume that
+/// form, so it is frozen.
 ///
-/// Two deliberate properties:
+/// What the *display* side no longer accepts is the linear form. `(f(b) - f(a))/(b - a)` set
+/// in the same roman as the prose around it reads as prose; a reader cannot see where the
+/// mathematics starts. So the scanner emits a second channel alongside the first:
+///
+/// - **Boxes** (`Run.box`) for the constructs a baseline shift cannot express — fractions,
+///   radicals, binomials, accents and rules. They are laid out and drawn by
+///   `MathBox.swift`, which owns every point of geometry; this file only says what nests in
+///   what.
+/// - **Italics** (`Run.isItalic`) for variables, which is the typographic convention that
+///   makes `f` read as a function and not as a word. Operator names, digits, punctuation
+///   and `\text{…}` stay upright, exactly as TeX sets them.
+///
+/// The two channels are produced in one pass and stay in step: a construct that becomes a
+/// box still writes its linear form to the plain-text buffer (see `Emitter.discardingRuns`),
+/// so `plainText` is byte-for-byte what it was before boxes existed.
+///
+/// Two deliberate properties, unchanged:
 ///
 /// - **Pure and framework-free.** `Foundation` only, no view state, no AppKit, no SwiftUI.
-///   The display adapter lives in `MathTextView.swift`; `MathText.Check` verifies this file
-///   without ever constructing a view.
+///   The display adapters live in `MathBox.swift` and `MathTextView.swift`; `MathText.Check`
+///   verifies this file without ever constructing a view.
 /// - **Fails open.** Every unknown construct degrades to something readable and the scan
 ///   continues. Content will always outrun this renderer's macro table, so an unrecognised
 ///   macro must never swallow the rest of a statement (see `emitUnknownMacro`).
@@ -27,13 +43,52 @@ enum MathText {
     ///
     /// Multipliers rather than points so the caller owns the type scale: a run is drawn at
     /// `baseSize * sizeMultiplier`, shifted `baseSize * baselineMultiplier` points up.
-    struct Run: Equatable, Sendable {
+    struct Run: Hashable, Sendable {
         var text: String
         /// `false` for prose outside `$…$`.
         var isMath: Bool
         var sizeMultiplier: Double
         /// Positive is up (superscript), negative is down (subscript).
         var baselineMultiplier: Double
+        /// Set on a variable, clear on an operator name, a digit or `\text{…}`.
+        var isItalic: Bool = false
+        /// Non-nil on a *box run*: a two-dimensional construct that occupies this
+        /// position in the line and carries no text of its own. `text` is empty
+        /// whenever this is set, and the pair is mutually exclusive by construction.
+        var box: Box? = nil
+
+        var isBox: Bool { box != nil }
+    }
+
+    /// The two-dimensional constructs, as a tree of run lists.
+    ///
+    /// Deliberately a small closed set rather than a general TeX box model: these are the
+    /// five shapes the corpus actually writes (`\frac` ~880 uses, `\sqrt` ~1180, `\binom`
+    /// ~410, accents ~740), and every one of them nests run lists that were produced by the
+    /// same scanner, so a fraction inside a radical inside a superscript needs no special
+    /// case anywhere.
+    indirect enum Box: Hashable, Sendable {
+        /// `\frac{a}{b}` — parts one style down, separated by a rule on the maths axis.
+        case fraction(numerator: [Run], denominator: [Run])
+        /// `\binom{n}{k}` — the same stack, parenthesised and with no rule.
+        case binomial(top: [Run], bottom: [Run])
+        /// `\sqrt[d]{x}` — a radical sign with a vinculum over the radicand. `degree`
+        /// is empty for a square root.
+        case radical(degree: [Run], radicand: [Run])
+        /// `\overline{…}` / `\underline{…}` — a full-width rule above or below.
+        case rule(over: Bool, content: [Run])
+        /// `\hat`, `\bar`, `\vec` and friends: a mark centred over the nucleus. Drawn
+        /// geometrically rather than as a combining character, which is what the
+        /// Phase 4 render verification found breaks across faces.
+        case accent(Accent, content: [Run], isWide: Bool)
+        /// `\left( … \right)` — delimiters grown to the height of what they enclose.
+        /// Either side may be empty, which is `\left.` and `\right.`.
+        case delimited(open: String, content: [Run], close: String)
+    }
+
+    /// The accent marks, as shapes rather than glyphs.
+    enum Accent: String, Hashable, Sendable {
+        case bar, hat, tilde, vector, dot, doubleDot, check, breve, acute, grave
     }
 
     /// The two read-outs of one parse: styled runs for display, and a linearised
@@ -68,6 +123,11 @@ enum MathText {
         var size: Double = 1.0
         var baseline: Double = 0.0
         var depth: Int = 0
+        /// Set inside `\text{…}`, `\mathrm{…}`, `\operatorname{…}` and the other upright
+        /// font selections. Suppresses the variable italic — without it `\text{if } x`
+        /// reaches the reader as a slanted word, which is the tell of a renderer that
+        /// italicises by position rather than by meaning.
+        var isUpright: Bool = false
 
         /// TeX shrinks to 70 % at the first script level and 50 % at the second; the floor
         /// keeps a doubly-nested script legible at panel body size.
@@ -78,14 +138,36 @@ enum MathText {
             Style(
                 size: max(size * Self.shrink, Self.minimumSize),
                 baseline: baseline + 0.42 * size,
-                depth: depth + 1)
+                depth: depth + 1,
+                isUpright: isUpright)
         }
 
         func lowered() -> Style {
             Style(
                 size: max(size * Self.shrink, Self.minimumSize),
                 baseline: baseline - 0.20 * size,
-                depth: depth + 1)
+                depth: depth + 1,
+                isUpright: isUpright)
+        }
+
+        /// The style a fraction's numerator and denominator are set in. TeX sets an
+        /// inline fraction one style down, which is the whole reason a quotient can sit
+        /// in a line of prose without doubling the line height.
+        ///
+        /// The baseline resets: a box positions its own parts internally, and the box
+        /// *run* carries the enclosing shift.
+        func fractionPart() -> Style {
+            Style(
+                size: max(size * Self.shrink, Self.minimumSize),
+                baseline: 0,
+                depth: depth + 1,
+                isUpright: isUpright)
+        }
+
+        /// The style inside a box that keeps its parts at full size — a radicand, the
+        /// nucleus under an accent.
+        func boxPart() -> Style {
+            Style(size: size, baseline: 0, depth: depth, isUpright: isUpright)
         }
     }
 
@@ -161,23 +243,61 @@ extension MathText {
             return "([{⟨⌈⌊".contains(last)
         }
 
-        func append(_ text: String, style: Style, isMath: Bool) {
+        func append(_ text: String, style: Style, isMath: Bool, isItalic: Bool = false) {
             guard !text.isEmpty else { return }
             // `\text{if } x` and similar leave a doubled space; one is enough.
             if isMath, text == " ", lastCharacter == " " { return }
             lastCharacter = text.last
-            if !startsNewRun, let last = runs.last, last.isMath == isMath,
-                last.sizeMultiplier == style.size, last.baselineMultiplier == style.baseline
+            if !startsNewRun, let last = runs.last, !last.isBox, last.isMath == isMath,
+                last.isItalic == isItalic, last.sizeMultiplier == style.size,
+                last.baselineMultiplier == style.baseline
             {
                 runs[runs.count - 1].text += text
             } else {
                 runs.append(
                     Run(
                         text: text, isMath: isMath, sizeMultiplier: style.size,
-                        baselineMultiplier: style.baseline))
+                        baselineMultiplier: style.baseline, isItalic: isItalic))
             }
             startsNewRun = false
             plainStack[plainStack.count - 1] += text
+        }
+
+        /// Place a two-dimensional construct in the line. Display only: the linear form
+        /// was written to the plain-text buffer by `discardingRuns` just before this.
+        func appendBox(_ box: Box, style: Style) {
+            runs.append(
+                Run(
+                    text: "", isMath: true, sizeMultiplier: style.size,
+                    baselineMultiplier: style.baseline, box: box))
+            startsNewRun = true
+        }
+
+        /// Keep what `body` writes to the plain-text buffer and throw away the display
+        /// runs it produced.
+        ///
+        /// This is the seam between the two read-outs. A fraction wants the linear
+        /// `(a)/(b)` in `plainText` — which the scanner already knows how to produce, by
+        /// running its old code path — and a box in the display runs. Running the old
+        /// path inside this and appending the box afterwards gets both from one pass,
+        /// and guarantees the linear form can never drift from what it was.
+        ///
+        /// The group-run floor is pushed so that a relation inside `body` trimming its
+        /// leading space cannot reach back past the mark and delete a run the caller
+        /// still owns.
+        func discardingRuns(_ body: () -> Void) {
+            let mark = runs.count
+            groupRunStart.append(mark)
+            // Force `body`'s first append to open a run of its own. Without this it
+            // merges into whatever run preceded the construct, and the removal below —
+            // which can only drop whole runs from `mark` on — leaves that merged text
+            // behind: every fraction in the corpus arrived with a stray `(` in front of
+            // it, the opening bracket of the linear form fused to the `= ` before it.
+            startsNewRun = true
+            body()
+            if groupRunStart.count > 1 { groupRunStart.removeLast() }
+            if runs.count > mark { runs.removeSubrange(mark...) }
+            startsNewRun = true
         }
 
         /// Force the next append to open its own run.
@@ -187,6 +307,10 @@ extension MathText {
         func trimTrailingSpaces() {
             let floor = groupRunStart[groupRunStart.count - 1]
             while runs.count > floor {
+                // A box carries no text and therefore no trailing space. Without this
+                // the empty-text branch below would delete the box itself, and
+                // `$\frac{1}{2} + x$` would lose its fraction to the `+`.
+                if runs[runs.count - 1].isBox { break }
                 var text = runs[runs.count - 1].text
                 while let last = text.last, last == " " || last.isMathSpace {
                     text.removeLast()
@@ -244,7 +368,8 @@ extension MathText {
             fromRun start: Int, plainOffset: Int, with mark: Character, atBaseline baseline: Double
         ) {
             guard start < runs.count else { return }
-            for index in start..<runs.count where runs[index].baselineMultiplier == baseline {
+            for index in start..<runs.count
+            where runs[index].baselineMultiplier == baseline && !runs[index].isBox {
                 runs[index].text = String(runs[index].text.flatMap { [$0, mark] })
             }
             let buffer = plainStack[plainStack.count - 1]
@@ -327,6 +452,15 @@ extension MathText {
                     }
                     continue
                 }
+                if character == "*", let end = emphasisEnd() {
+                    flushProse()
+                    emitter.append(
+                        String(chars[(index + 1)..<end]), style: Style(), isMath: false,
+                        isItalic: true)
+                    emitter.breakRun()
+                    index = end + 1
+                    continue
+                }
                 prose.append(character)
                 index += 1
             }
@@ -334,19 +468,56 @@ extension MathText {
             return Rendering(runs: emitter.runs, plainText: emitter.plainText)
         }
 
+        /// The closing `*` of an emphasis span starting at the cursor, if there is one.
+        ///
+        /// The corpus writes `*this*` and means italic — sixty-odd times across the
+        /// lessons and the problem bank, and the authoring guide has been telling authors
+        /// to stop since the markup reached readers as literal asterisks. Rendering it is
+        /// the better half of that trade: emphasis in running prose *is* italic in every
+        /// book the corpus is imitating, and a rule the renderer honours cannot rot the
+        /// way a rule only the linter knows about does.
+        ///
+        /// Conservative on purpose, and *letters and digits* specifically rather than
+        /// merely non-space: the span has to open and close against a word character, so
+        /// `x*(a+b)*c` keeps both asterisks as multiplication instead of italicising
+        /// `(a+b)`. A `$` or a line break ends the search, so an asterisk inside
+        /// mathematics never opens an emphasis at all. Every one of the corpus's 72
+        /// authored spans opens and closes on a letter, so nothing is given up for it.
+        private func emphasisEnd() -> Int? {
+            guard let first = peek(1), first.isLetter || first.isNumber else { return nil }
+            var scan = index + 2
+            while scan < chars.count {
+                let character = chars[scan]
+                if character == "$" || character == "\n" { return nil }
+                if character == "*" {
+                    let previous = chars[scan - 1]
+                    return previous.isLetter || previous.isNumber ? scan : nil
+                }
+                scan += 1
+            }
+            return nil
+        }
+
         // MARK: Math scanning
 
         private func atTerminator(_ terminator: Terminator) -> Bool {
-            guard index < chars.count else { return true }
+            atTerminator(terminator, at: index)
+        }
+
+        private func atTerminator(_ terminator: Terminator, at position: Int) -> Bool {
+            guard position < chars.count else { return true }
             switch terminator {
             case .dollar:
-                return chars[index] == "$"
+                return chars[position] == "$"
             case .doubleDollar:
-                return chars[index] == "$" && index + 1 < chars.count && chars[index + 1] == "$"
+                return chars[position] == "$" && position + 1 < chars.count
+                    && chars[position + 1] == "$"
             case .parenthesis:
-                return chars[index] == "\\" && index + 1 < chars.count && chars[index + 1] == ")"
+                return chars[position] == "\\" && position + 1 < chars.count
+                    && chars[position + 1] == ")"
             case .bracket:
-                return chars[index] == "\\" && index + 1 < chars.count && chars[index + 1] == "]"
+                return chars[position] == "\\" && position + 1 < chars.count
+                    && chars[position + 1] == "]"
             case .endOfInput:
                 return false
             }
@@ -394,11 +565,31 @@ extension MathText {
                     emit("\u{00A0}", style: style, atom: .plain, terminator: terminator)
                 case "&":
                     index += 1
+                case "-":
+                    // The typographic minus, not the hyphen the keyboard produces. A
+                    // hyphen in a serif face is a third of the width and sits above the
+                    // maths axis, so `b - a` set with one reads as a compound word.
+                    index += 1
+                    emit("\u{2212}", style: style, atom: .plain, terminator: terminator)
                 default:
                     index += 1
                     emit(String(character), style: style, atom: .plain, terminator: terminator)
                 }
             }
+        }
+
+        /// Render a fragment in isolation and hand back only its display runs.
+        ///
+        /// A box's parts are drawn by `MathBox`, not spliced into the line, so they must
+        /// not touch this renderer's emitter at all — neither its runs nor its plain-text
+        /// buffer, which the caller is filling with the linear form at the same moment.
+        /// A fresh renderer is the whole isolation mechanism.
+        fileprivate func subRuns(_ fragment: [Character], style: Style) -> [Run] {
+            let renderer = Renderer()
+            renderer.chars = fragment
+            renderer.index = 0
+            renderer.scanMath(until: .endOfInput, style: style)
+            return renderer.emitter.runs
         }
 
         /// Linearise a fragment that is already *inside* math mode — used by the
@@ -433,15 +624,24 @@ extension MathText {
         private func emit(
             _ text: String, style: Style, atom: AtomClass, terminator: Terminator
         ) {
+            let italic = MathText.isVariable(text, atom: atom, style: style)
             switch atom {
             case .plain:
-                emitter.append(text, style: style, isMath: true)
+                emitter.append(text, style: style, isMath: true, isItalic: italic)
 
             case .largeOperator:
-                emitter.append(text, style: style, isMath: true)
+                // `∑`, `∫`, `∏` are set larger than the letters around them in every
+                // maths face — at body size the text-height glyph reads as a stray
+                // capital sigma rather than as an operator with limits hanging off it.
+                // Grown about the maths axis, so the extra height is shared above and
+                // below rather than pushing the whole line up.
+                var large = style
+                large.size = style.size * 1.32
+                large.baseline = style.baseline - style.size * 0.105
+                emitter.append(text, style: large, isMath: true)
 
             case .ordinary:
-                emitter.append(text, style: style, isMath: true)
+                emitter.append(text, style: style, isMath: true, isItalic: italic)
                 // TeX control words swallow the space that terminates them — but only do it
                 // when a word character follows, or `\varepsilon > 0` would set as `ε> 0`.
                 let saved = index
@@ -633,20 +833,37 @@ extension MathText {
 
             case "sqrt":
                 let degree = takeOptionalArgument()
-                if let degree, !degree.isEmpty {
-                    emitter.beginScriptGroup()
-                    scanFragment(degree, style: style.raised())
-                    emitter.endScriptGroup(kind: .superscript)
-                }
-                emitter.append("\u{221A}", style: style, isMath: true)
                 let radicand = takeArgument() ?? []
-                emitBracketed(radicand, style: style)
+                // `fractionPart()` rather than `raised()`: the index wants the script
+                // *size*, and the box decides where it sits. A raised baseline here is
+                // applied twice — once by the run, once by the box — and puts the index
+                // above the radical's own ascent, where it is clipped out of the image.
+                let box = Box.radical(
+                    degree: degree.map { subRuns($0, style: style.fractionPart()) } ?? [],
+                    radicand: subRuns(radicand, style: style.boxPart()))
+                emitter.discardingRuns {
+                    if let degree, !degree.isEmpty {
+                        emitter.beginScriptGroup()
+                        scanFragment(degree, style: style.raised())
+                        emitter.endScriptGroup(kind: .superscript)
+                    }
+                    emitter.append("\u{221A}", style: style, isMath: true)
+                    emitBracketed(radicand, style: style)
+                }
+                emitter.appendBox(box, style: style)
                 return
 
-            case "left", "right", "bigl", "bigr", "Bigl", "Bigr", "biggl", "biggr", "Biggl",
+            case "left":
+                emitPaired(style: style, terminator: terminator)
+                return
+
+            case "right", "bigl", "bigr", "Bigl", "Bigr", "biggl", "biggr", "Biggl",
                 "Biggr", "big", "Big", "bigg", "Bigg", "middle":
                 // Size commands are dropped; the delimiter itself is emitted by the main
-                // loop on the next turn. `\left.` / `\right.` have no delimiter to emit.
+                // loop on the next turn. A `\right` reached here is one whose `\left`
+                // never found it — malformed source — so it degrades to a plain bracket
+                // rather than swallowing the rest of the span. `\left.` / `\right.` have
+                // no delimiter to emit.
                 skipSpaces()
                 if peek() == "." { index += 1 }
                 return
@@ -662,36 +879,62 @@ extension MathText {
                 }
                 return
 
-            case "text", "textrm", "textit", "textbf", "textsf", "texttt", "mathrm", "mathit",
+            case "text", "textrm", "textbf", "textsf", "texttt", "mathrm",
                 "mathbf", "mathsf", "mathtt", "mathcal", "mathfrak", "mathscr", "boldsymbol",
-                "bm", "operatorname", "mbox", "hbox", "emph":
-                // No font variation in this renderer: the argument is the content.
+                "bm", "operatorname", "mbox", "hbox":
+                // No *face* variation beyond upright/italic, but the upright half is not
+                // cosmetic: `\text{if }`, `\operatorname{sd}` and `\mathrm{d}x` are words
+                // and operator names, and setting them in the variable italic is the
+                // single commonest way a maths renderer looks wrong.
                 let argument = takeArgument() ?? []
-                scanFragment(argument, style: style)
+                var upright = style
+                upright.isUpright = true
+                scanFragment(argument, style: upright)
+                return
+
+            case "textit", "mathit", "emph":
+                let argument = takeArgument() ?? []
+                var italic = style
+                italic.isUpright = false
+                scanFragment(argument, style: italic)
                 return
 
             case "underline", "overline", "widehat", "widetilde", "overrightarrow", "hat",
                 "bar", "vec", "tilde", "dot", "ddot", "check", "breve", "acute", "grave":
                 let argument = takeArgument() ?? []
-                emitter.breakRun()
-                let runStart = emitter.currentRunCount
-                let plainStart = emitter.currentPlainCount
-                scanFragment(argument, style: style)
-                if let mark = MathText.combiningMarks[name] {
-                    emitter.decorate(
-                        fromRun: runStart, plainOffset: plainStart, with: mark,
-                        atBaseline: style.baseline)
+                let content = subRuns(argument, style: style.boxPart())
+                let box = MathText.decoration(named: name, over: content)
+                // Plain text keeps the combining mark it has always used: `X̄` is what an
+                // accessibility label and the self-check's read-out want, and neither can
+                // show a drawn rule.
+                emitter.discardingRuns {
+                    emitter.breakRun()
+                    let runStart = emitter.currentRunCount
+                    let plainStart = emitter.currentPlainCount
+                    scanFragment(argument, style: style)
+                    if let mark = MathText.combiningMarks[name] {
+                        emitter.decorate(
+                            fromRun: runStart, plainOffset: plainStart, with: mark,
+                            atBaseline: style.baseline)
+                    }
                 }
+                emitter.appendBox(box, style: style)
                 return
 
             case "binom", "dbinom", "tbinom":
                 let top = takeBraceGroup() ?? takeArgument() ?? []
                 let bottom = takeBraceGroup() ?? takeArgument() ?? []
-                emitter.append("C(", style: style, isMath: true)
-                scanFragment(top, style: style)
-                emitter.append(", ", style: style, isMath: true)
-                scanFragment(bottom, style: style)
-                emitter.append(")", style: style, isMath: true)
+                let box = Box.binomial(
+                    top: subRuns(top, style: style.fractionPart()),
+                    bottom: subRuns(bottom, style: style.fractionPart()))
+                emitter.discardingRuns {
+                    emitter.append("C(", style: style, isMath: true)
+                    scanFragment(top, style: style)
+                    emitter.append(", ", style: style, isMath: true)
+                    scanFragment(bottom, style: style)
+                    emitter.append(")", style: style, isMath: true)
+                }
+                emitter.appendBox(box, style: style)
                 return
 
             case "pmod":
@@ -762,15 +1005,126 @@ extension MathText {
 
         // MARK: Fractions
 
-        /// `\frac{a}{b}` → `(a)/(b)`, dropping the parentheses around a single token so the
-        /// corpus's `\dfrac{f(b) - f(a)}{b - a}` reads `(f(b) - f(a))/(b - a)` while
-        /// `\dfrac{1}{3}` reads `1/3`.
+        // MARK: Paired delimiters
+
+        /// `\left( … \right)`: the enclosed span becomes one box, so the brackets can be
+        /// grown to the height of what they hold.
+        ///
+        /// Worth the machinery because the corpus pairs them with exactly the constructs
+        /// that are now tall — `\left(\frac{a}{b}\right)^2` is the commonest shape in the
+        /// whole quant tree, and a text-size parenthesis beside a full-height fraction is
+        /// the single most obvious tell that a renderer is faking it.
+        ///
+        /// The cursor is just past `\left`. Nesting is counted, so the inner pair of
+        /// `\left(\left[x\right]\right)` closes first, and a `\left` whose `\right` never
+        /// arrives — or arrives after the span ends — degrades to a plain bracket.
+        private func emitPaired(style: Style, terminator: Terminator) {
+            let open = takeDelimiter() ?? ""
+            guard let (content, close) = takeUntilMatchingRight(terminator: terminator) else {
+                if !open.isEmpty { emitter.append(open, style: style, isMath: true) }
+                return
+            }
+            let box = Box.delimited(
+                open: open, content: subRuns(content, style: style.boxPart()), close: close)
+            emitter.discardingRuns {
+                if !open.isEmpty { emitter.append(open, style: style, isMath: true) }
+                scanFragment(content, style: style)
+                if !close.isEmpty { emitter.append(close, style: style, isMath: true) }
+            }
+            emitter.appendBox(box, style: style)
+        }
+
+        /// The delimiter token after `\left` or `\right`: a literal bracket, an escaped
+        /// one, or a macro. `.` is TeX's empty delimiter and comes back as `""`.
+        private func takeDelimiter() -> String? {
+            skipSpaces()
+            guard let character = peek() else { return nil }
+            if character == "." {
+                index += 1
+                return ""
+            }
+            guard character == "\\" else {
+                index += 1
+                return String(character)
+            }
+            index += 1
+            guard let first = peek() else { return nil }
+            if !first.isLetter {
+                index += 1
+                return MathText.singleCharacterMacros[first] ?? String(first)
+            }
+            var name = ""
+            while let next = peek(), next.isLetter {
+                name.append(next)
+                index += 1
+            }
+            return MathText.symbols[name]?.0 ?? ""
+        }
+
+        /// Everything up to the `\right` that matches the `\left` just read, plus that
+        /// `\right`'s delimiter. Nil when the span ends first, which leaves the cursor
+        /// untouched so the caller can fall back.
+        private func takeUntilMatchingRight(terminator: Terminator) -> ([Character], String)? {
+            var depth = 0
+            var scan = index
+            var content: [Character] = []
+            while scan < chars.count, !atTerminator(terminator, at: scan) {
+                guard chars[scan] == "\\", scan + 1 < chars.count else {
+                    content.append(chars[scan])
+                    scan += 1
+                    continue
+                }
+                let name = macroName(at: scan + 1)
+                guard !name.isEmpty else {
+                    // An escaped character — `\{`, `\|` — copied whole, or the brace
+                    // would reach the sub-render as a grouping brace.
+                    content.append(chars[scan])
+                    content.append(chars[scan + 1])
+                    scan += 2
+                    continue
+                }
+                if name == "right", depth == 0 {
+                    index = scan + 1 + name.count
+                    return (content, takeDelimiter() ?? "")
+                }
+                if name == "left" { depth += 1 }
+                if name == "right" { depth -= 1 }
+                content.append(contentsOf: chars[scan..<(scan + 1 + name.count)])
+                scan += 1 + name.count
+            }
+            return nil
+        }
+
+        private func macroName(at position: Int) -> String {
+            var name = ""
+            var scan = position
+            while scan < chars.count, chars[scan].isLetter {
+                name.append(chars[scan])
+                scan += 1
+            }
+            return name
+        }
+
+        /// A fraction, in both read-outs at once.
+        ///
+        /// Display gets a real quotient: numerator over denominator, one style down, with a
+        /// rule between them on the maths axis. Plain text gets what it always got —
+        /// `(a)/(b)`, dropping the parentheses around a single token so the corpus's
+        /// `\dfrac{f(b) - f(a)}{b - a}` reads `(f(b) − f(a))/(b − a)` while `\dfrac{1}{3}`
+        /// reads `1/3`.
         private func emitQuotient(
             _ numerator: [Character], _ denominator: [Character], style: Style
         ) {
-            emitBracketed(numerator, style: style)
-            emitter.append("/", style: style, isMath: true)
-            emitBracketed(denominator, style: style)
+            let part = style.fractionPart()
+            let box = Box.fraction(
+                numerator: subRuns(numerator, style: part),
+                denominator: subRuns(denominator, style: part))
+            emitter.discardingRuns {
+                emitBracketed(numerator, style: style)
+                emitter.append("/", style: style, isMath: true)
+                emitBracketed(denominator, style: style)
+            }
+            emitter.appendBox(box, style: style)
         }
 
         private func emitBracketed(_ argument: [Character], style: Style) {
@@ -778,6 +1132,47 @@ extension MathText {
             if needsParentheses { emitter.append("(", style: style, isMath: true) }
             scanFragment(argument, style: style)
             if needsParentheses { emitter.append(")", style: style, isMath: true) }
+        }
+    }
+}
+
+// MARK: - Italic
+
+extension MathText {
+    /// Whether a stretch of maths sets in the italic face.
+    ///
+    /// TeX's rule, kept to the part that matters: **a variable is italic and nothing else
+    /// is**. That single distinction is what separates mathematics from the prose around
+    /// it on the page — without it `f` in "if $f$ is continuous" is the same three strokes
+    /// as the `f` in "of", and a statement set in a serif reads as a sentence with odd
+    /// spacing rather than as notation.
+    ///
+    /// The atom class does the work. A letter the scanner read straight from the source is
+    /// a variable; a letter that arrived as part of `\sin` or `\max` is an operator name
+    /// and stays upright, which is exactly the distinction TeX's `\mathop` draws.
+    static func isVariable(_ text: String, atom: AtomClass, style: Style) -> Bool {
+        guard !style.isUpright, !text.isEmpty else { return false }
+        switch atom {
+        case .operatorName, .relation, .binary, .largeOperator:
+            return false
+        case .plain:
+            return text.allSatisfy { $0.isLetter }
+        case .ordinary:
+            // Symbol-table entries: lower-case Greek is a variable and sets like one.
+            // Upper-case Greek, `∞`, `∅`, `ℝ` and the rest are upright in every maths
+            // face — a slanted `∞` is not a thing anyone has ever wanted.
+            return text.unicodeScalars.allSatisfy(isLowerCaseGreek)
+        }
+    }
+
+    private static func isLowerCaseGreek(_ scalar: Unicode.Scalar) -> Bool {
+        switch scalar.value {
+        case 0x3B1...0x3C9:  // α … ω
+            return true
+        case 0x3D1, 0x3D5, 0x3D6, 0x3F0, 0x3F1, 0x3F5:  // ϑ ϕ ϖ ϰ ϱ ϵ
+            return true
+        default:
+            return false
         }
     }
 }
@@ -792,7 +1187,7 @@ extension MathText {
         let rendered = Renderer().plainMathFragment(argument)
         let base = rendered.filter { !scriptCharacters.contains($0) }
         guard base.count == 1, let only = base.first else { return true }
-        return "+-*/=<>()[]{}|,;: \u{2009}\u{2005}".contains(only)
+        return "+-\u{2212}*/=<>()[]{}|,;: \u{2009}\u{2005}".contains(only)
     }
 }
 
@@ -886,6 +1281,32 @@ extension MathText {
                 UnicodeScalar(base + UInt32(ascii - UInt8(ascii: "a")))!)
         }
         return nil
+    }
+
+    /// The box a decoration macro draws.
+    ///
+    /// The split TeX draws and the corpus relies on: `\bar{X}` is a short mark centred over
+    /// one letter, `\overline{X + Y}` is a rule the full width of what it covers. Rendering
+    /// both as the same combining character — which is what this did before — puts one
+    /// macron over the `X` of `\overline{XY}` and none over the `Y`.
+    fileprivate static func decoration(named name: String, over content: [Run]) -> Box {
+        switch name {
+        case "overline": return .rule(over: true, content: content)
+        case "underline": return .rule(over: false, content: content)
+        case "widehat": return .accent(.hat, content: content, isWide: true)
+        case "widetilde": return .accent(.tilde, content: content, isWide: true)
+        case "overrightarrow": return .accent(.vector, content: content, isWide: true)
+        case "vec": return .accent(.vector, content: content, isWide: false)
+        case "hat": return .accent(.hat, content: content, isWide: false)
+        case "bar": return .accent(.bar, content: content, isWide: false)
+        case "tilde": return .accent(.tilde, content: content, isWide: false)
+        case "dot": return .accent(.dot, content: content, isWide: false)
+        case "ddot": return .accent(.doubleDot, content: content, isWide: false)
+        case "check": return .accent(.check, content: content, isWide: false)
+        case "breve": return .accent(.breve, content: content, isWide: false)
+        case "acute": return .accent(.acute, content: content, isWide: false)
+        default: return .accent(.grave, content: content, isWide: false)
+        }
     }
 
     fileprivate static let combiningMarks: [String: Character] = [

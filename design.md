@@ -287,6 +287,23 @@ Everything else — met-boundary compression, the frontier's definition of "met"
 
 Display follows turn 1's grammar: a table-of-contents rail (parts, units, met-of-total per unit, the resume marker), one reading column (the unit as a chapter: opening, then each step as title · statement · lesson sections), the self-report action at each lesson's foot, and a progress bar over the whole program at the base. The program ships first for the quant-interview tree, whose corpus was authored against a fixed outline order; any tree gains it by authoring a spine and lessons.
 
+### 6.7 Interactive lessons
+
+§6.6 delivers a **course**. Read back, it is a *book*: a chapter is one long scroll of prose, the reader's only act is scrolling, and the only thing that closes the loop is the reader grading themselves at the foot of a step. That is a legitimate surface and it stays. But it is not what a learner means by "teach me this", and the gap is not content — the lesson corpus is already written — it is **interaction**. Three things are missing, and each has a named counterpart in how Brilliant and Khan Academy actually teach:
+
+- **One idea per screen, advanced by a click.** Prose invites skimming; a card the reader has to dismiss forces the beat to land. So a lesson is also an ordered list of **cards**, one shown at a time, and the reader's position in that list is the unit of progress rather than a scroll offset.
+- **The reader answers, rather than nodding.** A card is either a **teaching beat** or a **check** — a question with a machine-checkable answer, either multiple choice or a typed value, resolved *immediately*, with feedback authored per wrong answer rather than one generic "incorrect". This is the load-bearing difference: self-report measures a feeling, a check measures a retrieval.
+- **Mastery is tested at the end, not claimed.** A lesson finishes on a **mastery set**: the bank's hardest problems targeting that node, in §5.2's instrument, writing real `test` evidence through §5.4's routing. The self-report action remains — as the *fallback* for a node the bank cannot yet ask about, which is what §5.4 already says it is.
+
+The design constraints that keep this from becoming a second app:
+
+- **Cards are an authored layer over the same lesson, and optional.** A lesson gains a `steps` list; everything else about it is unchanged. Where `steps` is absent the player **derives** cards from the prose already authored — the hook, each explanation paragraph, the worked example, the interview note, the pitfalls, the recap, one card each. So *every* content node in a tree with a lesson corpus is clickable and bite-sized on day one, and authoring `steps` upgrades a node from paged prose to a checked lesson. Coverage is therefore a gradient, reported the way lesson coverage is ([§7.1](#71-process)), never a wall the reader hits.
+- **Checks are formative and write nothing.** A check is pedagogy: it exists to make the beat land, and an answer to it is not a measurement of durable knowledge. Only the mastery set (and the existing self-report) writes evidence. This is what keeps §6.6's "the program keeps no state of its own" true — position within a lesson is view state, and progress remains a fold over the evidence log ([§5.1](#51-evidence-model)).
+- **Nothing is a gate.** A check gives feedback but never blocks the next card, and the mastery set is offered rather than required. §6.6 already fixed the program as "a recommended order, not a lock", and the same reasoning applies inside a lesson: a reader who wants the next idea gets it. Attempt-then-reveal is the house rhythm ([§5.2](#52-problems-as-the-evidence-instrument)) and the player keeps it — the answer and its feedback appear once the reader commits to a choice, not before.
+- **One check type, two hosts.** The same machine-checkable question shape serves a lesson card and a bank problem, so a problem can carry a typed final answer (checked) *and* keep its rubric (read after the reveal). §5.2's "math free response cannot be machine-graded" is not thereby repealed — it is scoped: the *final value* of a quant problem is a number, and a number can be checked; a proof still cannot, and `justify` problems still self-grade against the rubric.
+
+Display is the player: one full-screen column over the map, the node's title and a card counter above, the card itself at reading size, and a rule-separated foot carrying back/continue plus the progress measure. A check's choices are rows that take the accent when chosen; a resolved check states right or wrong plainly and shows the authored feedback beneath. The mastery set is the last card — the problems listed with their difficulty, each opening §5.2's sheet over the player. Entry points are every place a node is already named: the node panel's primary action, each step of §6.6's reader, and the rail.
+
 ---
 
 ## 7. Content Pipeline
@@ -333,13 +350,14 @@ Shifu integration is a **data contract, not a code dependency**: Shifu will push
 - **M6 — Shifu integration** via the evidence contract.
 - **M7 — Subject paths** ([§6.5](#65-subject-paths)): a branch or subbranch as the goal, chosen by name.
 - **M8 — The program** ([§6.6](#66-the-program)): an authored curriculum over a whole tree — spine, lessons, reader — quant tree first.
+- **M9 — Interactive lessons** ([§6.7](#67-interactive-lessons)): the course made clickable — cards, checked answers, and a mastery set per node, over a quant problem bank.
 
 ---
 
 ## 10. Non-Goals
 
 - Non-math domains and beyond-undergraduate math (the graph model must merely not preclude them).
-- Generating *teaching* content (explanations, lessons) — v1 tracks and sequences knowledge; the personalized-explanation engine of the Vision is a later layer on top of the same graph. *(Amended by [§6.6](#66-the-program): an **authored** lesson corpus with an authored teaching order is in scope; what stays out is generating explanations on the fly, personalized to one user.)*
+- Generating *teaching* content (explanations, lessons) — v1 tracks and sequences knowledge; the personalized-explanation engine of the Vision is a later layer on top of the same graph. *(Amended by [§6.6](#66-the-program): an **authored** lesson corpus with an authored teaching order is in scope, and by [§6.7](#67-interactive-lessons): so are authored cards and checks inside a lesson. What stays out is generating either on the fly, personalized to one user.)*
 - Building or specifying Shifu itself.
 - Accounts, sync, multi-user, or social features.
 

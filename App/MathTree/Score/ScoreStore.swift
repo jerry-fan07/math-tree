@@ -210,6 +210,13 @@ final class ScoreStore {
         return candidates.first { !seen.contains($0.id.rawValue) } ?? candidates.first
     }
 
+    /// Whether the log already holds an attempt at this problem. §6.7's mastery
+    /// rows say so rather than re-offering a problem as though it were new — the
+    /// log is the only place that knows, since the program keeps no state.
+    func hasAttempted(_ id: ProblemID) -> Bool {
+        events.contains { $0.problem == id.rawValue }
+    }
+
     func nextDue(of id: NodeID) -> Date? {
         state[id].map { fsrs.nextDue(after: $0) }
     }

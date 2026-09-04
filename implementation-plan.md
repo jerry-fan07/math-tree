@@ -40,9 +40,9 @@ math-tree/
 
 ### Phase → milestone map (mapping, not renumbering — §9 stays authoritative)
 
-| Phase | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Milestone | M0 | M0 | M0 | M1 | M1 | M3 | M3 | M3 | M4 | M5 | M6 | M7 |
+| Phase | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Milestone | M0 | M0 | M0 | M1 | M1 | M3 | M3 | M3 | M4 | M5 | M6 | M7 | M8 | M9 |
 
 Two items are deliberately built one milestone early: the precomputed-layout pipeline (Phase 2, though §9 lists it under M1) and graph propagation (Phase 5, though §9 lists it under M4) — each is cheapest to build alongside its surrounding code (layout with the content compiler, propagation with the scoring fold). Their §9 milestones remain where the capability is *demonstrated*.
 
@@ -264,6 +264,22 @@ Not a numbered phase: an outside design pass over what Phases 4–8 built, impor
 
 **Deliverable**: "teach me everything, in order, starting from what I know" answered as a readable course over the quant tree.
 **Exit criterion**: the spine validates as a linear extension of cross-unit `requires`; for fixture states the plan's step order is a valid topological order per unit, the resume point is the first never-learned step in program order (and provably *not* moved by decay), and unit progress agrees with §6.5's `Subjects` read-out up to exactly the cross-listed members D12.3 excludes; every lesson section of every unit renders clean under `MATHTREE_MATH_CHECK`; the reader shows every lesson of a fully-covered unit and states (rather than hides) a missing one.
+
+---
+
+## Phase 13 — Interactive lessons
+
+**Goal**: M9 — §6.7. The course made clickable: a lesson is a paged sequence of cards, checks are answered and machine-checked with authored per-answer feedback, and a lesson ends on a mastery set of real problems. Phase 12 shipped the corpus; this phase turns reading it into doing it, and gives the quant tree the problem bank it has never had.
+
+**Tasks**
+- `GraphCore`: `AnswerCheck` — one machine-checkable question shape (multiple choice, or a typed value compared numerically), with `NumericAnswer` parsing fractions, decimals, percents, thousands separators and `\frac`; `AnswerChoice`; `LessonCard` (`teach` **xor** `ask`, plus the check's fields inline so the YAML stays flat); optional `steps` on `Lesson` and a **derived-card fallback** so a lesson with no authored steps still pages; `Problem.expects`/`tolerance`/`choices` so a bank problem can be checked *and* keep its rubric; `ProblemBank.masterySet(for:)` — hardest-first, the inverse of the probe ladder's order.
+- Validation: card rules as per-file errors (`lesson-card-empty`, `lesson-card-ambiguous`, `lesson-teach-card-answerable`), check rules shared by both hosts (`check-unanswerable`, `check-thin-choices`, `check-no-correct-choice`, `check-many-correct-choices`, `check-missing-feedback`, `check-unparsable-answer`), interactivity coverage as a lint hint + a `validate` report (D12.4's split, unchanged).
+- Pipeline: `ProgramLoader`/`ProblemLoader` decode the new fields; `Scripts/check-lesson-file.py` learns the `steps` schema and the same check rules; `MathTextCheck.samples` covers every new LaTeX-bearing field (card `teach`, `ask`, `hint`, `feedback`, every choice's `text` and `feedback`, and a problem's `expects` and choices).
+- App: `LessonPlayer` — one card per screen, choice rows and a typed-answer field, attempt-then-reveal feedback, a mastery card routing to §5.2's sheet, self-report as the fallback at the foot; entry from the node panel's primary action, each step of §6.6's reader, and the rail; `PanelShot` seams (start at card *n*, start resolved) because interactive states cannot be driven offscreen.
+- Content: `content-quant-problems/` — the quant tree's first bank, mastery-grade problems with typed answers; `steps` authored for the pilot units. Shipped: `quant-probability.foundations` (18 nodes, 99 cards, 37 checks) and `quant-probability.expectation` (20 nodes, 105 cards, 41 checks), with 76 problems between them.
+
+**Deliverable**: click any node in the quant tree and get a paged, checked lesson that ends in problems that measure.
+**Exit criterion**: a lesson with no authored `steps` still pages (derived cards cover all six sections); an authored check accepts every spelling of its answer the parser promises and rejects a near miss outside tolerance; a passed mastery problem writes `test` evidence through the existing `Grading` path and visibly moves the node's colour, the unit read-out and the program progress bar, with **no new state file**; every new authored field renders clean under `MATHTREE_MATH_CHECK`; the player renders offscreen in both themes across teach, unresolved check, resolved-correct, resolved-wrong and mastery cards.
 
 ---
 
@@ -713,6 +729,126 @@ Lesson generation fans out one agent per unit, and concurrent `swift run` invoca
 
 **D12.8 — Known gaps.**
 The reader's scroll-to-step works in the live app but not in the offscreen shot (`cacheDisplay` completes before the `ScrollViewReader` async scroll lands), so the shot verifies the chapter, not the jump. The adaptive/everything mode persists app-wide (`@AppStorage`), not per tree — acceptable while exactly one tree ships a program. Lessons carry no cross-references the app can follow (titles in prose, no links), and the reader offers self-report only — problems never route here, because the quant tree ships no bank; when one lands, the step foot should learn §5.4's routing rule. Unit openings are checked for presence, not read for quality, by anything but a reviewer.
+
+### Phase 13
+
+**D13.1 — Cards are an optional layer with a derived fallback, so "clickable" arrives for the whole corpus at once.**
+The obvious shape for Phase 13 is a new authored field, and the obvious consequence is that 958 lessons have no cards until someone writes 958 files. That would make the phase's own deliverable — *click any node and be taught it* — false everywhere except the pilot, and it would make coverage a wall the reader hits rather than a gradient. So `Lesson.cards` is a computed property: authored `steps` when present, and otherwise a derivation from the prose that is already there (hook, each explanation paragraph, worked, interview, pitfalls, recap — one card each, in the reader's own order). Every node with a lesson pages on day one; authoring `steps` upgrades a node from paged prose to a *checked* lesson, and `LessonCard.isDerived` is what the player reads to say which it is showing. The alternative — a `steps`-only player — was rejected for the same reason D12.4 rejected corpus-wide coverage errors: the corpus grows batch by batch, and a surface that is empty until the last batch lands cannot be reviewed while it is being built.
+
+**D13.2 — Checks are formative and write no evidence; only the mastery set and self-report do.**
+A check inside a lesson is there to make a beat land, and answering one is not evidence of durable knowledge — the reader has the explanation on the previous card, so a correct answer measures short-term transfer at best. Writing FSRS state from it would inflate every score in the tree and, worse, would give the program state of its own, which §6.6 spent a section refusing. So a check resolves, renders feedback, and stops. Evidence comes from the mastery set (§5.2's instrument, through the existing `Grading.evidence` path) and from the self-report at the lesson's foot (§5.4's fallback for a node the bank cannot ask about). One consequence worth naming: `LessonPlayer` holds card position and check verdicts in `@State` and persists nothing, so closing a lesson loses the reader's place inside it by design — the *bookmark* is `ProgramPlan.resume`, which is derived (D12.2), and a second, undecayable notion of position would contradict it.
+
+**D13.3 — One check shape, two hosts, flat in YAML.**
+A lesson card's question and a bank problem's final answer are the same object — a prompt, an expected value or a set of choices, a tolerance, feedback — so they are one type (`AnswerCheck`) with one grading implementation and one set of diagnostics. But `AnswerCheck` is deliberately **not** `Codable`: it is *composed* from fields the host declares inline (`choices`, `expects`, `tolerance`), so a card and a problem both stay flat in YAML and both artifacts stay byte-stable under ground rule 5's `encodeIfPresent` discipline. This is what lets a `work` problem carry a checked numeric answer *and* keep its rubric — §5.2's "math free response cannot be machine-graded" is scoped rather than repealed: the final value of a quant problem is a number, and `justify` problems still self-grade.
+
+**D13.4 — The typed-answer parser is generous about spelling and strict about value.**
+A reader who computes $7/15$ will type `7/15`, `0.4667`, `46.67%`, or paste `$\frac{7}{15}$`, and rejecting three of those measures typing rather than probability. `NumericAnswer` therefore strips `$`, spaces and thousands separators, rewrites `\frac{a}{b}`/`\dfrac` to `a/b`, reads a trailing `%` as a division by 100, and evaluates a single fraction or decimal — then compares *numerically*. It deliberately stops there: no expression evaluator, no symbolic algebra, no multi-term arithmetic. Tolerance is the author's call and defaults to $10^{-6}$ relative, which is effectively exact; a check whose answer is irrational or long-decimal states its own tolerance, and `check-unparsable-answer` fails the build when an author writes an `expects` the parser cannot read — the failure mode that would otherwise reach a reader as "your correct answer is wrong".
+
+**D13.5 — Nothing gates, and the mastery set is offered rather than required.**
+Brilliant blocks the next screen until the check is answered. This app does not, for the reason §6.6 already gave about unit order: the program is a recommendation, not a lock, and a reader who wants the next idea has a legitimate claim to it. `continue` is always live; a skipped check simply resolves to nothing. The same applies at the end — the mastery set is the last card, not a gate on marking the node learned, and self-report stays available beside it. What the player *does* enforce is the house rhythm from §5.2: the feedback and the verdict appear only after the reader commits to an answer, because a check whose answer is visible while you think is not a check.
+
+**D13.6 — The mastery set is the probe ladder read backwards.**
+`ProblemBank.problemsByTarget` orders easiest-first, which is right for placement (a ladder should not open with the hardest problem in the bank) and exactly wrong here: a mastery set that opens with a `routine` problem tests nothing the lesson has not just handed over. `masterySet(for:)` therefore sorts `(difficulty descending, id)` and caps at three, and it is a separate accessor rather than a flag on the existing one so the two orderings can never be confused at a call site.
+
+**D13.7 — `check-unparsable-answer` earned its keep on the second unit, and markdown never rendered.**
+Two authoring findings worth recording because neither was predictable from the schema. First, the parser rule caught two real checks on the expectation unit — "what is $\Pr(A_i)$?" answered `1/n`, and the records lesson's `1/i`. Both are *symbolic*, and the whole class of "the answer is a formula in $n$" is unrepresentable as a typed check; both became multiple choice, which is the right instrument for them anyway. A validator that only checked *shape* would have shipped them and told a correct reader they were wrong. Second, `*emphasis*` reaches the reader as literal asterisks — `MathText` is LaTeX-lite and has never read markdown, and nothing in the corpus check flags it because asterisks are legal prose characters. This is pre-existing across 14 of the 58 lesson files and both older corpora (~105 spans); the pilot units were cleaned, the rest left alone as a corpus-wide call, and the majority convention (44 of 58 files) is already to avoid it.
+
+**D13.8 — Known gaps (renderer entries superseded by Phase 14).**
+Derived cards split `explanation` on paragraph breaks, so a lesson whose explanation is one long paragraph derives one long card — the fallback is honest but not clever, and the fix is authoring `steps`. A typed check accepts only a single number: "give both roots" cannot be asked as a typed check and is authored as multiple choice instead. The player has no keyboard shortcut for choice selection (click or tab), and no animation between cards beyond a crossfade. Mastery problems open in `ProblemSheet` over the player, which means the player's card position survives but the sheet's own diagnosis flow does not know it was reached from a lesson — a miss localizes exactly as it does from the rail, which is correct behaviour but loses the chance to say "reread card 4". Check feedback is authored per *choice* for multiple choice but only once for a typed answer, so a typed near-miss gets the same words as a wild guess.
+
+### Phase 14
+
+Not a planned phase: the corpus outgrew the renderer Phase 4 chose for it, and this is
+the repayment.
+
+**D14.1 — Phase 4's decision is reversed on the display side only, and `plainText` is frozen.**
+Phase 4 evaluated "`NSAttributedString`-based LaTeX-lite vs. bundling a math-layout
+approach" and picked LaTeX-lite because it was the smallest thing that rendered the seed
+content *acceptably*. At 416 nodes that was true. At 1,441 nodes, 108 problems and 958
+lessons it is not: `\frac` and its variants appear ~880 times, `\sqrt` ~1,180, `\binom`
+~410, and every one of them was linearising — `(f(b) - f(a))/(b - a)`, set in the same
+roman as the prose around it, which is not a fraction and does not read as one.
+
+So `MathText` now emits **two channels from one pass**. The linear one is unchanged and
+non-negotiable: `plainText` still produces `(a)/(b)`, `√(x)` and combining-mark accents,
+because `MathText.Check`, every accessibility label and the wrong-answer read-back consume
+it. The display one gains `Run.box` — a small closed set of two-dimensional constructs
+(fraction, binomial, radical, over/underline, accent, paired delimiters) laid out and drawn
+by `MathBox.swift`. `Emitter.discardingRuns` is the seam: a construct runs the old code
+path for the plain buffer and throws away the runs it produced, then appends one box run.
+
+Verified rather than asserted, and over *every* field rather than the statements the
+self-check prints: `plainText` was dumped for all 11,289 samples before and after, from a
+worktree at the previous commit reading the same artifacts. 2,405 fields differ. 2,341 are
+the U+2212 minus alone, 64 involve emphasis, and **0 are unexplained** — with the asterisks
+counted separately rather than normalised away, so a misfiring emphasis span could not hide
+inside the comparison. Exactly 144 asterisks were consumed for exactly 72 spans, and the 112
+fields that still carry one carry it as multiplication or as a superscript star, which is
+where the rule must not fire.
+
+Two parsers over two macro tables was the alternative and was rejected: the tables would
+rot apart on the first macro the corpus invented.
+
+**D14.2 — Variables are italic, and that is the larger half of the fix.**
+The boxes are the visible change; this is the one that made the corpus read as
+mathematics. TeX's rule, kept to the part that matters — a variable is italic and nothing
+else is. `Style.isUpright` carries `\text`/`\mathrm`/`\operatorname`/`\mathbb` (~1,630
+uses between them), the atom class keeps `\sin`/`\lim`/`\Pr` upright, digits and
+punctuation stay roman, and lower-case Greek slants with the Latin. Deliberately the
+font's *italic trait*, never the Mathematical Alphanumeric codepoints: those would leak
+into `plainText` and corrupt the self-check, the accessibility labels and the answer
+reveal in one stroke.
+
+Two spacing changes ride along, both of which do move `plainText`: `-` inside maths becomes
+U+2212 (a hyphen in a serif is a third of the width and sits off the axis), and `∑`/`∫`/`∏`
+are set 1.32× and centred on the maths axis, as every maths face sets them.
+
+**D14.3 — Per construct, never per span.**
+A `$…$` span rasterised whole would be one unbreakable glyph, and the panel is 360 points
+wide. So only the two-dimensional construct becomes an image; the text around it stays live
+`Text`, which keeps wrapping, selection and the type scale exactly as they were. Verified by
+spike before any layout code was written — `Text(Image(nsImage:))` honours
+`.baselineOffset`, a template `NSImage` takes `foregroundStyle` (so one image serves every
+theme and tint), a drawing-handler image is crisp at any scale, and a paragraph with several
+of them still wraps. Had that failed, the fallback was `NSTextView` + `NSTextAttachment`
+behind an `NSViewRepresentable`.
+
+**D14.4 — D13.7 is reversed: `*emphasis*` renders, as italic prose.**
+D13.7 recorded ~105 emphasis spans reaching readers as literal asterisks and chose to clean
+the pilot units and leave the rest. Seventy-two survive in rendered text, and the reason the
+rule existed — "it does not render" — was a fact about the renderer, not about the writing.
+Emphasis in running prose *is* italic in every book this corpus imitates, and a rule the
+renderer honours cannot rot the way a rule only the style guide knows about does. Scoped
+conservatively: the span must open and close against a *letter or digit*, stay on one line,
+and stay outside `$…$`. Non-space would have been the loose version of that rule and would
+italicise `(a+b)` out of `x*(a+b)*c`; every one of the corpus's 72 spans opens and closes on
+a letter, so the strict rule costs nothing. `_underscores_` were surveyed at the same time
+and the corpus has none in prose — all 441 hits are subscripts inside `$…$`. `content-quant-program/style.md`
+is updated to match; markdown otherwise still does not render.
+
+**D14.5 — Geometry is checked by a specimen frame, because the self-check structurally cannot see it.**
+`MathText.Check` reads the *linearised* form. A fraction rule half a point off the maths
+axis, an accent centred on the wrong glyph, a radical index drawn outside its own box —
+none of those exist in that read-out at all, and all three happened during this work. So
+`MathSpecimen` renders every construct through the real `MathTextView` at 16 pt and again at
+11 pt, and `PanelShot` writes it beside the panels in both theme directions. It is a frame
+to *look at*, not a gate. What the self-check did gain is the structural half: a box run that
+also carries text, or a construct with an empty part (`\frac{}{2}`, `\sqrt{}`), is now a
+finding over all 11,289 fields.
+
+Found by looking at that frame and by nothing else: `\vec{v}` and `\tilde{f}` were drawing
+as macrons, because an `em * 0.11` accent at body size is under two points tall and the
+stroke that draws it is one — the shape did not survive its own line width.
+
+**D14.6 — Known gaps.**
+`\mathcal`/`\mathfrak`/`\mathbf` still select no face — the argument renders upright in the
+body serif — because none of the three resolvable serifs ships script or fraktur, and the
+Unicode blocks that do would leak into `plainText` (D14.2). Limits sit beside `∑` and `∫`
+rather than above and below: that is TeX's *text style*, which is correct for a corpus that
+is inline-only by authoring rule, but a display-math mode would want the other convention.
+Matrices and `align` environments are unimplemented and unwritten — `content-quant/style.md`
+forbids environments outright. A line carrying a fraction is taller than its neighbours, the
+same as in any book with inline quotients, and no attempt is made to even the leading.
 
 ---
 

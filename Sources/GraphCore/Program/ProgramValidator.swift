@@ -193,6 +193,8 @@ public enum ProgramValidator {
                         + "hook, explanation and recap are required",
                     nodes: [lesson.node, unit.unit])
             }
+
+            out += cardChecks(lesson, unit: unit.unit)
         }
 
         // A file that exists teaches its whole unit — the per-file granularity
@@ -211,10 +213,72 @@ public enum ProgramValidator {
 
         return out
     }
-}
 
-extension String {
-    fileprivate var trimmed: String {
-        trimmingCharacters(in: .whitespacesAndNewlines)
+    // MARK: - Cards
+
+    /// §6.7's per-card rules, errors like every other per-file lesson rule: a
+    /// `steps` list that exists must be playable, and the failure modes are all
+    /// silent ones — a card with nothing on it renders blank, a check with no
+    /// correct row can never be answered right, and an `expects` the parser cannot
+    /// read tells a correct reader they are wrong (D13.4).
+    ///
+    /// A lesson with *no* `steps` is not checked and not reported here: paging
+    /// falls back to the prose (D13.1), and interactivity coverage is a lint hint
+    /// plus a `validate` report, exactly as lesson coverage is (D12.4).
+    private static func cardChecks(_ lesson: Lesson, unit: NodeID) -> [Diagnostic] {
+        var out: [Diagnostic] = []
+        let nodes = [lesson.node, unit]
+
+        func report(_ rule: DiagnosticRule, _ message: String) {
+            out.append(
+                Diagnostic(
+                    rule: rule, message: "lesson `\(lesson.node)` " + message, nodes: nodes))
+        }
+
+        for (index, card) in lesson.steps.enumerated() {
+            let position = "card \(index + 1)"
+            let teaches = !(card.teach ?? "").trimmed.isEmpty
+            let asks = !(card.ask ?? "").trimmed.isEmpty
+
+            switch (teaches, asks) {
+            case (false, false):
+                report(.lessonCardEmpty, "\(position) has neither `teach` nor `ask`")
+                continue
+            case (true, true):
+                report(
+                    .lessonCardAmbiguous,
+                    "\(position) has both `teach` and `ask` — a card is one beat or one question")
+            default:
+                break
+            }
+
+            if teaches && !asks {
+                // Answer fields on a teaching card are always a mistake, and
+                // always the same mistake: an author wrote a check and deleted
+                // the question instead of the card.
+                var stranded: [String] = []
+                if !card.choices.isEmpty { stranded.append("choices") }
+                if card.expects != nil { stranded.append("expects") }
+                if card.tolerance != nil { stranded.append("tolerance") }
+                if card.feedback != nil { stranded.append("feedback") }
+                if !stranded.isEmpty {
+                    report(
+                        .lessonTeachCardAnswerable,
+                        "\(position) is a `teach` card carrying "
+                            + "\(stranded.map { "`\($0)`" }.joined(separator: ", "))"
+                            + " — add an `ask`, or delete the answer fields")
+                }
+                continue
+            }
+
+            for fault in AnswerCheck.faults(
+                choices: card.choices, expects: card.expects, tolerance: card.tolerance,
+                feedback: card.feedback, isRequired: true)
+            {
+                report(fault.rule, "\(position) \(fault.detail)")
+            }
+        }
+
+        return out
     }
 }

@@ -57,6 +57,11 @@ public struct Lesson: Codable, Hashable, Sendable, Identifiable {
     public let pitfalls: String?
     /// One breath to retain.
     public let recap: String
+    /// §6.7's authored cards: the lesson as a paged, checked sequence rather than
+    /// a scroll of prose. Empty on a lesson nobody has made interactive yet, and
+    /// `cards` then derives a paging from the prose above (D13.1) — so this being
+    /// empty changes how good the lesson is, never whether it works.
+    public let steps: [LessonCard]
 
     public var id: NodeID { node }
 
@@ -67,7 +72,8 @@ public struct Lesson: Codable, Hashable, Sendable, Identifiable {
         worked: String? = nil,
         interview: String? = nil,
         pitfalls: String? = nil,
-        recap: String
+        recap: String,
+        steps: [LessonCard] = []
     ) {
         self.node = node
         self.hook = hook
@@ -76,10 +82,11 @@ public struct Lesson: Codable, Hashable, Sendable, Identifiable {
         self.interview = interview
         self.pitfalls = pitfalls
         self.recap = recap
+        self.steps = steps
     }
 
     enum CodingKeys: String, CodingKey {
-        case node, hook, explanation, worked, interview, pitfalls, recap
+        case node, hook, explanation, worked, interview, pitfalls, recap, steps
     }
 
     // Hand-written for the same reason `Node`'s is: absent sections decode as nil
@@ -93,6 +100,7 @@ public struct Lesson: Codable, Hashable, Sendable, Identifiable {
         interview = try c.decodeIfPresent(String.self, forKey: .interview)
         pitfalls = try c.decodeIfPresent(String.self, forKey: .pitfalls)
         recap = try c.decode(String.self, forKey: .recap)
+        steps = try c.decodeIfPresent([LessonCard].self, forKey: .steps) ?? []
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -104,6 +112,7 @@ public struct Lesson: Codable, Hashable, Sendable, Identifiable {
         try c.encodeIfPresent(interview, forKey: .interview)
         try c.encodeIfPresent(pitfalls, forKey: .pitfalls)
         try c.encode(recap, forKey: .recap)
+        if !steps.isEmpty { try c.encode(steps, forKey: .steps) }
     }
 }
 
@@ -158,6 +167,13 @@ public struct Program: Sendable {
     }
 
     public var isEmpty: Bool { spine.isEmpty && lessonUnits.isEmpty }
+
+    /// §6.7 coverage: lessons whose cards are *authored* rather than derived from
+    /// their prose. Reported by `validate` on every run, never a gate — the same
+    /// split D12.4 made for lesson coverage itself, for the same reason.
+    public var interactiveLessonCount: Int {
+        lessonsByNode.values.count(where: \.isInteractive)
+    }
 
     public func lesson(for node: NodeID) -> Lesson? { lessonsByNode[node] }
 

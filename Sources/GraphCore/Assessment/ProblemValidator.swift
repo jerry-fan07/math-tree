@@ -78,6 +78,23 @@ public enum ProblemValidator {
                     + "correct solution must satisfy")
         }
 
+        // §6.7's check, where the problem declares one. `isRequired: false`: a
+        // problem with no `expects` and no `choices` self-grades against the
+        // rubric, which is every problem authored before Phase 13 and every
+        // `justify` problem after it. What is *not* allowed is half a check.
+        for fault in AnswerCheck.faults(
+            choices: problem.choices, expects: problem.expects, tolerance: problem.tolerance,
+            // The reveal falls back to the worked answer when no `feedback` is
+            // authored, so a *checked* problem is never short of an explanation —
+            // `Problem.check` composes it the same way. The fallback is withheld
+            // from an unchecked problem on purpose: every problem has an `answer`,
+            // and lending it here would report all ninety of them as half a check.
+            feedback: problem.feedback ?? (problem.isChecked ? problem.answer : nil),
+            isRequired: false)
+        {
+            report(fault.rule, "problem `\(problem.id)` \(fault.detail)")
+        }
+
         if problem.targets.isEmpty {
             report(
                 .problemMissingTargets,
@@ -178,11 +195,5 @@ public enum ProblemValidator {
                     nodes: [id],
                     problem: problem.id)
             }
-    }
-}
-
-extension String {
-    fileprivate var trimmed: String {
-        trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

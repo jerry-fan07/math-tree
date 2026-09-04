@@ -67,6 +67,22 @@ public enum DiagnosticRule: String, Codable, Hashable, Sendable, CaseIterable {
     case lessonNodeOutsideUnit = "lesson-node-outside-unit"
     case duplicateLesson = "duplicate-lesson"
     case lessonMissingSection = "lesson-missing-section"
+
+    // Interactive lessons (§6.7). Card rules belong to the lesson file that
+    // declares them; check rules are shared by both hosts of an `AnswerCheck`
+    // (a lesson card and a bank problem), which is why they are not prefixed.
+    case lessonCardEmpty = "lesson-card-empty"
+    case lessonCardAmbiguous = "lesson-card-ambiguous"
+    case lessonTeachCardAnswerable = "lesson-teach-card-answerable"
+    case checkUnanswerable = "check-unanswerable"
+    case checkAmbiguous = "check-ambiguous"
+    case checkThinChoices = "check-thin-choices"
+    case checkNoCorrectChoice = "check-no-correct-choice"
+    case checkManyCorrectChoices = "check-many-correct-choices"
+    case emptyChoiceText = "empty-choice-text"
+    case checkUnparsableAnswer = "check-unparsable-answer"
+    case checkNonPositiveTolerance = "check-non-positive-tolerance"
+    case checkMissingFeedback = "check-missing-feedback"
 }
 
 /// One invariant violation. Typed rather than pass/fail so `ContentBuild` can group,

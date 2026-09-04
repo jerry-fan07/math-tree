@@ -121,6 +121,27 @@
                 // without ever showing the lesson body render.
                 size: CGSize(width: 1280, height: 3800))
 
+            // Phase 13: §6.7's player. Five frames because the states it adds are
+            // *interactive* ones, and input cannot be driven offscreen — the seams
+            // (`startCard`, `startResolved`) exist so each can be opened directly.
+            // Without them the shot would show card 1 five times and pass.
+            lessonPlayer(document: document, scores: scores, into: root)
+
+            // …and the same view over the *real* authored corpus, which is a
+            // different claim: the fixture proves the view draws, this proves the
+            // content does. `MATHTREE_PANEL_SHOT_QUANT=<node-id>` because the
+            // quant tree is a second scene with its own artifacts, and loading
+            // it unconditionally would make every shot run depend on them.
+            if let target = environment["MATHTREE_PANEL_SHOT_QUANT"], !target.isEmpty {
+                quantLesson(NodeID(target), into: root)
+            }
+
+            // The maths specimen (see `MathSpecimen`): every two-dimensional construct
+            // the renderer draws, in one frame. `MathText.Check` reads the linearised
+            // form and cannot see geometry at all, so without this frame a fraction
+            // rule off the axis or an accent over the wrong glyph passes every gate.
+            MathSpecimen.write(into: root)
+
             assessment(document: document, scores: scores, into: root)
 
             if let target = environment["MATHTREE_PANEL_SHOT_REPORT"] {
@@ -186,9 +207,159 @@
                                 worked:
                                     "$f(x) = x^2$ on $[0,2]$: the secant slope is $2$, and "
                                     + "$f'(c) = 2c = 2$ at $c = 1$.",
-                                recap: "Somewhere inside, instantaneous equals average."),
+                                recap: "Somewhere inside, instantaneous equals average.",
+                                steps: [
+                                    LessonCard(
+                                        teach:
+                                            "Rolle's theorem is the flat case: if $f$ agrees at "
+                                            + "both endpoints, some interior point has "
+                                            + "$f'(c) = 0$. The mean value theorem is that "
+                                            + "statement with the picture tilted."),
+                                    LessonCard(
+                                        ask:
+                                            "Take $f(x) = x^2$ on $[0, 2]$. What value of $c$ "
+                                            + "does the theorem produce?",
+                                        expects: "1",
+                                        hint:
+                                            "The secant slope is $\\frac{f(2) - f(0)}{2 - 0}$; "
+                                            + "set $f'(c)$ equal to it.",
+                                        feedback:
+                                            "The average slope is $2$, and $f'(c) = 2c$, so "
+                                            + "$c = 1$ — the midpoint, which is special to "
+                                            + "quadratics rather than general."),
+                                    LessonCard(
+                                        teach:
+                                            "The hypotheses are asymmetric on purpose: "
+                                            + "continuity is required on the *closed* interval, "
+                                            + "differentiability only on the open one."),
+                                    LessonCard(
+                                        ask:
+                                            "Which hypothesis does $f(x) = |x|$ on $[-1, 1]$ "
+                                            + "fail?",
+                                        choices: [
+                                            AnswerChoice(
+                                                text: "Continuity on $[-1, 1]$",
+                                                feedback:
+                                                    "$|x|$ is continuous everywhere — the corner "
+                                                    + "is a failure of smoothness, not of "
+                                                    + "continuity."),
+                                            AnswerChoice(
+                                                text: "Differentiability on $(-1, 1)$",
+                                                correct: true,
+                                                feedback:
+                                                    "The corner sits at $0$, which is inside the "
+                                                    + "open interval, so the hypothesis fails "
+                                                    + "exactly where it is demanded."),
+                                            AnswerChoice(
+                                                text: "Neither — the theorem applies",
+                                                feedback:
+                                                    "It does not: the secant slope is $0$, and "
+                                                    + "$f'$ is $\\pm 1$ wherever it exists."),
+                                        ],
+                                        feedback:
+                                            "Differentiability is demanded on the open interval, "
+                                            + "and $|x|$ has no derivative at $0$."),
+                                    LessonCard(
+                                        teach:
+                                            "Everything downstream — monotonicity from the sign "
+                                            + "of $f'$, uniqueness of antiderivatives, Taylor's "
+                                            + "remainder — is this theorem applied once."),
+                                ]),
                         ])
                 ])
+        }
+
+        /// §6.7's player, over the same hand-authored fixture chapter the reader
+        /// shot uses — plus `steps`, so both halves of D13.1 are visible: the
+        /// authored cards on `analysis.svc.mvt`, and the *derived* paging on
+        /// `analysis.svc.ftc-part-2`, which has no `steps` at all.
+        @MainActor
+        private static func lessonPlayer(
+            document: GraphDocument, scores: ScoreStore, into root: URL
+        ) {
+            let program = fixtureProgram(document: document)
+            func player(_ id: NodeID, card: Int, resolved: Bool) -> AnyView {
+                guard let index = document.index(of: id), let lesson = program.lesson(for: id)
+                else { return AnyView(EmptyView()) }
+                return AnyView(
+                    LessonPlayer(
+                        node: document[index], lesson: lesson,
+                        unitTitle: document.index(of: "analysis.svc").map { document[$0].title },
+                        document: document, scores: scores,
+                        mastery: scores.bank.masterySet(for: id),
+                        onExit: {}, startCard: card, startResolved: resolved))
+            }
+
+            let frames: [(String, NodeID, Int, Bool)] = [
+                // An authored teaching beat, then the check that follows it —
+                // unresolved, then resolved, which is the pair the whole phase is
+                // about.
+                ("lesson-teach", "analysis.svc.mvt", 0, false),
+                ("lesson-check", "analysis.svc.mvt", 1, false),
+                ("lesson-check-resolved", "analysis.svc.mvt", 1, true),
+                ("lesson-choice-resolved", "analysis.svc.mvt", 3, true),
+                // One past the last card: the mastery set and the self-report.
+                ("lesson-mastery", "analysis.svc.mvt", 99, false),
+                // D13.1's fallback, which is what every unauthored node shows.
+                ("lesson-derived", "analysis.svc.ftc-part-2", 0, false),
+            ]
+            for (name, id, card, resolved) in frames {
+                write(
+                    player(id, card: card, resolved: resolved),
+                    to: root.appendingPathComponent("\(name).png"),
+                    size: CGSize(width: 1100, height: 760))
+            }
+        }
+
+        /// The player over the quant tree's *authored* corpus — the pilot unit's
+        /// real cards, real checks and real mastery set.
+        ///
+        /// Separate from `lessonPlayer` because it proves a different thing. That
+        /// one asks "does the view draw every state"; this one asks "does the
+        /// content an author wrote survive the renderer" — which is the question
+        /// the corpus self-check answers mechanically and a frame answers by
+        /// being looked at.
+        @MainActor
+        private static func quantLesson(_ id: NodeID, into root: URL) {
+            let store = SceneStore.quant
+            guard let scene = store.scene, let scores = store.scores else {
+                FileHandle.standardError.write(
+                    Data("panel-shot: quant tree — \(store.errorMessage ?? "no scene")\n".utf8))
+                exit(3)
+            }
+            let document = scene.document
+            guard let index = document.index(of: id),
+                let lesson = store.program.program.lesson(for: id)
+            else {
+                FileHandle.standardError.write(
+                    Data("panel-shot: quant tree has no lesson for \(id)\n".utf8))
+                exit(3)
+            }
+            let node = document[index]
+            let cards = lesson.cards
+            // Every check in the lesson, resolved — plus the first card and the
+            // ending. A single frame would show whichever card happened to be
+            // first and say nothing about the rest.
+            var frames: [(String, Int, Bool)] = [("quant-lesson-01", 0, false)]
+            for (position, card) in cards.enumerated() where card.isCheck {
+                frames.append(("quant-lesson-check-\(position + 1)", position, true))
+            }
+            frames.append(("quant-lesson-mastery", cards.count, false))
+
+            for (name, card, resolved) in frames {
+                write(
+                    AnyView(
+                        LessonPlayer(
+                            node: node, lesson: lesson,
+                            unitTitle: node.parent.flatMap { document.index(of: $0) }
+                                .map { document[$0].title },
+                            document: document, scores: scores,
+                            mastery: scores.bank.masterySet(for: id),
+                            onExit: {}, startCard: card, startResolved: resolved)),
+                    to: root.appendingPathComponent("\(name).png"),
+                    size: CGSize(width: 1100, height: 760))
+            }
+            print("panel-shot: quant lesson \(id) — \(frames.count) frames")
         }
 
         /// Phase 8's overlays. Every phase since Phase 4 has rendered its new
