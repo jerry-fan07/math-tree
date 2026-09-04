@@ -58,6 +58,8 @@ public enum DiagnosticRule: String, Codable, Hashable, Sendable, CaseIterable {
     case duplicateProgramUnit = "duplicate-program-unit"
     case programMissingSubbranch = "program-missing-subbranch"
     case programOrderViolation = "program-order-violation"
+    case programForwardStale = "program-forward-stale"
+    case programForwardUnexplained = "program-forward-unexplained"
     case emptyProgramPartTitle = "empty-program-part-title"
     case lessonUnitNotInProgram = "lesson-unit-not-in-program"
     case lessonUnitMissingOpening = "lesson-unit-missing-opening"

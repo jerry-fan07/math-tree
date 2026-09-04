@@ -68,6 +68,9 @@ struct ProgramArtifact: Encodable {
     var version: Int
     /// The spine, in authored order — the order *is* the data.
     var parts: [ProgramSpine.Part]
+    /// Accepted forward references (D15.2). Written only when non-empty, so a
+    /// spine without any — the quant tree's — encodes byte-for-byte as before.
+    var forward: [ProgramSpine.ForwardReference]?
     /// Authored lesson units, sorted by unit id; lessons inside are sorted by
     /// node id (`LessonUnit` guarantees it). Teaching order is computed by
     /// `ProgramPlan`, never stored.
@@ -76,6 +79,7 @@ struct ProgramArtifact: Encodable {
     init(_ program: Program) {
         version = ContentFormat.version
         parts = program.spine.parts
+        forward = program.spine.forward.isEmpty ? nil : program.spine.forward
         units = program.lessonUnits.values.sorted { $0.unit < $1.unit }
     }
 }

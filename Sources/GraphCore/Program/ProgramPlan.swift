@@ -21,14 +21,22 @@ public struct ProgramPlan: Hashable, Sendable {
         /// learned-but-not-met is *decayed*, which the reader surfaces without
         /// letting it move the bookmark (see `resume`).
         public let isLearned: Bool
+        /// Prerequisites taught in a *later* unit (D15.2) — the spine's declared
+        /// forward references, as they land on this step. Almost always empty;
+        /// when not, the reader says so rather than pretending the chapter is
+        /// self-contained.
+        public let forward: [NodeID]
 
         public var isDecayed: Bool { isLearned && !isMet }
 
-        public init(id: NodeID, unit: NodeID, isMet: Bool, isLearned: Bool) {
+        public init(
+            id: NodeID, unit: NodeID, isMet: Bool, isLearned: Bool, forward: [NodeID] = []
+        ) {
             self.id = id
             self.unit = unit
             self.isMet = isMet
             self.isLearned = isLearned
+            self.forward = forward
         }
     }
 
@@ -116,6 +124,22 @@ public struct ProgramPlan: Hashable, Sendable {
             return fsrs.retrievability(of: memory, at: now) > config.masteryThreshold
         }
 
+        // Forward references are computed from the graph rather than read off
+        // the declaration list, so the reader shows what is true of the order
+        // even while the validator is reporting the declaration as missing.
+        let position = Dictionary(
+            spine.units.enumerated().map { ($0.element, $0.offset) },
+            uniquingKeysWith: { first, _ in first })
+        func forward(of id: NodeID) -> [NodeID] {
+            guard let home = graph[id]?.parent.flatMap({ position[$0] }) else { return [] }
+            return graph.prerequisites(of: id).filter { prerequisite in
+                guard let away = graph[prerequisite]?.parent.flatMap({ position[$0] }) else {
+                    return false
+                }
+                return away > home
+            }.sorted()
+        }
+
         var index = 0
         var parts: [Part] = []
         for part in spine.parts {
@@ -127,7 +151,8 @@ public struct ProgramPlan: Hashable, Sendable {
                         steps: order(unit: unit, graph: graph).map {
                             Step(
                                 id: $0, unit: unit,
-                                isMet: isMet($0), isLearned: state.isLearned($0))
+                                isMet: isMet($0), isLearned: state.isLearned($0),
+                                forward: forward(of: $0))
                         }))
                 index += 1
             }

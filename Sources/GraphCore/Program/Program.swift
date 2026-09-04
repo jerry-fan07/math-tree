@@ -18,16 +18,64 @@ public struct ProgramSpine: Codable, Hashable, Sendable {
         }
     }
 
-    public let parts: [Part]
+    /// A cross-unit `requires` edge the spine *accepts* pointing forward (D15.2).
+    ///
+    /// The linear-extension rule is the load-bearing one (D12.1), and it stays an
+    /// error — but a corpus whose subbranches genuinely need each other (the
+    /// math tree's relations ↔ functions, cardinality ↔ number systems) has no
+    /// order that satisfies it. Rather than weaken the rule or re-home nodes
+    /// whose ids are permanent, the author names each forward edge here with a
+    /// note saying why the order is right anyway. The validator holds the list
+    /// exactly: an undeclared forward edge is still `program-order-violation`,
+    /// and a declared one that is no longer forward is `program-forward-stale`,
+    /// so the list can neither hide a mistake nor rot.
+    public struct ForwardReference: Codable, Hashable, Sendable {
+        /// The node that requires something taught later.
+        public let node: NodeID
+        /// The prerequisite, which lives in a later unit.
+        public let requires: NodeID
+        /// The reviewer's sign-off — what the reader is expected to bring to the
+        /// earlier step, or why the reference is benign there.
+        public let note: String
 
-    public init(parts: [Part]) {
+        public init(node: NodeID, requires: NodeID, note: String) {
+            self.node = node
+            self.requires = requires
+            self.note = note
+        }
+    }
+
+    public let parts: [Part]
+    /// Accepted forward references, usually empty. See `ForwardReference`.
+    public let forward: [ForwardReference]
+
+    public init(parts: [Part], forward: [ForwardReference] = []) {
         self.parts = parts
+        self.forward = forward
     }
 
     /// Every unit in program order — the flattened spine.
     public var units: [NodeID] { parts.flatMap(\.units) }
 
     public var isEmpty: Bool { parts.allSatisfy(\.units.isEmpty) }
+
+    enum CodingKeys: String, CodingKey {
+        case parts, forward
+    }
+
+    // Hand-written so a spine with no forward references encodes without the
+    // key: the quant tree's `program.json` stays byte-identical (ground rule 5).
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        parts = try c.decode([Part].self, forKey: .parts)
+        forward = try c.decodeIfPresent([ForwardReference].self, forKey: .forward) ?? []
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(parts, forKey: .parts)
+        if !forward.isEmpty { try c.encode(forward, forKey: .forward) }
+    }
 }
 
 /// §6.6's lesson: authored *teaching* text for one content node. The node's

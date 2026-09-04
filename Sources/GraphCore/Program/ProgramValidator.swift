@@ -94,6 +94,11 @@ public enum ProgramValidator {
     /// in the program. This is what makes each unit a self-contained chapter —
     /// `ProgramPlan` orders a unit by its *own* edges only, which is complete
     /// precisely because precedence can never arrive from the future.
+    ///
+    /// The one exception is a forward reference the spine *declares* (D15.2):
+    /// that edge is accepted, surfaced to the reader by `ProgramPlan.Step.forward`
+    /// rather than hidden, and held to being real — a declaration that names no
+    /// forward edge is `program-forward-stale`, so the list cannot rot.
     private static func orderChecks(_ spine: ProgramSpine, graph: KnowledgeGraph) -> [Diagnostic] {
         let position = Dictionary(
             spine.units.enumerated().map { ($0.element, $0.offset) },
@@ -104,6 +109,9 @@ public enum ProgramValidator {
             return position[parent].map { (parent, $0) }
         }
 
+        let declared = Set(spine.forward.map { Edge(node: $0.node, requires: $0.requires) })
+        var found = Set<Edge>()
+
         var out: [Diagnostic] = []
         for node in graph.nodes where node.kind.isContent {
             guard let home = unitPosition(of: node) else { continue }
@@ -112,18 +120,51 @@ public enum ProgramValidator {
                     let away = unitPosition(of: required),
                     away.position > home.position
                 else { continue }
+                let edge = Edge(node: node.id, requires: prerequisite)
+                found.insert(edge)
+                if declared.contains(edge) { continue }
                 out.append(
                     Diagnostic(
                         rule: .programOrderViolation,
                         message:
                             "`\(node.id)` (unit \(home.position + 1), `\(home.unit)`) requires "
                             + "`\(prerequisite)` (unit \(away.position + 1), `\(away.unit)`) — "
-                            + "the program order must be a linear extension of cross-unit requires",
+                            + "the program order must be a linear extension of cross-unit "
+                            + "requires, or the spine must declare this edge under `forward:`",
                         nodes: [node.id, prerequisite],
                         path: [home.unit, away.unit]))
             }
         }
+
+        for reference in spine.forward {
+            let edge = Edge(node: reference.node, requires: reference.requires)
+            if !found.contains(edge) {
+                out.append(
+                    Diagnostic(
+                        rule: .programForwardStale,
+                        message:
+                            "the spine accepts `\(reference.node)` requiring `\(reference.requires)` "
+                            + "as a forward reference, but under this order it is not one — "
+                            + "delete the declaration",
+                        nodes: [reference.node, reference.requires]))
+            }
+            if reference.note.trimmed.isEmpty {
+                out.append(
+                    Diagnostic(
+                        rule: .programForwardUnexplained,
+                        message:
+                            "the forward reference `\(reference.node)` → `\(reference.requires)` "
+                            + "has no note — say what the reader is expected to bring to the "
+                            + "earlier step",
+                        nodes: [reference.node, reference.requires]))
+            }
+        }
         return out
+    }
+
+    private struct Edge: Hashable {
+        let node: NodeID
+        let requires: NodeID
     }
 
     // MARK: - Lessons

@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
-"""Pre-flight check for one lessons file of the quant program (§6.6).
+"""Pre-flight check for one lessons file of a program (§6.6, §6.7).
 
 Usage: Scripts/check-lesson-file.py <unit-id>
   e.g. Scripts/check-lesson-file.py quant-probability.foundations
+       Scripts/check-lesson-file.py analysis.svc
+
+The tree is inferred from the unit id: a `quant-` prefix means the quant tree
+(content-quant/ + content-quant-program/), anything else the math tree
+(content/ + program/).
 
 This is the *author's* half of validation — runnable with nothing but python3,
 so a content author (human or agent) can check their one file without building
 the Swift toolchain. `ContentBuild validate` remains the authority; this mirrors
-its per-file lesson rules plus the LaTeX-lite subset of content-quant/style.md,
-and disagreements resolve in ContentBuild's favour.
+its per-file lesson rules plus the LaTeX-lite subset of the style guides, and
+disagreements resolve in ContentBuild's favour.
 """
 
 import re
@@ -48,6 +53,13 @@ CARD_FIELDS = ["teach", "ask", "choices", "expects", "tolerance", "hint", "feedb
 CHOICE_FIELDS = ["text", "correct", "feedback"]
 
 
+def tree_roots(unit):
+    """(content root, program root) for the tree a unit id belongs to."""
+    if unit.startswith("quant-"):
+        return ROOT / "content-quant", ROOT / "content-quant-program"
+    return ROOT / "content", ROOT / "program"
+
+
 def fail(errors):
     for error in errors:
         print(f"  ✗ {error}")
@@ -76,6 +88,12 @@ def latex_errors(where, text):
     for macro in re.findall(r"\\([a-zA-Z]+)", text):
         if macro not in ALLOWED_MACROS:
             errors.append(f"{where}: macro \\{macro} is not on the allow-list")
+    # Markdown other than *emphasis* never renders (D14.4): it reaches the reader
+    # as itself.
+    if "**" in text:
+        errors.append(f"{where}: `**bold**` is not rendered — use *emphasis* or plain prose")
+    if "`" in text:
+        errors.append(f"{where}: backticks are not rendered — write the term plainly")
     return errors
 
 
@@ -167,6 +185,12 @@ def card_errors(node, index, card):
     if choices and expectation:
         errors.append(f"{where}: declares both `choices` and `expects`")
 
+    if expects is not None and not isinstance(expects, str):
+        errors.append(
+            f"{where}: `expects: {expects}` must be quoted — an unquoted number decodes "
+            "as an int and fails the build"
+        )
+
     if choices:
         if len(choices) < 2:
             errors.append(f"{where}: has {len(choices)} choice — a choice needs at least two rows")
@@ -220,8 +244,9 @@ def main():
         sys.exit(2)
     unit = sys.argv[1]
     branch, _, sub = unit.partition(".")
-    content_path = ROOT / "content-quant" / branch / f"{sub}.yaml"
-    lesson_path = ROOT / "content-quant-program" / "lessons" / f"{unit}.yaml"
+    content_root, program_root = tree_roots(unit)
+    content_path = content_root / branch / f"{sub}.yaml"
+    lesson_path = program_root / "lessons" / f"{unit}.yaml"
 
     errors = []
     if not content_path.exists():
@@ -251,6 +276,7 @@ def main():
 
     taught = []
     interactive = []
+    checks_total = 0
     for i, lesson in enumerate(lessons.get("lessons") or []):
         node = lesson.get("node", f"lessons[{i}]")
         taught.append(node)
@@ -293,10 +319,16 @@ def main():
                 checks = sum(
                     1 for c in steps if isinstance(c, dict) and (c.get("ask") or "").strip()
                 )
+                checks_total += checks
                 if checks == 0:
                     errors.append(
                         f"{node}: {len(steps)} authored cards and not one `ask` — "
                         "a paged slideshow still measures nothing"
+                    )
+                elif checks < 2:
+                    errors.append(
+                        f"{node}: only one `ask` in {len(steps)} cards — "
+                        "a checked lesson asks at least twice"
                     )
                 if len(steps) < 4:
                     errors.append(
@@ -319,8 +351,10 @@ def main():
     )
     print(
         f"ok: {unit} — opening + {len(taught)} lessons "
-        f"({len(interactive)} interactive, {cards} cards), all checks pass"
+        f"({len(interactive)} interactive, {cards} cards, {checks_total} checks), all checks pass"
     )
+    if len(interactive) < len(taught):
+        print(f"note: {len(taught) - len(interactive)} lesson(s) still page off their prose (no `steps`)")
 
 
 if __name__ == "__main__":

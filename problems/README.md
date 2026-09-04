@@ -139,6 +139,23 @@ test that had to be weakened.
 Landmark and high-traffic nodes carry two problems, so a session that spends a
 problem on one node can still probe it again later.
 
+## Since Phase 15: mastery-first, machine-checked
+
+The bank now serves §6.7's mastery sets and the course's unit tests as well as
+placement, which raises the bar `content-quant-problems/README.md` set for the
+quant tree to this bank too: **every content node carries at least two
+problems, one `demanding` and one `standard` or `routine`**; every `work` and
+`decide` problem carries a check (`expects` for a number, `choices` for
+anything else — in a mathematics course that is most answers: a derivative, a
+subgroup, a negated quantifier, a hypothesis that fails); only `justify`
+self-grades, and its rubric is the whole instrument. The worked `answer` shows
+the computation. Landmark nodes carry three problems.
+
+Existing problems keep their ids (evidence logs reference them) and gain
+`expects`/`choices` where their answer admits one. The author's pre-flight
+check is `python3 Scripts/check-problem-file.py <unit-id>`; `ContentBuild
+validate` remains the authority.
+
 ## Current contents
 
 32 problems over the 22 content nodes of design.md Appendix A — which *is* the
