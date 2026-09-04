@@ -40,9 +40,9 @@ math-tree/
 
 ### Phase → milestone map (mapping, not renumbering — §9 stays authoritative)
 
-| Phase | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Milestone | M0 | M0 | M0 | M1 | M1 | M3 | M3 | M3 | M4 | M5 | M6 | M7 | M8 | M9 |
+| Phase | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Milestone | M0 | M0 | M0 | M1 | M1 | M3 | M3 | M3 | M4 | M5 | M6 | M7 | M8 | M9 | M9 | M10 |
 
 Two items are deliberately built one milestone early: the precomputed-layout pipeline (Phase 2, though §9 lists it under M1) and graph propagation (Phase 5, though §9 lists it under M4) — each is cheapest to build alongside its surrounding code (layout with the content compiler, propagation with the scoring fold). Their §9 milestones remain where the capability is *demonstrated*.
 
@@ -280,6 +280,19 @@ Not a numbered phase: an outside design pass over what Phases 4–8 built, impor
 
 **Deliverable**: click any node in the quant tree and get a paged, checked lesson that ends in problems that measure.
 **Exit criterion**: a lesson with no authored `steps` still pages (derived cards cover all six sections); an authored check accepts every spelling of its answer the parser promises and rejects a near miss outside tolerance; a passed mastery problem writes `test` evidence through the existing `Grading` path and visibly moves the node's colour, the unit read-out and the program progress bar, with **no new state file**; every new authored field renders clean under `MATHTREE_MATH_CHECK`; the player renders offscreen in both themes across teach, unresolved check, resolved-correct, resolved-wrong and mastery cards.
+
+## Phase 15 — The course
+
+**Goal**: M10 — §6.8. The program read as a course rather than a book, and both trees taught whole. Two complaints drove it: the learning surfaces were not intuitive (no front door, no "where am I", no "what next", stage columns labelled in the design's private vocabulary), and only 38 of 1,280 content nodes could actually *ask* the reader anything.
+
+**Tasks**
+- `GraphCore`: `MasteryLevel` / `MasteryEvidence` / `Mastery` — the five-rung ladder and its points, derived from the folded state and the log alone, with Proficient ≡ §4.5's met; `UnitTest.paper(for:bank:level:attempted:limit:)` — one standard-difficulty problem per skill, unmastered-first under a cap, sat in teaching order; `ProgramSpine.title` and `ProgramSpine.forward` (declared forward references, D15.2) with `program-forward-stale` / `program-forward-unexplained`; `ProgramPlan.Step.forward`; D15.4's rounding rule in `AnswerCheck.isCorrect(typed:)`.
+- `ContentBuild`: the spine decodes `title`/`forward`; the artifact writes both only when present (the quant artifact is byte-identical); `Scripts/check-lesson-file.py` serves both trees and refuses a single-check lesson; `Scripts/check-problem-file.py` is the bank's isolated pre-flight (validator rules, check faults, LaTeX, and the mastery bar).
+- App: `ProgramView` becomes course home → `UnitPage` → `ChapterReader`, breadcrumb as eyebrow, `ProgramEntry` for the three ways in; `MasteryVisuals` (dot, segmented bar, legend, points); `LessonPlayer` context and the finish card's rung + next skill; `UnitTestSession` over `ProblemSheet` with `UnitTestSummary`; the rail's Course section; `FocusView`'s guide line, start-here action, learn-on-hover rows and worded stage labels; "mastered" → "proficient" in every met read-out; `PanelShot` renders `course.png`, `unit.png`, `lesson-finish.png` over the real math program.
+- Content: `program/` — the math tree's spine (82 units, 12 parts, 4 declared forward references) and lessons with `steps` for every authored unit; `steps` for the 56 remaining quant units; problem banks for all 56 quant units and all 15 math units (the three pre-Phase-13 banks upgraded to the mastery bar). Generated one sonnet/opus agent per unit against the pre-flight checkers, validated per batch, committed per batch.
+
+**Deliverable**: open either tree, press Continue, and be taught skill after skill — cards, checks, a mastery set, a rung, the next skill — with a unit page that says where you stand and a unit test that proves it.
+**Exit criterion**: `validate` reports every content node of both trees lesson-covered *and* card-covered, with at least two bank problems per node; every unit's problem file passes `check-problem-file.py`; the math spine validates with exactly the declared forward references and the quant artifact is byte-identical to Phase 14's; the ladder's Proficient count equals the frontier's met count on the fixture user; a typed `0.4667` is accepted for `7/15` and `0.47` is not; `MATHTREE_MATH_CHECK` is clean over both corpora; the course home, a unit page, the finish card, the rail and a subject path render offscreen in both themes.
 
 ---
 
@@ -849,6 +862,26 @@ is inline-only by authoring rule, but a display-math mode would want the other c
 Matrices and `align` environments are unimplemented and unwritten — `content-quant/style.md`
 forbids environments outright. A line carrying a fraction is taller than its neighbours, the
 same as in any book with inline quotients, and no attempt is made to even the leading.
+
+### Phase 15
+
+**D15.1 — The program is read as a course, and the book stays one click away.**
+Phase 12's reader was faithful to §6.6's display paragraph and still failed the reader: a contents rail beside a chapter says nothing about *where you are* or *what to do next*, and "esc — full map" was the only navigation. The fix is not a new data model — spine, lessons, cards and the log are unchanged — but the hierarchy every course app puts first: home (continue, measure, parts), unit (ladder, skills with actions, test), lesson. The breadcrumb is the eyebrow because turn 1's grammar already has an eyebrow slot and a crumb is metadata. The chapter reader is kept whole as "read as a chapter": some readers want the book, and deleting a working surface to make a point is not subtraction. Unauthored math units collapse to one sentence per part — 67 dashes in a list reads as broken, one line reads as honest.
+
+**D15.2 — Forward references are declared, exact, and surfaced — the rule is not weakened.**
+The math tree's foundations units need each other (relations ↔ functions, cardinality ↔ number systems); no order is a linear extension, and re-homing nodes would rename permanent ids. Three options: downgrade `program-order-violation` to a hint (loses the guarantee for the quant tree, whose test pins it as an error), re-parent nodes (breaks ids and fixtures), or let the spine *declare* each accepted edge with a reviewer's note. The third keeps the rule an error, adds `program-forward-stale` so a declaration that is no longer forward fails too (the list cannot rot in either direction), and `ProgramPlan.Step.forward` is computed from the graph rather than read off the declaration, so the unit page and the reader say "uses X, taught later" whether or not the validator is currently happy. Four edges, all on late nodes referencing the next unit — the benign shape.
+
+**D15.3 — Proficient is met; Mastered is proven; and the word moved.**
+The obvious ladder puts "Mastered" where the app already said "mastered" (met). Khan's ladder has a rung above that — proficient *and* verified later — and this app has exactly the instrument to verify: a passed `test` event. So Proficient ≡ met (by any evidence, including propagated implicit reviews, because that is what the map's colour already means and the panel must not disagree with the dot) and Mastered ≡ met + the most recent problem targeting the node passed. Every "N / M mastered" read-out in the app now says "proficient", because shipping two meanings of one word across one screen was the alternative. `MasteryEvidence` reads the log in fold order for "most recent", so a replay reaches the same rung. Considered and rejected: a rung for "inferred only" (met by propagation, never directly reviewed) — it would make the ladder disagree with the frontier, and the fact is available as a detail instead.
+
+**D15.4 — A typed decimal is compared at the precision the reader chose.**
+D13.4 made the parser generous about spelling and strict about value, and the player's own hint promised that `7/15`, `0.4667` and `46.67%` "all read alike" — which was false: with no authored tolerance the comparison was relative $10^{-6}$, so a reader who computed $7/15$ and typed its four-place rounding was told they were wrong. Pushing a `tolerance` onto every fraction in 1,280 lessons is the wrong fix (and the pilot units did not do it). The rule is now: a decimal with at least three places is right when the expected value rounds to it; fewer places stay exact (`0.47` is a guess); a fraction is exact; an authored tolerance replaces the rule. The existing test that pinned the strict behaviour was reversed deliberately, not accommodated.
+
+**D15.5 — The unit test is the middle of the bank, sat in teaching order.**
+A mastery set is hardest-first because the node was taught a minute ago (D13.6). A unit test asks across a unit learned over weeks, and opening every question at `demanding` measures stamina, not the ladder — so the paper prefers `standard`, then `routine`, then `demanding`, and an unattempted problem over a seen one. When the cap bites, mastered skills are dropped first (the test spends its questions where the rung can still move), but the chosen questions are then *sat* in teaching order, because a paper that jumps around a unit is harder for no reason. Each question grades through the existing `ProblemSheet` and `Grading` path — a miss still asks where it broke — so the test writes exactly the evidence a review would, and the summary is a read-out of the fold, not a second measurement.
+
+**D15.6 — The content campaign: one author per unit, checked in isolation, committed per batch.**
+Phase 12's shape (D12.7) again, with two additions. `check-lesson-file.py` infers the tree from the unit id and refuses a single-check lesson; `check-problem-file.py` is new — the bank had no isolated pre-flight, so 71 problem authors would have contended on the Swift build or shipped unchecked. Both mirror the validators plus the *coverage bar* the course needs: every node with ≥2 problems, one `demanding` and one not, `work`/`decide` machine-checked. Every author is told to show the computation that produces `expects` inside `feedback`/`answer`, because a bare number is the one thing no pre-flight can verify and a shown computation is checkable at a glance. The math course's guide drops `interview` and asks for `steps` on every lesson; a mathematics course's answers are mostly not numbers, so it says so and steers authors to `choices`.
 
 ---
 

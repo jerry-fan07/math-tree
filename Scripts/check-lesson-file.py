@@ -42,8 +42,12 @@ ALLOWED_MACROS = set(
     quad qquad dots ldots cdots
     alpha beta gamma delta epsilon varepsilon zeta eta theta vartheta iota kappa
     lambda mu nu xi pi varpi rho varrho sigma varsigma tau upsilon phi varphi chi
-    psi omega Gamma Delta Theta Lambda Xi Pi Sigma Upsilon Phi Psi Omega""".split()
+    psi omega Gamma Delta Theta Lambda Xi Pi Sigma Upsilon Phi Psi Omega
+    leftrightarrow longrightarrow aleph im lcm ncong subsetneq unlhd displaystyle""".split()
 )
+# The last line: macros the math corpus's own statements use and the renderer
+# knows, which the quant guide's list predates. Anything the corpus check
+# passes is fair for a lesson to echo.
 
 REQUIRED = ["hook", "explanation", "recap"]
 OPTIONAL = ["worked", "interview", "pitfalls"]
