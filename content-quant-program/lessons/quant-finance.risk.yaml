@@ -69,6 +69,88 @@ lessons:
       Every risk measure in this unit is a functional of the loss
       $L = -(V_h-V_0)$, and none of them mean anything until the horizon,
       confidence level, and return convention are all stated.
+    steps:
+      - teach: >
+          Every risk number in this unit is a functional of one random
+          variable: the loss over a fixed horizon, $L = -(V_h - V_0)$, where
+          $V_0$ is today's book value and $V_h$ its value $h$ periods later.
+      - teach: >
+          Flipping the sign is deliberate, not cosmetic — it makes bigger
+          always worse. A profit is a negative loss, and every quantity in
+          this unit is read off the distribution of $L$ under that
+          convention.
+      - ask: >
+          A trading book worth $70$ million falls to $52$ million over the
+          horizon. What is the loss $L$, in millions?
+        expects: "18"
+        hint: >
+          Apply the sign convention directly: $L = -(V_h - V_0)$.
+        feedback: >
+          $L = -(52 - 70) = 18$ million. The book value fell by $18$
+          million, and the sign convention turns that decline into a
+          positive loss.
+      - teach: >
+          Value at risk, expected shortfall and drawdown are not three
+          separate ideas — they are three functionals of the same object,
+          the law of $L$. A quantile of that law gives VaR, a tail average
+          gives expected shortfall, and following the whole path of $V_t$
+          rather than one endpoint gives drawdown.
+      - ask: >
+          Two desks each report a $95\%$ VaR of $5$ million. Before treating
+          the two numbers as comparable, what do you need to check?
+        choices:
+          - text: >
+              Nothing — a $95\%$ VaR of $5$ million means the same number
+              everywhere it's quoted.
+            feedback: >
+              It doesn't. The figure is only a quantity once a horizon and a
+              return convention are fixed too, and two desks can silently
+              disagree on both while quoting the same confidence level.
+          - text: >
+              Whether both desks actually mean $\alpha = 0.95$ rather than
+              $1-\alpha = 0.95$.
+            feedback: >
+              Worth double-checking as a labeling slip, but it isn't the
+              hidden variable here — confidence level is the one dimension
+              both desks already stated.
+          - text: >
+              Whether the two use the same horizon and the same return
+              convention, arithmetic or log.
+            correct: true
+            feedback: >
+              Right. Confidence level is stated; horizon and return
+              convention are the two silent choices, and differing on
+              either makes the two "$95\%$ VaR" figures answer different
+              questions.
+          - text: >
+              Whether the two books hold the same number of positions.
+            feedback: >
+              Position count affects nothing about whether the two VaR
+              numbers are conceptually comparable — only the horizon,
+              confidence level, and return convention do.
+        feedback: >
+          A risk number is only a quantity once the horizon, the confidence
+          level, and the return convention are all pinned down — quoting
+          one or two of the three says nothing yet.
+      - teach: >
+          For small moves, arithmetic and log returns nearly coincide; for
+          large ones they diverge, because log returns compound
+          multiplicatively while the arithmetic figure is a simple ratio.
+      - ask: >
+          A book's value falls to exactly half its starting value. What is
+          the magnitude of the log-return decline, as a percentage?
+        expects: "69.3"
+        tolerance: 0.1
+        hint: >
+          The log return is $\ln(V_h/V_0)$; here $V_h/V_0 = 1/2$.
+        feedback: >
+          $-\ln(1/2) = \ln 2 \approx 0.693$, a $69.3\%$ decline — noticeably
+          larger than the $50\%$ arithmetic figure, exactly the divergence
+          that shows up on large moves.
+      - teach: >
+          State all three — horizon, confidence level, return convention —
+          before treating any VaR, ES, or drawdown figure as a number
+          rather than a fragment.
 
   - node: quant-finance.risk.var
     hook: >
@@ -123,6 +205,92 @@ lessons:
       $\operatorname{VaR}_{\alpha}(L)$ is the $\alpha$-quantile of the loss
       — breached with probability $1-\alpha$ — and it carries zero
       information about the size of any loss beyond that point.
+    steps:
+      - teach: >
+          Value at risk is the quantile function applied to the loss. For
+          $\alpha \in (0,1)$, $\operatorname{VaR}_{\alpha}(L) = \inf\{x :
+          \Pr(L \le x) \ge \alpha\}$ — the smallest loss level the
+          distribution doesn't exceed with probability at least $\alpha$.
+      - teach: >
+          Equivalently, $\Pr(L > \operatorname{VaR}_{\alpha}) \le 1-\alpha$:
+          over many independent horizons, the threshold is crossed on
+          roughly a $1-\alpha$ fraction of them. That single inequality is
+          the entire operational content of the number.
+      - ask: >
+          A desk's daily loss, in millions, takes value $-3$ with
+          probability $0.40$, $-1$ with probability $0.25$, $2$ with
+          probability $0.20$, $6$ with probability $0.10$, and $25$ with
+          probability $0.05$. What is $\operatorname{VaR}_{0.95}$?
+        expects: "6"
+        hint: >
+          Add the probabilities from the smallest loss upward until the
+          running total first reaches $0.95$.
+        feedback: >
+          $\Pr(L \le 2) = 0.40+0.25+0.20 = 0.85 < 0.95$, but
+          $\Pr(L \le 6) = 0.85+0.10 = 0.95 \ge 0.95$, so
+          $\operatorname{VaR}_{0.95} = 6$.
+      - teach: >
+          Two misreadings to refuse under pressure. VaR is not a worst case
+          — the loss can extend far past $\operatorname{VaR}_{\alpha}$, and
+          the quantile carries no information about how far. And VaR is not
+          an expected loss of any kind.
+      - ask: >
+          For that same distribution, $\operatorname{VaR}_{0.95} = 6$. What
+          does this actually say?
+        choices:
+          - text: >
+              The desk will lose exactly $6$ million on the worst day of
+              the next hundred.
+            feedback: >
+              Wrong — it isn't a single worst case. The tail beyond the
+              quantile can hold a far larger loss, and here it does: a
+              $25$-million outcome sits past the threshold.
+          - text: >
+              The desk breaches a $6$-million loss on roughly one day in
+              twenty, with no information about how large the loss is on
+              those days.
+            correct: true
+            feedback: >
+              Right — that is the entire content of the quantile
+              definition, nothing about the size of a breach.
+          - text: >
+              The expected loss on a bad day is $6$ million.
+            feedback: >
+              Wrong — that description belongs to expected shortfall, which
+              averages the tail. VaR reads a single point of the CDF and
+              stops there.
+          - text: >
+              The desk never loses more than $6$ million once averaged over
+              a year.
+            feedback: >
+              Wrong — VaR doesn't average anything. It's a threshold on how
+              often a loss level is crossed, not a bound obtained by
+              averaging.
+        feedback: >
+          $\operatorname{VaR}_{0.95}=6$ only fixes how often $6$ is
+          breached — roughly one day in twenty — and says nothing about the
+          size of a breach when it happens.
+      - teach: >
+          VaR reads exactly one point of the CDF and is silent about
+          everything beyond it — which is exactly the gap expected
+          shortfall exists to close.
+      - ask: >
+          Using the same distribution — loss $-3$ with probability $0.40$,
+          $-1$ with probability $0.25$, $2$ with probability $0.20$, $6$
+          with probability $0.10$, $25$ with probability $0.05$ — what is
+          $\operatorname{VaR}_{0.80}$?
+        expects: "2"
+        hint: >
+          Find the smallest loss level whose cumulative probability first
+          reaches $0.80$.
+        feedback: >
+          $\Pr(L \le -1) = 0.65 < 0.80$, but $\Pr(L \le 2) = 0.85 \ge 0.80$,
+          so $\operatorname{VaR}_{0.80} = 2$ — a lower confidence level
+          pulls the quantile down.
+      - teach: >
+          State the quantile definition, then volunteer the two caveats —
+          that a breach's size is unbounded above, and that VaR is not an
+          average — before an interviewer has to ask.
 
   - node: quant-finance.risk.normal-var
     hook: >
@@ -177,6 +345,93 @@ lessons:
       For normal, zero-mean daily loss, $\operatorname{VaR}_{\alpha} =
       z_{\alpha}\sigma$; at $\sigma=2\%$ that's $4.65\%$ at $99\%$ and
       $3.29\%$ at $95\%$, one multiplication either way.
+    steps:
+      - teach: >
+          When the loss is normal with mean $0$ and standard deviation
+          $\sigma$, standardizing turns $\Pr(L \le x) = \alpha$ into
+          $\Pr(Z \le x/\sigma) = \alpha$, so $x/\sigma$ must equal the
+          standard normal quantile $z_{\alpha}$. Rearranged,
+          $\operatorname{VaR}_{\alpha} = z_{\alpha}\sigma$.
+      - teach: >
+          Two values are worth having memorized cold, since they recur in
+          essentially every VaR question: $z_{0.99} = 2.326$ and
+          $z_{0.95} = 1.645$. Everything else is arithmetic once those are
+          on hand.
+      - ask: >
+          A book has daily P&L standard deviation $\sigma = 1.5\%$ of book
+          value, normal with mean $0$. What is the $99\%$ one-day VaR, as a
+          percentage of book value?
+        expects: "3.489"
+        tolerance: 0.01
+        hint: >
+          $\operatorname{VaR}_{0.99} = z_{0.99}\sigma$, with
+          $z_{0.99} = 2.326$.
+        feedback: >
+          $\operatorname{VaR}_{0.99} = z_{0.99}\sigma = 2.326 \times 1.5\% =
+          3.489\%$.
+      - teach: >
+          With a nonzero drift $\mu$ per period the formula becomes
+          $\operatorname{VaR}_{\alpha} = z_{\alpha}\sigma - \mu h$ over a
+          horizon of $h$ periods — the mean shifts the distribution by an
+          amount proportional to $h$, while the standard deviation only
+          grows like $\sqrt{h}$.
+      - ask: >
+          At which horizon does dropping the drift term $\mu h$ from
+          $\operatorname{VaR}_{\alpha}=z_{\alpha}\sigma-\mu h$ most
+          obviously introduce a real error?
+        choices:
+          - text: >
+              A one-day horizon, since VaR is always computed daily.
+            feedback: >
+              Wrong direction — at a one-day horizon $\mu h$ is tiny next
+              to $\sigma\sqrt{h}$, exactly where dropping it is safest.
+          - text: >
+              A long horizon, such as a year, since the drift term grows
+              linearly in $h$ while the volatility term grows only like
+              $\sqrt{h}$.
+            correct: true
+            feedback: >
+              Right — the two terms grow at different rates, so the drift
+              term that was negligible at one day can dominate at one year.
+          - text: >
+              It never matters — the formula $z_{\alpha}\sigma$ is exact
+              regardless of horizon.
+            feedback: >
+              Wrong — the formula is only the zero-drift special case; a
+              nonzero $\mu$ genuinely shifts the quantile once $h$ is large
+              enough.
+          - text: >
+              Only when $\sigma$ is unusually small.
+            feedback: >
+              Wrong focus — what matters is the relative growth of $\mu h$
+              against $\sigma\sqrt{h}$ as $h$ grows, not the absolute size
+              of $\sigma$.
+        feedback: >
+          The drift term $\mu h$ grows linearly while $\sigma\sqrt{h}$
+          grows only as a square root, so a term negligible at a one-day
+          horizon can dominate at a one-year one.
+      - teach: >
+          The whole appeal of this formula is that it's one multiplication;
+          that is also exactly why an interviewer's next move is almost
+          always to attack the assumption that daily P&L is actually
+          normal.
+      - ask: >
+          A book worth $85$ million has daily P&L standard deviation
+          $\sigma = 2.5\%$ of book value, normal with mean $0$. What is the
+          $95\%$ one-day VaR, in millions?
+        expects: "3.50"
+        tolerance: 0.02
+        hint: >
+          Compute $z_{0.95}\sigma$ as a percentage of book value first,
+          then apply it to the $85$ million book.
+        feedback: >
+          $z_{0.95}\sigma = 1.645 \times 2.5\% = 4.1125\%$ of book value;
+          on an $85$ million book that's $4.1125\% \times 85 \approx 3.50$
+          million.
+      - teach: >
+          Say the confidence level back before reaching for a $z$-value —
+          that one habit prevents the single most common slip in this
+          formula.
 
   - node: quant-finance.risk.var-subadditivity
     hook: >
@@ -234,6 +489,97 @@ lessons:
       Two independent $3\%$-default loans each have zero $95\%$ VaR while
       the pair has $100$ — VaR can strictly increase under diversification,
       which is exactly subadditivity failing.
+    steps:
+      - teach: >
+          A risk measure $\rho$ is subadditive when merging two books never
+          manufactures risk: $\rho(A+B)\le\rho(A)+\rho(B)$. It's the
+          property that mathematically justifies "diversification helps."
+          Value at risk does not have it.
+      - teach: >
+          The mechanism is a quantile's blindness to what sits just below
+          the threshold. A position whose bad outcome has probability just
+          under $1-\alpha$ reports $\operatorname{VaR}_{\alpha}=0$ alone,
+          because that loss doesn't cross the quantile on its own —
+          combine two such positions and the probability that at least one
+          fires can jump past $1-\alpha$.
+      - ask: >
+          Two independent loans each repay in full unless their issuer
+          defaults, with default probability $2.8\%$ per loan. What is
+          $\operatorname{VaR}_{0.95}$ for a single loan?
+        expects: "0"
+        hint: >
+          Compare the default probability to $1-\alpha = 0.05$.
+        feedback: >
+          $\Pr(L>0)=0.028<0.05$, so $\Pr(L\le 0)=0.972\ge0.95$ and the
+          $95\%$ quantile of a single loan's loss is $0$.
+      - teach: >
+          Two consequences bite in practice. A firm cannot safely allocate
+          a VaR limit across desks by summing sub-limits, since the sum of
+          the parts is not a bound on the whole. And a book optimized
+          against a VaR constraint is rewarded for stacking loss just past
+          the quantile, where it isn't counted.
+      - ask: >
+          If a loan defaults its loss is $60$. Holding both loans, what is
+          the probability that at least one defaults, as a percentage?
+        expects: "5.52"
+        tolerance: 0.05
+        hint: >
+          Use the complement: $1-(1-p)^{2}$ with $p=0.028$.
+        feedback: >
+          $1-(1-0.028)^{2} = 1-0.972^{2} = 1-0.944784 = 0.055216$, about
+          $5.52\%$.
+      - ask: >
+          With the same two loans — $2.8\%$ default probability each, loss
+          $60$ if a loan defaults — what is $\operatorname{VaR}_{0.95}$ for
+          the pair?
+        expects: "60"
+        hint: >
+          Compare $\Pr(L\le 0)$ to $0.95$ first, then $\Pr(L\le 60)$.
+        feedback: >
+          $\Pr(L\le 0)=0.944784<0.95$, but
+          $\Pr(L\le 60)=0.944784+0.054432=0.999216\ge0.95$, so
+          $\operatorname{VaR}_{0.95}=60$ for the pair — strictly more than
+          $0+0$ for the two loans held separately.
+      - ask: >
+          What made the merged loans' $95\%$ VaR jump from $0+0$ to $60$?
+        choices:
+          - text: >
+              Combining the loans made each individual default more
+              likely.
+            feedback: >
+              No — the loans stay independent at $2.8\%$ each; nothing
+              about either loan's own default probability changed.
+          - text: >
+              The probability of at least one default crossed $5\%$ even
+              though each loan's own default probability sat under $5\%$
+              — quantiles are blind to what sits just below the threshold
+              until the numbers combine.
+            correct: true
+            feedback: >
+              Right — that crossing is the entire mechanism behind VaR's
+              failure of subadditivity.
+          - text: >
+              VaR always increases when positions are combined.
+            feedback: >
+              Too strong — it doesn't always happen, only when the
+              combined tail probability crosses the threshold the
+              individual legs sat just under.
+          - text: >
+              The repayment amount doubled once both loans were held.
+            feedback: >
+              That's just bookkeeping for two possible losses, not the
+              reason the quantile specifically jumped from $0$ to $60$
+              rather than growing smoothly.
+        feedback: >
+          A low-probability event that sits individually under the
+          threshold can push the combined probability of "at least one"
+          over it — that crossing is exactly what breaks subadditivity.
+      - teach: >
+          The effect depends on where $1-\alpha$ sits relative to the
+          individual event probabilities — changing $\alpha$ or the
+          default probability can make the same construction fail to
+          produce a violation, so the numbers matter, not just the shape of
+          the argument.
 
   - node: quant-finance.risk.expected-shortfall
     hook: >
@@ -289,6 +635,93 @@ lessons:
       \alpha}$, repairing both its blindness to tail size and its failure
       of subadditivity — $4.68\%$ against a $3.92\%$ VaR at $\alpha=0.975$,
       $\sigma=2\%$.
+    steps:
+      - teach: >
+          Expected shortfall averages exactly the tail VaR refuses to look
+          inside: $\operatorname{ES}_{\alpha} = \mathbb{E}[L \mid L \ge
+          \operatorname{VaR}_{\alpha}]$, the mean loss conditional on the
+          VaR threshold being breached.
+      - teach: >
+          This single change repairs both of VaR's defects. It responds to
+          the size of tail losses, not merely whether a threshold was
+          crossed, and it is itself subadditive — averaging over a tail
+          can't manufacture the discontinuity a single quantile can.
+      - ask: >
+          A book's daily loss is normal with mean $0$ and
+          $\sigma = 1.8\%$ of book value. Using $z_{0.99}=2.326$ and
+          standard normal density $\varphi(2.326)\approx 0.0267$, what is
+          $\operatorname{ES}_{0.99}$, as a percent of book value?
+        expects: "4.81"
+        tolerance: 0.05
+        hint: >
+          $\operatorname{ES}_{\alpha} = \sigma\varphi(z_{\alpha})/(1-\alpha)$.
+        feedback: >
+          $\operatorname{ES}_{0.99} = 1.8\% \times 0.0267/0.01 \approx
+          4.81\%$.
+      - teach: >
+          Basel's market-risk capital rules moved from $99\%$ VaR to
+          $97.5\%$ ES for exactly this reason: the two coincide under
+          normality at matched confidence and diverge once the tail is
+          heavier than normal, which real returns always are.
+      - ask: >
+          For the same book — $\sigma=1.8\%$, normal, mean $0$ — what is
+          $\operatorname{VaR}_{0.99}$, as a percent of book value?
+        expects: "4.19"
+        tolerance: 0.05
+        hint: >
+          $\operatorname{VaR}_{0.99}=z_{0.99}\sigma$.
+        feedback: >
+          $z_{0.99}\sigma = 2.326\times1.8\% \approx 4.19\%$ — smaller than
+          the $\operatorname{ES}_{0.99}$ just computed, since ES averages
+          over losses at least that large.
+      - ask: >
+          The loss law has atoms — a discrete chance of a jump — rather
+          than a smooth density. Which definition of expected shortfall
+          should you reach for?
+        choices:
+          - text: >
+              $\mathbb{E}[L \mid L \ge \operatorname{VaR}_{\alpha}]$,
+              exactly as with a continuous loss.
+            feedback: >
+              Risky here — with an atom sitting right at the threshold,
+              the event $L\ge\operatorname{VaR}_{\alpha}$ can carry more
+              probability mass than the tail $1-\alpha$ actually calls
+              for, making this form ambiguous.
+          - text: >
+              The average of $\operatorname{VaR}_{u}$ over
+              $u\in(\alpha,1)$, since it doesn't depend on how an atom is
+              split at the threshold.
+            correct: true
+            feedback: >
+              Right — this equivalent definition stays well behaved
+              whether or not the loss law has atoms.
+          - text: >
+              Whichever definition gives the larger number, to be
+              conservative.
+            feedback: >
+              Not a principled choice for this specific problem — atoms
+              call for the average-of-quantiles form, not an arbitrary
+              tiebreak.
+          - text: >
+              It's undefined whenever the loss law has atoms.
+            feedback: >
+              No — ES stays well defined; it just needs the
+              average-of-quantiles form rather than the naive conditional
+              expectation.
+        feedback: >
+          With atoms, average $\operatorname{VaR}_{u}$ over
+          $u\in(\alpha,1)$ rather than conditioning directly — it sidesteps
+          exactly the ambiguity an atom at the threshold creates.
+      - teach: >
+          Using the normal closed form on a loss distribution known to
+          have atoms or heavy tails understates ES just as badly as normal
+          VaR understates the quantile — the average-of-quantiles
+          definition, or an empirical estimate, is the honest fallback.
+      - teach: >
+          "How would you fix VaR" and "why did Basel move to expected
+          shortfall" are the same question in two costumes — name
+          subadditivity and tail-size sensitivity together, backed by the
+          formula.
 
   - node: quant-finance.risk.coherence
     hook: >
@@ -341,6 +774,83 @@ lessons:
       Coherence is four axioms — monotonicity, translation invariance,
       positive homogeneity, subadditivity; VaR satisfies the first three
       and fails only the fourth, expected shortfall satisfies all four.
+    steps:
+      - teach: >
+          A measure $\rho$ on losses is coherent when it satisfies four
+          axioms. Monotonicity: $L_1\le L_2$ pointwise forces
+          $\rho(L_1)\le\rho(L_2)$. Translation invariance:
+          $\rho(L+c)=\rho(L)+c$ — holding extra cash $c$ reduces measured
+          risk by exactly $c$.
+      - teach: >
+          Positive homogeneity: $\rho(\lambda L)=\lambda\rho(L)$ for
+          $\lambda\ge0$ — doubling a position doubles its risk number.
+          Subadditivity is the fourth. VaR satisfies the first three
+          without exception and fails only subadditivity.
+      - ask: >
+          Suppose $\operatorname{VaR}_{0.95}(L) = 18$. Holding $5$ extra
+          units of cash gives $L' = L - 5$. By translation invariance,
+          what is $\operatorname{VaR}_{0.95}(L')$?
+        expects: "13"
+        hint: >
+          $\rho(L+c)=\rho(L)+c$ with $c=-5$.
+        feedback: >
+          $\rho(L')=\rho(L)+c = 18 + (-5) = 13$ — exactly what recomputing
+          the quantile of the shifted distribution gives.
+      - teach: >
+          Expected shortfall satisfies all four axioms, which is the
+          formal statement behind why it repairs VaR's flaw — not just an
+          empirical observation about one example.
+      - ask: >
+          With $\operatorname{VaR}_{0.95}(L) = 18$, tripling the position
+          scales every outcome of $L$ by $3$. By positive homogeneity,
+          what is $\operatorname{VaR}_{0.95}(3L)$?
+        expects: "54"
+        hint: >
+          $\rho(\lambda L)=\lambda\rho(L)$ with $\lambda=3$.
+        feedback: >
+          $\lambda\rho(L) = 3\times18 = 54$ — scaling every outcome by $3$
+          scales the quantile by $3$.
+      - teach: >
+          Two caveats keep coherence from being the whole story. Positive
+          homogeneity ignores liquidity, since unwinding twice the size
+          typically costs more than twice as much. And expected shortfall
+          is not elicitable — no scoring rule uniquely minimizes it — which
+          keeps comparing and backtesting the two from being one-sided.
+      - ask: >
+          Which statement about VaR and coherence is correct?
+        choices:
+          - text: >
+              VaR fails all four coherence axioms.
+            feedback: >
+              Overstated — it satisfies three of the four and fails only
+              subadditivity.
+          - text: >
+              VaR satisfies monotonicity, translation invariance, and
+              positive homogeneity, and fails only subadditivity.
+            correct: true
+            feedback: >
+              Right — precise on all four, which is exactly what a sharp
+              answer needs.
+          - text: >
+              VaR is coherent, the same as expected shortfall.
+            feedback: >
+              Wrong — VaR fails subadditivity, which is precisely why the
+              two independent-loans construction manufactures a VaR
+              violation.
+          - text: >
+              VaR fails translation invariance, which is why cash reserves
+              don't reduce it.
+            feedback: >
+              Wrong — translation invariance is one of the three axioms
+              VaR does satisfy; holding cash reduces its VaR exactly.
+        feedback: >
+          VaR is precise, not vague: three axioms hold without exception,
+          and it fails exactly one — subadditivity.
+      - teach: >
+          Positive homogeneity assumes a position can be unwound at a
+          fixed price regardless of size, which is false beyond modest
+          scale — treat coherence as a checklist, not a complete seal of
+          approval.
 
   - node: quant-finance.risk.fat-tails
     hook: >
@@ -395,6 +905,95 @@ lessons:
       Daily returns carry excess kurtosis of roughly $3$ to $10$, so normal
       VaR understates the tail, with the error widening at higher $\alpha$
       and shrinking under aggregation to longer horizons.
+    steps:
+      - teach: >
+          Daily equity returns routinely show excess kurtosis of $3$ to
+          $10$ against the normal's $0$ — a few large moves carry far more
+          of the variance than a normal model assumes, so plugging a
+          normal quantile into VaR understates precisely the losses a risk
+          desk is sizing for.
+      - teach: >
+          The mismatch is easiest to see as a frequency. A normal model
+          predicts extreme days should be very rare, and liquid markets
+          deliver them far more often than that prediction says.
+      - ask: >
+          Under a normal model, $\Pr(Z<-3)\approx 0.00135$. At $252$
+          trading days a year, on average how many years pass between
+          $3$-sigma-or-worse days?
+        expects: "2.94"
+        tolerance: 0.15
+        hint: >
+          First find the expected number of such days per year, then take
+          the reciprocal.
+        feedback: >
+          Expected frequency is $0.00135\times252\approx0.34$ per year, so
+          the average wait is $1/0.34\approx2.94$ years — a fact that
+          already looks optimistic once fat tails are accounted for.
+      - teach: >
+          Three consequences follow. Normal-based $99\%$ VaR is materially
+          too small, and the gap widens as $\alpha\to1$ since the true
+          tail thins far more slowly than the normal's. The gap between ES
+          and VaR is correspondingly larger than normality predicts. And
+          the effect is worst at short horizons — aggregation washes out
+          much of the extreme concentration.
+      - ask: >
+          A risk manager finds daily $99\%$ normal VaR has been breached
+          far more than $1\%$ of days, but the same model's monthly $99\%$
+          VaR looks well calibrated. What explains this pattern?
+        choices:
+          - text: >
+              Aggregating returns to a monthly horizon washes out much of
+              the extreme daily concentration, so the monthly distribution
+              sits closer to normal than the daily one.
+            correct: true
+            feedback: >
+              Right — this is exactly why the fat-tail correction matters
+              most at short horizons and fades at longer ones.
+          - text: >
+              The monthly model must be using a different confidence
+              level.
+            feedback: >
+              Nothing points to that — there's no evidence of a hidden
+              confidence-level mismatch here.
+          - text: >
+              Fat tails only affect VaR, not the underlying return
+              distribution, so aggregation is irrelevant.
+            feedback: >
+              Backwards — fat tails are a property of the daily return
+              distribution itself, and aggregation genuinely changes that
+              distribution's shape.
+          - text: >
+              This is a coincidence with no structural explanation.
+            feedback: >
+              There is a structural explanation: aggregation thins tails,
+              stated directly as one of this node's three consequences.
+        feedback: >
+          Monthly returns are closer to normal precisely because
+          aggregating over many days washes out the concentration that
+          makes daily returns fat-tailed.
+      - teach: >
+          A variance-matched Student $t$ fits daily returns much better
+          than the normal — the correction it applies is exactly the kind
+          of magnitude an interviewer wants named, not just the word
+          "fat-tailed."
+      - ask: >
+          A variance-matched Student $t$ with $4$ degrees of freedom has
+          raw $99\%$ quantile $3.747$. Matching its variance to $1$
+          requires scaling by $\sqrt{(4-2)/4} = \sqrt{0.5} \approx 0.707$.
+          What is the effective $99\%$ multiplier?
+        expects: "2.65"
+        tolerance: 0.02
+        hint: >
+          Multiply the raw quantile by the scaling factor.
+        feedback: >
+          $3.747\times0.707\approx2.65$, about $14\%$ above the normal's
+          $2.326$ — the fat-tail correction stated as a number rather than
+          a shape.
+      - teach: >
+          Name the kurtosis fact and a magnitude when asked why not to
+          trust normal VaR — that the gap widens as $\alpha\to1$ and
+          shrinks on aggregation shows you understand the mechanism, not
+          just the vocabulary.
 
   - node: quant-finance.risk.var-estimation
     hook: >
@@ -451,6 +1050,85 @@ lessons:
       assumptions for different blind spots, but all three ultimately rest
       on a handful of tail observations — a $99\%$ quantile from a year of
       data is about $2.5$ data points.
+    steps:
+      - teach: >
+          Three standard routes compute the same number differently.
+          Parametric estimates a covariance matrix and reports
+          $z_{\alpha}\sqrt{w'\Sigma w}$ — instant, but blind to option
+          convexity. Historical simulation revalues today's book on past
+          market moves and reads off a rank — no distributional assumption,
+          but capped by the worst day observed.
+      - teach: >
+          Underneath all three sits the same binding constraint: data. A
+          $99\%$ quantile estimated from a year of $250$ trading days rests
+          on roughly $2.5$ observations in the relevant tail, and expected
+          shortfall, averaging an even smaller slice, rests on fewer still.
+      - ask: >
+          With $400$ days of historical P&L, what rank — counting from the
+          worst day — gives the $97.5\%$ historical-simulation VaR?
+        expects: "10"
+        hint: >
+          The rank is $n\times(1-\alpha)$.
+        feedback: >
+          $400\times(1-0.975) = 400\times0.025 = 10$ — the tenth worst day
+          in the sample.
+      - teach: >
+          Three fixes address different pieces of the sample-size problem.
+          Fitting a parametric tail, such as a Student $t$, borrows shape
+          from theory. Extreme value theory models threshold exceedances
+          directly. Exponentially weighting recent data lets the estimate
+          react to a changing volatility regime.
+      - ask: >
+          A $99.5\%$ VaR is estimated from $600$ days of history. Roughly
+          how many observations in the tail does that quantile rest on?
+        expects: "3"
+        hint: >
+          Multiply the sample size by $1-\alpha$.
+        feedback: >
+          $600\times(1-0.995) = 600\times0.005 = 3$ observations — a
+          quantile this far out is barely supported by the data.
+      - ask: >
+          An options desk uses parametric (variance–covariance) VaR
+          exclusively. What is the most serious blind spot?
+        choices:
+          - text: >
+              It's a linear approximation and misses the convexity of
+              option P&L.
+            correct: true
+            feedback: >
+              Right — $z_{\alpha}\sqrt{w'\Sigma w}$ is linear in the
+              underlying moves and has no way to represent an option
+              book's curvature.
+          - text: >
+              It requires too much historical data to compute.
+            feedback: >
+              Backwards — parametric VaR is the least data-hungry of the
+              three methods, essentially instant once $\Sigma$ is
+              estimated.
+          - text: >
+              It cannot be computed without Monte Carlo simulation.
+            feedback: >
+              Wrong — parametric VaR is precisely the closed-form
+              alternative to running a simulation.
+          - text: >
+              It always underestimates volatility.
+            feedback: >
+              Too broad a claim — the specific failure named in this node
+              is missing tail shape and option convexity, not a blanket
+              statement about volatility.
+        feedback: >
+          Parametric VaR's formula is linear in the risk factors, so it
+          cannot see the convexity that makes option P&L asymmetric —
+          exactly the blind spot that matters most on an options book.
+      - teach: >
+          Trusting historical simulation to produce a worse loss than
+          anything in its lookback window is a category error — by
+          construction it cannot, since every scenario it revalues is a
+          day that actually happened.
+      - teach: >
+          A strong answer to "which method would you use" names all three
+          failure modes and volunteers the sample-size problem before
+          being asked.
 
   - node: quant-finance.risk.backtesting
     hook: >
@@ -505,6 +1183,84 @@ lessons:
       expected per year at $99\%$ — and separately checks that breaches
       aren't clustered, since a correct average rate can still hide a
       broken independence assumption.
+    steps:
+      - teach: >
+          Backtesting a VaR model means counting exceptions — the days on
+          which the realized loss exceeded the VaR reported that morning.
+          Under the null that the model is correctly calibrated, the count
+          is binomial with $n$ trading days and $p=1-\alpha$.
+      - teach: >
+          Basel's traffic-light framework turns this into a concrete rule:
+          $5$ to $9$ exceptions in a year of $99\%$ VaR trigger a capital
+          penalty, and $10$ or more rejects the model outright.
+      - ask: >
+          At $95\%$ confidence over $300$ trading days, what is the
+          expected number of exceptions?
+        expects: "15"
+        hint: >
+          Expected exceptions are $n\times(1-\alpha)$.
+        feedback: >
+          $300\times0.05 = 15$ exceptions expected on average.
+      - teach: >
+          Two distinct failure modes hide behind the word "backtest." Too
+          many exceptions means the model is systematically too tight.
+          Clustered exceptions — several breaches bunched together rather
+          than spread evenly — mean the count can be right on average
+          while the independence assumption behind the binomial test is
+          false.
+      - ask: >
+          Over $400$ trading days at $99\%$, expected exceptions are $4$
+          with standard deviation $\sqrt{400\times0.01\times0.99}\approx
+          1.99$. If $9$ exceptions are observed, what is the $z$-score, to
+          two decimals?
+        expects: "2.51"
+        tolerance: 0.03
+        hint: >
+          $z = (\text{observed} - \text{expected})/\text{standard
+          deviation}$.
+        feedback: >
+          $z = (9-4)/1.99 \approx 2.51$ — far out in the tail of the null
+          distribution, well before Basel's $10$-exception red zone.
+      - ask: >
+          A model records exactly the expected $2.5$ exceptions per year
+          on average across two years — but $4$ of the $5$ total breaches
+          fell inside the same $3$-week window. What does this indicate?
+        choices:
+          - text: >
+              Nothing is wrong; matching the expected count is sufficient.
+            feedback: >
+              No — the count test alone is blind to clustering, and this
+              case is exactly the kind it misses.
+          - text: >
+              The exception count is right on average, but the
+              independence assumption behind the binomial test has
+              failed — the cluster points at a specific miscalibrated
+              stretch, likely a volatility regime change.
+            correct: true
+            feedback: >
+              Right — a correct unconditional rate can still hide a broken
+              independence assumption, which is exactly what an explicit
+              clustering check is for.
+          - text: >
+              The model must be recalibrated with a lower confidence
+              level.
+            feedback: >
+              That doesn't address the actual issue, which is temporal
+              independence, not the confidence level.
+          - text: >
+              This proves the model systematically underestimates VaR.
+            feedback: >
+              Too strong — the average count was correct, so this isn't a
+              general underestimation, it's a clustering problem.
+        feedback: >
+          A model can pass a frequency test and still have failed badly
+          during a specific stretch — catching that needs an explicit
+          independence test, not just a count.
+      - teach: >
+          A strong answer to "how many exceptions would worry you" states
+          the expected count immediately, then names both tests — the
+          frequency count and the independence check — since an answer
+          that only mentions counting misses half the question.
 
   - node: quant-finance.risk.vol-scaling
     hook: >
@@ -556,6 +1312,68 @@ lessons:
       Volatility scales as $\sigma\sqrt{T}$ whenever increments are
       uncorrelated with equal variance — no normality required — so a
       ten-day VaR is $\sqrt{10}\approx 3.16$ times the one-day figure.
+    steps:
+      - teach: >
+          Variance adds across independent increments: if a $T$-period
+          change is the sum of $T$ uncorrelated increments sharing a
+          common variance $\sigma^{2}$, then
+          $\operatorname{Var}(\sum r_t) = T\sigma^{2}$, so
+          $\sigma_T = \sigma\sqrt{T}$. Nothing about the shape of the
+          distribution enters — this is a fact about second moments, not
+          normality.
+      - teach: >
+          The same scaling drives mean versus risk. Expected P&L grows
+          linearly, $\mu T$, while the standard deviation grows only like
+          $\sqrt{T}$, so the Sharpe ratio itself scales as $\sqrt{T}$ —
+          which is why a daily edge invisible against daily noise becomes
+          large and obvious once measured over a year.
+      - ask: >
+          Daily volatility is $\sigma = 0.9\%$. Scaled to a $16$-day
+          horizon, with uncorrelated, equal-variance increments, what is
+          $\sigma_{16}$, as a percent?
+        expects: "3.6"
+        hint: >
+          $\sigma_{16} = \sigma\sqrt{16}$.
+        feedback: >
+          $\sigma_{16} = 0.9\% \times \sqrt{16} = 0.9\% \times 4 = 3.6\%$.
+      - teach: >
+          Applied to VaR at fixed $\alpha$,
+          $\operatorname{VaR}_{\alpha,T} = z_{\alpha}\sigma\sqrt{T}$ — the
+          same $\sqrt{T}$ multiplier carries straight through, which is
+          exactly the regulatory shortcut used to convert a desk's daily
+          risk number into a ten-day figure.
+      - ask: >
+          A book's volatility scaled to a $16$-day horizon is
+          $\sigma_{16} = 3.6\%$. What is the $95\%$ VaR at that horizon, as
+          a percent of book value?
+        expects: "5.92"
+        tolerance: 0.05
+        hint: >
+          $\operatorname{VaR}_{0.95,16} = z_{0.95}\sigma_{16}$.
+        feedback: >
+          $z_{0.95}\sigma_{16} = 1.645 \times 3.6\% \approx 5.92\%$.
+      - ask: >
+          A strategy has a daily Sharpe ratio of $0.05$. Since Sharpe
+          scales like $\sqrt{T}$, what is its annualized Sharpe ratio,
+          using $252$ trading days? Round to two decimals.
+        expects: "0.79"
+        tolerance: 0.02
+        hint: >
+          Multiply by $\sqrt{252}$.
+        feedback: >
+          $\sqrt{252} \approx 15.87$, so $0.05 \times 15.87 \approx 0.79$ —
+          a tiny daily edge becomes a large annual number purely from the
+          $\sqrt{T}$ scaling.
+      - teach: >
+          Attributing the $\sqrt{T}$ rule to normality is a common but
+          incorrect justification — it only needs uncorrelated increments
+          with a common variance, which is exactly why the rule survives
+          even when the normal assumption itself is under attack.
+      - teach: >
+          Remember which grows linearly and which grows as $\sqrt{T}$: the
+          mean scales with $T$, risk scales with $\sqrt{T}$, and that
+          asymmetry is the single fact underneath both the VaR scaling
+          shortcut and the Sharpe ratio's own scaling.
 
   - node: quant-finance.risk.scaling-failure
     hook: >
@@ -610,6 +1428,92 @@ lessons:
       positive autocorrelation makes the naive rule understate risk,
       negative makes it overstate, and clustering breaks the input level
       even at zero autocorrelation.
+    steps:
+      - teach: >
+          For two periods, $\operatorname{Var}(r_1+r_2)=2\sigma^{2}(1+\rho)$
+          where $\rho$ is the correlation between the increments — the
+          honest multiplier is $\sqrt{2}\sqrt{1+\rho}$, equal to the naive
+          $\sqrt{2}$ only when $\rho=0$.
+      - teach: >
+          Two failure modes pull opposite ways. Positive autocorrelation —
+          trend-following persistence, or an illiquid book's stale marks —
+          makes $\sqrt{T}$ understate true multi-period risk. Negative
+          autocorrelation, typical of mean-reverting market-making P&L,
+          makes it overstate instead.
+      - ask: >
+          Two-day P&L has autocorrelation $\rho=0.35$ between the two
+          days. What is the honest two-day volatility multiplier,
+          $\sqrt{2(1+\rho)}$, to three decimals?
+        expects: "1.643"
+        tolerance: 0.005
+        hint: >
+          Compute $2(1+0.35)$, then take the square root.
+        feedback: >
+          $\sqrt{2\times1.35} = \sqrt{2.7} \approx 1.643$, versus the
+          naive $\sqrt{2}\approx1.414$ — the naive rule understates true
+          two-day risk here.
+      - teach: >
+          A third failure doesn't even need nonzero autocorrelation.
+          Volatility clustering means the $\sigma$ measured in a calm
+          month isn't the $\sigma$ that governs the next one, so even a
+          rule applied at zero measured correlation can use the wrong
+          input level entirely.
+      - ask: >
+          With autocorrelation $\rho=-0.25$ instead, what is the honest
+          two-day multiplier $\sqrt{2(1+\rho)}$, to three decimals?
+        expects: "1.225"
+        tolerance: 0.005
+        hint: >
+          Compute $2(1-0.25)$, then take the square root.
+        feedback: >
+          $\sqrt{2\times0.75} = \sqrt{1.5} \approx 1.225$, below the naive
+          $\sqrt{2}\approx1.414$ — the naive rule overstates two-day risk
+          here instead.
+      - ask: >
+          A market-making book's P&L is mean-reverting from day to day.
+          Applying the naive $\sqrt{T}$ rule to scale its daily VaR to a
+          monthly figure will —
+        choices:
+          - text: >
+              Overstate the monthly risk, since negative autocorrelation
+              makes actual multi-period variance smaller than the naive
+              sum implies.
+            correct: true
+            feedback: >
+              Right — mean reversion is negative autocorrelation, and that
+              always pulls the honest multiplier below $\sqrt{T}$.
+          - text: >
+              Understate the monthly risk, the same direction as a
+              trend-following book.
+            feedback: >
+              Wrong direction — trend-following and mean-reversion carry
+              opposite-signed autocorrelation and push the error opposite
+              ways.
+          - text: >
+              Have no effect, since $\sqrt{T}$ never depends on
+              autocorrelation.
+            feedback: >
+              Directly contradicts the general formula: the honest
+              variance includes an autocorrelation term the naive rule
+              drops entirely.
+          - text: >
+              Only matter if volatility is also clustering.
+            feedback: >
+              No — autocorrelation alone, independent of any clustering,
+              already breaks the naive rule.
+        feedback: >
+          Negative autocorrelation makes the naive $\sqrt{T}$ rule
+          overstate risk; positive autocorrelation makes it understate —
+          the direction always follows the sign of $\rho$.
+      - teach: >
+          Checking that a strategy's own return autocorrelation is zero is
+          not the same as trusting the scaling — clustering can still
+          break the rule through the input level rather than through the
+          formula's structure.
+      - teach: >
+          When asked whether $\sqrt{T}$ scaling works for a given
+          strategy, answer with the sign of its P&L's autocorrelation and
+          the direction of the error it implies, not "it depends."
 
   - node: quant-finance.risk.drawdown
     hook: >
@@ -663,6 +1567,87 @@ lessons:
       returns compound, a loss of $x$ needs a gain of $x/(1-x)$ to erase —
       $-30\%$ needs about $+42.9\%$, and years, not a single good day, to
       get there.
+    steps:
+      - teach: >
+          With equity path $V_t$ and running peak $M_t=\max_{s\le t}V_s$,
+          drawdown is $D_t=(M_t-V_t)/M_t$. This is a genuinely different
+          object from the loss-distribution family: VaR and expected
+          shortfall are both properties of one period's loss, while
+          drawdown tracks the entire path.
+      - teach: >
+          Recovery is asymmetric because returns compound rather than add.
+          A fall to $(1-x)V_0$ requires multiplying by $1/(1-x)$ to get
+          back — a gain of $x/(1-x)$, strictly larger than $x$ itself, and
+          increasingly so as $x$ grows.
+      - ask: >
+          A fund is down $45\%$ from its peak. What gain, as a percent, is
+          needed to get back to the peak?
+        expects: "81.8"
+        tolerance: 0.1
+        hint: >
+          The required gain is $x/(1-x)$ with $x=0.45$.
+        feedback: >
+          $0.45/0.55 \approx 0.818$, an $81.8\%$ gain — far more than the
+          $45\%$ that was lost.
+      - teach: >
+          The same compounding sets the clock on recovery time at a
+          return $g$ per period: the number of periods needed is
+          $\ln(1/(1-x))/\ln(1+g)$, since that's how many compounding steps
+          at rate $g$ turn $1-x$ back into $1$.
+      - ask: >
+          At an annual return of $6\%$, how many years does it take to
+          close a $45\%$ drawdown?
+        expects: "10.3"
+        tolerance: 0.2
+        hint: >
+          Use $\ln(1/(1-x))/\ln(1+g)$ with $x=0.45$, $g=0.06$.
+        feedback: >
+          $\ln(1/0.55)/\ln(1.06) \approx 0.598/0.0583 \approx 10.3$ years
+          — over a decade of doing everything right, purely as arithmetic.
+      - teach: >
+          Unlike a one-day VaR breach, a deep drawdown is the number that
+          actually determines whether a fund survives — investors redeem
+          against the peak-to-trough decline they've lived through, not
+          against tomorrow's quantile.
+      - ask: >
+          An investor says their fund "only" had a $-30\%$ VaR breach once
+          last year, so a $-40\%$ peak-to-trough drawdown over the same
+          year must be measuring the same kind of risk. What's wrong?
+        choices:
+          - text: >
+              VaR is a property of a single period's loss; drawdown tracks
+              the entire path between a peak and a trough, so the two
+              numbers answer different questions and needn't move
+              together.
+            correct: true
+            feedback: >
+              Right — a single VaR breach says nothing about how the path
+              between peaks and troughs actually unfolded.
+          - text: >
+              Nothing is wrong; drawdown is just VaR measured over a
+              longer horizon.
+            feedback: >
+              No — drawdown isn't a longer-horizon quantile at all; it's a
+              path statistic built from a running peak, a different object
+              entirely.
+          - text: >
+              The investor is using the wrong sign convention.
+            feedback: >
+              Not the issue here — both numbers are stated as losses; the
+              real gap is conceptual, not a sign error.
+          - text: >
+              Drawdown and VaR always coincide once the horizon matches.
+            feedback: >
+              They don't — even at a matched horizon, drawdown depends on
+              the whole path's running peak, which VaR never looks at.
+        feedback: >
+          VaR and drawdown are different functionals of different objects
+          — one period's loss versus an entire path — and neither number
+          bounds the other.
+      - teach: >
+          Measuring drawdown from a fixed starting date rather than the
+          running peak understates how bad the path actually got whenever
+          the true peak occurred partway through the window.
 
   - node: quant-finance.risk.drawdown-vs-vol
     hook: >
@@ -716,6 +1701,91 @@ lessons:
       Typical drawdown is $\sigma^{2}/(2\mu)=\sigma/(2S)$ — quadratic in
       volatility at fixed edge, so halving risk cuts drawdown fourfold,
       while doubling the edge at fixed risk only halves it.
+    steps:
+      - teach: >
+          Volatility digs a drawdown and drift fills it back in. For a
+          driftless random walk, expected maximum drawdown over a horizon
+          $T$ grows like $\sigma\sqrt{T}$ — with no drift pulling the path
+          back up, the deepest trough keeps getting deeper as $T$ grows.
+      - teach: >
+          Add positive drift $\mu$ and the drawdown process becomes
+          stationary: at a typical point in time it's exponentially
+          distributed with mean $\sigma^{2}/(2\mu)$, and the maximum over a
+          long window grows only logarithmically instead of like
+          $\sqrt{T}$.
+      - ask: >
+          A strategy runs $\sigma=30\%$ annual volatility at Sharpe ratio
+          $S=0.4$. What is its typical drawdown, $\sigma/(2S)$, as a
+          percent?
+        expects: "37.5"
+        hint: >
+          Divide $\sigma$ by $2S$.
+        feedback: >
+          $30\%/(2\times0.4) = 30\%/0.8 = 37.5\%$.
+      - teach: >
+          Writing $\mu=S\sigma$ turns the typical drawdown into
+          $\sigma^{2}/(2\mu)=\sigma/(2S)$. At fixed drift this is quadratic
+          in $\sigma$; at fixed Sharpe ratio it's linear — the same
+          formula behaves very differently depending on what you hold
+          fixed.
+      - ask: >
+          Holding drift fixed at $\mu=12\%$ and halving volatility to
+          $\sigma=15\%$, what is the new typical drawdown, using
+          $\sigma^{2}/(2\mu)$, as a percent?
+        expects: "9.375"
+        tolerance: 0.05
+        hint: >
+          Compute $0.15^{2}/(2\times0.12)$.
+        feedback: >
+          $0.15^{2}/(2\times0.12) = 0.0225/0.24 \approx 9.375\%$ — a
+          quarter of the drawdown at $\sigma=30\%$, $\mu=12\%$, from
+          halving volatility alone.
+      - ask: >
+          Instead holding volatility fixed at $\sigma=30\%$ and doubling
+          drift to $\mu=24\%$, what is the new typical drawdown, using
+          $\sigma^{2}/(2\mu)$, as a percent?
+        expects: "18.75"
+        tolerance: 0.05
+        hint: >
+          Compute $0.30^{2}/(2\times0.24)$.
+        feedback: >
+          $0.30^{2}/(2\times0.24) = 0.09/0.48 \approx 18.75\%$ — half of
+          the drawdown at $\sigma=30\%$, $\mu=12\%$, from doubling the
+          edge alone, not a quarter.
+      - ask: >
+          Since $\sigma/(2S)$ looks linear in $\sigma$, does halving
+          volatility while holding drift fixed exactly halve typical
+          drawdown?
+        choices:
+          - text: >
+              Yes — the formula is linear in $\sigma$.
+            feedback: >
+              No — linear only holds when $S$ itself is held fixed. At
+              fixed drift, $S=\mu/\sigma$ rises as $\sigma$ falls, and the
+              net effect is quadratic.
+          - text: >
+              No — at fixed drift, $S$ moves along with $\sigma$, and the
+              effective relationship becomes quadratic in $\sigma$, not
+              linear.
+            correct: true
+            feedback: >
+              Right — halving $\sigma$ at fixed drift divides drawdown by
+              four, not two, exactly because $S$ rises as $\sigma$ falls.
+          - text: >
+              No — the formula only holds for driftless random walks.
+            feedback: >
+              That mixes up the two regimes — $\sigma^{2}/(2\mu)$ is
+              specifically the positive-drift stationary case, not the
+              driftless one.
+          - text: >
+              Yes, but only for Sharpe ratios above $1$.
+            feedback: >
+              There's no such threshold in the formula — the quadratic
+              behavior at fixed drift holds at any Sharpe ratio.
+        feedback: >
+          At fixed drift, typical drawdown is genuinely quadratic in
+          $\sigma$, which is exactly why cutting risk in half does far
+          more than doubling the edge.
 
   - node: quant-finance.risk.leverage-ruin
     hook: >
@@ -774,6 +1844,94 @@ lessons:
       independently, any leverage $L$ is wiped out by an adverse move of
       $1/L$ — two separate floors, and margin calls make the second one
       bite first.
+    steps:
+      - teach: >
+          Leverage scales both sides of the ledger, so the growth curve
+          applies with leverage $L$ in place of bet fraction:
+          $g(L)=L\mu-L^{2}\sigma^{2}/2$, peaking at $L^{*}=\mu/\sigma^{2}$
+          and crossing zero at $2L^{*}$. Past double the optimum, a
+          genuinely profitable strategy loses money almost surely.
+      - teach: >
+          A second, harder floor sits underneath and can bite first: an
+          equity-financed position at leverage $L$ is wiped out by an
+          adverse move of just $1/L$, and margin calls force liquidation
+          even earlier, turning a drawdown that would have recovered into
+          a permanent loss.
+      - ask: >
+          With $\mu=10\%$ and $\sigma=20\%$ annually, what is the
+          growth-optimal leverage $L^{*}=\mu/\sigma^{2}$?
+        expects: "2.5"
+        hint: >
+          Divide $\mu$ by $\sigma^{2}$.
+        feedback: >
+          $L^{*} = 0.10/0.20^{2} = 0.10/0.04 = 2.5$.
+      - teach: >
+          That absorbing barrier at zero equity is exactly the structure
+          of ruin against an infinitely rich opponent — it doesn't care
+          whether long-run growth is positive, only whether a bad stretch
+          touches zero first.
+      - ask: >
+          At leverage $L=4$ with $\mu=10\%$ and $\sigma=20\%$, what is the
+          expected log growth rate $g(L)=L\mu-L^{2}\sigma^{2}/2$, as a
+          percent?
+        expects: "8"
+        hint: >
+          Compute $4\times0.10 - 4^{2}\times0.20^{2}/2$.
+        feedback: >
+          $g(4) = 4(0.10) - 16(0.04)/2 = 0.40 - 0.32 = 0.08$, a genuinely
+          positive $8\%$ — comfortably below the zero-growth crossing at
+          $2L^{*}=5$.
+      - ask: >
+          At that same leverage $L=4$, an equity-financed position is
+          wiped out by an adverse move of $1/L$. What size move, as a
+          percent?
+        expects: "25"
+        hint: >
+          Compute $1/4$.
+        feedback: >
+          $1/4 = 25\%$ — a single bad quarter of that size wipes out all
+          equity via a margin call, regardless of how positive the
+          long-run growth rate says the strategy is.
+      - ask: >
+          At $L=4$ the strategy above sits safely below $2L^{*}=5$ and has
+          a genuinely positive expected growth rate. Does this guarantee
+          the strategy survives?
+        choices:
+          - text: >
+              Yes — positive expected log growth below $2L^{*}$ guarantees
+              survival.
+            feedback: >
+              No — this is exactly the trap. The margin floor is a
+              separate, harder constraint that growth positivity says
+              nothing about.
+          - text: >
+              No — a margin call at a $25\%$ adverse move can wipe out the
+              position long before the long-run growth story plays out;
+              growth positivity and the margin floor are two independent
+              conditions.
+            correct: true
+            feedback: >
+              Right — a strategy can be provably profitable in the long
+              run and still be wiped out on the way there.
+          - text: >
+              No, because $L=4$ is actually above $2L^{*}$.
+            feedback: >
+              Not the issue here — $4$ is below $2L^{*}=5$, so the growth
+              cliff genuinely isn't the danger in this case.
+          - text: >
+              Yes, as long as $\sigma$ doesn't change.
+            feedback: >
+              This doesn't address the margin floor at all, which is set
+              by leverage alone, independent of whether $\sigma$ moves.
+        feedback: >
+          Staying below $2L^{*}$ is necessary but nowhere near sufficient
+          — the margin floor at $1/L$ is a separate condition that can
+          bite first.
+      - teach: >
+          Size relative to bankroll, not the edge, decides who survives to
+          collect it — name both floors, the growth-optimal $L^{*}$ and
+          the separate margin floor, whenever asked how much leverage to
+          run.
 
   - node: quant-finance.risk.limits-and-stops
     hook: >
@@ -833,6 +1991,87 @@ lessons:
       targeting rescales by $\sigma_{\text{target}}/\sigma_{\text{
       forecast}}$ — all sized conservatively because the edge behind them
       is only ever estimated.
+    steps:
+      - teach: >
+          Limits exist for a different reason than optimization: they
+          bound a tail nobody can estimate reliably. Position limits — caps
+          on notional, delta, or vega per name, sector, and desk — are the
+          bluntest version, ensuring no single mis-estimated parameter can
+          push a book near the absorbing barrier.
+      - teach: >
+          Drawdown triggers cut gross exposure on a fixed schedule once
+          equity falls a set distance below its peak. This caps
+          compounding damage at a real cost: it locks in losses precisely
+          when a strategy might be merely unlucky rather than actually
+          broken.
+      - ask: >
+          A strategy targets $10\%$ annual volatility while forecast
+          volatility currently sits at $16\%$. What scale factor,
+          $\sigma_{\text{target}}/\sigma_{\text{forecast}}$, does vol
+          targeting apply to notional, as a decimal?
+        expects: "0.625"
+        hint: >
+          Divide the target volatility by the forecast volatility.
+        feedback: >
+          $10\%/16\% = 0.625$ — notional runs at $62.5\%$ of an unscaled
+          position.
+      - teach: >
+          All three tools are set conservatively for the same reason:
+          $\mu$ is always an estimate, and the growth curve's asymmetry
+          means overshooting a leverage or size target costs far more than
+          undershooting it by the same amount.
+      - ask: >
+          Forecast volatility then jumps to $25\%$, still targeting
+          $10\%$. What is the new scale factor, as a decimal?
+        expects: "0.4"
+        hint: >
+          Divide the target volatility by the new forecast volatility.
+        feedback: >
+          $10\%/25\% = 0.4$ — notional is automatically cut further,
+          without any change to the underlying trading signal at all.
+      - ask: >
+          A trader argues position limits are pure inefficiency, since the
+          point estimate of $\mu$ currently looks favorable and the limit
+          should be relaxed. What's the flaw?
+        choices:
+          - text: >
+              There's no flaw; limits should track the best current
+              estimate of $\mu$.
+            feedback: >
+              That defeats the purpose of a limit as a hard cap that
+              doesn't move with the current edge estimate.
+          - text: >
+              Limits exist to bound a tail that can't be reliably
+              estimated in the first place — a favorable point estimate of
+              $\mu$ doesn't change how uncertain that estimate is.
+            correct: true
+            feedback: >
+              Right — the limit is protecting against estimation error,
+              not against the current point estimate being wrong in a
+              particular direction.
+          - text: >
+              The flaw is that $\mu$ can never be estimated at all.
+            feedback: >
+              Too strong — $\mu$ can be estimated, just imprecisely, which
+              is the actual point behind sizing conservatively.
+          - text: >
+              Position limits and vol targeting are the same tool, so
+              relaxing one relaxes both automatically.
+            feedback: >
+              They're distinct tools with different mechanisms — one caps
+              notional directly, the other rescales by a volatility ratio.
+        feedback: >
+          A limit bounds a tail that can't be priced or estimated
+          reliably — a favorable current estimate of $\mu$ says nothing
+          about how wrong that estimate could turn out to be.
+      - teach: >
+          A drawdown trigger can't distinguish "merely unlucky" from
+          "actually broken" — locking in losses either way is a
+          deliberate cost of the tool, not a flaw in its design.
+      - teach: >
+          Sizing off half of a theoretically optimal level, rather than
+          the full amount, buys most of the achievable growth while
+          leaving real room for the $\mu$ estimate to be wrong.
 
   - node: quant-finance.risk.correlation-breakdown
     hook: >
@@ -895,3 +2134,90 @@ lessons:
       volatility can nearly double in stress purely from the correlation
       regime shifting — stress-test at $\rho\to1$ and count independent
       bets.
+    steps:
+      - teach: >
+          Recall the diversification floor: a portfolio's risk floor is
+          set by the average pairwise covariance across its holdings,
+          since individual variances wash out and what survives is how
+          correlated the pieces are. That floor is estimated from
+          calm-market data, and correlations rise precisely when
+          diversification is needed most.
+      - teach: >
+          Part of that convergence is real — a common deleveraging factor
+          genuinely drives every asset class at once in a crisis. Part is a
+          measurement artifact: conditioning a sample on large moves
+          raises the observed correlation even when the true underlying
+          correlation never changed.
+      - ask: >
+          Take $n=10$ equally weighted names, each with $\sigma=30\%$, and
+          calm-market average pairwise correlation $\bar\rho=0.15$. Using
+          $\sigma_p^{2}=\sigma^{2}[\bar\rho+(1-\bar\rho)/n]$, what is
+          portfolio volatility $\sigma_p$, as a percent?
+        expects: "14.5"
+        tolerance: 0.1
+        hint: >
+          First find the portfolio variance, then take its square root.
+        feedback: >
+          $\sigma^{2}[\bar\rho+(1-\bar\rho)/n] = 0.09[0.15+0.85/10] =
+          0.09(0.235) = 0.02115$, so $\sigma_p\approx14.5\%$.
+      - teach: >
+          The deeper failure sits inside the modeling choice, not just the
+          estimate: a bivariate normal has zero tail dependence, assigning
+          almost no probability to both legs of a pair crashing together
+          even at a correlation well below one.
+      - ask: >
+          If a crisis pushes $\bar\rho$ to $0.75$ with each name's own
+          $\sigma=30\%$ unchanged, what is the new portfolio volatility,
+          as a percent?
+        expects: "26.4"
+        tolerance: 0.1
+        hint: >
+          Recompute the variance with $\bar\rho=0.75$ in place of $0.15$.
+        feedback: >
+          $0.09[0.75+0.25/10] = 0.09(0.775) = 0.06975$, so
+          $\sigma_p\approx26.4\%$ — up from about $14.5\%$ purely from the
+          correlation regime shifting, with no name's own volatility
+          having moved.
+      - ask: >
+          A twenty-name book is thought well-diversified because its
+          calm-market correlation matrix implies low portfolio volatility.
+          Which is the more serious concern?
+        choices:
+          - text: >
+              The book needs more than twenty names to be truly
+              diversified.
+            feedback: >
+              Misses the point — adding names doesn't fix a structural
+              Gaussian modeling failure or a shared common-factor loading.
+          - text: >
+              Even a correctly re-estimated stressed correlation still
+              misses simultaneous crashes, since a Gaussian model assigns
+              almost no probability to both legs of a pair crashing
+              together at any fixed correlation below one.
+            correct: true
+            feedback: >
+              Right — this names the structural tail-dependence failure,
+              which persists even after fixing the correlation number.
+          - text: >
+              Correlation matrices are always wrong and should never be
+              used.
+            feedback: >
+              Overstated — the specific concern is a structural blind spot
+              in the Gaussian model, not a blanket dismissal of
+              correlation matrices.
+          - text: >
+              Twenty names is already the practical maximum for a
+              correlation matrix to matter.
+            feedback: >
+              No such rule exists here — the concern is about tail
+              dependence, not the number of names in the book.
+        feedback: >
+          Position count overstates true diversification whenever the
+          positions load on a shared factor, and a Gaussian model misses
+          joint crashes structurally, regardless of how well the
+          correlation number itself is estimated.
+      - teach: >
+          Stress-test at $\rho\to1$ directly rather than trusting the
+          calm-market matrix, and think in terms of independent bets
+          rather than position count — a book of twenty names loading on
+          one common factor is really one bet wearing twenty labels.
