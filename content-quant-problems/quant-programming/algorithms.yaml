@@ -1,0 +1,1652 @@
+# Problems targeting quant-programming.algorithms — the recurring solves.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. Every instance here is fresh: no
+# array, graph, coin set or grid reuses a lesson's worked example or a card's
+# numbers, and every stated value was produced by running the algorithm. See
+# ../README.md.
+
+problems:
+  # --- binary search ----------------------------------------------------------
+
+  - id: qalg-binary-search-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A sorted array of distinct values has been rotated: $a = 37, 44, 51, 62,
+      70, 83, 5, 12, 20, 29$ at indices $0$ through $9$. Find the index of the
+      smallest entry with a binary search on the *inclusive* window
+      $[\ell, r]$, starting from $[0, 9]$: probe
+      $m = \ell + \lfloor (r-\ell)/2 \rfloor$, set $\ell = m+1$ when
+      $a_m > a_r$, and otherwise set $r = m$, stopping when $\ell = r$. What
+      index does the loop return?
+    answer: >
+      $6$, the position of the value $5$. Trace the four probes. Window
+      $[0,9]$: $m = 4$, $a_4 = 70 > a_9 = 29$, so the rotation point lies
+      strictly right of $m$ and $\ell \to 5$. Window $[5,9]$: $m = 7$,
+      $a_7 = 12 \le a_9 = 29$, so the suffix from $m$ to $r$ is already sorted
+      and the minimum is at or before $m$, giving $r \to 7$. Window $[5,7]$:
+      $m = 6$, $a_6 = 5 \le a_7 = 12$, so $r \to 6$. Window $[5,6]$: $m = 5$,
+      $a_5 = 83 > a_6 = 5$, so $\ell \to 6$ and the loop halts at
+      $\ell = r = 6$. The invariant is the whole argument: the minimum always
+      lies in $[\ell, r]$, because $a_m > a_r$ proves the rotation point is
+      past $m$ and $a_m \le a_r$ proves it is not. Two habits are load-bearing.
+      Compare against $a_r$ and never against $a_\ell$ — against $a_\ell$ the
+      test never fires on an unrotated array and the loop returns the wrong
+      end. And set $r = m$, not $r = m-1$, because $m$ may itself be the
+      minimum.
+    expects: "6"
+    rubric:
+      - >
+        Compares the midpoint against the *right* end of the window, and says
+        why $a_\ell$ is the wrong reference.
+      - >
+        Moves $r$ to $m$ rather than $m-1$, keeping the probed index inside
+        the window, and moves $\ell$ to $m+1$ so the window strictly shrinks.
+      - >
+        Reports index $6$, not the value $5$.
+    targets:
+      - quant-programming.algorithms.binary-search
+
+  - id: qalg-binary-search-02
+    kind: work
+    difficulty: standard
+    statement: >
+      In the sorted array $b = 6, 11, 11, 18, 25, 33, 40, 40, 40, 52, 59, 64,
+      71, 88$ (fourteen entries, indices $0$ through $13$), a binary search
+      hunts for the leftmost index whose value is at least $40$. It keeps the
+      half-open window $[\ell, r)$ from $[0, 14)$, probes
+      $m = \ell + \lfloor (r-\ell)/2 \rfloor$, sets $r = m$ when $b_m \ge 40$
+      and $\ell = m+1$ otherwise. Which index does the *third* probe examine?
+    answer: >
+      Index $5$. First probe: $\ell = 0$, $r = 14$, so $m = 7$ and
+      $b_7 = 40 \ge 40$, which pulls $r$ down to $7$. Second probe:
+      $[\ell, r) = [0,7)$, so $m = 3$ and $b_3 = 18 < 40$, pushing $\ell$ to
+      $4$. Third probe: $[4,7)$, so $m = 4 + \lfloor 3/2 \rfloor = 5$ and the
+      probed value is $b_5 = 33$ — that is the index asked for. For
+      completeness the search continues: $33 < 40$ sends $\ell$ to $6$, the
+      fourth probe at $m = 6$ finds $b_6 = 40 \ge 40$ and sets $r = 6$, and
+      $\ell = r = 6$ ends the loop at the leftmost $40$. Four probes for
+      fourteen entries matches $\lceil \log_{2} 14 \rceil = 4$. The trap is the
+      non-strict comparison: switching $b_m \ge 40$ to $b_m > 40$ turns this
+      into the search for the first entry *past* the run of $40$s, which stops
+      at index $9$ instead.
+    expects: "5"
+    rubric:
+      - >
+        Uses the half-open midpoint $\ell + \lfloor (r-\ell)/2 \rfloor$ and
+        reports the probed *index*, not the probed value $33$.
+      - >
+        Keeps $r = m$ on a hit so the run of equal values is not abandoned —
+        the search wants the leftmost $40$, not any $40$.
+    targets:
+      - quant-programming.algorithms.binary-search
+    exercises:
+      - quant-programming.complexity.big-o
+
+  - id: qalg-binary-search-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      A search keeps the half-open window $[\ell, r)$ with the invariant that
+      every index below $\ell$ fails the predicate and every index at or above
+      $r$ is outside the answer's reach, probing
+      $m = \ell + \lfloor (r-\ell)/2 \rfloor$ each round. Which update rule
+      both preserves that invariant and guarantees the window strictly shrinks
+      every round?
+    answer: >
+      Set $\ell = m+1$ when the probe fails and $r = m$ when it succeeds. The
+      failing case has just proved index $m$ itself is no good, so moving
+      $\ell$ past $m$ discards it honestly and shrinks the window by at least
+      one. The succeeding case has proved the answer is at or before $m$, and
+      since $m$ is still a candidate, $r$ must land *on* $m$ rather than below
+      it. Both moves keep the invariant true, and both strictly shrink
+      $r - \ell$ because $\ell \le m < r$ always holds for this midpoint. The
+      symmetric-looking rule $\ell = m$ on failure is the classic infinite
+      loop: on a two-element window $m = \ell$, so $\ell = m$ changes nothing
+      and the loop spins forever. The mirror error, $r = m-1$ on success, can
+      step past the very index that satisfied the predicate and returns the
+      wrong answer whenever the leftmost hit is unique.
+    choices:
+      - text: >
+          On failure $\ell = m+1$; on success $r = m$.
+        correct: true
+        feedback: >
+          Right — the failing probe is discarded, the succeeding probe is kept
+          as a candidate, and $\ell \le m < r$ makes the window shrink every
+          round.
+      - text: >
+          On failure $\ell = m$; on success $r = m$.
+        feedback: >
+          On a two-element window the midpoint is $\ell$ itself, so $\ell = m$
+          leaves the window unchanged and the loop never terminates.
+      - text: >
+          On failure $\ell = m+1$; on success $r = m-1$.
+        feedback: >
+          The invariant breaks: $m$ satisfied the predicate, so it is still a
+          candidate, and stepping $r$ below it can skip the unique answer.
+      - text: >
+          On failure $\ell = m+1$; on success return $m$ immediately.
+        feedback: >
+          That finds *some* satisfying index, not the leftmost one — with
+          duplicates it returns whichever hit the midpoint happened to land
+          on.
+    rubric:
+      - >
+        Names the two-element window as the case that distinguishes $\ell = m$
+        from $\ell = m+1$.
+      - >
+        Explains why $r$ lands on $m$ and not below it: the probe that
+        succeeded is still a candidate answer.
+    targets:
+      - quant-programming.algorithms.binary-search
+
+  - id: qalg-binary-search-04
+    kind: justify
+    difficulty: demanding
+    statement: >
+      A binary search over the half-open window $[\ell, r)$ on an array
+      $a_0,\dots,a_{n-1}$ sorted non-decreasingly seeks the leftmost index with
+      $a_i \ge T$. It starts at $[0, n)$ and, on probe
+      $m = \ell + \lfloor (r-\ell)/2 \rfloor$, sets $r = m$ when $a_m \ge T$
+      and $\ell = m+1$ otherwise. Prove the loop is correct: state the
+      invariant, show each update preserves it, show the loop terminates, and
+      say precisely what the returned $\ell$ means when no entry reaches $T$.
+    answer: >
+      Invariant: every index strictly below $\ell$ has $a_i < T$, and every
+      index at or above $r$ that exists has $a_i \ge T$; equivalently, the
+      leftmost index with $a_i \ge T$ — call it $k$, taking $k = n$ if no such
+      index exists — satisfies $\ell \le k \le r$. At the start $\ell = 0$ and
+      $r = n$, and both halves are vacuous, so the invariant holds. Preserved:
+      because $\ell \le m < r$, the probe is inside the window. If
+      $a_m \ge T$ then by sortedness every index at or above $m$ also has
+      $a_i \ge T$, so setting $r = m$ keeps the second half true and cannot
+      drop $k$, which is at most $m$. If $a_m < T$ then by sortedness every
+      index at or below $m$ has $a_i < T$, so setting $\ell = m+1$ keeps the
+      first half true and cannot drop $k$, which is at least $m+1$.
+      Termination: $\ell \le m < r$ forces $r - \ell$ to strictly decrease
+      every round — $r = m$ lowers $r$ below its old value, and $\ell = m+1$
+      raises $\ell$ above $m \ge \ell$ — so the nonnegative integer $r - \ell$
+      cannot decrease forever and the loop halts with $\ell = r$. At that
+      point the invariant reads: everything below $\ell$ is short of $T$ and
+      everything at or above $\ell$ reaches it, which is exactly the
+      definition of the leftmost qualifying index. When no entry reaches $T$,
+      that reasoning still holds with $k = n$, so the loop returns
+      $\ell = n$ — one past the end, the insertion point rather than an error
+      code, and reading $a_\ell$ without first testing $\ell < n$ is the
+      standard crash.
+    rubric:
+      - >
+        States the invariant as a claim about *all* indices below $\ell$ and
+        at or above $r$, not merely about the current probe.
+      - >
+        Justifies each update from sortedness, and shows $r - \ell$ strictly
+        decreases because $\ell \le m < r$ — the termination half of the
+        proof, not just the correctness half.
+      - >
+        Says the empty case returns $\ell = n$, the insertion point, and flags
+        the out-of-range read that follows if the caller forgets to check.
+    targets:
+      - quant-programming.algorithms.binary-search
+
+  # --- binary search on the answer --------------------------------------------
+
+  - id: qalg-binary-search-answer-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      The array $9, 4, 7, 3, 8, 2, 6$ must be cut, without reordering, into
+      exactly three contiguous nonempty blocks. Minimise the largest block sum.
+      What is that minimum?
+    answer: >
+      $16$, achieved by the cut $9,4 \mid 7,3 \mid 8,2,6$ with block sums
+      $13, 10, 16$. Search the answer, not the data. The checker
+      $\mathrm{ok}(C)$ sweeps left to right, starting a new block whenever
+      adding the next entry would push the running sum past $C$, and reports
+      whether the block count is at most $3$; this is $O(n)$ and it is greedy
+      for the right reason — a block that could have taken one more entry and
+      did not can only force more blocks later. Feasibility is monotone: a
+      larger cap never needs more blocks. Bracket with $\mathrm{low} = 9$, the
+      largest single entry, which must fit alone, and $\mathrm{high} = 39$, the
+      total, which is one block. The search then runs $[9,39] \to m = 24$
+      (two blocks, feasible, $r \to 24$) $\to m = 16$ (three blocks, feasible,
+      $r \to 16$) $\to m = 12$ (four blocks, infeasible, $\ell \to 13$)
+      $\to m = 14$ (four, $\ell \to 15$) $\to m = 15$ (four, $\ell \to 16$),
+      halting at $16$. Confirm the boundary by hand: at $C = 15$ the greedy
+      blocks are $9,4$ then $7,3$ then $8,2$ then $6$ — four blocks, one too
+      many. The trap is bracketing with $\mathrm{low} = 1$ and trusting the
+      checker to reject it; it does, but a low end below $\max_i a_i$ makes
+      every probe there infeasible and buys nothing, while a low end above the
+      answer would silently exclude it.
+    expects: "16"
+    rubric:
+      - >
+        Separates the $O(n)$ greedy checker from the search over caps, and
+        states the monotonicity — more capacity never needs more blocks —
+        before searching.
+      - >
+        Brackets with the largest single entry and the total, and checks the
+        boundary at $C = 15$ rather than trusting the loop.
+      - >
+        Reports the largest block sum $16$, not the number of blocks or the
+        total $39$.
+    targets:
+      - quant-programming.algorithms.binary-search-answer
+    exercises:
+      - quant-programming.algorithms.binary-search
+
+  - id: qalg-binary-search-answer-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Four ropes of lengths $12, 27, 33, 40$ are to be cut into pieces that all
+      share one common integer length $L$; offcuts shorter than $L$ are
+      discarded. At least $9$ pieces are needed. What is the largest $L$ that
+      still yields $9$ pieces?
+    answer: >
+      $L = 11$. The checker is $\mathrm{ok}(L) = \sum_i \lfloor r_i/L \rfloor
+      \ge 9$, computed in one pass over the four ropes. At $L = 11$ the counts
+      are $\lfloor 12/11 \rfloor = 1$, $\lfloor 27/11 \rfloor = 2$,
+      $\lfloor 33/11 \rfloor = 3$ and $\lfloor 40/11 \rfloor = 3$, totalling
+      exactly $9$ — feasible. At $L = 12$ they are $1, 2, 2, 3$, totalling $8$
+      — infeasible, and no larger $L$ can do better. Note the direction:
+      feasibility is monotone *decreasing* here, true for small $L$ and false
+      for large, so the search is for the last true rather than the first, and
+      the update rule flips accordingly — feasible probes move the low end up,
+      infeasible probes move the high end down. Bracket with $L = 1$ (forty
+      plus pieces, obviously feasible) and $L = 41$ (zero pieces, obviously
+      infeasible). The standing error is copying a first-true search
+      unchanged, which converges on $L = 1$; the second is dropping the floor
+      and treating $12/11$ as more than one piece.
+    expects: "11"
+    rubric:
+      - >
+        Notices feasibility runs the other way — true for small $L$ — and
+        searches for the last feasible value rather than the first.
+      - >
+        Floors each rope's piece count independently; partial pieces from
+        different ropes cannot be joined.
+    targets:
+      - quant-programming.algorithms.binary-search-answer
+
+  # --- least ship capacity ----------------------------------------------------
+
+  - id: qalg-ship-capacity-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Packages of weights $3, 9, 4, 7, 2, 8, 6$ must ship in exactly that
+      order, each day loading a contiguous run of whatever remains, and
+      everything must be gone within $3$ days. What is the least capacity $C$
+      that suffices?
+    answer: >
+      $C = 14$. Bracket with $\mathrm{low} = 9$, the heaviest single package,
+      which must fit on its own, and $\mathrm{high} = 39$, the total, which
+      ships in one day. The greedy day-counter fills the current day until the
+      next package would overflow $C$, then opens a new day, in $O(n)$. At
+      $C = 14$: day one takes $3, 9$ for $12$, since $+4$ would make $16$; day
+      two takes $4, 7, 2$ for $13$, since $+8$ would make $21$; day three takes
+      $8, 6$ for exactly $14$. Three days — feasible. At $C = 13$: day one
+      takes $3, 9$ for $12$; day two takes $4, 7, 2$ for $13$; day three takes
+      $8$ alone, since $8+6 = 14$ overflows; day four takes $6$. Four days —
+      infeasible, so $14$ is the boundary and the answer. Because a bigger
+      ship never needs more days, feasibility is monotone and binary search
+      over $[9, 39]$ finds that boundary in about $\lceil \log_{2} 31 \rceil =
+      5$ probes. Two traps sit here. Reordering the packages to pack days more
+      tightly is not allowed — the order is fixed — and answering $13$ by
+      dividing the total $39$ by $3$ ignores that contiguity forbids splitting
+      a package across days.
+    expects: "14"
+    rubric:
+      - >
+        Runs the greedy day-counter at both $14$ and $13$ and shows the count
+        crossing from $3$ to $4$ — the boundary is the answer.
+      - >
+        Keeps the given order and never splits a package, so the average
+        $39/3 = 13$ is not attainable.
+    targets:
+      - quant-programming.algorithms.ship-capacity
+    exercises:
+      - quant-programming.algorithms.binary-search-answer
+
+  - id: qalg-ship-capacity-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Packages of weights $5, 1, 8, 4, 6, 2, 9, 3$ ship in that order under a
+      capacity of $C = 12$, the loader filling each day until the next package
+      would exceed the capacity and then opening a new day. How many days does
+      the greedy checker use?
+    answer: >
+      $4$ days. Sweep once. Day one: $5$, then $5+1 = 6$; adding $8$ would give
+      $14 > 12$, so close the day at $6$. Day two: $8$, then $8+4 = 12$;
+      adding $6$ would give $18$, so close at $12$. Day three: $6$, then
+      $6+2 = 8$; adding $9$ would give $17$, so close at $8$. Day four: $9$,
+      then $9+3 = 12$, and the list is exhausted. The four loads are
+      $\{5,1\}, \{8,4\}, \{6,2\}, \{9,3\}$ with sums $6, 12, 8, 12$. Notice
+      that the total is $38$ and $38/12 \approx 3.17$, so a naive division
+      would predict four days by rounding up and happen to be right here —
+      but that is luck, not a method: the order is fixed and contiguity, not
+      the total, decides. Raising the capacity to $15$ would cut this to three
+      days, $\{5,1,8\}, \{4,6,2\}, \{9,3\}$.
+    expects: "4"
+    rubric:
+      - >
+        Closes a day only when the *next* package would overflow, never
+        splitting a package across two days.
+      - >
+        Counts the final partial day — the sweep ends with a day open, and it
+        counts.
+    targets:
+      - quant-programming.algorithms.ship-capacity
+
+  # --- the comparison-sorting lower bound -------------------------------------
+
+  - id: qalg-sorting-lower-bound-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A comparison sort is run on $10$ distinct items. What is the least number
+      of comparisons that its worst case can possibly require, according to the
+      decision-tree bound $\lceil \log_{2}(n!) \rceil$?
+    answer: >
+      $22$. The run of any comparison sort is a root-to-leaf path in a binary
+      decision tree whose leaves must cover all $10! = 3628800$ orderings,
+      since the algorithm learns nothing except comparison outcomes and must
+      end able to name the permutation. A binary tree of height $h$ has at most
+      $2^{h}$ leaves, so $2^{h} \ge 3628800$ is forced. Now
+      $2^{21} = 2097152$ falls short and $2^{22} = 4194304$ clears it, so
+      $h \ge 22$ and some input costs at least $22$ comparisons. The bound is
+      tight enough to be useful and not tight enough to be an algorithm: merge
+      sort on $10$ items uses about $n \lceil \log_{2} n \rceil - 2^{\lceil
+      \log_{2} n\rceil} + 1 = 40 - 16 + 1 = 25$, and the known optimum for
+      $n = 10$ is $22$. Two traps. The bound counts *comparisons*, not moves or
+      array writes. And it holds only for algorithms that do nothing but
+      compare keys — feed the same $10$ items in as integers from a small
+      fixed range and counting sort finishes with zero key comparisons at all,
+      which is no contradiction because it never enters the decision-tree
+      model.
+    expects: "22"
+    rubric:
+      - >
+        Argues from leaf count: the tree must distinguish all $n!$ orderings,
+        so its height is at least $\log_{2}(n!)$, and rounds *up*.
+      - >
+        Names the hypothesis — comparisons are the only information source —
+        and says why counting or radix sort is not a counterexample.
+    targets:
+      - quant-programming.algorithms.sorting-lower-bound
+    exercises:
+      - quant-puzzles.strategies.info-lower-bound
+
+  - id: qalg-sorting-lower-bound-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Someone claims an algorithm that sorts any $n$ distinct items using at
+      most $12$ pairwise comparisons in the worst case. What is the largest $n$
+      for which the decision-tree bound does not immediately refute the claim?
+    answer: >
+      $n = 6$. Twelve comparisons trace at most $2^{12} = 4096$ distinct
+      root-to-leaf paths, so the algorithm can distinguish at most $4096$
+      outcomes; it must distinguish all $n!$ orderings, which forces
+      $n! \le 4096$. Since $6! = 720 \le 4096$ and $7! = 5040 > 4096$, the
+      claim survives the counting argument exactly up to $n = 6$ and is
+      refuted at $n = 7$ and beyond. Note what has and has not been shown: the
+      bound is necessary, not sufficient, so $n! \le 2^{12}$ does not prove a
+      $12$-comparison sort of six items exists — it happens to, since the true
+      optimum for $n = 6$ is $\lceil \log_{2} 720 \rceil = 10$, but that took a
+      construction, not this inequality. Answering $12$ or $4096$ confuses the
+      budget with the item count.
+    expects: "6"
+    rubric:
+      - >
+        Sets $n! \le 2^{12}$ and finds the largest $n$ satisfying it, rather
+        than comparing $n$ itself to $12$.
+      - >
+        Says the bound is necessary but not sufficient — surviving it is not a
+        construction.
+    targets:
+      - quant-programming.algorithms.sorting-lower-bound
+
+  # --- two pointers -----------------------------------------------------------
+
+  - id: qalg-two-pointers-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      In the sorted array $1, 3, 4, 6, 8, 9, 11, 15$ (indices $0$ through $7$),
+      how many index pairs $i < j$ satisfy $a_i + a_j < 13$?
+    answer: >
+      $12$. Converge two pointers from $i = 0$, $j = 7$. Whenever
+      $a_i + a_j \ge 13$, no pair using $j$ with any $i' \ge i$ can qualify, so
+      drop $j$. Whenever $a_i + a_j < 13$, *every* pair $(i, k)$ with
+      $i < k \le j$ also qualifies, because $a_k \le a_j$ — so add $j - i$ in
+      one stroke and advance $i$. That block-counting step is the whole trick,
+      and it is what makes the sweep $O(n)$ rather than $O(n^{2})$. Running it:
+      $1+15 = 16$, drop $j$ to $6$; $1+11 = 12 < 13$, add $6-0 = 6$ pairs and
+      advance $i$ to $1$; $3+11 = 14$, drop $j$ to $5$; $3+9 = 12 < 13$, add
+      $5-1 = 4$ and advance $i$ to $2$; $4+9 = 13$, which is *not* less than
+      $13$, so drop $j$ to $4$; $4+8 = 12 < 13$, add $4-2 = 2$ and advance $i$
+      to $3$; now $6+8 = 14$, drop $j$ to $3$ and the pointers meet. Total
+      $6+4+2 = 12$, which a brute-force scan of all $\binom{8}{2} = 28$ pairs
+      confirms. Two traps: counting one pair per step instead of $j-i$ gives
+      $3$, and reading the strict inequality as $\le$ admits $4+9 = 13$ and
+      inflates the count.
+    expects: "12"
+    rubric:
+      - >
+        Adds $j - i$ pairs at once when the sum qualifies, with the reason —
+        every entry between $i$ and $j$ is at most $a_j$.
+      - >
+        Keeps the inequality strict, so the pair summing to exactly $13$ is
+        excluded.
+    targets:
+      - quant-programming.algorithms.two-pointers
+
+  - id: qalg-two-pointers-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Two sorted lists, $A = 2, 5, 9, 13$ and $B = 1, 4, 6, 10, 11, 14$, are
+      merged by a same-direction two-pointer sweep: compare the two current
+      heads, emit the smaller (ties go to $A$), and advance that pointer. How
+      many head-to-head comparisons happen before one list is exhausted?
+    answer: >
+      $9$. Walk it: $2$ against $1$ emits $1$; $2$ against $4$ emits $2$; $5$
+      against $4$ emits $4$; $5$ against $6$ emits $5$; $9$ against $6$ emits
+      $6$; $9$ against $10$ emits $9$; $13$ against $10$ emits $10$; $13$
+      against $11$ emits $11$; $13$ against $14$ emits $13$ — and that ninth
+      comparison empties $A$, after which the lone survivor $14$ is copied
+      across with no comparison at all. Nine comparisons for
+      $|A| + |B| = 10$ elements is exactly the worst case $m + n - 1$: every
+      comparison retires one element, and the last element left needs none.
+      The best case is far cheaper — had $A$ been $2,5,9,13$ against
+      $B = 20,21,22,23,24,25$, four comparisons would exhaust $A$ and the rest
+      would be a copy. This is why merge sort's comparison count sits between
+      $n \log_{2} n / 2$ and $n \log_{2} n$ rather than at a single value.
+    expects: "9"
+    rubric:
+      - >
+        Counts comparisons, not emitted elements — the tail copied after one
+        list empties costs none.
+      - >
+        Recognises $m + n - 1$ as the worst case and says why: each comparison
+        retires exactly one element.
+    targets:
+      - quant-programming.algorithms.two-pointers
+
+  # --- two-sum in a sorted array ----------------------------------------------
+
+  - id: qalg-pair-sum-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      In the sorted array $-9, -4, 1, 5, 8, 12, 17$, no two entries sum to
+      $10$. Using converging pointers, find the pair sum that comes closest to
+      $10$. What is that sum?
+    answer: >
+      $9$, from the pair $1 + 8$. The sweep is the ordinary two-sum loop with
+      the exact-match exit replaced by a running best. Start $i = 0$, $j = 6$:
+      $-9 + 17 = 8$, which is below $10$, so advance $i$ (best so far $8$,
+      distance $2$). Now $-4 + 17 = 13$, above $10$, so retreat $j$ (distance
+      $3$, no improvement). Now $-4 + 12 = 8$, below, advance $i$. Now
+      $1 + 12 = 13$, above, retreat $j$. Now $1 + 8 = 9$, below $10$ but
+      distance $1$ — the new best — so advance $i$. Now $5 + 8 = 13$, above,
+      retreat $j$, and the pointers meet. The answer is $9$. Correctness is the
+      same discard argument as the exact version: when the sum is below the
+      target, $a_i$ paired with anything at or below $a_j$ is even further
+      below, so index $i$ can never do better and is dropped for good — that
+      is why one linear pass is enough and no pair is missed. The trap is
+      abandoning the sweep at the first sum below the target, which reports
+      $8$; the other is measuring closeness by which side you are on rather
+      than by absolute distance.
+    expects: "9"
+    rubric:
+      - >
+        Keeps a running best by absolute distance, updating on every probe
+        rather than stopping at the first near miss.
+      - >
+        Justifies each pointer move by the discard argument — the abandoned
+        index cannot beat what it has already produced.
+    targets:
+      - quant-programming.algorithms.pair-sum
+    exercises:
+      - quant-programming.algorithms.two-pointers
+
+  - id: qalg-pair-sum-02
+    kind: work
+    difficulty: standard
+    statement: >
+      The sorted array $1, 2, 2, 3, 5, 5, 5, 7, 8$ has nine entries at indices
+      $0$ through $8$, with repeats. How many index pairs $i < j$ satisfy
+      $a_i + a_j = 10$?
+    answer: >
+      $6$. Group by value first, then count positions. The value pairs that
+      reach $10$ are $2+8$, $3+7$ and $5+5$. There are two $2$s and one $8$,
+      giving $2 \cdot 1 = 2$ index pairs; one $3$ and one $7$, giving
+      $1 \cdot 1 = 1$; and three $5$s, which pair among themselves in
+      $\binom{3}{2} = 3$ ways. Nothing else works: $1+9$ has no $9$, and
+      $4+6$ has neither. Total $2 + 1 + 3 = 6$. Running converging pointers
+      gives the same count provided the duplicate handling is right — on a hit
+      with $a_i \ne a_j$, multiply the run lengths on each side and move both
+      pointers past their runs; on a hit with $a_i = a_j$, the whole remaining
+      window is one value of length $c$ and contributes $\binom{c}{2}$, not
+      $c$. The trap is reporting $3$, the number of distinct value pairs, when
+      the question counts index pairs; the other is moving only one pointer
+      after a hit, which double-counts the $5$s.
+    expects: "6"
+    rubric:
+      - >
+        Counts index pairs, multiplying the multiplicities of the two values
+        rather than counting each distinct value pair once.
+      - >
+        Handles the equal-value case with $\binom{c}{2}$, not $c$ or $c^{2}$.
+    targets:
+      - quant-programming.algorithms.pair-sum
+
+  # --- sliding window ---------------------------------------------------------
+
+  - id: qalg-sliding-window-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      What is the length of the longest contiguous block of
+      $3, 5, 3, 3, 5, 8, 5, 8, 8, 2$ (indices $0$ through $9$) that contains at
+      most two distinct values?
+    answer: >
+      $5$. Keep a window with a frequency table; extend the right edge by one,
+      and while the table holds more than two keys, drop the left entry and
+      advance the left edge. The constraint is monotone under shrinking —
+      removing an element can only reduce the distinct count — which is exactly
+      what licenses the recipe. Extending through index $4$ gives the window
+      $3, 5, 3, 3, 5$ over the keys $\{3, 5\}$, length $5$. Index $5$ brings in
+      an $8$, so the left edge advances past both $3$s and the interleaved $5$
+      until only $\{5, 8\}$ survives, landing the window at indices $4$ to $5$.
+      From there the window grows again to indices $4$ through $8$,
+      $5, 8, 5, 8, 8$, another length $5$. The final $2$ at index $9$ forces
+      the left edge up to index $7$, leaving $8, 8, 2$ of length $3$. The
+      maximum over all valid windows is $5$. Total work is $O(n)$ despite the
+      nested loops, since each index enters and leaves once — an amortized
+      count, not a bound on the inner loop. The trap is deleting a key from the
+      table on the first removal of that value instead of when its count hits
+      zero, which drops $3$ from the tally while two more $3$s are still inside
+      the window and reports a longer, illegal block.
+    expects: "5"
+    rubric:
+      - >
+        Removes a key from the frequency table only when its count reaches
+        zero, not on the first decrement.
+      - >
+        Records the best length at every valid state, so the tie between the
+        two length-$5$ windows does not hide either of them.
+    targets:
+      - quant-programming.algorithms.sliding-window
+
+  - id: qalg-sliding-window-02
+    kind: work
+    difficulty: standard
+    statement: >
+      How many contiguous nonempty subarrays of $3, 1, 4, 1, 5, 2$ have a sum
+      of at most $7$?
+    answer: >
+      $12$. All entries are positive, so shrinking a window can only lower its
+      sum — the hypothesis the recipe needs. For each right end $r$, advance
+      the left edge until the window sum is legal; then *every* window ending
+      at $r$ and starting at or after the current left edge is legal too, so
+      that right end contributes $r - \ell + 1$ subarrays. Sweeping: $r = 0$,
+      window $3$, contributes $1$. $r = 1$, window $3,1$ sums to $4$,
+      contributes $2$ (running total $3$). $r = 2$, the sum would be $8$, so
+      drop the $3$; window $1,4$ sums to $5$, contributes $2$ (total $5$).
+      $r = 3$, window $1,4,1$ sums to $6$, contributes $3$ (total $8$).
+      $r = 4$, the sum would be $11$, so drop $1$ then $4$; window $1,5$ sums
+      to $6$, contributes $2$ (total $10$). $r = 5$, the sum would be $8$, so
+      drop the $1$; window $5,2$ sums to $7$, contributes $2$ (total $12$).
+      Twelve of the $\binom{6}{2} + 6 = 21$ subarrays qualify. The trap is
+      counting one subarray per right end instead of $r - \ell + 1$, which
+      reports $6$.
+    expects: "12"
+    rubric:
+      - >
+        Adds $r - \ell + 1$ at each right end, with the reason: every suffix of
+        a legal window is legal.
+      - >
+        Names positivity as the reason shrinking always restores legality, so
+        the recipe applies at all.
+    targets:
+      - quant-programming.algorithms.sliding-window
+
+  # --- prefix sums ------------------------------------------------------------
+
+  - id: qalg-prefix-sums-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A $4 \times 4$ grid has rows, from top to bottom, $3, 1, 4, 1$ then
+      $5, 9, 2, 6$ then $5, 3, 5, 8$ then $9, 7, 9, 3$, with rows and columns
+      numbered $1$ through $4$. Build the two-dimensional prefix table
+      $P_{r,c}$, the sum of the rectangle from $(1,1)$ to $(r,c)$, and use it
+      to find the sum of the rectangle spanning rows $2$ through $4$ and
+      columns $2$ through $3$. What is that sum?
+    answer: >
+      $35$. The inclusion-exclusion read is $P_{4,3} - P_{1,3} - P_{4,1} +
+      P_{1,1}$: subtract the strip above the rectangle and the strip to its
+      left, then add back the top-left corner, which both subtractions removed.
+      Fill the table row by row with $P_{r,c} = a_{r,c} + P_{r-1,c} +
+      P_{r,c-1} - P_{r-1,c-1}$. Row $1$ gives $3, 4, 8, 9$; row $2$ gives
+      $8, 18, 24, 31$; row $3$ gives $13, 26, 37, 52$; row $4$ gives
+      $22, 42, 62, 80$. So the query is $62 - 8 - 22 + 3 = 35$. Check it
+      directly: rows $2$ through $4$ of columns $2$ and $3$ hold $9+2 = 11$,
+      $3+5 = 8$ and $7+9 = 16$, totalling $35$. The trap is the sign of the
+      corner — omitting the $+P_{1,1}$ gives $32$, because the cell $3$ was
+      taken out twice. The second trap is the index: the strips to remove end
+      at row $r_1 - 1$ and column $c_1 - 1$, one *before* the rectangle, not at
+      $r_1$ and $c_1$.
+    expects: "35"
+    rubric:
+      - >
+        Adds back the doubly-subtracted corner $P_{r_1-1,c_1-1}$ and says why
+        it was removed twice.
+      - >
+        Uses $r_1 - 1$ and $c_1 - 1$ as the strip boundaries, so the
+        rectangle's own first row and column are not lost.
+    targets:
+      - quant-programming.algorithms.prefix-sums
+
+  - id: qalg-prefix-sums-02
+    kind: work
+    difficulty: standard
+    statement: >
+      An array of eight zeros occupies positions $1$ through $8$. Four range
+      updates are applied through a difference array $d$, each adding a value
+      to every position of a closed range: add $4$ to positions $2$ to $5$; add
+      $7$ to positions $1$ to $3$; add $-2$ to positions $4$ to $8$; add $10$
+      to positions $6$ to $7$. After rebuilding the array by a running sum of
+      $d$, what is the value at position $5$?
+    answer: >
+      $2$. A range update of $v$ over positions $\ell$ to $r$ costs two writes:
+      $d_\ell$ gains $v$ and $d_{r+1}$ loses $v$, so that the running sum of
+      $d$ carries $v$ across exactly the intended span and no further. The four
+      updates add $4$ at $d_2$ and subtract it at $d_6$; add $7$ at $d_1$ and
+      subtract it at $d_4$; subtract $2$ at $d_4$ and add it back at $d_9$; add
+      $10$ at $d_6$ and subtract it at $d_8$. So the difference array is
+      $d = 7, 4, 0, -9, 0, 6, 0, -10$ over positions $1$ to
+      $8$, and the running sums are $7, 11, 11, 2, 2, 8, 8, -2$ — position $5$
+      holds $2$. Sanity-check it directly: position $5$ lies inside the ranges
+      $2$ to $5$ and $4$ to $8$ only, so its value is $4 + (-2) = 2$. Four
+      updates cost eight writes plus one $O(n)$ rebuild, rather than the
+      $4 \cdot 5 = 20$ writes a naive loop would spend; the saving is the whole
+      point when the updates number in the thousands. The trap is writing the
+      cancellation at $d_r$ instead of $d_{r+1}$, which truncates every range
+      by one position and would report $-2$ here.
+    expects: "2"
+    rubric:
+      - >
+        Writes the cancellation at $r+1$, so the closed range $\ell$ to $r$ is
+        covered exactly.
+      - >
+        Rebuilds by a running sum of $d$, and cross-checks one position against
+        the list of ranges that contain it.
+    targets:
+      - quant-programming.algorithms.prefix-sums
+
+  # --- dynamic programming ----------------------------------------------------
+
+  - id: qalg-dp-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A staircase of $n$ steps is climbed one or two steps at a time, and the
+      number of routes obeys $f(n) = f(n-1) + f(n-2)$ with $f(0) = f(1) = 1$.
+      Evaluating $f(8)$ by the plain recursion, with no cache, how many calls
+      to $f$ happen in total, counting the outermost call and every base case
+      that returns immediately?
+    answer: >
+      $67$. Count the recursion tree rather than simulating it. Every call with
+      $n \ge 2$ has exactly two children and returns nothing of its own; every
+      call with $n \le 1$ is a leaf returning $1$. The value $f(8)$ is
+      therefore the *number of leaves*, and $f(8) = 34$ by the usual
+      tabulation $1, 1, 2, 3, 5, 8, 13, 21, 34$. In a binary tree where every
+      internal node has exactly two children, the internal nodes number one
+      fewer than the leaves, so there are $33$ of them, and the total is
+      $34 + 33 = 67$ calls. Memoising collapses that to $9$ calls, one per
+      state $n = 0,\dots,8$, and the gap is the point: the naive count grows
+      like $2f(n) - 1 \sim \varphi^{n}$ while the memoised count grows like
+      $n$. The trap is assuming the cache is an optimisation rather than the
+      algorithm — at $n = 40$ the same recursion makes over $300$ million
+      calls for an answer a table produces in forty steps.
+    expects: "67"
+    rubric:
+      - >
+        Identifies the leaves with the base cases and observes that the
+        returned value *is* the leaf count, so leaves $= f(8) = 34$.
+      - >
+        Uses "internal nodes are one fewer than leaves in a full binary tree"
+        rather than expanding the tree by hand.
+      - >
+        Contrasts the $67$ with the memoised $9$ and names forgetting to
+        memoise as the failure.
+    targets:
+      - quant-programming.algorithms.dp
+
+  - id: qalg-dp-02
+    kind: work
+    difficulty: standard
+    statement: >
+      What is the length of a longest strictly increasing subsequence of
+      $9, 2, 5, 3, 7, 11, 8, 10, 13, 6$? The subsequence need not be
+      contiguous.
+    answer: >
+      $6$. Let $L_k$ be the length of the longest increasing subsequence
+      *ending exactly at index $k$*; that state is the one that makes the
+      transition local, since $L_k = 1 + \max\{L_j : j < k,\; a_j < a_k\}$,
+      taking the maximum over an empty set as $0$. Filling left to right:
+      $L = 1, 1, 2, 2, 3, 4, 4, 5, 6, 3$. Reading them off — $9$ starts fresh;
+      $2$ starts fresh; $5$ extends $2$; $3$ extends $2$; $7$ extends $5$ or
+      $3$; $11$ extends $7$; $8$ extends $7$; $10$ extends $8$; $13$ extends
+      $10$; and $6$ can only extend $5$ or $3$ or $2$. The answer is
+      $\max_k L_k = 6$, realised by $2, 5, 7, 8, 10, 13$. Two traps. The answer
+      is the maximum over the table, not $L_n$ — here the last entry is $3$,
+      because $6$ is a poor place to end. And the state must be "ending at
+      $k$": defining $L_k$ as the best over the whole prefix makes the
+      transition non-local, since you no longer know what the previous
+      subsequence ended on. This fill is $O(n^{2})$; the patience-sorting
+      variant, binary searching a tails array, reaches $O(n \log n)$.
+    expects: "6"
+    rubric:
+      - >
+        Anchors the state at "ending exactly at index $k$" and explains why the
+        prefix-maximum state would not admit a local transition.
+      - >
+        Takes the maximum over the whole table rather than reading the last
+        entry.
+    targets:
+      - quant-programming.algorithms.dp
+
+  - id: qalg-dp-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      Items $1$ through $n$ have weights and values, and a knapsack holds total
+      weight $W$; each item may be taken at most once, and the goal is the
+      greatest total value. Which state definition gives a correct recurrence
+      with overlapping subproblems?
+    answer: >
+      The state is the pair (index of the item under consideration, capacity
+      still available), and $g(i, c)$ is the best value obtainable from items
+      $i$ through $n$ with $c$ units of room left. The transition offers two
+      moves — skip item $i$, or take it when it fits — so
+      $g(i, c) = \max(g(i+1, c),\; v_i + g(i+1, c - w_i))$, with $g(n+1, c) =
+      0$. That state is enough because everything the future needs to know
+      about the past is summarised by which items remain and how much room is
+      left; the particular set already taken never matters again. The state
+      count is $n(W+1)$ and each transition is $O(1)$, so the fill is $O(nW)$.
+      Capacity alone is not a state: without the index the recurrence would let
+      an item be taken twice, which solves the *unbounded* knapsack instead.
+      Index alone is not a state either, since the same prefix leaves different
+      amounts of room depending on what was taken. And carrying the value
+      accumulated so far bloats the state space without adding information —
+      value is what the recurrence returns, not what it needs to remember.
+    choices:
+      - text: >
+          $g(i, c)$: the best value from items $i$ through $n$ with capacity
+          $c$ remaining.
+        correct: true
+        feedback: >
+          Right — remaining items plus remaining room is exactly the
+          information the future depends on, giving $n(W+1)$ states each with
+          an $O(1)$ transition.
+      - text: >
+          $g(c)$: the best value achievable with capacity $c$ remaining.
+        feedback: >
+          Without the index nothing stops an item being taken again, so this
+          recurrence solves the unbounded knapsack, where repeats are allowed.
+      - text: >
+          $g(i)$: the best value achievable using only items $1$ through $i$.
+        feedback: >
+          Different ways of reaching item $i$ leave different capacities, so
+          this is not enough to decide whether item $i+1$ fits.
+      - text: >
+          $g(i, c, v)$: adding the value accumulated so far to the state.
+        feedback: >
+          The accumulated value is the recurrence's output, not an input to
+          it — carrying it multiplies the state space and changes no answer.
+    rubric:
+      - >
+        Names the two coordinates and says what each is for: the index stops
+        reuse, the capacity decides what still fits.
+      - >
+        Identifies the capacity-only state as the unbounded-knapsack
+        recurrence rather than a wrong one at random.
+    targets:
+      - quant-programming.algorithms.dp
+
+  - id: qalg-dp-04
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two identical eggs are dropped from the floors of a $50$-storey building.
+      An egg that survives a drop may be reused; an egg that breaks is gone.
+      There is a threshold floor at or above which every drop breaks an egg and
+      below which none does, and the threshold is to be identified exactly. In
+      the worst case, what is the least number of drops that guarantees an
+      answer?
+    answer: >
+      $10$. Run the dynamic program over the state (eggs remaining, drops
+      remaining) rather than over floors. Let $F(e, k)$ be the greatest number
+      of floors that $e$ eggs and $k$ drops can resolve. One drop splits the
+      range: if the egg breaks, $e-1$ eggs and $k-1$ drops must handle
+      everything below, and if it survives, $e$ eggs and $k-1$ drops handle
+      everything above — so $F(e,k) = F(e-1,k-1) + 1 + F(e,k-1)$, with
+      $F(e,0) = 0$ and $F(1,k) = k$, since one egg forces a linear sweep
+      upward. For two eggs this collapses to $F(2,k) = F(2,k-1) + k$, hence
+      $F(2,k) = k(k+1)/2$: the familiar rule that the first drop goes at floor
+      $k$, the next $k-1$ floors higher, and so on. Solving
+      $k(k+1)/2 \ge 50$ gives $k = 9$ covering $45$ floors — not enough — and
+      $k = 10$ covering $55$, so $10$ drops suffice and $9$ do not. The
+      strategy that realises it starts at floor $10$, then $19$, then $27$,
+      and so on, with each successive gap one floor smaller so that a break
+      always leaves a linear sweep short enough to finish inside the budget.
+      Note what the DP shows and a closed form hides: the min-over-max
+      transition is the whole content of the puzzle, and the triangular numbers
+      are the shape the table converges to, not the starting point.
+    expects: "10"
+    rubric:
+      - >
+        Inverts the question — how many floors can $k$ drops cover, rather than
+        where the first drop goes — and writes the recurrence in (eggs, drops).
+      - >
+        Solves $k(k+1)/2 \ge 50$ and checks $k = 9$ fails at $45$ floors, so
+        the answer is a boundary and not a guess.
+      - >
+        Reads the transition as minimising the worst case over the two
+        branches, which is what makes this dynamic programming rather than a
+        clever guess.
+    targets:
+      - quant-programming.algorithms.dp
+      - quant-puzzles.classics.egg-drop
+    connects:
+      - quant-programming.algorithms.dp ~ quant-puzzles.classics.egg-drop
+
+  # --- Kadane's maximum subarray ----------------------------------------------
+
+  - id: qalg-kadane-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      The values $5, -3, 6, -8, 4, -2, 7$ are arranged around a circle in that
+      order, so a contiguous block may wrap from the last entry back to the
+      first. A block must be nonempty and may not use any position twice. What
+      is the largest possible block sum?
+    answer: >
+      $17$. Split into two cases. A block that does not wrap is an ordinary
+      subarray, so plain Kadane applies: the running
+      $b_k = \max(a_k, b_{k-1}+a_k)$ values are $5, 2, 8, 0, 4, 2, 9$, giving a
+      best of $9$. A block that *does* wrap is exactly the complement of a
+      contiguous non-wrapping block, so maximising it means minimising what is
+      left out: run Kadane with $\min$ in place of $\max$ to get the smallest
+      subarray sum, which is $-8$ (the lone $-8$ at index $3$), and subtract it
+      from the total $5-3+6-8+4-2+7 = 9$, giving $9 - (-8) = 17$. That block is
+      $4, -2, 7$ wrapping to $5, -3, 6$, and $4-2+7+5-3+6 = 17$ confirms it.
+      The answer is $\max(9, 17) = 17$. The trap is the all-negative case: if
+      every entry were negative the minimum subarray would be the whole array,
+      the complement would be empty, and total minus minimum would report $0$ —
+      an empty block, which the problem forbids. Guard it by returning the
+      plain Kadane answer whenever the minimum subarray is the entire array.
+    expects: "17"
+    rubric:
+      - >
+        Handles the wrapping case as the complement of a minimum-sum
+        contiguous block, rather than by concatenating the array with itself
+        and hoping.
+      - >
+        Names the all-negative degenerate case, where total minus minimum
+        returns the forbidden empty block.
+    targets:
+      - quant-programming.algorithms.kadane
+    exercises:
+      - quant-programming.algorithms.prefix-sums
+
+  - id: qalg-kadane-02
+    kind: work
+    difficulty: standard
+    statement: >
+      What is the largest sum over contiguous nonempty blocks of
+      $-3, 4, -1, 2, -6, 3, 5, -2, 4, -9$?
+    answer: >
+      $10$. Track $b_k$, the best sum of a block ending exactly at index $k$,
+      by $b_k = \max(a_k,\; b_{k-1} + a_k)$ — start fresh precisely when the
+      carried total $b_{k-1}$ is negative, since a negative prefix can only
+      hurt whatever follows. Left to right the values are $-3, 4, 3, 5, -1, 3,
+      8, 6, 10, 1$. Reading the two resets: at index $1$ the carried $-3$ is
+      negative so the run restarts at $4$, and at index $5$ the carried $-1$ is
+      negative so the run restarts at $3$. The maximum of the $b$ values is
+      $10$ at index $8$, from the block $3, 5, -2, 4$. Note $b_9 = 1$ is not
+      the answer even though it is the last entry — the running best must be
+      kept separately from the running $b$, which is the single most common bug
+      in this one-liner. One pass, $O(n)$ time, $O(1)$ memory.
+    expects: "10"
+    rubric:
+      - >
+        Keeps the running maximum separately from $b_k$, so the answer is not
+        read off the final $b$.
+      - >
+        Restarts exactly when the carried total is negative, and says why
+        that is the right rule.
+    targets:
+      - quant-programming.algorithms.kadane
+
+  # --- coin change ------------------------------------------------------------
+
+  - id: qalg-coin-change-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Coins of denominations $1$, $7$ and $10$ are available without limit.
+      What is the fewest coins that total exactly $14$?
+    answer: >
+      $2$, namely $7 + 7$. Fill $f(t) = 1 + \min\{f(t - c) : c \in \{1,7,10\},
+      c \le t\}$ from $f(0) = 0$ upward. The table for $t = 0$ through $14$ is
+      $0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 1, 2, 3, 4, 2$: the first seven entries
+      just count pennies, $f(7) = 1$ and $f(10) = 1$ are the single coins,
+      $f(11)$ through $f(13)$ add pennies to the $10$, and $f(14) =
+      1 + f(7) = 2$. Greedy fails here, and visibly: taking the largest coin
+      that fits gives $10$, then $14 - 10 = 4$ pennies, for five coins — two
+      and a half times the optimum. That is the whole reason this is a DP and
+      not a one-line rule. Greedy is safe only when the denominations are
+      *canonical*, as ordinary currency happens to be; $1, 7, 10$ is not, and
+      neither is $1, 3, 4$. Note also that $O(mT)$ is pseudo-polynomial — the
+      table is linear in the *value* $T$, which is exponential in the number of
+      digits used to write it, so a target of $10^{12}$ is out of reach even
+      though the recurrence is correct.
+    expects: "2"
+    rubric:
+      - >
+        Fills the table upward from $f(0) = 0$ and reads $f(14)$, rather than
+        reasoning about the target directly.
+      - >
+        Runs greedy on the same instance, gets $5$, and names non-canonical
+        denominations as the reason it fails.
+    targets:
+      - quant-programming.algorithms.coin-change
+    exercises:
+      - quant-programming.algorithms.dp
+
+  - id: qalg-coin-change-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Coins of denominations $1$, $2$ and $5$ are available without limit. How
+      many distinct *collections* of coins total exactly $8$? Two collections
+      differ only if they use a different number of some denomination, so
+      $5+2+1$ and $1+2+5$ are the same collection.
+    answer: >
+      $7$. Put the coin loop *outside* and the amount loop inside: initialise
+      $w(0) = 1$ and $w(t) = 0$ elsewhere, then for each denomination $c$ in
+      turn sweep $t$ from $c$ up to $8$ adding $w(t-c)$ to $w(t)$. After the
+      $1$-coin pass every entry is $1$. After the $2$-coin pass the table is
+      $1, 1, 2, 2, 3, 3, 4, 4, 5$. After the $5$-coin pass it is
+      $1, 1, 2, 2, 3, 4, 5, 6, 7$, so $w(8) = 7$. Enumerating confirms it:
+      eight $1$s; six $1$s and a $2$; four $1$s and two $2$s; two $1$s and
+      three $2$s; four $2$s; a $5$ with three $1$s; and a $5$ with a $2$ and a
+      $1$. The loop order is the entire subtlety. Putting the amount loop
+      outside instead counts ordered *sequences* and returns $44$ for this
+      instance, because $5+2+1$, $1+2+5$ and their four other arrangements are
+      all tallied separately. Fixing the coin first and sweeping amounts forces
+      every collection to be built in one canonical denomination order, which
+      is what makes each count once.
+    expects: "7"
+    rubric:
+      - >
+        Puts the coin loop outside the amount loop, and says what the other
+        order counts instead — ordered sequences, $44$ here.
+      - >
+        Seeds $w(0) = 1$, the empty collection, which is what makes the first
+        coin of each amount countable.
+    targets:
+      - quant-programming.algorithms.coin-change
+
+  # --- counting grid paths ----------------------------------------------------
+
+  - id: qalg-grid-paths-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Count the monotone lattice paths from $(0,0)$ to $(4,4)$ using only
+      right and up unit steps, given that the two lattice points $(2,1)$ and
+      $(1,3)$ are blocked and no path may pass through either. How many paths
+      remain?
+    answer: >
+      $24$, down from $\binom{8}{4} = 70$ on the clear grid. Fill
+      $f(i,j) = f(i-1,j) + f(i,j-1)$ with $f(0,0) = 1$, forcing $f = 0$ at each
+      blocked point regardless of its neighbours. Taking $i$ as the horizontal
+      coordinate and listing each row $i$ as $j$ runs from $0$ to $4$: row
+      $i=0$ is $1, 1, 1, 1, 1$; row $i=1$ is $1, 2, 3, 0, 1$, where the $0$ is
+      the block at $(1,3)$ and the following $1$ is what leaks in from below;
+      row $i=2$ is $1, 0, 3, 3, 4$, the $0$ being the block at $(2,1)$; row
+      $i=3$ is $1, 1, 4, 7, 11$; and row $i=4$ is $1, 2, 6, 13, 24$. So
+      $f(4,4) = 24$. This is the case the closed form cannot reach:
+      inclusion-exclusion over two obstacles is doable but already fiddly, and
+      over twenty it is hopeless, while the table is unchanged in shape and
+      still $O(mn)$. The trap is zeroing the blocked cell but still letting it
+      contribute to its neighbours — the assignment must be $f = 0$ *after*
+      the recurrence would have run, or equivalently instead of it.
+    expects: "24"
+    rubric:
+      - >
+        Sets the blocked entries to $0$ in place of the recurrence, so they
+        contribute nothing onward.
+      - >
+        Fills in an order where both dependencies are already resolved, and
+        reports $24$ against the clear-grid $\binom{8}{4} = 70$.
+    targets:
+      - quant-programming.algorithms.grid-paths
+
+  - id: qalg-grid-paths-02
+    kind: work
+    difficulty: routine
+    statement: >
+      On a clear grid with no obstacles, how many monotone lattice paths go
+      from $(0,0)$ to $(5,4)$ using only right and up unit steps?
+    answer: >
+      $126$. Any such path is a word of $5$ rights and $4$ ups in some order —
+      nine steps in total, since every path must make up the horizontal
+      distance $5$ and the vertical distance $4$ and can do nothing else. The
+      path is determined by which $4$ of the $9$ positions carry the ups, so
+      the count is $\binom{9}{4} = 126$, equivalently $\binom{9}{5}$, the same
+      number read from the other side. The table $f(i,j) = f(i-1,j) +
+      f(i,j-1)$ with $f(i,0) = f(0,j) = 1$ produces the same value cell by
+      cell, and that agreement is Pascal's rule: the recurrence *is* the
+      binomial identity $\binom{n}{k} = \binom{n-1}{k-1} + \binom{n-1}{k}$
+      written on a grid. The trap is $\binom{9}{4}$ versus $\binom{5+4}{5-4}$
+      or $5! \cdot 4!$ — the exponent is the number of steps of one kind, and
+      the total is the number of steps overall.
+    expects: "126"
+    rubric:
+      - >
+        Counts total steps as $m+n$ and chooses positions for one kind, giving
+        $\binom{9}{4}$.
+      - >
+        Notes that the DP recurrence and Pascal's rule are the same statement.
+    targets:
+      - quant-programming.algorithms.grid-paths
+
+  - id: qalg-grid-paths-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      Count the monotone right-and-up lattice paths from $(0,0)$ to $(5,5)$
+      that never rise strictly above the diagonal — that is, after every step
+      the running count of up steps is at most the running count of right
+      steps. How many such paths are there?
+    answer: >
+      $42$, the fifth Catalan number. Two routes, and they agree. The table
+      route imposes the constraint as an obstacle rule: fill $f(i,j) = f(i-1,j)
+      + f(i,j-1)$ but force $f(i,j) = 0$ whenever $j > i$, so no path is ever
+      credited for crossing. Reading the surviving diagonal entries gives
+      $1, 1, 2, 5, 14, 42$ at $(0,0)$ through $(5,5)$ — the Catalan sequence
+      appearing one cell at a time. The closed-form route is the reflection
+      argument: all $\binom{10}{5} = 252$ paths, minus the bad ones, which
+      reflect bijectively onto paths to a shifted endpoint counted by
+      $\binom{10}{4} = 210$, leaving $252 - 210 = 42$; equivalently
+      $\frac{1}{6}\binom{10}{5} = 252/6 = 42$. The relationship is worth
+      stating plainly: the plain grid-path count is a binomial coefficient, and
+      imposing a *stay-below* constraint on those same paths replaces it with a
+      Catalan number. The trap is dividing by $n$ rather than $n+1$, which
+      gives $50.4$ and is not even an integer — a useful self-check.
+    expects: "42"
+    rubric:
+      - >
+        Gets $42$ by a stated method — either zeroing the cells above the
+        diagonal in the table, or reflection on the closed form.
+      - >
+        Divides $\binom{2n}{n}$ by $n+1$, not by $n$, and notices that the
+        wrong divisor fails to give an integer.
+    targets:
+      - quant-programming.algorithms.grid-paths
+      - quant-probability.counting.catalan
+    connects:
+      - quant-probability.counting.catalan ~ quant-programming.algorithms.grid-paths
+
+  # --- breadth-first and depth-first search -----------------------------------
+
+  - id: qalg-bfs-dfs-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      An undirected graph on vertices $A$ through $I$ stores its adjacency
+      lists in this order: $A$: $B, C, D$; $B$: $A, E$; $C$: $A, E, F$; $D$:
+      $A, G$; $E$: $B, C, H$; $F$: $C$; $G$: $D, H$; $H$: $E, G, I$; $I$: $H$.
+      A depth-first search starts at $A$ and always descends into the
+      first-listed unvisited neighbour, backtracking only when none remains. At
+      what position in the visit order does $D$ first appear, counting $A$ as
+      position $1$?
+    answer: >
+      Position $8$. Follow the dive. From $A$ take $B$ (position $2$); from
+      $B$, $A$ is visited so take $E$ (position $3$); from $E$, $B$ is visited
+      so take $C$ (position $4$); from $C$, $A$ and $E$ are visited so take $F$
+      (position $5$); $F$'s only neighbour is $C$, so backtrack to $E$ and take
+      $H$ (position $6$); from $H$ take $G$ (position $7$); from $G$ take $D$
+      (position $8$) — and $D$'s remaining neighbour $A$ is visited, so
+      backtrack to $H$ and take $I$ (position $9$). Visit order:
+      $A, B, E, C, F, H, G, D, I$. The point of the question is the contrast:
+      $D$ is a *direct neighbour of the source* and DFS reaches it eighth of
+      nine, arriving from $G$ two edges away rather than along the edge
+      $A$–$D$ that was available at step one. BFS on the same graph visits
+      $A, B, C, D, E, F, G, H, I$ and reaches $D$ fourth. Depth-first order
+      says nothing about distance, which is exactly why shortest paths need
+      the queue and not the stack.
+    expects: "8"
+    rubric:
+      - >
+        Follows the stated neighbour order and backtracks only when a vertex
+        has no unvisited neighbour left.
+      - >
+        Says why DFS reaching a direct neighbour of the source eighth is not a
+        bug: depth-first order carries no distance guarantee.
+    targets:
+      - quant-programming.algorithms.bfs-dfs
+
+  - id: qalg-bfs-dfs-02
+    kind: work
+    difficulty: standard
+    statement: >
+      The same undirected graph — $A$: $B, C, D$; $B$: $A, E$; $C$: $A, E, F$;
+      $D$: $A, G$; $E$: $B, C, H$; $F$: $C$; $G$: $D, H$; $H$: $E, G, I$; $I$:
+      $H$ — is searched breadth-first from $A$. How many vertices lie at edge
+      distance exactly $2$ from $A$?
+    answer: >
+      $3$, namely $E$, $F$ and $G$. Peel the layers off the queue. Layer $0$ is
+      $A$. Layer $1$ is $B$, $C$, $D$, the three vertices adjacent to $A$.
+      Layer $2$ is everything newly discovered while those three are dequeued:
+      $B$ contributes $E$; $C$ contributes $F$, its neighbour $E$ already
+      having been marked when $B$ was processed; $D$ contributes $G$. That is
+      three vertices. Layer $3$ is $H$, discovered from $E$, and layer $4$ is
+      $I$, discovered from $H$, so the distances are $0$ for $A$; $1$ for each
+      of $B$, $C$ and $D$; $2$ for each of $E$, $F$ and $G$; $3$ for $H$; and
+      $4$ for $I$. The
+      correctness claim behind reading the layers this way is the queue's
+      invariant: it only ever holds vertices at distance $k$ followed by
+      vertices at distance $k+1$, so the first time a vertex is reached is
+      along a shortest path. The trap is marking a vertex visited when it is
+      *popped* rather than when it is pushed, which lets $E$ enter the queue
+      twice, once from $B$ and once from $C$, and inflates every count
+      downstream.
+    expects: "3"
+    rubric:
+      - >
+        Peels the layers in queue order and gets the distances, rather than
+        eyeballing the drawing.
+      - >
+        Marks a vertex visited on discovery, so $E$ is not queued twice from
+        $B$ and $C$.
+    targets:
+      - quant-programming.algorithms.bfs-dfs
+
+  - id: qalg-bfs-dfs-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      A breadth-first search over an adjacency list keeps a queue and a visited
+      set. At which moment must a vertex be added to the visited set for the
+      search to stay $O(V+E)$ and for the layer invariant to hold?
+    answer: >
+      When it is pushed onto the queue — that is, at the moment it is
+      discovered as an unvisited neighbour, before anything is done with it.
+      A vertex with $d$ edges into the current layer would otherwise be
+      discovered $d$ separate times, and each discovery would enqueue another
+      copy, so the queue can grow to $\Theta(E)$ entries rather than
+      $\Theta(V)$, and the same vertex is expanded repeatedly. Worse, the
+      layer invariant breaks: the queue is supposed to hold only vertices at
+      distance $k$ followed by vertices at distance $k+1$, and duplicate
+      entries let a vertex be dequeued a second time from a later layer and
+      overwrite its distance with a larger one. Marking on pop is the common
+      version of this bug and it is quiet — the search still terminates and
+      still returns the right distances on small graphs, because the duplicate
+      copies are dequeued after the first and simply skipped if the code
+      happens to re-test. Marking only after all a vertex's neighbours are
+      processed is the same bug with a longer window, and marking only the
+      source is not a visited set at all: on any graph with a cycle the search
+      never ends.
+    choices:
+      - text: >
+          When it is pushed onto the queue, at discovery.
+        correct: true
+        feedback: >
+          Right — one mark per vertex bounds the queue at $\Theta(V)$ and
+          keeps each vertex's recorded distance the first, hence shortest, one
+          found.
+      - text: >
+          When it is popped off the queue, just before expanding it.
+        feedback: >
+          A vertex with several edges into the current layer is then enqueued
+          once per edge, so the queue can reach $\Theta(E)$ and a later
+          duplicate can overwrite its distance.
+      - text: >
+          After all of its neighbours have been examined.
+        feedback: >
+          Same failure with a wider window: every neighbour discovered during
+          that gap re-enqueues the vertex.
+      - text: >
+          Only the source needs marking; later vertices cannot repeat.
+        feedback: >
+          They can, along any cycle — without a visited set the search on a
+          cyclic graph never terminates.
+    rubric:
+      - >
+        Says the mark goes on the push, and gives the cost consequence: queue
+        size $\Theta(V)$ rather than $\Theta(E)$.
+      - >
+        Connects the mark to the layer invariant, not merely to avoiding
+        repeated work.
+    targets:
+      - quant-programming.algorithms.bfs-dfs
+
+  # --- shortest paths in an unweighted graph ----------------------------------
+
+  - id: qalg-bfs-shortest-path-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two unmarked jugs hold $5$ and $3$ litres. A move is one of: fill a jug
+      to the brim from an unlimited tap, empty a jug onto the ground, or pour
+      one jug into the other until the source is empty or the target is full.
+      Starting from both jugs empty, what is the fewest moves after which some
+      jug contains exactly $4$ litres?
+    answer: >
+      $6$. Make it a graph: a vertex is the pair (litres in the $5$-jug,
+      litres in the $3$-jug), of which there are at most $6 \cdot 4 = 24$, and
+      an edge is one legal move. Every edge costs the same, so BFS from
+      $(0,0)$ labels each state with its true minimum move count. Layer $1$
+      holds $(5,0)$ and $(0,3)$, the only two states one move from empty.
+      Layer $2$ adds $(2,3)$ and $(5,3)$ and $(3,0)$; the layers keep widening
+      until $(4,3)$ first appears in layer $6$, along the path
+      $(0,0) \to (5,0) \to (2,3) \to (2,0) \to (0,2) \to (5,2) \to (4,3)$:
+      fill the five, pour off three leaving two, empty the three, move the two
+      across, refill the five, and top up the three-jug, which takes exactly
+      one more litre and leaves four behind. Parent pointers recover that
+      sequence. Two traps. The state must be the *pair*, not one jug's contents
+      — a single number cannot say what is available to pour. And BFS, not
+      DFS, is what makes the count minimal: depth-first search finds a valid
+      sequence quickly and has no reason at all for it to be the shortest one.
+    expects: "6"
+    rubric:
+      - >
+        Takes the state to be the ordered pair of jug contents and a move to be
+        one edge, so every edge has equal cost and BFS applies.
+      - >
+        Exhibits a $6$-move sequence and says why no shorter one exists — the
+        goal state first appears in layer $6$.
+    targets:
+      - quant-programming.algorithms.bfs-shortest-path
+    exercises:
+      - quant-programming.algorithms.bfs-dfs
+
+  - id: qalg-bfs-shortest-path-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A knight sits at $(0,0)$ on an unbounded chessboard and moves by any of
+      the eight offsets $(\pm 1, \pm 2)$ or $(\pm 2, \pm 1)$. Treating squares
+      as vertices and offsets as edges, what is the fewest moves to reach
+      $(6,3)$?
+    answer: >
+      $3$. BFS from $(0,0)$ finds it, and a short argument confirms the value
+      without expanding the whole frontier. Each knight move changes
+      $x + y$ by at most $3$, since the offsets change it by $\pm 3$ or
+      $\pm 1$; the target has $x + y = 9$, so at least $3$ moves are needed.
+      And $3$ is achieved: $(0,0) \to (2,1) \to (4,2) \to (6,3)$, three copies
+      of the same offset $(+2,+1)$. Lower bound meets construction, so the
+      distance is exactly $3$. This is the layer invariant doing its job — BFS
+      would reach $(6,3)$ in its third layer, before any square at distance
+      $4$ is discovered at all, because the queue only ever holds distance $k$
+      followed by distance $k+1$. Note the board must be unbounded for the
+      simple argument: on a cramped board the corner squares need detours and
+      the parity-and-displacement reasoning stops being tight.
+    expects: "3"
+    rubric:
+      - >
+        Gives both halves: a lower bound from how fast $x+y$ can grow, and an
+        explicit $3$-move path.
+      - >
+        Treats squares as vertices and offsets as edges, so every move costs
+        the same and BFS layers are distances.
+    targets:
+      - quant-programming.algorithms.bfs-shortest-path
+
+  - id: qalg-bfs-shortest-path-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      A sliding-tile puzzle asks for the fewest moves from a given scrambled
+      configuration to the solved one. Every move is reversible. Which claim
+      about running BFS from the *solved* configuration instead of the
+      scrambled one is correct?
+    answer: >
+      Because each move is reversible, the state graph is undirected, so
+      distance from the solved state to a configuration equals distance from
+      that configuration to the solved state; BFS launched from the goal
+      therefore labels every configuration with the answer it needs, and the
+      scrambled start's label is read straight off. That is what "working
+      backwards" means once the puzzle is written as a graph — not a different
+      technique, but the same breadth-first sweep launched from the other end,
+      and it is worth doing whenever the goal is a single tidy state while the
+      start is one of many. What it does not require is a tree, weights, or any
+      change to the algorithm: the queue, the visited marks and the parent
+      pointers are identical, and the recovered path is simply read in reverse.
+      The one genuine caveat is asymmetry — if some move could not be undone,
+      the graph is directed and the backward search would have to traverse
+      reversed edges rather than the same ones.
+    choices:
+      - text: >
+          Reversibility makes the graph undirected, so the distances BFS
+          assigns from the solved state are the same numbers as distances to
+          it, and the start's label is the answer.
+        correct: true
+        feedback: >
+          Right — and this is exactly working backwards, which on a graph is
+          just BFS launched from the target rather than the source.
+      - text: >
+          It works only if the state graph is a tree, since otherwise a
+          configuration could be reached two ways.
+        feedback: >
+          BFS handles cycles by construction; the visited set is what makes
+          multiple routes to a configuration harmless.
+      - text: >
+          It returns the longest sequence of moves to the solve rather than
+          the shortest.
+        feedback: >
+          The layer invariant is unchanged by the choice of source — BFS
+          reports first-reached distances, which are minima, from whichever
+          end it starts.
+      - text: >
+          It requires the moves to carry weights so the search can compare
+          directions.
+        feedback: >
+          Every move costs one either way; weights would call for Dijkstra and
+          have nothing to do with the direction of the search.
+    rubric:
+      - >
+        Grounds the claim in reversibility making the graph undirected, not in
+        a general assertion that backwards is easier.
+      - >
+        Says what would break if some move were irreversible: the graph is
+        directed, and the backward search must traverse reversed edges.
+    targets:
+      - quant-programming.algorithms.bfs-shortest-path
+      - quant-puzzles.strategies.working-backwards
+    connects:
+      - quant-programming.algorithms.bfs-shortest-path ~ quant-puzzles.strategies.working-backwards
+
+  # --- greedy with an exchange argument ---------------------------------------
+
+  - id: qalg-greedy-exchange-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Eleven bookings request a single room over the intervals $(1,4)$,
+      $(3,5)$, $(0,6)$, $(5,7)$, $(3,9)$, $(5,9)$, $(6,10)$, $(8,11)$,
+      $(8,12)$, $(2,14)$, $(12,16)$, where a booking occupies its half-open
+      span so one may start exactly when another ends. What is the largest
+      number of bookings that can be accepted with no two overlapping?
+    answer: >
+      $4$. Sort by finishing time and take greedily: $(1,4)$ finishes first, so
+      take it; the next interval starting at or after $4$ in finish order is
+      $(5,7)$, so take it; then $(8,11)$; then $(12,16)$. Nothing else fits, so
+      the schedule $(1,4), (5,7), (8,11), (12,16)$ has size $4$. That the
+      greedy set is optimal is the exchange argument: given any optimal
+      schedule, its first booking cannot finish earlier than greedy's, so
+      replacing it with greedy's first booking conflicts with nothing later and
+      leaves the size unchanged; repeat down the list and the optimum has been
+      turned into greedy's schedule without shrinking. Now see the rules that
+      fail. Sorting by *start* time takes $(0,6)$, then $(6,10)$, then
+      $(12,16)$ — only $3$, because the first long booking eats two short ones.
+      Sorting by *shortest* interval happens to reach $4$ here, via $(3,5),
+      (5,7), (8,11), (12,16)$, but it is not correct in general: one short
+      booking straddling the join between two others blocks both. Only
+      earliest-finish comes with a proof.
+    expects: "4"
+    rubric:
+      - >
+        Sorts by finishing time and takes every interval starting at or after
+        the last accepted finish, treating the touching endpoints as legal.
+      - >
+        States the exchange argument as the reason the count is optimal, not
+        merely that the greedy run produced it.
+      - >
+        Runs at least one wrong rule — earliest start gives $3$ — instead of
+        asserting the others fail.
+    targets:
+      - quant-programming.algorithms.greedy-exchange
+
+  - id: qalg-greedy-exchange-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      In which of these settings does the stated greedy rule provably return
+      the optimum for every instance?
+    answer: >
+      Fractional knapsack with the value-per-weight rule is the one that
+      carries a proof. Sort items by value per unit weight, take them in that
+      order, and split the last item to fill the sack exactly; the exchange
+      argument is immediate, since any solution carrying a unit of a lower
+      ratio while a higher-ratio unit is left behind can be improved by
+      swapping those units, and the swap is always available precisely because
+      items are divisible. Remove divisibility and the argument collapses: in
+      the $0/1$ knapsack the swap may not fit, and the classic counterexample
+      is a capacity of $10$ with items of weight $6$ and value $7$ (ratio
+      $1.17$) against two items of weight $5$ and value $5$ — greedy takes the
+      first for $7$ and cannot use the remaining $4$ units, while the optimum
+      takes both fives for $10$. Coins $1, 7, 10$ are non-canonical, so
+      largest-first spends $5$ coins on $14$ where $7+7$ spends $2$. And
+      shortest-interval-first fails on max disjoint intervals whenever one
+      short booking straddles the join between two longer ones, blocking both
+      to gain one.
+    choices:
+      - text: >
+          Fractional knapsack, taking items in decreasing value per unit
+          weight and splitting the last one.
+        correct: true
+        feedback: >
+          Right — divisibility is what makes the exchange always available,
+          and the exchange argument goes through in one line.
+      - text: >
+          The $0/1$ knapsack, taking whole items in decreasing value per unit
+          weight.
+        feedback: >
+          Capacity $10$ with weight-$6$ value-$7$ against two weight-$5$
+          value-$5$ items: greedy scores $7$, the optimum scores $10$.
+      - text: >
+          Fewest coins for a target with denominations $1$, $7$ and $10$,
+          taking the largest coin that fits.
+        feedback: >
+          These denominations are not canonical: greedy spends $10+1+1+1+1$ on
+          $14$, five coins, where $7+7$ needs two.
+      - text: >
+          Largest set of pairwise-disjoint intervals, taking the shortest
+          remaining interval that still fits.
+        feedback: >
+          A short interval straddling the join between two longer ones blocks
+          both to gain one, so this rule has no exchange argument.
+    rubric:
+      - >
+        Names divisibility as the hypothesis that licenses the fractional
+        rule, rather than treating the two knapsacks as the same problem.
+      - >
+        Gives a concrete counterexample for at least one failing rule instead
+        of asserting it fails.
+    targets:
+      - quant-programming.algorithms.greedy-exchange
+
+  - id: qalg-greedy-exchange-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Prove that the earliest-finish-time rule is optimal for interval
+      scheduling: given $n$ intervals, repeatedly take the compatible interval
+      with the smallest finishing time, and the resulting set is a largest
+      possible pairwise-disjoint subset. Write the exchange argument in full,
+      and say exactly where the proof would fail if the rule sorted by
+      starting time instead.
+    answer: >
+      Let $g_1, \dots, g_k$ be greedy's choices in the order taken and
+      $o_1, \dots, o_m$ any optimal schedule in order of finishing time, with
+      $m \ge k$ by optimality. The claim to prove by induction is that
+      $f(g_i) \le f(o_i)$ for every $i \le k$, where $f$ denotes finishing
+      time — greedy stays ahead. Base case: $g_1$ is the interval with the
+      smallest finish among all of them, so $f(g_1) \le f(o_1)$. Inductive
+      step: assume $f(g_{i-1}) \le f(o_{i-1})$. Since the optimum is disjoint,
+      $o_i$ starts at or after $f(o_{i-1}) \ge f(g_{i-1})$, so $o_i$ was
+      available to greedy at step $i$; greedy chose the available interval with
+      the least finish, hence $f(g_i) \le f(o_i)$. Now suppose $m > k$. Then
+      $o_{k+1}$ exists and starts at or after $f(o_k) \ge f(g_k)$, so it was
+      compatible with everything greedy had taken and greedy would not have
+      stopped at $k$ — a contradiction. Therefore $m = k$ and greedy is
+      optimal. The exchange reading of the same argument: swapping $o_i$ for
+      $g_i$ in the optimum is always legal, because $g_i$ finishes no later
+      and so conflicts with nothing that followed $o_i$; iterating the swap
+      transforms any optimum into greedy's schedule without changing its size.
+      Sorting by start time breaks the inductive step at exactly one place: the
+      chosen interval is then the one with the smallest *start* among those
+      available, which says nothing about its finish, so $f(g_i) \le f(o_i)$
+      cannot be concluded and greedy no longer stays ahead. The concrete
+      failure is a single long interval spanning many short ones — it starts
+      first and blocks all of them.
+    rubric:
+      - >
+        Proves the stays-ahead claim $f(g_i) \le f(o_i)$ by induction, using
+        disjointness of the optimum to show $o_i$ was still available to
+        greedy.
+      - >
+        Closes the argument by contradiction on $m > k$, rather than stopping
+        once greedy is shown to stay ahead.
+      - >
+        Locates the failure of the start-time rule in the inductive step —
+        smallest start implies nothing about finish — and gives the long
+        interval as the counterexample.
+    targets:
+      - quant-programming.algorithms.greedy-exchange
+
+  # --- reading the cue --------------------------------------------------------
+
+  - id: qalg-pattern-catalog-01
+    kind: decide
+    difficulty: demanding
+    statement: >
+      An interviewer asks for the number of contiguous blocks of an array
+      summing to exactly $T$. The array contains negative entries as well as
+      positive ones. Your $O(n^{2})$ double loop is rejected and you are asked
+      for $O(n)$. Which pattern reaches it?
+    answer: >
+      A hash map of prefix sums. Write $P_0 = 0$ and $P_r = a_1 + \dots + a_r$;
+      the block from $\ell$ to $r$ sums to $T$ exactly when
+      $P_r - P_{\ell-1} = T$, so sweeping $r$ upward and asking how many
+      earlier prefixes equal $P_r - T$ counts every qualifying block in one
+      pass, at $O(1)$ expected work per index. Seed the map with $P_0 = 0$
+      counted once, so blocks starting at the first entry are found. The
+      tempting wrong answer is the sliding window, and the reason it fails is
+      the reason worth saying out loud: the shrink-while-illegal rule needs the
+      running sum to move monotonically as the window grows and shrinks, and
+      with negative entries it does not — extending the window can lower the
+      sum, so a window pushed past $T$ may come back, and no pointer discipline
+      can safely discard what it steps over. Sorting to enable two pointers
+      destroys contiguity, which is the property being counted. And binary
+      search on the answer needs a monotone feasibility predicate in a
+      candidate answer, which a count of blocks is not.
+    choices:
+      - text: >
+          Prefix sums stored in a hash map, counting earlier prefixes equal to
+          $P_r - T$.
+        correct: true
+        feedback: >
+          Right — the identity $P_r - P_{\ell-1} = T$ turns the question into a
+          lookup, and it never assumes anything about signs.
+      - text: >
+          A sliding window, advancing the right edge and shrinking from the
+          left while the sum exceeds $T$.
+        feedback: >
+          Negative entries break the monotonicity the shrink rule depends on:
+          extending the window can lower the sum, so a window pushed past $T$
+          may return to it.
+      - text: >
+          Sort the array, then converge two pointers on the target.
+        feedback: >
+          Sorting destroys contiguity, and contiguity is exactly what is being
+          counted.
+      - text: >
+          Binary search on the answer, with a linear feasibility check.
+        feedback: >
+          That pattern needs feasibility to be monotone in a candidate answer;
+          a count of blocks is not a feasibility question at all.
+    rubric:
+      - >
+        Names the prefix-sum-plus-hash-map pattern and writes the identity
+        that makes it a lookup.
+      - >
+        Rejects the sliding window for the specific reason — mixed signs break
+        the shrink hypothesis — rather than by preference.
+    targets:
+      - quant-programming.algorithms.pattern-catalog
+    exercises:
+      - quant-programming.algorithms.prefix-sums
+
+  - id: qalg-pattern-catalog-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A sorted array of $n$ numbers is fixed, and $q$ queries arrive, each
+      naming a closed value range and asking how many entries fall inside it.
+      The naive answer scans the array per query at $O(nq)$. Which pattern
+      brings it to $O((n + q)\log n)$?
+    answer: >
+      Two binary searches per query. The array is already sorted, so for a
+      range $[u, v]$ the count is (index of the first entry strictly greater
+      than $v$) minus (index of the first entry at least $u$) — a lower-bound
+      probe and an upper-bound probe, each $O(\log n)$, giving $O(q \log n)$
+      across all queries with no preprocessing beyond the sort the input
+      already carries. The cue is the target complexity itself: a $\log n$
+      factor multiplying the query count, on data that is ordered on the very
+      quantity being asked about, is binary search's signature. A sliding
+      window answers nothing here, because the queries are unrelated value
+      ranges rather than a sweep over positions. Prefix sums over the array's
+      *values* answer range-sum questions, not how-many-entries-lie-between
+      questions, unless the values happen to be small integers that can index
+      a counting array — a different technique with a different hypothesis.
+      And dynamic programming has nothing to cache: there are no overlapping
+      subproblems, only independent lookups.
+    choices:
+      - text: >
+          Two binary searches per query, for the first entry at least $u$ and
+          the first entry greater than $v$.
+        correct: true
+        feedback: >
+          Right — sorted data plus a monotone predicate is the binary-search
+          cue, and the difference of the two indices is the count.
+      - text: >
+          A sliding window over the array, advancing both edges per query.
+        feedback: >
+          The queries are unrelated value ranges, not a sweep over positions,
+          so there is no window to slide.
+      - text: >
+          A prefix-sum array over the entries, answering each query by a
+          difference.
+        feedback: >
+          Prefix sums answer range *sums* over positions; counting entries
+          inside a value range is a different question.
+      - text: >
+          Dynamic programming over the queries, caching overlapping answers.
+        feedback: >
+          The queries do not overlap as subproblems — there is nothing to
+          reuse, so the caching discipline buys nothing.
+    rubric:
+      - >
+        Reads the target complexity as the cue: a $\log n$ per query on
+        already-ordered data.
+      - >
+        Gets the count as a difference of two boundary indices, distinguishing
+        the lower-bound probe from the upper-bound probe.
+    targets:
+      - quant-programming.algorithms.pattern-catalog
+    exercises:
+      - quant-programming.algorithms.binary-search

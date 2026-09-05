@@ -1,0 +1,1478 @@
+# Problems targeting quant-programming.data-structures — choosing the container.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. Every instance here is fresh: no
+# problem reuses a lesson's worked example or a card's numbers, and every count,
+# trace and index was verified by simulating the structure. See ../README.md.
+
+problems:
+  # --- array vs. linked list --------------------------------------------------
+
+  - id: qds-array-linked-list-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A dynamic array starts with capacity $1$ and doubles its capacity whenever
+      an append finds it full, copying every element already stored into the new
+      buffer. Starting from empty, you append $1000$ elements. How many single
+      element copies do the resizes perform in total?
+    answer: >
+      $1023$. A resize fires on the append that finds the buffer full, and it
+      copies exactly the elements already there — so the capacities visited are
+      $1, 2, 4, \dots, 512$ and the copy counts are $1, 2, 4, \dots, 512$, one
+      per doubling. That geometric sum is $2^{10} - 1 = 1023$, after which the
+      capacity is $1024$ and the remaining appends up to $1000$ land for free.
+      The point is the ratio: $1023$ copies spread over $1000$ appends is
+      just over one copy per append, which is why the amortized cost of append
+      is $O(1)$ even though a single append can cost $O(n)$. The trap is
+      charging every append the worst case and concluding append is $O(n)$ —
+      the doubling makes the expensive appends exponentially rare, and a
+      constant growth step (say, grow by $10$) is what would really make it
+      quadratic.
+    expects: "1023"
+    rubric:
+      - >
+        Sums the copies actually performed, $1 + 2 + 4 + \dots + 512$, rather
+        than counting resizes ($10$) or appends ($1000$).
+      - >
+        Says why the geometric sum is $O(n)$ overall and therefore $O(1)$
+        amortized per append, and notes that constant-increment growth would
+        not be.
+    targets:
+      - quant-programming.data-structures.array-linked-list
+    exercises:
+      - quant-programming.complexity.amortized
+
+  - id: qds-array-linked-list-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A packed array holds $12$ elements at indices $0$ through $11$. You delete
+      the element at index $3$, closing the gap, and then delete the element at
+      index $7$ of the resulting array, closing that gap too. How many single
+      element moves do the two deletions perform in total?
+    answer: >
+      $11$. Deleting index $i$ from a packed array of length $n$ shifts every
+      element strictly after it one slot left, which is $n - 1 - i$ moves. The
+      first deletion has $n = 12$ and $i = 3$, so $12 - 1 - 3 = 8$ elements
+      move. The array is now length $11$, and the second deletion has $i = 7$,
+      so $11 - 1 - 7 = 3$ elements move. The total is $8 + 3 = 11$. Two traps
+      sit here. The first is counting the elements *before* the gap, which never
+      move — deletion is cheap near the end and expensive near the front, the
+      mirror image of the intuition that "the front is cheap". The second is
+      forgetting that the array shrank between the two deletions, which would
+      give $12 - 1 - 7 = 4$ for the second and a total of $12$.
+    expects: "11"
+    rubric:
+      - >
+        Uses $n - 1 - i$ moves per deletion — the elements after the gap — and
+        not $i$ or $n$.
+      - >
+        Re-reads $n$ as $11$ for the second deletion, since the first deletion
+        shortened the array.
+    targets:
+      - quant-programming.data-structures.array-linked-list
+
+  - id: qds-array-linked-list-03
+    kind: justify
+    difficulty: standard
+    statement: >
+      A colleague argues that a singly linked list is the better container for a
+      workload that inserts a new element in the middle of a sequence of $n$
+      items, over and over, because "linked list insertion is $O(1)$ and array
+      insertion is $O(n)$". Explain precisely where the argument is right, where
+      it is wrong, and what extra fact about the workload would decide it.
+    answer: >
+      The argument states a true fact about the wrong step. Insertion *at a held
+      node* is $O(1)$ in a linked list — two pointer writes — against $O(n)$
+      shifting in an array, so the splice itself is genuinely cheaper. But an
+      insertion has two steps, locate and splice, and the linked list has no
+      random access: reaching the middle costs $O(n)$ pointer hops, so the
+      operation is $O(n) + O(1) = O(n)$ end to end, the same order as the
+      array's $O(1)$ index plus $O(n)$ shift. The deciding fact is whether the
+      workload *arrives* holding a reference to the insertion point — a cursor
+      already walking the list, or a node handed over by a hash map, as in an
+      LRU cache. If it does, the linked list wins outright; if the position has
+      to be searched for each time, the two are the same order and the array
+      wins on constants, because shifting a contiguous block is a fast
+      memory-to-memory move while pointer chasing misses cache on nearly every
+      hop.
+    rubric:
+      - >
+        Separates locating the position from performing the splice, and points
+        out that only the second step is $O(1)$ for the list.
+      - >
+        Names the condition that decides it — whether a reference to the
+        insertion point is already held — rather than declaring one structure
+        universally better.
+      - >
+        Mentions constants and cache locality as the tiebreaker when both are
+        $O(n)$, not just the asymptotic order.
+    targets:
+      - quant-programming.data-structures.array-linked-list
+
+  # --- doubly linked list -----------------------------------------------------
+
+  - id: qds-doubly-linked-list-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A doubly linked list is kept with a head sentinel node, so the first real
+      node is always the sentinel's successor. Node $X$ currently sits somewhere
+      in the middle, between $P$ and $N$, and you move it to the front: unlink
+      it, then splice it in immediately after the sentinel. Counting every
+      assignment to a next-pointer or a previous-pointer as one pointer write,
+      and assuming the list holds at least three real nodes so no two of the
+      touched nodes coincide, how many pointer writes does the move take?
+    answer: >
+      $6$. The unlink is two writes: set $P$'s next to $N$, and $N$'s previous
+      to $P$. Nothing else changes, and $X$'s own stale pointers are about to be
+      overwritten anyway. The splice at the front is four: $X$'s previous
+      becomes the sentinel, $X$'s next becomes the sentinel's old successor,
+      that old successor's previous becomes $X$, and the sentinel's next becomes
+      $X$. Total $2 + 4 = 6$, and — this is the whole point — that count is $6$
+      whether the list holds three nodes or three million, since no step
+      searches for anything. The trap is writing only the two "forward"
+      pointers on the splice and leaving the old front node's previous-pointer
+      still aimed at the sentinel: the list then traverses correctly forward
+      and corruptly backward, and the bug surfaces much later, on the first
+      eviction that walks from the tail.
+    expects: "6"
+    rubric:
+      - >
+        Splits the move into unlink ($2$ writes) and front-splice ($4$ writes)
+        rather than guessing a single number.
+      - >
+        Counts both directions on the splice — the new neighbour's
+        previous-pointer as well as the sentinel's next-pointer.
+      - >
+        States that the count does not depend on the list's length, which is
+        what $O(1)$ means here.
+    targets:
+      - quant-programming.data-structures.doubly-linked-list
+    exercises:
+      - quant-programming.data-structures.array-linked-list
+
+  - id: qds-doubly-linked-list-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      You hold a direct reference to a node $Y$ somewhere in a list, and nothing
+      else — no head pointer, no index, no traversal already in progress. Which
+      operation is $O(1)$ on a doubly linked list but $O(n)$ on a singly linked
+      list?
+    answer: >
+      Inserting a new node immediately *before* $Y$. The insertion needs $Y$'s
+      predecessor, since that node's next-pointer has to be redirected at the
+      newcomer. A doubly linked node hands its predecessor over for free — one
+      pointer read — so the splice is four pointer writes and no search. A
+      singly linked node cannot look backwards at all, so the only way to find
+      the predecessor is to restart from the head and walk until its next-pointer
+      equals $Y$, an $O(n)$ scan, and that assumes you even have the
+      head. Reading $Y$'s value and inserting immediately *after* $Y$ are both
+      $O(1)$ in either list, and appending at the tail is $O(1)$ in either one
+      provided a tail pointer is kept. The trap is the folklore trick for
+      deleting $Y$ from a singly linked list — copy the successor's value into
+      $Y$ and unlink the successor — which is $O(1)$ but fails when $Y$ is the
+      tail and is useless when other references to those nodes exist.
+    choices:
+      - text: >
+          Inserting a new node immediately before $Y$
+        correct: true
+        feedback: >
+          Right: the insertion must redirect the predecessor's next-pointer, and
+          only the doubly linked node can name its predecessor without a scan.
+      - text: >
+          Reading the value stored in $Y$
+        feedback: >
+          That is $O(1)$ in both — the value sits in the node you already hold,
+          and no pointer needs following in either direction.
+      - text: >
+          Inserting a new node immediately after $Y$
+        feedback: >
+          That one a singly linked list does fine: read $Y$'s next, point the
+          newcomer at it, point $Y$ at the newcomer. No predecessor needed.
+      - text: >
+          Appending a new node at the tail of the list
+        feedback: >
+          Either list appends in $O(1)$ if it keeps a tail pointer, and neither
+          can do it at all from a reference to $Y$ alone — so this does not
+          separate the two.
+    rubric:
+      - >
+        Identifies the operation whose cost turns on reaching the *predecessor*, which
+        is the only asymmetry between the two lists.
+      - >
+        Rejects the distractors for the right reason — reading a value and splicing
+        after a held node are $O(1)$ in both lists.
+    targets:
+      - quant-programming.data-structures.doubly-linked-list
+
+  # --- hash map / hash set ----------------------------------------------------
+
+  - id: qds-hash-map-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      An open-addressed hash table has $11$ slots, indices $0$ through $10$,
+      empty at the start, and resolves collisions by linear probing: a key $k$
+      first tries slot $k \bmod 11$, then the next slot, wrapping around. Insert
+      the keys $25$, $14$, $36$, $47$ and $6$ in that order. Counting the very
+      first slot examined as probe $1$, how many probes do the five insertions
+      make in total?
+    answer: >
+      $12$. The first four keys all hash to slot $3$, since $25$, $14$, $36$ and
+      $47$ are each $3$ more than a multiple of $11$. So $25$ lands at slot $3$
+      in $1$ probe; $14$ finds $3$ taken and settles at $4$ in $2$ probes; $36$
+      needs $3$; and $47$ needs $4$, ending at slot $6$. That is a cluster
+      occupying slots $3$ through $6$. Now $6 \bmod 11 = 6$, a *different* hash
+      value entirely — and yet slot $6$ is occupied by $47$, so key $6$ probes
+      twice and lands at slot $7$. The total is $1 + 2 + 3 + 4 + 2 = 12$. The
+      trap the last key names is primary clustering: with linear probing a
+      collision is not confined to the keys that share a hash value, because
+      every displaced key extends the run and poisons the slots after it. The
+      answer $1 + 2 + 3 + 4 + 1 = 11$ comes from assuming key $6$ found its home
+      slot free because no earlier key hashed to $6$.
+    expects: "12"
+    rubric:
+      - >
+        Reduces each key modulo $11$ and tracks the occupied run, rather than
+        assuming keys with distinct hash values never collide.
+      - >
+        Charges key $6$ two probes because the cluster from slot $3$ has grown
+        to cover slot $6$ — the primary-clustering effect.
+      - >
+        Counts the first slot examined as a probe, so a key that lands in an
+        empty home slot costs $1$ and not $0$.
+    targets:
+      - quant-programming.data-structures.hash-map
+    exercises:
+      - quant-programming.complexity.hashing-cost
+
+  - id: qds-hash-map-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A hash table with $7$ buckets resolves collisions by chaining: key $k$
+      goes into bucket $k \bmod 7$, and a new key is appended at the *tail* of
+      its bucket's chain. Insert $8$, $15$, $3$, $22$, $10$, $17$ and $4$ in
+      that order, then look up the key $17$, scanning its chain from the head.
+      How many key comparisons does the lookup make?
+    answer: >
+      $3$. Reducing modulo $7$: $8 \to 1$, $15 \to 1$, $3 \to 3$, $22 \to 1$,
+      $10 \to 3$, $17 \to 3$, $4 \to 4$. So bucket $1$ chains $8, 15, 22$;
+      bucket $3$ chains $3, 10, 17$ in that insertion order; bucket $4$ holds
+      $4$ alone; the other four buckets are empty. The lookup hashes $17$ to
+      bucket $3$ in $O(1)$ and then walks the chain: compare against $3$ — no;
+      against $10$ — no; against $17$ — hit. Three comparisons. Note what the
+      count does *not* depend on: the seven keys in the table, or the four
+      empty buckets. It depends only on this chain's length, which is why the
+      load factor, not the key count, is the quantity a hash table keeps
+      bounded by resizing. The trap is quoting $O(1)$ and stopping: $O(1)$ is
+      the *expected* cost under a good hash and a bounded load factor, and a
+      lookup that lands on the longest chain pays that chain's length.
+    expects: "3"
+    rubric:
+      - >
+        Reduces all seven keys modulo $7$ and builds the chains in insertion
+        order before walking one.
+      - >
+        Counts comparisons within the target bucket only — the other buckets
+        are never touched.
+      - >
+        Connects the answer to load factor rather than to the total number of
+        keys stored.
+    targets:
+      - quant-programming.data-structures.hash-map
+    exercises:
+      - quant-programming.complexity.hashing-cost
+
+  - id: qds-hash-map-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      A trading system tags every incoming order with an integer id and uses a
+      hash set to reject duplicates. In production the set's lookups slow from
+      microseconds to milliseconds, though the set holds no more entries than
+      the load test used. Which explanation fits the symptom?
+    answer: >
+      The ids are landing in far fewer buckets than the table has, so the
+      expected-$O(1)$ guarantee has collapsed to a walk down one long chain.
+      Hash-table cost is $O(1)$ *expected*, and the expectation is taken over a
+      hash function that spreads keys evenly; it is not a worst-case bound. If
+      the ids carry structure the hash does not destroy — sequential ids with a
+      fixed stride, a table size sharing a factor with that stride, or a
+      counterparty deliberately choosing colliding ids — then a bounded number
+      of buckets absorbs every key, each lookup scans a chain of length
+      proportional to $n$, and the operation is $O(n)$. Note the diagnostic in
+      the statement: the entry count is unchanged, so this is not a resize or a
+      load-factor problem, and it is not the ordering complaint either, since
+      duplicate rejection never asks about order. The fix is a hash that mixes
+      the input (or a randomized seed, against an adversary), not a bigger
+      table, which merely spreads the same clustered pattern over more empty
+      buckets.
+    choices:
+      - text: >
+          The ids are clustering into a few buckets, so lookups walk long
+          chains and degrade toward $O(n)$
+        correct: true
+        feedback: >
+          Yes — $O(1)$ is expected under a hash that spreads keys, and
+          structured or adversarial keys break exactly that assumption.
+      - text: >
+          The set has exceeded its load factor and is resizing on every insert
+        feedback: >
+          The entry count is unchanged from the load test, so the table is
+          under the same load factor; and a resize is amortized $O(1)$ anyway,
+          not a per-lookup cost.
+      - text: >
+          Hash sets do not preserve insertion order, so the lookup has to scan
+          to find the right position
+        feedback: >
+          A lookup never needs order — it hashes straight to a bucket. Lost
+          ordering is a real limitation of hash tables, but it costs you range
+          and rank queries, not lookup speed.
+      - text: >
+          Duplicate ids force the set to store both copies, doubling the memory
+          and the search
+        feedback: >
+          A set stores one copy of a key by definition; a duplicate insert is
+          detected and discarded, and the entry count in the statement confirms
+          the table is not growing.
+    rubric:
+      - >
+        Reads $O(1)$ as an expectation over a well-spreading hash, and names the
+        assumption that structured or adversarial keys break.
+      - >
+        Uses the stated diagnostic — the entry count is unchanged — to rule out a
+        load-factor or resizing explanation.
+      - >
+        Proposes a better hash or a randomized seed rather than a larger table.
+    targets:
+      - quant-programming.data-structures.hash-map
+    exercises:
+      - quant-programming.complexity.hashing-cost
+
+  - id: qds-hash-map-04
+    kind: decide
+    difficulty: demanding
+    statement: >
+      A risk service stores about a million positions keyed by an integer
+      instrument id. It must support two queries at high rate: fetch the
+      position for one id, and report every position whose id lies in a stated
+      interval. Which single container serves both, and why is the other
+      candidate disqualified?
+    answer: >
+      A balanced binary search tree. Take the two candidates in turn. A hash map
+      answers the point fetch in $O(1)$ expected, which is better than the
+      tree's $O(\log n)$ — but it cannot answer the interval query at all
+      without scanning all $n$ entries, because hashing deliberately destroys
+      the order of the keys: neighbouring ids land in unrelated buckets, so
+      there is no way to enumerate an interval except by testing every key. A
+      balanced BST answers the point fetch in $O(\log n)$, about $20$
+      comparisons at $n = 10^{6}$, and answers the interval query in
+      $O(\log n + m)$ for $m$ reported items by descending to the interval's
+      lower end and walking in order. That asymmetry is the whole distinction
+      between the two containers: the hash map wins plain membership, the
+      balanced BST wins the moment order, rank or range enters the question.
+      Keeping both structures in sync is a real engineering option, but it is
+      the answer to a different question — here one container already does the
+      job, and duplicating the keys doubles the memory and the write path.
+    choices:
+      - text: >
+          A balanced BST — $O(\log n)$ point lookup, and $O(\log n + m)$ range
+          reporting by descending then walking in key order
+        correct: true
+        feedback: >
+          Right. Paying $O(\log n)$ instead of $O(1)$ on the point query is the
+          rent for order queries the hash map cannot answer at all.
+      - text: >
+          A hash map — $O(1)$ lookup dominates, and the range query is just a
+          filter over its keys
+        feedback: >
+          That filter is a full $O(n)$ scan of a million entries per query.
+          Hashing scatters neighbouring ids across unrelated buckets, so no
+          cheaper enumeration of an interval exists.
+      - text: >
+          An unsorted array of positions, scanned for both queries
+        feedback: >
+          $O(n)$ for the point fetch as well as the range query — strictly worse
+          than either candidate, and at high rate over a million entries.
+      - text: >
+          A max-heap keyed by instrument id
+        feedback: >
+          A heap gives $O(1)$ access to one extreme element only. It cannot find
+          an arbitrary id in better than $O(n)$, and its array holds no useful
+          order for an interval.
+    rubric:
+      - >
+        Checks both queries against both candidates, rather than deciding on the point
+        lookup alone.
+      - >
+        Says why hashing cannot answer a range query at all — the hash destroys the
+        key order, so neighbouring ids are scattered.
+      - >
+        Prices the balanced BST's range query as $O(\log n + m)$: a descent plus an
+        in-order walk over the reported items.
+    targets:
+      - quant-programming.data-structures.hash-map
+      - quant-programming.data-structures.bst
+    connects:
+      - quant-programming.data-structures.bst ~ quant-programming.data-structures.hash-map
+
+  # --- heap / priority queue --------------------------------------------------
+
+  - id: qds-heap-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Build a max-heap in place from the array $[3, 12, 5, 20, 7, 14, 9]$ by
+      Floyd's method: starting at the last internal node and moving down to
+      index $0$, sift each element down, swapping it with its larger child while
+      that child is bigger. Indices are $0$-based. How many swaps does the whole
+      build perform?
+    answer: >
+      $4$. With $n = 7$ the last internal node is index $2$, since indices $3$
+      through $6$ are leaves. Sift index $2$ (value $5$, children $14$ and $9$
+      at indices $5$ and $6$): the larger child is $14$, and $14 > 5$, so swap —
+      one swap, array $[3, 12, 14, 20, 7, 5, 9]$. Sift index $1$ (value $12$,
+      children $20$ and $7$ at indices $3$ and $4$): swap with $20$ — one swap,
+      array $[3, 20, 14, 12, 7, 5, 9]$; the displaced $12$ is at index $3$, a
+      leaf, so it stops. Sift index $0$ (value $3$, children $20$ and $14$):
+      swap with $20$, then $3$ sits at index $1$ with children $12$ and $7$, so
+      swap with $12$ — two swaps, array $[20, 12, 14, 3, 7, 5, 9]$. Total
+      $1 + 1 + 2 = 4$. Two traps. The first is starting the loop at index
+      $n/2 = 3$, a leaf, which is the off-by-one in the parent-index arithmetic:
+      the last internal node is $\lfloor n/2 \rfloor - 1 = 2$. The second is
+      swapping with the *first* child that is bigger rather than the larger of
+      the two, which can leave the new parent smaller than its remaining child
+      and silently break the heap.
+    expects: "4"
+    rubric:
+      - >
+        Starts at index $\lfloor n/2 \rfloor - 1 = 2$, not at index $3$ or at
+        index $0$, and works downward in index.
+      - >
+        Always swaps with the *larger* child, and keeps sifting the displaced
+        element until it stops — the sift at index $0$ costs two swaps, not one.
+      - >
+        Reports the total across all three sift-downs, and notes that this build
+        is $O(n)$ rather than $n$ separate $O(\log n)$ inserts.
+    targets:
+      - quant-programming.data-structures.heap
+    exercises:
+      - quant-programming.data-structures.array-linked-list
+
+  - id: qds-heap-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A min-heap is stored as the $0$-based array $[4, 9, 6, 12, 11, 8, 7]$.
+      Insert the value $5$ by appending it and then sifting it up, swapping it
+      with its parent while it is smaller than that parent. How many swaps does
+      the sift-up make?
+    answer: >
+      $2$. The append puts $5$ at index $7$. Its parent is at index
+      $\lfloor (7-1)/2 \rfloor = 3$, holding $12$; since $5 < 12$, swap, and $5$
+      is now at index $3$: array $[4, 9, 6, 5, 11, 8, 7, 12]$. The parent of
+      index $3$ is index $\lfloor (3-1)/2 \rfloor = 1$, holding $9$; since
+      $5 < 9$, swap again, and $5$ is at index $1$: array
+      $[4, 5, 6, 9, 11, 8, 7, 12]$. The parent of index $1$ is index $0$,
+      holding $4$; since $5 > 4$ the sift-up stops. Two swaps. The trap is the
+      parent formula: with $0$-based indexing the parent of $i$ is
+      $\lfloor (i-1)/2 \rfloor$, and using $\lfloor i/2 \rfloor$ (the $1$-based
+      rule) would send index $7$ to index $3$ correctly by luck but index $3$ to
+      index $1$ and then index $1$ to itself, an infinite loop or a wrong path.
+      Note also that a sift-up can never exceed the height, so this is
+      $O(\log n)$ and never a scan.
+    expects: "2"
+    rubric:
+      - >
+        Uses $\lfloor (i-1)/2 \rfloor$ for the parent of index $i$ in a
+        $0$-based array.
+      - >
+        Stops the sift-up at the first parent that is not larger, rather than
+        walking all the way to the root.
+    targets:
+      - quant-programming.data-structures.heap
+
+  - id: qds-heap-03
+    kind: work
+    difficulty: standard
+    statement: >
+      A min-heap is the $0$-based array $[2, 4, 3, 9, 6, 5, 7]$. Perform one
+      extract-min: swap the root with the last element, drop the last element,
+      then sift the new root down, swapping it with its smaller child while that
+      child is smaller. What value sits at index $2$ of the resulting array?
+    answer: >
+      $5$. Extract-min removes $2$ and moves the last element, $7$, to the root,
+      leaving $[7, 4, 3, 9, 6, 5]$ with six entries. Sift $7$ down: its children
+      at indices $1$ and $2$ are $4$ and $3$, and the smaller is $3$, so swap
+      with $3$ — array $[3, 4, 7, 9, 6, 5]$, with $7$ now at index $2$. The
+      children of index $2$ are index $5$ (value $5$) and index $6$, which does
+      not exist; $5 < 7$, so swap again — array $[3, 4, 5, 9, 6, 7]$, and $7$ at
+      index $5$ is a leaf, so the sift stops. Index $2$ holds $5$. The trap is
+      swapping with the left child by default: swapping $7$ with $4$ first would
+      put $4$ at the root with $3$ still below it, violating the heap property
+      one level down while looking locally fine. A second trap is treating the
+      heap array as sorted — the result $[3, 4, 5, 9, 6, 7]$ is a valid min-heap
+      and is not in increasing order.
+    expects: "5"
+    rubric:
+      - >
+        Moves the *last* element to the root and shrinks the array, rather than
+        promoting a child and leaving a hole.
+      - >
+        Compares against the smaller of the two children at each level, and
+        handles the missing right child at index $2$.
+      - >
+        Reads off index $2$ of the final array without assuming the array is
+        sorted.
+    targets:
+      - quant-programming.data-structures.heap
+
+  - id: qds-heap-04
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Explain why insert and extract-min on a binary heap of $n$ elements are
+      $O(\log n)$, why peeking the minimum is $O(1)$, and why building a heap
+      from $n$ given elements is $O(n)$ rather than $O(n \log n)$ — even though
+      $n$ inserts would cost $O(n \log n)$.
+    answer: >
+      Every bound comes from the shape. A binary heap is a *complete* tree, so
+      its height is $\lfloor \log_{2} n \rfloor$: the levels hold
+      $1, 2, 4, \dots$ elements, and $n$ of them fit in about $\log_{2} n$
+      levels no matter what the values are. Insert appends at the end and sifts
+      up along one root-to-leaf path, one comparison and at most one swap per
+      level, so it is $O(\log n)$; extract-min moves the last leaf to the root
+      and sifts down one path, likewise $O(\log n)$. Peek is $O(1)$ because the
+      heap property forces the minimum into the root — no search is needed, and
+      that is also why finding an *arbitrary* element is $O(n)$: the invariant
+      says nothing about siblings. The build is the interesting one. Sifting
+      down from the last internal node upward costs, for a node at height $h$
+      above the leaves, $O(h)$ — and the tree has about $n/2^{h+1}$ nodes at
+      height $h$. The total is therefore bounded by $n \sum_{h \ge 0} h/2^{h+1}$,
+      and that sum converges to $1$, giving $O(n)$. The intuition behind the
+      convergence is that almost every node is near the bottom, where sifting
+      costs almost nothing; the expensive nodes near the root are exponentially
+      few. Repeated insertion inverts exactly this — it sifts *up*, so the
+      many cheap-to-place elements are the ones that travel the full height, and
+      the bound is genuinely $O(n \log n)$.
+    rubric:
+      - >
+        Grounds $O(\log n)$ in the completeness of the tree — height
+        $\lfloor \log_{2} n \rfloor$ — and in each operation following one
+        root-to-leaf path.
+      - >
+        Explains the $O(n)$ build by weighting node counts against sift heights
+        (most nodes are leaves), not merely by asserting it.
+      - >
+        Says why repeated insertion does not achieve $O(n)$: sifting up charges
+        the numerous deep elements the full height.
+    targets:
+      - quant-programming.data-structures.heap
+
+  # --- top-k via a size-k heap ------------------------------------------------
+
+  - id: qds-top-k-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Stream the values $8, 21, 8, 13, 21, 5, 17, 8$ in that order through a
+      min-heap capped at $k = 4$: push each value, and whenever the heap holds
+      $5$ elements, pop the minimum. Equal values are kept as separate elements.
+      What value is at the heap's root once the whole stream has been processed?
+    answer: >
+      $13$. The cap is enforced after every push, so the heap always ends up
+      holding the four largest values seen so far, counted with multiplicity.
+      Tracking it: push $8, 21, 8, 13$ — heap holds $8, 8, 13, 21$, root $8$.
+      Push $21$, size $5$, pop the minimum $8$: heap $8, 13, 21, 21$, root $8$.
+      Push $5$, pop $5$ immediately — it is the new minimum, so the heap is
+      unchanged. Push $17$, pop $8$: heap $13, 17, 21, 21$, root $13$. Push $8$,
+      pop $8$: unchanged. The four largest of the stream are $21, 21, 17, 13$,
+      and the root is the smallest of those, $13$. Two traps. The first is
+      treating the repeats as one value, which would leave the four largest
+      *distinct* values $21, 17, 13, 8$ and a root of $8$ — a hash set collapses
+      duplicates, a heap does not. The second is reaching for a max-heap: its
+      root would be $21$, the largest, and popping it would throw away exactly
+      the element you want to keep. The min-heap's root is the *weakest* member
+      of the current top $4$, which is why it is both the right thing to pop and
+      a free admission test for the next candidate.
+    expects: "13"
+    rubric:
+      - >
+        Keeps duplicate values as separate heap elements rather than
+        deduplicating the stream.
+      - >
+        Pops the minimum after each over-cap push, so the root ends as the
+        smallest of the four largest — not the largest value in the stream.
+      - >
+        Notes that a value below the current root can be discarded without ever
+        being pushed.
+    targets:
+      - quant-programming.data-structures.top-k
+    exercises:
+      - quant-programming.data-structures.heap
+
+  - id: qds-top-k-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A stream of $7$ distinct values is pushed one at a time into a min-heap
+      capped at $k = 4$: after each push, if the heap holds more than $4$
+      elements, its minimum is popped. Over the whole stream, how many pops
+      occur in total?
+    answer: >
+      $3$. The count does not depend on the values at all, only on the
+      arithmetic of the cap. The first $4$ pushes leave the heap at exactly size
+      $4$, with nothing over the cap, so no pops. Every push after that takes
+      the heap to size $5$ and triggers exactly one pop, returning it to $4$ —
+      so pushes $5$, $6$ and $7$ each cost one pop, giving $n - k = 7 - 4 = 3$.
+      That invariance is the reason the pattern is $O(n \log k)$: each of the
+      $n$ elements is pushed once and popped at most once, and each of those
+      operations touches a heap of size at most $k$, so its cost is
+      $O(\log k)$, not $O(\log n)$. The trap is expecting the answer to depend
+      on the order the values arrive in. Order changes *which* values are
+      popped, and it changes how many pushes you could have skipped with the
+      root-comparison shortcut, but it cannot change how many times the heap
+      exceeded its cap.
+    expects: "3"
+    rubric:
+      - >
+        Gets $n - k$ by noting that every push after the $k$-th takes the heap
+        over the cap exactly once.
+      - >
+        States that the count is independent of the values and of their order.
+      - >
+        Ties the per-operation cost to $\log k$ rather than $\log n$, since the
+        heap never exceeds $k+1$ elements.
+    targets:
+      - quant-programming.data-structures.top-k
+
+  - id: qds-top-k-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      A tick feed delivers roughly $10^{9}$ trade sizes over a session, far more
+      than fits in memory, and at the end you must report the $100$ largest.
+      Which approach fits the constraints?
+    answer: >
+      A min-heap capped at $100$, streamed once. It costs $O(n \log k)$ time —
+      about $10^{9}$ pushes against a heap of height $7$ — and, decisively,
+      $O(k)$ memory: only $100$ trade sizes are ever resident, so the fact that
+      the feed does not fit in memory never arises. Sorting is the natural first
+      thought and is disqualified on space before its $O(n \log n)$ time
+      matters: it requires the whole session in memory at once. A max-heap of
+      everything has the same fatal space problem — it would hold all $10^{9}$
+      elements to give you $100$ of them. A sorted array of size $100$ is
+      genuinely correct and $O(k)$ in space, but each admission shifts elements
+      to keep the array packed, so an adversarial (increasing) feed costs
+      $O(nk)$ rather than $O(n \log k)$; the heap replaces that linear shift
+      with a $\log k$ sift. The habit worth taking away is to read the memory
+      constraint first on a streaming problem: it eliminates candidates faster
+      than the time bound does.
+    choices:
+      - text: >
+          A min-heap capped at $100$: $O(n \log k)$ time and $O(k)$ memory, one
+          pass over the feed
+        correct: true
+        feedback: >
+          Right, and the memory bound is what decides it — only $100$ values are
+          ever held, whatever the session's length.
+      - text: >
+          Sort the whole session and take the last $100$ values
+        feedback: >
+          $O(n \log n)$ is the smaller objection. Sorting needs all $10^{9}$
+          values resident, and the statement says they do not fit.
+      - text: >
+          A max-heap holding every trade size, popped $100$ times at the end
+        feedback: >
+          The heap would hold the entire feed — same space failure as sorting,
+          with an $O(n)$ build on top of it.
+      - text: >
+          A sorted array of size $100$, with each admitted value inserted in
+          place
+        feedback: >
+          Correct but slower: an insertion shifts up to $k$ elements, so a
+          steadily increasing feed costs $O(nk)$ where the heap costs
+          $O(n \log k)$.
+    rubric:
+      - >
+        Applies the memory constraint first, which eliminates both whole-stream
+        candidates before any time bound is compared.
+      - >
+        Separates the sorted array of size $k$, which is correct but costs $O(nk)$
+        from shifting, from the heap's $O(n \log k)$.
+    targets:
+      - quant-programming.data-structures.top-k
+
+  # --- running median ---------------------------------------------------------
+
+  - id: qds-running-median-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Insert $9, 3, 14, 6, 20, 11, 2$ in that order into the two-heap
+      running-median structure: a max-heap lo for the lower half and a min-heap
+      hi for the upper half, pushing each new $x$ onto lo when lo is empty or
+      $x \le$ lo's max and onto hi otherwise, then moving one root across
+      whenever the sizes differ by more than one. What is the median after all
+      seven insertions?
+    answer: >
+      $9$. Following the rule: $9$ goes to lo (empty), lo $= 9$. $3 \le 9$, so
+      lo $= 3, 9$; sizes $2$ and $0$ differ by more than one, so move lo's max
+      $9$ to hi — lo $= 3$, hi $= 9$. $14 > 3$, hi $= 9, 14$; move hi's min $9$
+      back to lo — lo $= 3, 9$, hi $= 14$. $6 \le 9$, lo $= 3, 6, 9$; move $9$
+      across — lo $= 3, 6$, hi $= 9, 14$. $20 > 6$, hi $= 9, 14, 20$; move $9$
+      back — lo $= 3, 6, 9$, hi $= 14, 20$. $11 > 9$, hi $= 11, 14, 20$; sizes
+      $3$ and $3$, no move. $2 \le 9$, lo $= 2, 3, 6, 9$; sizes $4$ and $3$,
+      within one, no move. Seven values is odd, and lo is the larger heap, so
+      the median is lo's max: $9$. The sorted stream $2, 3, 6, 9, 11, 14, 20$
+      confirms $9$ as the fourth of seven. The trap is reading the median off
+      the wrong heap — with an odd count you must take the root of whichever
+      heap is bigger, and averaging the two roots here would give
+      $(9 + 14)/2 = 11.5$, the answer to no question at all.
+    expects: "9"
+    rubric:
+      - >
+        Rebalances only when the size gap exceeds one, so a $4$–$3$ split is
+        left alone.
+      - >
+        Reads the median from the larger heap's root when the count is odd,
+        rather than averaging the two roots.
+      - >
+        Cross-checks against the sorted stream.
+    targets:
+      - quant-programming.data-structures.running-median
+    exercises:
+      - quant-programming.data-structures.heap
+
+  - id: qds-running-median-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Insert $10, 4, 16, 6$ in that order into the two-heap running-median
+      structure, with the same rule: push $x$ onto the max-heap lo when lo is
+      empty or $x \le$ lo's max, otherwise onto the min-heap hi, then move a
+      root across if the sizes differ by more than one. What is the median after
+      all four insertions?
+    answer: >
+      $8$. Step by step: $10$ goes to lo, lo $= 10$. $4 \le 10$, lo $= 4, 10$;
+      sizes $2$ and $0$, so move lo's max $10$ to hi — lo $= 4$, hi $= 10$.
+      $16 > 4$, hi $= 10, 16$; sizes $1$ and $2$, within one, no move. $6 > 4$,
+      so $6$ goes to hi — hi $= 6, 10, 16$; sizes $1$ and $3$ differ by more
+      than one, so move hi's min $6$ to lo, leaving lo $= 4, 6$ and
+      hi $= 10, 16$. The sizes are equal, so the median is the average of the
+      two roots, $(6 + 10)/2 = 8$, matching the sorted list $4, 6, 10, 16$. The
+      trap is skipping the rebalancing move after inserting $6$: without it, lo
+      holds one element and hi holds three, and reading lo's max would report
+      $4$ as the median of four values, three of which exceed it.
+    expects: "8"
+    rubric:
+      - >
+        Compares $x$ against lo's *current* max, which changes as elements move
+        across.
+      - >
+        Averages the two roots when the two heaps are the same size.
+    targets:
+      - quant-programming.data-structures.running-median
+
+  - id: qds-running-median-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      An implementation of the two-heap running median passes its tests on small
+      inputs but reports wrong medians on long streams. Inspection shows both
+      heaps are valid heaps, the size gap never exceeds one, and the median is
+      read correctly from the larger root or averaged when the sizes match.
+      Which invariant is nonetheless being violated?
+    answer: >
+      Every element of lo must be $\le$ every element of hi. That is the
+      invariant doing the actual work, and it is the one the listed checks do
+      not test: two individually valid heaps of the right sizes can still be
+      interleaved, and then lo's max is simply not the median of the whole
+      stream. The usual cause is the rebalancing step — moving an arbitrary
+      element instead of the offending heap's *root*, or pushing a new value
+      onto the smaller heap "to keep it balanced" rather than onto the heap the
+      comparison sends it to and rebalancing afterwards. Note what is *not* the
+      problem here: the heap property inside each half is intact by hypothesis,
+      the sizes are within one by hypothesis, and ties can go to either heap
+      without any harm, since a tie means the two candidate medians are equal.
+      The partition is the invariant, the sizes only decide which root to read.
+    choices:
+      - text: >
+          The partition itself — every element of lo must be at most every
+          element of hi, and the two halves have become interleaved
+        correct: true
+        feedback: >
+          Exactly. Valid heaps of the right sizes are not enough; without the
+          partition, lo's max is not the middle of the stream.
+      - text: >
+          Both heaps must be min-heaps for the size comparison to work
+        feedback: >
+          No — lo is deliberately a max-heap, so its root is the largest of the
+          lower half, which is one of the two candidate medians.
+      - text: >
+          A tie must always be pushed onto hi, or the median drifts upward
+        feedback: >
+          When $x$ equals lo's max the two halves meet at the same value, so
+          either destination gives the same median. Any fixed convention works.
+      - text: >
+          The two heaps must always hold exactly equal numbers of elements
+        feedback: >
+          Impossible after an odd number of insertions, and unnecessary: a gap
+          of one is what lets the odd case read a single root.
+    rubric:
+      - >
+        Names the partition between the two heaps as the invariant, not the heap
+        property or the size balance, both of which are stated to hold.
+      - >
+        Explains why valid heaps of the right sizes are insufficient: interleaved
+        halves leave lo's max somewhere other than the middle.
+      - >
+        Points at the rebalancing step — moving a root, not an arbitrary element — as
+        the usual place the partition is lost.
+    targets:
+      - quant-programming.data-structures.running-median
+
+  # --- stack and queue --------------------------------------------------------
+
+  - id: qds-stack-queue-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A stack $S$ and a queue $Q$ both start empty. Push $4$, then $5$, then $6$
+      onto $S$. Pop from $S$ and enqueue the popped value into $Q$; pop from $S$
+      again and enqueue that value too. Push $7$ onto $S$, then pop from $S$ and
+      enqueue the popped value. Now dequeue from $Q$ twice. What is the *second*
+      dequeued value?
+    answer: >
+      $5$. Track the two containers separately, remembering that the stack
+      reverses and the queue preserves. After the three pushes $S$ holds
+      $4, 5, 6$ with $6$ on top. The first pop returns $6$ (last in, first out),
+      so $Q$ holds $6$. The second pop returns $5$, so $Q$ holds $6, 5$ with $6$
+      still at the head. Pushing $7$ puts it on top of the remaining $4$, and
+      the next pop returns $7$, so $Q$ holds $6, 5, 7$. Dequeuing takes from the
+      head in arrival order: first $6$, then $5$. The second dequeued value is
+      therefore $5$, and $S$ still holds $4$ while $Q$ still holds $7$. The trap
+      is letting one discipline contaminate the other — reading $Q$ as though it
+      also returned its most recent entry would give $7$ then $5$, and reading
+      $S$ as a queue would have popped $4$ first and left $Q$ holding
+      $4, 5, 7$. The two structures differ in exactly one respect, which end the
+      removal happens at, and that single difference is what the whole trace
+      turns on.
+    expects: "5"
+    rubric:
+      - >
+        Pops from $S$ in last-in-first-out order and dequeues from $Q$ in
+        first-in-first-out order, keeping the two disciplines apart.
+      - >
+        Notices that $7$ is pushed after two pops, so it sits above $4$ and is
+        the third value to reach $Q$.
+    targets:
+      - quant-programming.data-structures.stack-queue
+
+  - id: qds-stack-queue-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Scan the nine-character bracket sequence — in order, an open round, an
+      open square, an open round, a close round, a close square, an open round,
+      a close round, a close round, a close round — with a stack: push each
+      opening bracket, and on a closing bracket check that the stack is
+      non-empty and its top is the matching opener, popping it if so and failing
+      otherwise. At which position, numbered from $1$, does the scan first fail?
+    answer: >
+      Position $9$. Walking it: position $1$ pushes an open round, so the stack
+      is one deep; position $2$ pushes an open square, two deep; position $3$
+      pushes an open round, three deep; position $4$ is a close round matching
+      the top, pop to two; position $5$ is a close square matching the top
+      square, pop to one; position $6$ pushes an open round, two deep; position
+      $7$ closes it, pop to one; position $8$ closes the outermost opener from
+      position $1$, pop to zero. Position $9$ is a close round arriving at an
+      *empty* stack, so there is no opener to match and the scan fails there.
+      The trap is checking only that the top is the right *type* and forgetting
+      the emptiness test, which reads past the end of the stack — and the
+      mirror-image trap is declaring success at position $8$ without the final
+      check that the stack is empty when the string ends. Both errors are the
+      same oversight: the stack's depth is part of the answer, not just its top.
+    expects: "9"
+    rubric:
+      - >
+        Tracks the stack's depth as well as its top, and identifies the failure
+        as a close arriving on an empty stack.
+      - >
+        Confirms that positions $1$ through $8$ nest correctly, so the failure
+        is genuinely the ninth character and not an earlier type mismatch.
+    targets:
+      - quant-programming.data-structures.stack-queue
+
+  - id: qds-stack-queue-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      A queue is implemented with two stacks: enqueue pushes onto the *in*
+      stack; dequeue pops from the *out* stack, but when *out* is empty it first
+      moves every element of *in* across, one pop and push at a time, which
+      reverses their order. A single dequeue can therefore move many elements.
+      What is the cost per dequeue?
+    answer: >
+      $O(1)$ amortized, with an $O(n)$ worst case for one individual dequeue.
+      The accounting is the same one that justifies a dynamic array's doubling.
+      Each element enters *in* exactly once, is moved to *out* at most once, and
+      leaves *out* exactly once — three constant-cost operations over the
+      element's whole lifetime, no matter how the enqueues and dequeues are
+      interleaved. So $m$ operations cost $O(m)$ in total, which is $O(1)$ per
+      operation on average. The expensive transfer that alarms you cannot
+      recur: right after it, *out* holds every waiting element and the next
+      several dequeues are single pops. The trap is quoting the worst single
+      operation as the cost of the operation — true for a latency budget, where
+      one dequeue really can stall for $O(n)$, and wrong for throughput, where
+      the total over a run is what you pay. Note also that the transfer only
+      happens when *out* is empty; refilling it while it still holds elements
+      would interleave old and new arrivals and break the ordering outright.
+    choices:
+      - text: >
+          $O(1)$ amortized, though a single dequeue can cost $O(n)$
+        correct: true
+        feedback: >
+          Right: each element is pushed and popped a bounded number of times
+          over its lifetime, so $m$ operations cost $O(m)$ in total.
+      - text: >
+          $O(n)$ per dequeue, since the transfer can move every element
+        feedback: >
+          That charges every dequeue the worst case, but the transfer refills
+          *out* for the dequeues that follow, so it cannot happen repeatedly.
+      - text: >
+          $O(\log n)$ per dequeue, as with a heap operation
+        feedback: >
+          Nothing here is halving or tree-shaped — the structures are two flat
+          stacks, so no logarithm arises.
+      - text: >
+          $O(1)$ in the worst case, since a pop is always constant time
+        feedback: >
+          The transfer step is real: the dequeue that finds *out* empty does
+          $O(n)$ work, so the constant bound holds only on average.
+    rubric:
+      - >
+        Charges each element a bounded number of pushes and pops over its lifetime,
+        giving $O(m)$ across $m$ operations.
+      - >
+        Distinguishes amortized cost from worst-case latency, and concedes that a
+        single dequeue really can cost $O(n)$.
+      - >
+        Notes that the transfer refills the out stack, so the expensive step cannot
+        recur immediately.
+    targets:
+      - quant-programming.data-structures.stack-queue
+    exercises:
+      - quant-programming.complexity.amortized
+
+  # --- monotonic stack --------------------------------------------------------
+
+  - id: qds-monotonic-stack-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Scan the prices $7, 3, 9, 4, 6, 2, 8$ left to right with a stack of
+      indices kept strictly value-decreasing: before pushing the current index,
+      pop every index whose stored value is smaller than the current value. How
+      many pops does the whole scan perform?
+    answer: >
+      $5$. Each pop resolves exactly one element's next-greater-to-the-right, so
+      count the elements that have one. $7$ is later beaten by $9$; $3$ is
+      beaten by $9$; $9$ is never beaten, since the largest later value is $8$;
+      $4$ is beaten by $6$; $6$ is beaten by $8$; $2$ is beaten by $8$; and $8$
+      is last, so nothing beats it. Five elements have a next greater value, so
+      the scan performs five pops — and the two survivors, $9$ and $8$, are
+      exactly the indices still on the stack when the scan ends. The trace
+      agrees: pushing $9$ pops both $3$ and $7$ (two pops in one step), pushing
+      $6$ pops $4$, and pushing $8$ pops $2$ and then $6$ before stopping at
+      $9$. The trap is reading a multi-pop step as evidence that the algorithm
+      is quadratic. It is not: an index is pushed once and popped at most once,
+      so the total pops over the whole scan are bounded by $n$ however
+      spectacular a single step looks, and the amortized cost per element is
+      $O(1)$.
+    expects: "5"
+    rubric:
+      - >
+        Counts pops as elements that have a next greater element to the right,
+        or traces the stack directly — both give the same number.
+      - >
+        Identifies the elements never popped ($9$ and $8$), which is what makes
+        the total $5$ rather than $7$.
+      - >
+        Argues $O(n)$ total from "pushed once, popped at most once" rather than
+        from the size of any one step.
+    targets:
+      - quant-programming.data-structures.monotonic-stack
+    exercises:
+      - quant-programming.data-structures.stack-queue
+      - quant-programming.complexity.amortized
+
+  - id: qds-monotonic-stack-02
+    kind: work
+    difficulty: standard
+    statement: >
+      The array is $4, 10, 3, 5, 9, 2$ at indices $0$ through $5$. Using a
+      value-decreasing monotonic stack scanned left to right, what is the next
+      greater element to the right of the value at index $3$ (the value $5$)?
+    answer: >
+      $9$. Look right from index $3$: the values are $9$ at index $4$ and $2$ at
+      index $5$, and the first one exceeding $5$ is $9$. The stack machinery
+      finds it as follows. After index $3$ is pushed, the stack holds indices
+      $1, 3$ (values $10, 5$), decreasing as required — index $2$ (value $3$)
+      was popped by $5$, and index $0$ (value $4$) was popped earlier by $10$.
+      At index $4$, value $9$: pop index $3$, since $5 < 9$, and record $9$ as
+      that element's answer; then $10 > 9$, so stop popping and push index $4$.
+      The trap is answering $10$: that is the nearest *greater* value overall,
+      but it lies to the left, and a monotonic stack answers strictly about what
+      comes after. A second trap is answering $2$ — the next element to the
+      right, greater or not. Only the pop that actually removes an index
+      resolves it, which is why the answer for index $3$ is settled at index
+      $4$ and not before.
+    expects: "9"
+    rubric:
+      - >
+        Searches to the right of index $3$ only, so $10$ at index $1$ is not
+        eligible.
+      - >
+        Takes the *first* later value that exceeds $5$, and identifies it as the
+        value whose arrival pops index $3$.
+    targets:
+      - quant-programming.data-structures.monotonic-stack
+
+  # --- binary search tree -----------------------------------------------------
+
+  - id: qds-bst-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Take $1000$ distinct keys. In case A they are inserted in random order
+      into a self-balancing BST, which ends up complete — every level full
+      except possibly the last. In case B the same keys arrive already sorted
+      and are inserted into a plain BST with no rebalancing. Counting the nodes
+      visited on a worst-case search, including the root and the node found, how
+      many *more* nodes does case B visit than case A?
+    answer: >
+      $990$. In case A the height is $\lfloor \log_{2} 1000 \rfloor = 9$ edges,
+      since $2^{9} = 512 \le 1000 < 1024 = 2^{10}$; a root-to-deepest-leaf path
+      therefore visits $9 + 1 = 10$ nodes. In case B each key is larger than
+      every key already present, so it goes right at every comparison and
+      becomes the right child of the previous key: the tree is a chain of $1000$
+      nodes with $999$ edges, and a search for the last key visits all $1000$.
+      The difference is $1000 - 10 = 990$. That factor of $100$ is the entire
+      reason self-balancing variants exist, and note where the degeneration
+      comes from — not from bad keys but from a benign-looking *arrival order*,
+      which is why replaying a sorted file into a plain BST is a classic
+      production incident. The trap is confusing height in edges with nodes
+      visited: $\lfloor \log_{2} 1000 \rfloor = 9$ is the edge count, and a
+      search compares against one more node than that.
+    expects: "990"
+    rubric:
+      - >
+        Gets the balanced height as $\lfloor \log_{2} n \rfloor = 9$ edges and
+        converts it to $10$ nodes visited.
+      - >
+        Recognises that sorted insertion produces a right-going chain of all
+        $1000$ nodes, not a tree of any lesser depth.
+      - >
+        Attributes the degeneration to insertion order rather than to the keys
+        themselves.
+    targets:
+      - quant-programming.data-structures.bst
+
+  - id: qds-bst-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Insert $50, 30, 70, 20, 40, 60, 80, 35$ in that order into an empty binary
+      search tree with no rebalancing. A search for the key $35$ then walks down
+      from the root, going left when the target is smaller than the current key
+      and right when it is larger. How many nodes does the search visit,
+      counting the root and the node holding $35$ itself?
+    answer: >
+      $4$. Build the tree first: $50$ is the root; $30$ goes left of $50$ and
+      $70$ goes right; $20$ goes left of $30$ and $40$ right of $30$; $60$ goes
+      left of $70$ and $80$ right; finally $35 < 50$ sends it left to $30$,
+      $35 > 30$ sends it right to $40$, and $35 < 40$ makes it $40$'s left
+      child. The search retraces exactly that descent: visit $50$, go left;
+      visit $30$, go right; visit $40$, go left; visit $35$ — four nodes. That
+      the search path equals the insertion path is not a coincidence but the
+      BST invariant doing its job, and it is the reason each comparison discards
+      a whole subtree instead of one candidate. The trap is counting edges ($3$)
+      when the question asks for nodes, or scanning the eight keys in insertion
+      order and reporting $8$, which is what an unsorted array would cost.
+    expects: "4"
+    rubric:
+      - >
+        Builds the tree in the stated insertion order before searching, rather
+        than assuming a balanced shape.
+      - >
+        Counts nodes, not edges, and stops at $35$ rather than continuing to a
+        leaf.
+    targets:
+      - quant-programming.data-structures.bst
+
+  - id: qds-bst-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      A tree has root $10$; the root's left child is $5$; and $5$'s right child
+      is $12$. A validity check that compares each node only against its
+      immediate parent accepts it, since $5 < 10$ and $12 > 5$. What is actually
+      wrong, and what does a correct check do instead?
+    answer: >
+      The tree is invalid: $12$ lies in the root's *left* subtree, and the BST
+      invariant requires every key in that subtree to be smaller than $10$, not
+      merely larger than its own parent $5$. The consequence is not cosmetic — a
+      search for $12$ starts at the root, sees $12 > 10$, turns right, and never
+      reaches the node at all, so the key is unfindable even though it is
+      stored. A correct check carries an open interval down the tree: the root
+      may hold anything, its left child must lie below $10$, and $5$'s right
+      child must lie strictly between $5$ and $10$, which $12$ violates. An
+      equivalent and often simpler check is to perform an in-order traversal and
+      confirm the keys come out strictly increasing; here they emerge as $5$,
+      $12$, $10$, which is not sorted. The trap is precisely the local test in
+      the statement — parent-child comparisons are necessary but nowhere near
+      sufficient, because the invariant is a statement about entire subtrees.
+    choices:
+      - text: >
+          $12$ sits in the root's left subtree, so it must be less than $10$ —
+          a correct check passes a permitted range down to each node
+        correct: true
+        feedback: >
+          Yes. The invariant constrains whole subtrees, so each node inherits a
+          range from every ancestor, not just a comparison with its parent.
+      - text: >
+          Nothing is wrong — each node compares correctly with its parent, which
+          is what the BST property says
+        feedback: >
+          Then a search for $12$ would turn right at the root and miss it. The
+          property is about subtrees, and this tree breaks it.
+      - text: >
+          The tree is merely unbalanced, so operations degrade to $O(n)$ but the
+          keys are all still findable
+        feedback: >
+          Balance is a separate concern. This tree is *incorrect*, not just
+          slow: $12$ cannot be found by a standard descent at any cost.
+      - text: >
+          $5$ should not have a right child at all — a left child's subtree must
+          be a chain going left
+        feedback: >
+          A left child may certainly have a right subtree; it just has to hold
+          keys between $5$ and $10$, such as $7$.
+    rubric:
+      - >
+        States the invariant as a constraint on whole subtrees, so $12$ must be below
+        $10$ merely by sitting in the root's left subtree.
+      - >
+        Describes a correct check — a range passed down to each node, or an in-order
+        traversal tested for strict increase.
+      - >
+        Separates *incorrect* from *unbalanced*: this tree loses the key, it is not
+        merely slow.
+    targets:
+      - quant-programming.data-structures.bst
+
+  # --- LRU cache --------------------------------------------------------------
+
+  - id: qds-lru-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      An LRU cache has capacity $3$ and starts empty. Perform, in order:
+      put key $11$, put key $12$, put key $13$, get key $12$, put key $14$,
+      get key $13$, put key $15$. Both a successful get and a put count as a use
+      that refreshes a key's recency. Which key does the final put evict? Answer
+      with the key as an integer.
+    answer: >
+      $12$. Track the recency list from most- to least-recently used. The three
+      puts give $13, 12, 11$. The get of $12$ succeeds and moves it to the
+      front: $12, 13, 11$. Put $14$ overflows the capacity, so the tail — the
+      least recently used, $11$ — is evicted, and $14$ enters at the front:
+      $14, 12, 13$. The get of $13$ succeeds and moves it up: $13, 14, 12$. Put
+      $15$ overflows again, and the tail is now $12$, so $12$ is evicted. The
+      trap is the one the sequence is built around: $12$ was the *most* recently
+      used key at the halfway point, and it is still evicted, because two later
+      uses — $14$ and $13$ — passed it while it sat untouched. Recency is a
+      running order, not a status a key keeps. A second trap is evicting by
+      insertion age, which is FIFO rather than LRU and would evict $13$ here.
+      Note also that only a *successful* get refreshes anything; a miss touches
+      no recency order at all.
+    expects: "12"
+    rubric:
+      - >
+        Moves a key to the front on a successful get as well as on a put.
+      - >
+        Evicts from the tail of the recency order, not the oldest inserted key —
+        the two differ here.
+      - >
+        Applies the eviction *before* inserting the new key, so the cache never
+        exceeds capacity $3$.
+    targets:
+      - quant-programming.data-structures.lru
+    exercises:
+      - quant-programming.data-structures.doubly-linked-list
+      - quant-programming.data-structures.hash-map
+
+  - id: qds-lru-02
+    kind: work
+    difficulty: standard
+    statement: >
+      An LRU cache of capacity $3$ starts empty and serves this access sequence,
+      loading the entry on a miss and evicting the least recently used key when
+      the cache is full: $41, 42, 43, 41, 44, 42, 45, 41, 42$. How many of the
+      nine accesses are misses?
+    answer: >
+      $7$. Writing the recency order most-recent-first after each access: $41$
+      misses, cache $41$; $42$ misses, $42, 41$; $43$ misses, $43, 42, 41$ —
+      three misses so far and the cache is full. $41$ *hits* and moves up:
+      $41, 43, 42$. $44$ misses and evicts the tail $42$: $44, 41, 43$ (four).
+      $42$ misses — it was just evicted — and evicts $43$: $42, 44, 41$ (five).
+      $45$ misses and evicts $41$: $45, 42, 44$ (six). $41$ misses and evicts
+      $44$: $41, 45, 42$ (seven). $42$ *hits*: $42, 41, 45$. Two hits out of
+      nine, so seven misses. The trap is assuming that a key which was recently
+      in the cache is still there — $42$ and $41$ are each evicted and reloaded,
+      which is exactly the thrashing that happens when the working set is larger
+      than the capacity. Note that a hit changes the eviction order without
+      changing the contents, which is why the fourth access, cheap in itself,
+      is what condemns $42$ on the fifth.
+    expects: "7"
+    rubric:
+      - >
+        Updates the recency order on hits as well as on misses.
+      - >
+        Evicts only when the cache is full and a miss needs room, so the first
+        three accesses evict nothing.
+    targets:
+      - quant-programming.data-structures.lru
+
+  - id: qds-lru-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      You must serve get, put and eviction of the stalest entry all in $O(1)$
+      worst-case pointer work per operation, with $O(1)$ expected key lookup.
+      Which of these designs meets all three, and what specifically fails in the
+      others?
+    answer: >
+      A hash map from key to a node in a doubly linked list, the list ordered
+      most- to least-recently used. The map answers "where is this key" in
+      $O(1)$ expected; the list answers "which entry is stalest" in $O(1)$ by
+      reading its tail; and because the map hands over the *node itself*, the
+      list can unlink it and re-insert it at the front with a fixed number of
+      pointer writes and no search. Each structure supplies precisely what the
+      other lacks. A hash map alone stores no recency order, so finding the
+      stalest key means scanning all $n$ entries. A doubly linked list alone has
+      the order but only $O(n)$ lookup by key, since it must be walked. A hash
+      map plus a *singly* linked list gets you the node but not its predecessor,
+      so unlinking costs an $O(n)$ walk from the head — that missing
+      back-pointer is the whole reason the list is doubly linked. A heap keyed by a
+      timestamp is a real alternative but the wrong one here: it makes every
+      access an $O(\log n)$ key update, not $O(1)$.
+    choices:
+      - text: >
+          A hash map from key to a doubly-linked-list node, with the list
+          ordered most- to least-recently used
+        correct: true
+        feedback: >
+          Right — the map removes the list's search cost and the list supplies
+          the map's missing recency order.
+      - text: >
+          A hash map alone, tracking each entry's last-access time as a stored
+          field
+        feedback: >
+          Get and put are fine, but eviction has to find the minimum timestamp,
+          and a hash map cannot do that in less than an $O(n)$ scan.
+      - text: >
+          A hash map from key to a *singly* linked list node, list ordered by
+          recency
+        feedback: >
+          So close, and it fails on exactly one step: unlinking a held node
+          needs its predecessor, which a singly linked node cannot name without
+          an $O(n)$ walk.
+      - text: >
+          A min-heap of entries keyed by last-access timestamp
+        feedback: >
+          Eviction is $O(\log n)$ and every get must update a key inside the
+          heap, which costs $O(n)$ to locate without an extra index — more
+          machinery than the list, for a worse bound.
+    rubric:
+      - >
+        Explains what each half contributes — the map removes the list's search cost,
+        the list supplies the recency order the map lacks.
+      - >
+        Pins the singly-linked variant's failure on the missing predecessor, which is
+        exactly why the list must be doubly linked.
+      - >
+        Rejects the timestamp heap on cost, $O(\log n)$ per access with no cheap way to
+        update a key in place.
+    targets:
+      - quant-programming.data-structures.lru
+
+  # --- choosing a structure for streaming data --------------------------------
+
+  - id: qds-streaming-choice-01
+    kind: decide
+    difficulty: demanding
+    statement: >
+      A market-data process must report, after every incoming trade, the largest
+      trade size among the most recent $1000$ trades — a window that slides
+      forward with each arrival. The feed runs all session and cannot be stored.
+      Which state answers the query in bounded memory and $O(1)$ amortized time
+      per arrival?
+    answer: >
+      A double-ended queue of *candidate* indices whose sizes are kept
+      decreasing: on each arrival, drop candidates from the back while their
+      size is at most the new one, push the new index at the back, and drop the
+      front candidate if it has fallen out of the window. The front is then
+      always the window maximum. The reason it works is that a candidate beaten
+      by a *later* trade can never again be the maximum — the later trade
+      outlives it in every future window — so discarding it loses nothing, and
+      each index is pushed once and dropped once for $O(1)$ amortized work and
+      at most $1000$ indices held. Compare the alternatives. A single running
+      maximum is the natural guess and is wrong: when the current maximum
+      expires out of the window there is no way to recover the second largest,
+      because it was never kept. A max-heap of the window gives $O(\log k)$
+      pushes but cannot remove the expiring element without an auxiliary index,
+      since a heap has no cheap access to an arbitrary key. Storing the window
+      and rescanning is correct but $O(k)$ per arrival, a thousand times the
+      work. The question to ask, as always on a stream, is what minimal state
+      still answers the query after one more element arrives — here, the
+      candidates not yet beaten from the right.
+    choices:
+      - text: >
+          A decreasing deque of candidate indices, dropping beaten candidates
+          from the back and expired ones from the front
+        correct: true
+        feedback: >
+          Yes — a trade beaten by a later trade can never be a future maximum,
+          so the deque holds exactly the state that survives.
+      - text: >
+          A single scalar holding the running maximum, reset when it expires
+        feedback: >
+          Reset to what? When the maximum leaves the window the second largest
+          was never stored, so there is nothing to fall back to.
+      - text: >
+          A max-heap holding the $1000$ trades in the window
+        feedback: >
+          The heap gives the maximum cheaply but cannot delete the expiring
+          trade: locating an arbitrary element in a heap is $O(n)$ without an
+          extra index.
+      - text: >
+          A hash map from trade size to how many times it occurs in the window
+        feedback: >
+          Counting is fine, but a hash map has no ordering, so reporting the
+          maximum means scanning every distinct key on every arrival.
+    rubric:
+      - >
+        Argues that a candidate beaten by a later trade can never be a future maximum,
+        which is what licenses discarding it.
+      - >
+        Says why a single running maximum fails — the runner-up was never kept, so
+        expiry leaves nothing to fall back on.
+      - >
+        Bounds the work as $O(1)$ amortized by pushing and dropping each index once,
+        and the memory by the window size.
+    targets:
+      - quant-programming.data-structures.streaming-choice
+    exercises:
+      - quant-programming.data-structures.heap
+
+  - id: qds-streaming-choice-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A monitoring stream delivers a latency reading every millisecond, all day.
+      You must be able to report, at any moment, the mean of every reading seen
+      so far. What is the minimal state?
+    answer: >
+      Two scalars: a running sum and a count. On each arrival add the reading to
+      the sum and increment the count; the mean is their quotient, read in
+      $O(1)$ from $O(1)$ memory, with no container at all. This is the case the
+      streaming habit is meant to catch, because the reflex is to reach for a
+      structure. Ask instead what state still answers the query after one more
+      element arrives: the mean of $n+1$ values is determined by the old sum,
+      the old count and the new value, so nothing else needs keeping. Contrast
+      the queries that genuinely do need a container — the median needs two
+      heaps because the middle of the data can move to any value already seen,
+      the $k$ largest need a size-$k$ heap for the same reason, and duplicate
+      detection needs a hash set because membership is not summarizable. The
+      trap is storing all readings "just in case", which is unbounded memory for
+      a query that never needed it; a lesser trap is keeping a running mean
+      alone and updating it incrementally, which is possible but loses precision
+      over millions of updates unless the update is written carefully.
+    choices:
+      - text: >
+          A running sum and a running count — two scalars, no container
+        correct: true
+        feedback: >
+          Right: the mean after one more element depends only on the previous
+          sum, the previous count and the new value.
+      - text: >
+          A min-heap of every reading seen so far
+        feedback: >
+          Unbounded memory, and a heap orders by extremes — the mean is not
+          readable from its root at any size.
+      - text: >
+          A hash set of the distinct readings seen so far
+        feedback: >
+          A set discards repeats, and repeats are exactly what a mean must
+          weight. It answers membership, not averages.
+      - text: >
+          A growing array of all readings, averaged on demand
+        feedback: >
+          Correct but profligate: unbounded memory over a full day and $O(n)$
+          per query, where two scalars and $O(1)$ suffice.
+    rubric:
+      - >
+        Asks what state still answers the query after one more element and finds that
+        the sum and the count suffice.
+      - >
+        Rejects the containers for the right reason — unbounded memory for a query
+        that summarizes, not one that needs the values back.
+    targets:
+      - quant-programming.data-structures.streaming-choice
+
+  - id: qds-streaming-choice-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      A session delivers $n = 10^{6}$ prices and you need the $k = 1000$
+      largest. The size-$k$ heap costs about $n \log_{2} k$ comparisons; sorting
+      the whole session costs about $n \log_{2} n$. What is the ratio of the
+      sorting cost to the heap cost?
+    answer: >
+      $2$. The two costs share the factor $n$, so the ratio is
+      $\log_{2} n / \log_{2} k = \log_{2} 10^{6} / \log_{2} 1000$. Since
+      $10^{6} = 1000^{2}$, the numerator is exactly twice the denominator, and
+      the ratio is $2$ — no calculator needed. Numerically, $\log_{2} 10^{6}$ is
+      about $19.93$ and $\log_{2} 1000$ about $9.97$. The lesson is deflationary
+      and worth taking seriously: on *time* the heap buys a factor of two here,
+      not an order of magnitude, because the logarithm is a brutally slow
+      function and $k$ would have to be absurdly small for $\log k$ to be much
+      below $\log n$. What the heap actually buys is space — $O(k)$ resident
+      values instead of $O(n)$ — and that is a hard constraint rather than a
+      constant factor, which is why it, not the time bound, is the reason to
+      choose the heap on a stream that does not fit in memory. The trap is
+      quoting $O(n \log k)$ against $O(n \log n)$ as though the gap were large:
+      it is a ratio of logarithms, and here it is exactly $2$.
+    expects: "2"
+    rubric:
+      - >
+        Cancels the shared factor $n$ and reduces the ratio to
+        $\log_{2} n / \log_{2} k$.
+      - >
+        Uses $10^{6} = 1000^{2}$ to get exactly $2$ rather than estimating both
+        logarithms separately.
+      - >
+        Draws the right conclusion — the heap's real advantage over sorting on a
+        stream is the $O(k)$ memory bound, not the time ratio.
+    targets:
+      - quant-programming.data-structures.streaming-choice
+    exercises:
+      - quant-programming.data-structures.top-k
+      - quant-programming.data-structures.heap

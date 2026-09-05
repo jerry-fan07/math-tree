@@ -1,0 +1,1565 @@
+# Problems targeting quant-finance.portfolio — diversification, quantified.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. Every weight, volatility and
+# correlation here is a fresh instance: no lesson worked example and no card
+# instance from content-quant-program/lessons/quant-finance.portfolio.yaml is
+# reused, and the content nodes' own canonical book (20/30 at rho = 0.5, the
+# 25/15 pair, sigma = 30% at rho-bar = 0.3) is deliberately avoided. Every
+# numeric answer was recomputed before it was written down. Money is written in
+# dollars, never with a currency sign. See ../README.md.
+
+problems:
+  # --- portfolio weights and portfolio return ---------------------------------
+
+  - id: qport-portfolio-weights-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A fund has $500{,}000$ dollars of capital. It is long $750{,}000$ dollars
+      of a credit sleeve with $\mu_1 = 11\%$, short $350{,}000$ dollars of an
+      index with $\mu_2 = 4\%$, and long $100{,}000$ dollars of a commodity
+      basket with $\mu_3 = 6\%$. What is the fund's expected return on capital?
+    answer: >
+      $14.9\%$. Weights are fractions of *capital*, not of gross exposure, so
+      divide each notional by $500{,}000$: $w = (1.5,\, -0.7,\, 0.2)$, which
+      sums to $1.5 - 0.7 + 0.2 = 1$ as a weight vector must. Then
+      $\mathbb{E}[R_p] = \sum_i w_i \mu_i = 1.5(11) + (-0.7)(4) + 0.2(6)
+      = 16.5 - 2.8 + 1.2 = 14.9\%$. Linearity of expectation carries the whole
+      computation: no correlation, no independence and no covariance enters a
+      portfolio's *mean*, however levered or short the book is. The trap is
+      normalising by gross exposure $750 + 350 + 100 = 1{,}200$ thousand
+      instead of by capital, which gives weights $(0.625, -0.292, 0.083)$,
+      answers about $6.2\%$, and silently reports the return of a fund running
+      no leverage at all.
+    expects: "14.9%"
+    tolerance: 0.0001
+    rubric:
+      - >
+        Divides each notional by the $500{,}000$ dollars of capital, getting
+        weights $1.5$, $-0.7$ and $0.2$ that sum to one.
+      - >
+        Applies $\mathbb{E}[R_p] = \sum_i w_i \mu_i$ with the short leg's
+        negative sign kept.
+    targets:
+      - quant-finance.portfolio.portfolio-weights
+    exercises:
+      - quant-probability.expectation.linearity
+
+  - id: qport-portfolio-weights-02
+    kind: work
+    difficulty: standard
+    statement: >
+      An endowment holds $250{,}000$ dollars in total: $180{,}000$ dollars in a
+      bond sleeve expected to earn $3.5\%$ and the remainder in an equity sleeve
+      expected to earn $9.5\%$. What is the portfolio's expected return?
+    answer: >
+      $5.18\%$. The bond weight is $180/250 = 0.72$ and the equity weight is
+      the remainder, $0.28$; they sum to one, as required. The portfolio mean is
+      the weighted average $0.72(3.5) + 0.28(9.5) = 2.52 + 2.66 = 5.18\%$.
+      Notice the answer sits much closer to the bond figure than to the midpoint
+      $6.5\%$, because nearly three quarters of the capital is in bonds — the
+      standard trap here is averaging the two *rates* rather than weighting
+      them, which reports $6.5\%$ and overstates the endowment's expected return
+      by more than a percentage point.
+    expects: "5.18%"
+    tolerance: 0.0001
+    rubric:
+      - >
+        Reads the weights off the dollar amounts as $0.72$ and $0.28$.
+      - >
+        Computes the weighted average rather than the unweighted mean of the
+        two rates.
+    targets:
+      - quant-finance.portfolio.portfolio-weights
+
+  # --- portfolio variance ------------------------------------------------------
+
+  - id: qport-portfolio-variance-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A book holds three assets at weights $0.5$, $0.3$ and $0.2$, with
+      volatilities $\sigma_1 = 20\%$, $\sigma_2 = 30\%$ and
+      $\sigma_3 = 50\%$. The correlations are $\rho_{12} = 0.4$,
+      $\rho_{13} = 0.1$ and $\rho_{23} = -0.2$. What is the book's volatility
+      $\sigma_p$?
+    answer: >
+      $18.36\%$. Expand $w'\Sigma w$ term by term. The three diagonal terms are
+      $0.25(0.04) = 0.01$, $0.09(0.09) = 0.0081$ and $0.04(0.25) = 0.01$,
+      summing to $0.0281$. The three cross terms each carry a factor of $2$:
+      $2(0.5)(0.3)(0.4)(0.20)(0.30) = 0.0072$,
+      $2(0.5)(0.2)(0.1)(0.20)(0.50) = 0.0020$ and
+      $2(0.3)(0.2)(-0.2)(0.30)(0.50) = -0.0036$, summing to $0.0056$. So
+      $\operatorname{Var}(R_p) = 0.0281 + 0.0056 = 0.0337$ and
+      $\sigma_p = \sqrt{0.0337} = 0.1836$. Two traps. Adding standard
+      deviations — the weighted average $0.5(20) + 0.3(30) + 0.2(50) = 29\%$ —
+      is not merely wrong but wrong by more than ten points, and it is only ever
+      right when every pairwise correlation equals $1$. Dropping the factor of
+      $2$ on the cross terms gives $0.0281 + 0.0028 = 0.0309$ and
+      $\sigma_p = 17.58\%$; with $n$ assets there are $n(n-1)$ ordered
+      covariance entries, so each unordered pair is counted twice.
+    expects: "18.36%"
+    tolerance: 0.0001
+    rubric:
+      - >
+        Sums $n = 3$ diagonal terms $w_i^{2}\sigma_i^{2}$ and three cross terms
+        $2w_iw_j\rho_{ij}\sigma_i\sigma_j$, keeping the factor of $2$.
+      - >
+        Carries the negative sign on the $\rho_{23}$ term and takes a square
+        root at the end, reporting a volatility rather than a variance.
+    targets:
+      - quant-finance.portfolio.portfolio-variance
+    exercises:
+      - quant-probability.joint.variance-sum
+
+  - id: qport-portfolio-variance-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Two assets have $\sigma_1 = 28\%$ and $\sigma_2 = 16\%$ and correlation
+      $\rho = 0.45$. A portfolio puts $w = 0.35$ in the first asset and the rest
+      in the second. What is $\sigma_p$?
+    answer: >
+      $17.20\%$. Apply the two-asset form
+      $\sigma_p^{2} = w^{2}\sigma_1^{2} + (1-w)^{2}\sigma_2^{2} +
+      2w(1-w)\rho\sigma_1\sigma_2$:
+      $0.1225(0.0784) = 0.009604$, $0.4225(0.0256) = 0.010816$, and
+      $2(0.35)(0.65)(0.45)(0.28)(0.16) = 0.0091728$. The sum is $0.0295928$, so
+      $\sigma_p = \sqrt{0.0295928} = 0.1720$. The weighted average of the two
+      volatilities is $0.35(28) + 0.65(16) = 20.2\%$, so diversification bought
+      three full points of volatility even at a correlation as high as $0.45$ —
+      and it buys something at every $\rho < 1$. Adding standard deviations to
+      get $20.2\%$ is the trap: standard deviations are not additive, variances
+      are, and only after the covariance cross-term is included.
+    expects: "17.20%"
+    tolerance: 0.0001
+    rubric:
+      - >
+        Uses the three-term two-asset variance formula with the factor of $2$
+        on the cross term.
+      - >
+        Takes the square root and observes the result is strictly below the
+        weighted-average volatility $20.2\%$.
+    targets:
+      - quant-finance.portfolio.portfolio-variance
+
+  - id: qport-portfolio-variance-03
+    kind: work
+    difficulty: standard
+    statement: >
+      Three assets are held at equal weights. The covariance matrix, as row
+      lists, is $(0.09,\, 0.02,\, 0.01)$, $(0.02,\, 0.16,\, 0.03)$ and
+      $(0.01,\, 0.03,\, 0.04)$ — variances on the diagonal, covariances off it,
+      not correlations. What is $\operatorname{Var}(R_p)$?
+    answer: >
+      $0.0456$. At equal weights every $w_iw_j$ equals $1/9$, so
+      $w'\Sigma w$ is just the sum of *all nine* entries of $\Sigma$ divided by
+      $9$. The diagonal contributes $0.09 + 0.16 + 0.04 = 0.29$; the six
+      off-diagonal entries contribute $2(0.02 + 0.01 + 0.03) = 0.12$, since the
+      matrix is symmetric and each unordered pair appears twice. The total is
+      $0.41$, and $0.41/9 = 0.04556$, so $\sigma_p = 21.34\%$. The trap is
+      reading the off-diagonal entries as correlations: $0.02$ would then mean a
+      covariance of $0.02\sqrt{0.09}\sqrt{0.16} = 0.0024$, and the whole
+      cross-term block would shrink by nearly a factor of ten. Check the units —
+      a covariance sits between $-\sigma_i\sigma_j$ and $+\sigma_i\sigma_j$, a
+      correlation between $-1$ and $1$.
+    expects: "0.0456"
+    tolerance: 0.00005
+    rubric:
+      - >
+        Recognises that equal weights make the answer the sum of all entries of
+        $\Sigma$ over $n^{2} = 9$.
+      - >
+        Counts each off-diagonal entry twice and treats the entries as
+        covariances, not correlations.
+    targets:
+      - quant-finance.portfolio.portfolio-variance
+
+  # --- the covariance matrix is positive semidefinite --------------------------
+
+  - id: qport-covariance-psd-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A risk report quotes $\rho_{12} = 0.6$ and $\rho_{13} = -0.5$ for three
+      assets. Positive semidefiniteness of the $3 \times 3$ correlation matrix
+      constrains the third number. What is the smallest value of $\rho_{23}$
+      that is jointly consistent with the other two?
+    answer: >
+      $-0.9928$. Write $a = \rho_{12}$, $b = \rho_{13}$, $c = \rho_{23}$. The
+      determinant of the correlation matrix is
+      $1 - a^{2} - b^{2} - c^{2} + 2abc$, and PSD requires it to be nonnegative:
+      $1 - 0.36 - 0.25 - c^{2} + 2(0.6)(-0.5)c \ge 0$, that is
+      $c^{2} + 0.6c - 0.39 \le 0$. The roots are
+      $c = (-0.6 \pm \sqrt{0.36 + 1.56})/2 = (-0.6 \pm \sqrt{1.92})/2$, and
+      $\sqrt{1.92} = 1.3856$, so $c \in [-0.9928,\, 0.3928]$ and the minimum is
+      $-0.9928$. Equivalently, the general bound is
+      $\rho_{23} \ge \rho_{12}\rho_{13} - \sqrt{(1-\rho_{12}^{2})
+      (1-\rho_{13}^{2})} = -0.30 - \sqrt{0.64(0.75)} = -0.30 - 0.6928$. The trap
+      is treating $[-1, 1]$ as the only constraint on each entry: correlations
+      must be *jointly* impossible-free, and an interviewer's favourite version
+      of this is $\rho_{12} = \rho_{13} = 0.9$ with $\rho_{23} = 0$, a triple
+      every individual test passes and the determinant rejects.
+    expects: "-0.9928"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Writes the PSD condition as the nonnegative $3 \times 3$ determinant
+        $1 - a^{2} - b^{2} - c^{2} + 2abc$ and solves the resulting quadratic
+        in $c$.
+      - >
+        Reports the lower root, and notes that each correlation lying in
+        $[-1,1]$ is not sufficient for a triple to be admissible.
+    targets:
+      - quant-finance.portfolio.covariance-psd
+    exercises:
+      - quant-tools.linear-algebra.psd
+
+  - id: qport-covariance-psd-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Four candidate $2 \times 2$ covariance matrices for a pair of assets are
+      quoted below as row lists. Exactly one of them cannot be a covariance
+      matrix. Which?
+    answer: >
+      Matrix A. A symmetric $2 \times 2$ matrix is PSD exactly when both
+      diagonal entries are nonnegative and the determinant is nonnegative. For
+      A, $\det = 0.04(0.02) - 0.03^{2} = 0.0008 - 0.0009 = -0.0001 < 0$, so
+      some weight vector would be assigned a negative variance; equivalently the
+      implied correlation is $0.03/\sqrt{0.04(0.02)} = 1.06$, outside
+      $[-1, 1]$. B has $\det = 0.0045 - 0.0036 = 0.0009 > 0$ (a correlation of
+      $0.894$), and C has $\det = 0.04 - 0.01 = 0.03 > 0$ (a correlation of
+      $-0.5$); both are fine. D has $\det = 0$ exactly, which is *singular but
+      still PSD* — the two assets are perfectly correlated with equal variance,
+      so the spread of one against the other is riskless. Singular is a
+      degenerate covariance matrix, not an impossible one, and calling D invalid
+      is the trap this question is built around.
+    choices:
+      - text: >
+          A: rows $(0.04,\, 0.03)$ and $(0.03,\, 0.02)$.
+        correct: true
+        feedback: >
+          Right — $\det = 0.0008 - 0.0009 < 0$, an implied correlation of
+          $1.06$, so some portfolio would be handed a negative variance.
+      - text: >
+          B: rows $(0.09,\, 0.06)$ and $(0.06,\, 0.05)$.
+        feedback: >
+          $\det = 0.0045 - 0.0036 = 0.0009 > 0$: a high but legal correlation
+          of about $0.894$.
+      - text: >
+          C: rows $(0.25,\, -0.10)$ and $(-0.10,\, 0.16)$.
+        feedback: >
+          A negative covariance is entirely admissible;
+          $\det = 0.04 - 0.01 = 0.03 > 0$, a correlation of $-0.5$.
+      - text: >
+          D: rows $(0.02,\, 0.02)$ and $(0.02,\, 0.02)$.
+        feedback: >
+          $\det = 0$, so this is singular — the two assets are the same bet —
+          but singular is still PSD, and a duplicated holding is a real thing
+          to estimate, not an impossible one.
+    rubric:
+      - >
+        Tests PSD by the sign of the determinant with nonnegative diagonal, or
+        equivalently by whether the implied correlation lies in $[-1,1]$.
+      - >
+        Keeps the singular matrix as valid, distinguishing degeneracy from
+        impossibility.
+    targets:
+      - quant-finance.portfolio.covariance-psd
+
+  # --- the correlation extremes -----------------------------------------------
+
+  - id: qport-correlation-extremes-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two assets have $\sigma_1 = 15\%$ with $\mu_1 = 9\%$ and
+      $\sigma_2 = 25\%$ with $\mu_2 = 5\%$, and they are perfectly negatively
+      correlated, $\rho = -1$. Form the long-only mix of the two that carries
+      exactly zero risk. What expected return must that mix earn, if no
+      arbitrage is available in this market?
+    answer: >
+      $7.5\%$, and no-arbitrage forces the risk-free rate to equal it. At
+      $\rho = -1$ the variance is a perfect square,
+      $\sigma_p = |w\sigma_1 - (1-w)\sigma_2|$, which vanishes at
+      $w = \sigma_2/(\sigma_1 + \sigma_2) = 25/40 = 0.625$. Check the
+      cancellation: $0.625(15) = 9.375$ and $0.375(25) = 9.375$, equal, so
+      $\sigma_p = 0$ exactly. The mean is unaffected by correlation, so
+      $\mathbb{E}[R_p] = 0.625(9) + 0.375(5) = 5.625 + 1.875 = 7.5\%$. This mix
+      is a *synthetic riskless asset* built from two risky ones, so it must earn
+      the risk-free rate: if $r_f$ were $4\%$, borrow at $r_f$ and hold the mix
+      for a certain $3.5\%$ a year on zero capital and zero risk; if $r_f$ were
+      $9\%$, run it the other way. The trap is expecting the riskless mix to
+      earn something low because it carries no risk — its mean is fixed by the
+      weights, and it is the *rate* that must adjust.
+    expects: "7.5%"
+    tolerance: 0.0001
+    rubric:
+      - >
+        Finds $w = \sigma_2/(\sigma_1+\sigma_2) = 0.625$ from
+        $\sigma_p = |w\sigma_1 - (1-w)\sigma_2| = 0$ and verifies the two legs
+        cancel.
+      - >
+        Computes the mean as a weighted average, unaffected by $\rho$, and
+        argues from no-arbitrage that this riskless mix must earn $r_f$.
+    targets:
+      - quant-finance.portfolio.correlation-extremes
+      - quant-finance.arbitrage.no-arbitrage
+    connects:
+      - quant-finance.arbitrage.no-arbitrage ~ quant-finance.portfolio.correlation-extremes
+
+  - id: qport-correlation-extremes-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Two assets have $\sigma_1 = 22\%$ and $\sigma_2 = 34\%$ and are perfectly
+      positively correlated, $\rho = 1$. A portfolio holds $w = 0.65$ in the
+      first. What is $\sigma_p$?
+    answer: >
+      $26.2\%$. At $\rho = 1$ the variance collapses to a perfect square,
+      $\sigma_p^{2} = (w\sigma_1 + (1-w)\sigma_2)^{2}$, so
+      $\sigma_p = 0.65(22) + 0.35(34) = 14.3 + 11.9 = 26.2\%$ — the plain
+      weighted average of the two volatilities. This is the one and only case in
+      which adding standard deviations is correct, and that is exactly why the
+      habit is so dangerous: it gives the right number here and an overstatement
+      everywhere else. Check it against the general formula:
+      $0.4225(0.0484) + 0.1225(0.1156) + 2(0.65)(0.35)(1)(0.22)(0.34)
+      = 0.020449 + 0.014161 + 0.034034 = 0.068644$, and
+      $\sqrt{0.068644} = 0.262$. Perfect positive correlation buys no
+      diversification at all — the two assets are one bet in two wrappers.
+    expects: "26.2%"
+    tolerance: 0.0001
+    rubric:
+      - >
+        Recognises that $\rho = 1$ makes the variance a perfect square, so
+        $\sigma_p$ is the weighted average of the volatilities.
+      - >
+        States that this is the unique case where adding standard deviations is
+        legitimate, and that no diversification benefit exists here.
+    targets:
+      - quant-finance.portfolio.correlation-extremes
+    exercises:
+      - quant-probability.joint.correlation
+
+  - id: qport-correlation-extremes-03
+    kind: work
+    difficulty: routine
+    statement: >
+      Two assets have $\sigma_1 = 30\%$ and $\sigma_2 = 20\%$ and are perfectly
+      negatively correlated, $\rho = -1$. At what weight $w$ in the *first*
+      asset does the portfolio carry exactly zero risk?
+    answer: >
+      $w = 0.4$. At $\rho = -1$, $\sigma_p = |w\sigma_1 - (1-w)\sigma_2|$, which
+      is zero when the two risk contributions are equal:
+      $w\sigma_1 = (1-w)\sigma_2$, hence
+      $w = \sigma_2/(\sigma_1 + \sigma_2) = 20/50 = 0.4$. Check:
+      $0.4(30) = 12$ and $0.6(20) = 12$, so the two legs cancel exactly. Note
+      the weight is inversely related to the asset's own volatility — the
+      riskier asset gets the *smaller* weight, because a smaller position in it
+      already contributes as much risk as a larger position in the quieter one.
+      The trap is writing $w = \sigma_1/(\sigma_1+\sigma_2) = 0.6$, which puts
+      the larger weight on the riskier leg and leaves $|18 - 8| = 10\%$ of
+      volatility standing rather than zero.
+    expects: "0.4"
+    rubric:
+      - >
+        Sets $w\sigma_1 = (1-w)\sigma_2$ and solves, getting
+        $w = \sigma_2/(\sigma_1+\sigma_2)$.
+      - >
+        Puts $\sigma_2$, not $\sigma_1$, in the numerator, so the riskier asset
+        receives the smaller weight.
+    targets:
+      - quant-finance.portfolio.correlation-extremes
+
+  # --- diversification: average covariance is the floor ------------------------
+
+  - id: qport-diversification-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Equally weighted names each have volatility $\sigma = 35\%$ and average
+      pairwise correlation $\bar\rho = 0.25$. How many names are needed before
+      the portfolio volatility comes within $2$ percentage points of its
+      $n \to \infty$ floor?
+    answer: >
+      $13$ names. The floor is $\sigma\sqrt{\bar\rho} = 35\sqrt{0.25} = 17.5\%$,
+      so the target is $\sigma_p \le 19.5\%$, that is
+      $\sigma_p^{2} \le 0.038025$. With
+      $\sigma_p^{2} = \sigma^{2}[\bar\rho + (1-\bar\rho)/n]
+      = 0.1225[0.25 + 0.75/n]$, the condition is
+      $0.25 + 0.75/n \le 0.038025/0.1225 = 0.310408$, hence
+      $0.75/n \le 0.060408$ and $n \ge 12.42$. Rounding *up* to the next whole
+      name gives $n = 13$: at $n = 13$, $\sigma_p = 19.41\%$, and at $n = 12$ it
+      is still $19.57\%$, just outside. The reading is the point — thirteen
+      names out of an unlimited universe already exhaust all but two points of a
+      benefit that started at $35\%$, while the last $1.9$ points down to the
+      floor are unreachable at any $n$. The trap is expecting risk to keep
+      falling like $\sigma/\sqrt{n}$; that is the $\bar\rho = 0$ case, and here
+      the shared quarter of correlation puts a hard floor under the descent.
+    expects: "13"
+    rubric:
+      - >
+        Computes the floor $\sigma\sqrt{\bar\rho} = 17.5\%$ and turns "within
+        $2$ points" into the inequality $\sigma_p^{2} \le 0.038025$.
+      - >
+        Solves $\sigma^{2}[\bar\rho + (1-\bar\rho)/n] \le 0.038025$ for
+        $n \ge 12.42$ and rounds up to a whole number of names.
+    targets:
+      - quant-finance.portfolio.diversification
+
+  - id: qport-diversification-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Eight names are held at equal weights. Each has volatility
+      $\sigma = 35\%$, and the average pairwise correlation is
+      $\bar\rho = 0.25$. What is the portfolio volatility?
+    answer: >
+      $20.52\%$. Use
+      $\sigma_p^{2} = \sigma^{2}[\bar\rho + (1-\bar\rho)/n]
+      = 0.1225[0.25 + 0.75/8] = 0.1225[0.25 + 0.09375] = 0.1225(0.34375)
+      = 0.042109$, so $\sigma_p = \sqrt{0.042109} = 0.2052$. Eight names cut
+      risk from $35\%$ to $20.5\%$, but the floor
+      $\sigma\sqrt{\bar\rho} = 17.5\%$ is only three points further down and no
+      number of names reaches it: the $\sigma^{2}/n$ term is the part that
+      vanishes, and the $\bar{c}$ term — here
+      $\bar\rho\sigma^{2} = 0.030625$ — is what survives. The trap is the
+      $\sigma/\sqrt{n}$ shortcut, which answers $35/\sqrt{8} = 12.4\%$ and is
+      valid only for genuinely uncorrelated names.
+    expects: "20.52%"
+    tolerance: 0.0001
+    rubric:
+      - >
+        Applies $\sigma_p^{2} = \sigma^{2}[\bar\rho + (1-\bar\rho)/n]$ at
+        $n = 8$ rather than the uncorrelated $\sigma/\sqrt{n}$.
+      - >
+        Reports a volatility, and locates it above the floor
+        $\sigma\sqrt{\bar\rho} = 17.5\%$.
+    targets:
+      - quant-finance.portfolio.diversification
+
+  - id: qport-diversification-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      Two equally weighted books each hold $100$ names, and every name in both
+      books has volatility $\sigma = 30\%$. Book A's average pairwise
+      correlation is $\bar\rho = 0.36$; book B's is $\bar\rho = 0.04$. Which
+      statement about the two books is correct?
+    answer: >
+      Book A's risk floor is exactly three times book B's. Correlation enters
+      the limit through a square root: the floor is
+      $\sigma\sqrt{\bar\rho}$, so book A floors at
+      $30\sqrt{0.36} = 30(0.6) = 18\%$ and book B at
+      $30\sqrt{0.04} = 30(0.2) = 6\%$, a ratio of $3$, not the $9$ that the raw
+      correlations $0.36/0.04$ suggest. Neither book's risk goes to zero:
+      $\bar\rho = 0$ is the only case in which it does, and then only at rate
+      $\sigma/\sqrt{n}$. And no quantity of extra names moves A toward B —
+      adding names kills the $\sigma^{2}/n$ term, which is already tiny at
+      $n = 100$, and leaves the shared covariance completely untouched. What
+      correlation does to diversification is set the floor, and only a
+      genuinely different set of bets lowers it.
+    choices:
+      - text: >
+          Book A's floor volatility is three times book B's, and neither
+          approaches zero.
+        correct: true
+        feedback: >
+          Right — the floor is $\sigma\sqrt{\bar\rho}$, giving $18\%$ against
+          $6\%$; the square root turns a ninefold correlation gap into a
+          threefold risk gap.
+      - text: >
+          Book A's floor volatility is nine times book B's, matching the ratio
+          of the correlations.
+        feedback: >
+          That is the ratio of the *variance* floors,
+          $\bar\rho\sigma^{2}$. Volatility takes a square root, so the ratio is
+          $\sqrt{9} = 3$.
+      - text: >
+          Both books' volatilities fall to essentially zero at $n = 100$, since
+          $100$ names is well past the point of diminishing returns.
+        feedback: >
+          Only the $\sigma^{2}/n$ term vanishes. The average covariance
+          survives every $n$, so the limits are $18\%$ and $6\%$, not zero.
+      - text: >
+          Adding several hundred more names to book A would bring its risk down
+          to book B's level.
+        feedback: >
+          Adding names removes specific variance, which at $n = 100$ is
+          already nearly gone. The floor $\sigma\sqrt{\bar\rho}$ depends on
+          correlation alone.
+    rubric:
+      - >
+        Uses $\sigma_p \to \sigma\sqrt{\bar\rho}$ and takes the square root of
+        the correlation, not the correlation itself.
+      - >
+        States that risk reaches zero only when the average covariance is zero.
+    targets:
+      - quant-finance.portfolio.diversification
+
+  # --- systematic vs idiosyncratic risk ---------------------------------------
+
+  - id: qport-systematic-idiosyncratic-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A diversified book has volatility $12\%$. A manager will move $10\%$ of
+      capital out of the book and into one new name, keeping $90\%$ in the book.
+      Candidate A has standalone volatility $45\%$ and correlation $0.05$ with
+      the book; candidate B has standalone volatility $18\%$ and correlation
+      $0.85$. What is the book's volatility after adding candidate A?
+    answer: >
+      $11.91\%$ — the $45\%$-volatility name makes the book *quieter*. Treat it
+      as a two-asset mix at $w = 0.1$:
+      $\sigma_p^{2} = 0.81(0.0144) + 0.01(0.2025)
+      + 2(0.9)(0.1)(0.05)(0.45)(0.12) = 0.011664 + 0.002025 + 0.000486
+      = 0.014175$, so $\sigma_p = 11.906\%$, down from $12\%$. Run the same
+      arithmetic for candidate B:
+      $0.011664 + 0.01(0.0324) + 2(0.09)(0.85)(0.18)(0.12) = 0.011664 +
+      0.000324 + 0.0033048 = 0.0152928$, giving $12.37\%$ — the quiet name
+      raises risk. The reason is the split: almost all of A's $45\%$ is
+      idiosyncratic and cancels against the book, so its own volatility barely
+      reaches the total, whereas B's risk is mostly the book's own risk bought
+      again. The trap is ranking candidates by standalone volatility, which gets
+      this backwards; what matters is the marginal contribution, whose leading
+      term is $\rho\sigma_i$ — $0.05(45) = 2.25$ for A against
+      $0.85(18) = 15.3$ for B.
+    expects: "11.91%"
+    tolerance: 0.0001
+    rubric:
+      - >
+        Treats book-plus-name as a two-asset portfolio at weights $0.9$ and
+        $0.1$ and applies the two-asset variance formula.
+      - >
+        Concludes that the higher-volatility, low-correlation name lowers total
+        risk, because the marginal contribution scales with $\rho\sigma_i$ and
+        not with $\sigma_i$ alone.
+    targets:
+      - quant-finance.portfolio.systematic-idiosyncratic
+
+  - id: qport-systematic-idiosyncratic-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Sixty names each satisfy $R_i = F + \varepsilon_i$, where the common
+      factor $F$ has volatility $15\%$ and each $\varepsilon_i$ has volatility
+      $24\%$, independent of $F$ and of every other $\varepsilon_j$. The names
+      are held at equal weights. What is the book's volatility?
+    answer: >
+      $15.32\%$, against $28.30\%$ for any single name. One name has
+      $\sigma_i^{2} = 0.0225 + 0.0576 = 0.0801$, so
+      $\sigma_i = \sqrt{0.0801} = 28.30\%$. In the equal-weighted book, every
+      name loads on $F$ with the same coefficient, so the factor part does not
+      diversify at all and contributes $0.0225$ intact. The residuals are
+      independent, so their average has variance $0.0576/60 = 0.00096$. Hence
+      $\sigma_p^{2} = 0.0225 + 0.00096 = 0.02346$ and
+      $\sigma_p = 15.32\%$ — barely above the factor's own $15\%$. Only
+      $0.00096/0.02346 = 4\%$ of the book's variance is now idiosyncratic,
+      against $72\%$ for a single name: the specific risk is what sixty names
+      buy you out of, and the systematic risk is what is left to be paid for.
+      The trap is dividing the *whole* variance by $60$, which answers
+      $\sqrt{0.0801/60} = 3.65\%$ and diversifies away a factor exposure that
+      every position shares.
+    expects: "15.32%"
+    tolerance: 0.0001
+    rubric:
+      - >
+        Splits each name's variance into a systematic part $0.0225$ and an
+        independent residual part $0.0576$.
+      - >
+        Divides only the residual variance by $n = 60$, leaving the factor
+        variance whole, and takes the square root.
+    targets:
+      - quant-finance.portfolio.systematic-idiosyncratic
+
+  # --- the two-asset minimum-variance portfolio --------------------------------
+
+  - id: qport-min-variance-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      For two assets with volatilities $\sigma_1$, $\sigma_2$ and correlation
+      $\rho$, derive the weight $w^{*}$ in asset $1$ that minimizes portfolio
+      variance, and show that $w^{*}$ leaves $[0,1]$ — so the minimum-variance
+      portfolio shorts a leg — exactly when
+      $\rho > \min(\sigma_1,\sigma_2)/\max(\sigma_1,\sigma_2)$.
+    answer: >
+      Write $f(w) = w^{2}\sigma_1^{2} + (1-w)^{2}\sigma_2^{2}
+      + 2w(1-w)\rho\sigma_1\sigma_2$. Collecting powers of $w$, the coefficient
+      on $w^{2}$ is $\sigma_1^{2} + \sigma_2^{2} - 2\rho\sigma_1\sigma_2$, which
+      is $\operatorname{Var}(R_1 - R_2) \ge 0$ and is strictly positive unless
+      the two assets are the same bet, so $f$ is a strictly convex parabola with
+      a unique interior minimum. Differentiate:
+      $f'(w) = 2w\sigma_1^{2} - 2(1-w)\sigma_2^{2} + 2(1-2w)\rho\sigma_1\sigma_2$.
+      Setting $f'(w) = 0$ and solving,
+      $w^{*} = (\sigma_2^{2} - \rho\sigma_1\sigma_2)/(\sigma_1^{2} +
+      \sigma_2^{2} - 2\rho\sigma_1\sigma_2)$. The denominator is positive, so
+      the sign of $w^{*}$ is the sign of
+      $\sigma_2(\sigma_2 - \rho\sigma_1)$: $w^{*} < 0$ exactly when
+      $\rho > \sigma_2/\sigma_1$. Symmetrically, $1 - w^{*}$ has numerator
+      $\sigma_1(\sigma_1 - \rho\sigma_2)$, so $w^{*} > 1$ exactly when
+      $\rho > \sigma_1/\sigma_2$. Only one of the two ratios can be below $1$,
+      and it is $\min(\sigma_1,\sigma_2)/\max(\sigma_1,\sigma_2)$; so a short
+      leg appears precisely when $\rho$ exceeds that ratio, and the leg that
+      gets shorted is the riskier one. Sanity checks: at $\rho = 0$ this is
+      inverse-variance weighting $\sigma_2^{2}/(\sigma_1^{2}+\sigma_2^{2})$; at
+      $\rho = -1$ it reduces to $\sigma_2/(\sigma_1+\sigma_2)$, the riskless
+      mix. The trap worth naming is treating $w^{*} \in [0,1]$ as a theorem —
+      it is a conclusion that fails whenever the assets are similar enough that
+      shorting one hedges the other.
+    rubric:
+      - >
+        Expands the variance as a quadratic in $w$ and notes the leading
+        coefficient is $\operatorname{Var}(R_1 - R_2) > 0$, so the stationary
+        point is the unique minimum.
+      - >
+        Differentiates and solves to get
+        $w^{*} = (\sigma_2^{2} - \rho\sigma_1\sigma_2)/(\sigma_1^{2}+
+        \sigma_2^{2}-2\rho\sigma_1\sigma_2)$.
+      - >
+        Signs the numerators of $w^{*}$ and $1 - w^{*}$ to get the two
+        conditions $\rho > \sigma_2/\sigma_1$ and $\rho > \sigma_1/\sigma_2$,
+        and combines them into the volatility-ratio threshold.
+    targets:
+      - quant-finance.portfolio.min-variance
+    exercises:
+      - quant-finance.portfolio.portfolio-variance
+
+  - id: qport-min-variance-02
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two assets have $\sigma_1 = 12\%$ and $\sigma_2 = 30\%$ with
+      $\rho = 0.5$. What weight $w^{*}$ in the first asset minimizes portfolio
+      variance? Give it as an exact fraction.
+    answer: >
+      $w^{*} = 20/19 \approx 1.0526$ — the minimum-variance portfolio is
+      *levered long* the quiet asset and short the volatile one. Numerator:
+      $\sigma_2^{2} - \rho\sigma_1\sigma_2 = 0.09 - 0.5(0.12)(0.30)
+      = 0.09 - 0.018 = 0.072$. Denominator:
+      $\sigma_1^{2} + \sigma_2^{2} - 2\rho\sigma_1\sigma_2
+      = 0.0144 + 0.09 - 0.036 = 0.0684$. So
+      $w^{*} = 0.072/0.0684 = 720/684 = 20/19$, and the second weight is
+      $-1/19 \approx -5.26\%$. This is the shorting condition biting:
+      $\min(\sigma_1,\sigma_2)/\max(\sigma_1,\sigma_2) = 12/30 = 0.4$, and
+      $\rho = 0.5$ exceeds it, so a small short in the riskier name hedges the
+      quieter one better than holding none of it. The achieved variance is
+      $\sigma_1^{2}\sigma_2^{2}(1-\rho^{2})/0.0684
+      = 0.0144(0.09)(0.75)/0.0684 = 0.014211$, so $\sigma_p = 11.92\%$, just
+      under the $12\%$ of asset $1$ alone. The trap is clamping the answer to
+      $[0,1]$ on the assumption that a minimum-variance weight must be a
+      long-only mix.
+    expects: "20/19"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Substitutes into
+        $w^{*} = (\sigma_2^{2}-\rho\sigma_1\sigma_2)/(\sigma_1^{2}+
+        \sigma_2^{2}-2\rho\sigma_1\sigma_2)$ and simplifies to $20/19$.
+      - >
+        Accepts a weight above $1$, identifying it with
+        $\rho = 0.5 > 12/30$ and a short in the riskier asset.
+    targets:
+      - quant-finance.portfolio.min-variance
+
+  - id: qport-min-variance-03
+    kind: work
+    difficulty: standard
+    statement: >
+      Two uncorrelated assets have $\sigma_1 = 12\%$ and $\sigma_2 = 36\%$.
+      What weight in the first asset minimizes portfolio variance?
+    answer: >
+      $w^{*} = 0.9$. At $\rho = 0$ the general formula loses its cross terms and
+      becomes inverse-variance weighting:
+      $w^{*} = \sigma_2^{2}/(\sigma_1^{2} + \sigma_2^{2})
+      = 0.1296/(0.0144 + 0.1296) = 0.1296/0.144 = 0.9$. Note the shape — the
+      weight on asset $1$ is proportional to $1/\sigma_1^{2}$, so tripling an
+      asset's volatility cuts its weight by a factor of nine, and here a
+      three-to-one volatility ratio produces a nine-to-one weight ratio. The
+      achieved variance is $0.81(0.0144) + 0.01(0.1296) = 0.011664 + 0.001296
+      = 0.01296$, so $\sigma_p = 11.38\%$, under asset $1$'s own $12\%$: even a
+      $10\%$ sliver of a much noisier uncorrelated asset lowers total risk. The
+      trap is inverse-*volatility* weighting, $\sigma_2/(\sigma_1+\sigma_2)
+      = 0.75$, which is the $\rho = -1$ answer, not the $\rho = 0$ one.
+    expects: "0.9"
+    rubric:
+      - >
+        Sets $\rho = 0$ and uses
+        $w^{*} = \sigma_2^{2}/(\sigma_1^{2}+\sigma_2^{2})$.
+      - >
+        Weights by inverse variance rather than inverse volatility.
+    targets:
+      - quant-finance.portfolio.min-variance
+
+  # --- Markowitz weights by Lagrange multipliers -------------------------------
+
+  - id: qport-markowitz-lagrange-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Set up and solve the Markowitz problem with a return target: minimize
+      $w'\Sigma w$ subject to $w'\mathbf{1} = 1$ and $w'\mu = \mu_0$, with
+      $\Sigma$ invertible. Show the solution has the form
+      $w = \Sigma^{-1}(a\mathbf{1} + b\mu)$ for scalars $a$, $b$ fixed by the
+      two constraints, and explain why every such solution is an affine
+      function of $\mu_0$.
+    answer: >
+      Form
+      $L(w,\lambda_1,\lambda_2) = w'\Sigma w - \lambda_1(w'\mathbf{1} - 1)
+      - \lambda_2(w'\mu - \mu_0)$. The objective is convex ($\Sigma$ is PSD)
+      and the constraints are affine, so stationarity is necessary and
+      sufficient. Differentiating in $w$:
+      $2\Sigma w - \lambda_1\mathbf{1} - \lambda_2\mu = 0$, hence
+      $w = \Sigma^{-1}(a\mathbf{1} + b\mu)$ with $a = \lambda_1/2$ and
+      $b = \lambda_2/2$. Substituting into the two constraints gives a
+      $2 \times 2$ linear system in $(a,b)$: with the standard scalars
+      $A = \mathbf{1}'\Sigma^{-1}\mathbf{1}$,
+      $B = \mathbf{1}'\Sigma^{-1}\mu$ and $C = \mu'\Sigma^{-1}\mu$, the
+      constraints read $aA + bB = 1$ and $aB + bC = \mu_0$. That system is
+      linear in $\mu_0$ with a fixed matrix, so $(a,b)$ — and therefore $w$ —
+      is an *affine* function of $\mu_0$, which is exactly two-fund separation:
+      $w(\mu_0) = w(\mu_a) + \frac{\mu_0 - \mu_a}{\mu_b - \mu_a}
+      (w(\mu_b) - w(\mu_a))$ for any two distinct attainable targets, so every
+      frontier portfolio is a combination of any two others. Dropping the second
+      constraint sets $b = 0$ and recovers
+      $w \propto \Sigma^{-1}\mathbf{1}$, the global minimum-variance portfolio,
+      which depends on $\Sigma$ alone and never on $\mu$. The weakness is
+      visible in the formula: $\Sigma^{-1}$ amplifies estimation error along
+      $\Sigma$'s near-null directions, so an unconstrained solve on estimated
+      inputs returns enormous offsetting weights.
+    rubric:
+      - >
+        Writes the Lagrangian with one multiplier per constraint and takes the
+        gradient in $w$, getting $2\Sigma w = \lambda_1\mathbf{1}
+        + \lambda_2\mu$.
+      - >
+        Solves for $w = \Sigma^{-1}(a\mathbf{1} + b\mu)$ and substitutes back
+        to get a linear system for $(a,b)$ in terms of $\mu_0$.
+      - >
+        Concludes that $w$ is affine in $\mu_0$ and connects this to two-fund
+        separation, or recovers $w \propto \Sigma^{-1}\mathbf{1}$ when the
+        return target is dropped.
+    targets:
+      - quant-finance.portfolio.markowitz-lagrange
+    exercises:
+      - quant-tools.optimization.lagrange
+
+  - id: qport-markowitz-lagrange-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Three uncorrelated assets have variances $0.16$, $0.04$ and $0.08$. What
+      weight does the global minimum-variance portfolio $w \propto
+      \Sigma^{-1}\mathbf{1}$ place on the second, least risky, asset? Give an
+      exact fraction.
+    answer: >
+      $4/7 \approx 57.1\%$. With $\Sigma$ diagonal, $\Sigma^{-1}$ is diagonal
+      with entries $1/\sigma_i^{2}$, so
+      $\Sigma^{-1}\mathbf{1} = (1/0.16,\, 1/0.04,\, 1/0.08)
+      = (6.25,\, 25,\, 12.5)$, summing to $43.75$. Rescaling so the weights sum
+      to one: $w = (6.25,\, 25,\, 12.5)/43.75 = (1/7,\, 4/7,\, 2/7)$, that is
+      $(14.3\%,\, 57.1\%,\, 28.6\%)$. The multiplier solution reduces in the
+      diagonal case to inverse-variance weighting, so the weights are in the
+      ratio $1 : 4 : 2$ — the variances $0.16 : 0.04 : 0.08$ inverted. Note the
+      expected returns were never asked for and never used: the *global*
+      minimum-variance portfolio depends on $\Sigma$ alone. The trap is inverse-
+      volatility weighting, $(1/0.4,\, 1/0.2,\, 1/0.283) = (2.5,\, 5,\, 3.54)$
+      normalised to $(22.7\%,\, 45.3\%,\, 32.0\%)$, which is a risk-parity
+      answer rather than a minimum-variance one.
+    expects: "4/7"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Inverts the diagonal $\Sigma$ entrywise and normalises
+        $\Sigma^{-1}\mathbf{1}$ to sum to one.
+      - >
+        Weights by inverse variance, not inverse volatility, and notes that
+        expected returns play no part.
+    targets:
+      - quant-finance.portfolio.markowitz-lagrange
+
+  # --- the efficient frontier ---------------------------------------------------
+
+  - id: qport-efficient-frontier-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Explain why the minimum-variance frontier is a hyperbola in the
+      $(\sigma, \mu)$ plane — equivalently a parabola in $(\sigma^{2}, \mu)$ —
+      and why only the branch above the vertex is held.
+    answer: >
+      Solving the constrained problem once per target $\mu_0$ gives weights
+      $w(\mu_0) = \Sigma^{-1}(a\mathbf{1} + b\mu)$ whose scalars $(a,b)$ solve a
+      fixed $2 \times 2$ linear system whose right-hand side is
+      $(1, \mu_0)$. So $a$ and $b$, and therefore $w$, are *affine* in
+      $\mu_0$: $w(\mu_0) = u + \mu_0 v$ for fixed vectors $u$, $v$. The
+      frontier variance is then
+      $\sigma^{2}(\mu_0) = w'\Sigma w = (u + \mu_0 v)'\Sigma(u + \mu_0 v)
+      = u'\Sigma u + 2\mu_0 u'\Sigma v + \mu_0^{2} v'\Sigma v$ — a quadratic in
+      $\mu_0$ with leading coefficient $v'\Sigma v \ge 0$, and strictly positive
+      whenever the assets are not all identical. That is a parabola in
+      $(\sigma^{2}, \mu)$ opening to the right; writing it in the standard form
+      $\sigma^{2}/\sigma_{\min}^{2} - (\mu - \mu_{\min})^{2}/k = 1$ shows the
+      same locus in $(\sigma,\mu)$ is one branch of a hyperbola, with vertex at
+      the global minimum-variance portfolio and asymptotes of slope
+      $\pm\sqrt{v'\Sigma v}^{-1}$. Convexity of the quadratic is what does the
+      work: it has a unique minimizing $\mu_0$, and the curve is symmetric in
+      $\mu$ about that vertex. Symmetry is exactly why the lower branch is
+      dropped — for every point below the vertex there is a mirror point at
+      identical $\sigma$ with strictly higher $\mu$, so the lower branch is
+      dominated by portfolios that are already available, and a mean-variance
+      investor never holds one. The trap is to argue the shape from a picture of
+      two assets; the argument above needs no such special case, only that the
+      solution is affine in the target and the objective is quadratic.
+    rubric:
+      - >
+        Establishes that the frontier weights are affine in the target mean
+        $\mu_0$, so $w(\mu_0) = u + \mu_0 v$.
+      - >
+        Substitutes into $w'\Sigma w$ to get a convex quadratic in $\mu_0$,
+        hence a parabola in $(\sigma^{2},\mu)$ and a hyperbola branch in
+        $(\sigma,\mu)$.
+      - >
+        Uses the symmetry about the vertex to show every point below it is
+        dominated at the same risk, so only the upper branch is efficient.
+    targets:
+      - quant-finance.portfolio.efficient-frontier
+    exercises:
+      - quant-finance.portfolio.markowitz-lagrange
+
+  - id: qport-efficient-frontier-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Four portfolios drawn from the same investable universe are quoted as
+      (volatility, expected return) pairs: $P = (10\%,\, 5\%)$,
+      $Q = (14\%,\, 7\%)$, $R = (14\%,\, 6\%)$ and $S = (20\%,\, 9\%)$. On this
+      evidence alone, which one certainly cannot lie on the efficient frontier?
+    answer: >
+      $R$. Efficiency means no available portfolio has the same risk with a
+      higher mean, and $Q$ is a direct counterexample to $R$: identical
+      volatility of $14\%$, a full point more expected return, and $Q$ is
+      demonstrably available since it was quoted. So $R$ is dominated and no
+      investor holds it — it is a point on the *lower* branch of the frontier,
+      or inside the attainable region. The other three cannot be ruled out from
+      these numbers: $P$, $Q$ and $S$ are ordered with both risk and return
+      increasing, which is exactly what the upper branch looks like, and nothing
+      here shows any of them is beaten at its own risk level. The trap is
+      ranking by Sharpe-like slopes: $P$ has $\mu/\sigma = 0.5$ against $Q$'s
+      $0.5$ and $S$'s $0.45$, and concluding $S$ is inefficient. Without a
+      risk-free rate there is no capital allocation line, the frontier is a
+      curve rather than a ray, and a lower ratio to the origin is exactly what
+      the upper branch's curvature produces at higher risk.
+    choices:
+      - text: >
+          $R$, because $Q$ has the same volatility and a strictly higher
+          expected return.
+        correct: true
+        feedback: >
+          Right — same $\sigma = 14\%$, higher $\mu$, so $R$ is dominated by an
+          available portfolio and sits below the vertex.
+      - text: >
+          $S$, because its ratio of expected return to volatility, $0.45$, is
+          the lowest of the four.
+        feedback: >
+          That ratio is a Sharpe measured from an origin at zero. Without a
+          risk-free rate no line is being maximised, and the frontier's
+          curvature makes the ratio fall at higher risk.
+      - text: >
+          $P$, because $10\%$ volatility is too little risk for a portfolio on
+          the frontier.
+        feedback: >
+          The frontier extends to its vertex, the global minimum-variance
+          portfolio; low risk is not evidence against efficiency.
+      - text: >
+          None of them — every quoted portfolio is attainable, so all four are
+          on the frontier.
+        feedback: >
+          Attainable is not efficient. The frontier is the *upper edge* of the
+          attainable region, and $R$ is strictly inside or below it.
+    rubric:
+      - >
+        Applies the definition of dominance: same $\sigma$, strictly higher
+        $\mu$ available, so the lower one is off the efficient branch.
+      - >
+        Does not rank the remaining portfolios by return-over-volatility, which
+        is not the efficiency criterion absent a risk-free rate.
+    targets:
+      - quant-finance.portfolio.efficient-frontier
+
+  - id: qport-efficient-frontier-03
+    kind: work
+    difficulty: standard
+    statement: >
+      Two frontier portfolios over the same two assets have weight vectors
+      $A = (1.2,\, -0.2)$ and $B = (0.4,\, 0.6)$. By two-fund separation, every
+      blend $\lambda A + (1-\lambda)B$ is also on the frontier. What
+      $\lambda$ gives the frontier portfolio holding exactly $0.5$ in the first
+      asset?
+    answer: >
+      $\lambda = 0.125$. The blend's first weight is
+      $\lambda(1.2) + (1-\lambda)(0.4) = 0.4 + 0.8\lambda$, and setting this to
+      $0.5$ gives $0.8\lambda = 0.1$, so $\lambda = 0.125$. Check the whole
+      vector: $0.125(1.2,\, -0.2) + 0.875(0.4,\, 0.6)
+      = (0.15,\, -0.025) + (0.35,\, 0.525) = (0.5,\, 0.5)$, which sums to one
+      as any portfolio must — and it does so automatically, because a convex
+      (indeed any affine) combination of two vectors that each sum to one again
+      sums to one. That closure is what makes two-fund separation work: the
+      frontier is an affine image of the target mean, so combinations of
+      frontier portfolios never leave it. The trap is assuming $\lambda$ must
+      lie in $[0,1]$ for the blend to be a frontier portfolio; it need not, and
+      $\lambda$ outside that range simply traces the frontier beyond $A$ or
+      beyond $B$.
+    expects: "0.125"
+    rubric:
+      - >
+        Writes the blended first weight as $0.4 + 0.8\lambda$ and solves the
+        linear equation.
+      - >
+        Verifies the resulting weight vector still sums to one.
+    targets:
+      - quant-finance.portfolio.efficient-frontier
+
+  # --- the Sharpe ratio ---------------------------------------------------------
+
+  - id: qport-sharpe-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A strategy earns a daily excess mean of $0.035\%$ on a daily volatility of
+      $0.9\%$, over $252$ trading days a year, and its returns are iid. The
+      manager charges a flat $2\%$ of assets a year, deducted from the return.
+      What is the strategy's annualized Sharpe ratio *net* of that fee?
+    answer: >
+      $0.477$, down from $0.617$ gross. Annualize first: the excess mean scales
+      with time, $0.035(252) = 8.82\%$ a year, while volatility scales with the
+      square root, $0.9\sqrt{252} = 0.9(15.8745) = 14.287\%$. Gross Sharpe is
+      therefore $8.82/14.287 = 0.617$ — the same as the daily Sharpe
+      $0.035/0.9 = 0.03889$ multiplied by $\sqrt{252}$, as it must be. The fee
+      is a flat charge on assets, so it subtracts from the numerator and leaves
+      the volatility untouched: net excess return is $8.82 - 2 = 6.82\%$, and
+      $S_{\text{net}} = 6.82/14.287 = 0.477$. Two traps. The first is treating
+      the fee like leverage — leverage scales numerator *and* denominator and
+      leaves Sharpe unchanged, which is precisely why a flat fee does not: it
+      cuts return without cutting risk, and here it destroys nearly a quarter of
+      the strategy's quality score. The second is annualizing the fee by
+      $\sqrt{252}$ along with the volatility; the fee is already an annual
+      figure and belongs in the numerator's units.
+    expects: "0.477"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Scales the mean by $252$ and the volatility by $\sqrt{252}$, getting
+        $8.82\%$ on $14.29\%$.
+      - >
+        Subtracts the annual fee from the numerator only, leaving volatility
+        unchanged, and divides.
+    targets:
+      - quant-finance.portfolio.sharpe
+
+  - id: qport-sharpe-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A fund reports a quarterly excess mean of $1.6\%$ on a quarterly
+      volatility of $5\%$, with quarters iid. What is its annualized Sharpe
+      ratio?
+    answer: >
+      $0.64$. The per-period Sharpe is $1.6/5 = 0.32$, and under iid returns
+      Sharpe scales with the square root of the number of periods, so annualize
+      by $\sqrt{4} = 2$: $0.32(2) = 0.64$. Confirm it the long way: the annual
+      excess mean is $4(1.6) = 6.4\%$ and the annual volatility is
+      $5\sqrt{4} = 10\%$, giving $6.4/10 = 0.64$. The $\sqrt{252}$ of the daily
+      convention is not a magic constant — it is $\sqrt{t}$ with $t$ the number
+      of periods in a year, so quarterly data takes $\sqrt{4}$, monthly
+      $\sqrt{12}$ and weekly $\sqrt{52}$. The trap is annualizing the mean but
+      forgetting the volatility, which reports $6.4/5 = 1.28$ and doubles the
+      fund's apparent quality.
+    expects: "0.64"
+    rubric:
+      - >
+        Computes the per-period Sharpe and multiplies by $\sqrt{4}$, or
+        annualizes mean by $4$ and volatility by $\sqrt{4}$.
+      - >
+        Applies the square-root scaling to the correct number of periods per
+        year for quarterly data.
+    targets:
+      - quant-finance.portfolio.sharpe
+
+  - id: qport-sharpe-03
+    kind: work
+    difficulty: routine
+    statement: >
+      A portfolio has an expected return of $11\%$ and volatility $16\%$. The
+      risk-free rate is $3\%$. What is its Sharpe ratio?
+    answer: >
+      $0.5$. The Sharpe ratio is excess return over volatility,
+      $S = (\mathbb{E}[R_p] - r_f)/\sigma_p = (11 - 3)/16 = 8/16 = 0.5$. Both
+      figures are already annual, so no $\sqrt{252}$ scaling enters. The
+      geometric reading: this is the slope of the straight line drawn from the
+      risk-free point $(0, 3\%)$ to the portfolio at $(16\%, 11\%)$ in the
+      $(\sigma, \mu)$ plane — half a point of excess return for each point of
+      volatility carried. The trap is dividing the *total* return by
+      volatility, $11/16 = 0.69$, which credits the portfolio with return it
+      could have earned by holding cash and taking no risk at all.
+    expects: "0.5"
+    rubric:
+      - >
+        Subtracts the risk-free rate before dividing, using excess return and
+        not total return.
+      - >
+        Divides by volatility to get $0.5$.
+    targets:
+      - quant-finance.portfolio.sharpe
+
+  # --- the capital allocation line and the tangency portfolio -------------------
+
+  - id: qport-tangency-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two risky assets have $\sigma_1 = 20\%$ and $\sigma_2 = 10\%$ with
+      correlation $\rho = 0.25$, and excess returns over $r_f$ of $8\%$ and
+      $3\%$ respectively. What weight does the tangency portfolio put on the
+      first asset?
+    answer: >
+      About $0.4483$, that is $13/29$. The tangency weights are proportional to
+      $\Sigma^{-1}(\mu - r_f\mathbf{1})$, so invert the $2 \times 2$ covariance
+      matrix with rows $(0.04,\, 0.005)$ and $(0.005,\, 0.01)$, whose
+      determinant is $0.0004 - 0.000025 = 0.000375$. Then
+      $\Sigma^{-1}(\mu - r_f\mathbf{1})$ has first entry
+      $(0.01(0.08) - 0.005(0.03))/0.000375 = 0.00065/0.000375 = 1.7333$ and
+      second entry $(0.04(0.03) - 0.005(0.08))/0.000375
+      = 0.0008/0.000375 = 2.1333$. These sum to $3.8667$, so the weights are
+      $(1.7333,\, 2.1333)/3.8667 = (0.4483,\, 0.5517) = (13/29,\, 16/29)$.
+      Notice the correlation subtracts from each numerator — an asset's claim
+      on capital is its own excess return net of what a correlated sibling
+      already delivers, which is why the raw ratio of Sharpe ratios
+      ($0.40$ against $0.30$) does not give the answer. Two traps. Ignoring the
+      off-diagonal entries and inverse-variance weighting the excess returns
+      gives $(0.08/0.04) : (0.03/0.01) = 2 : 3$, that is $0.40$, close enough
+      here to look right and wrong in general. And the raw vector
+      $(1.7333,\, 2.1333)$ is *not* the portfolio: it must be rescaled to sum
+      to one, since the leverage decision belongs to the capital allocation
+      line, not to the tangency mix.
+    expects: "0.4483"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Inverts the $2 \times 2$ covariance matrix, keeping the off-diagonal
+        covariance $\rho\sigma_1\sigma_2 = 0.005$.
+      - >
+        Forms $\Sigma^{-1}(\mu - r_f\mathbf{1})$ and rescales the resulting
+        vector so its entries sum to one.
+    targets:
+      - quant-finance.portfolio.tangency
+
+  - id: qport-tangency-02
+    kind: work
+    difficulty: standard
+    statement: >
+      The tangency portfolio has an expected return of $10\%$ and volatility
+      $13\%$, and the risk-free rate is $3\%$; borrowing and lending both happen
+      at $r_f$. An investor wants a total portfolio volatility of exactly
+      $20\%$. What expected return does that investor earn?
+    answer: >
+      $13.77\%$. Putting weight $a$ in the tangency portfolio and $1-a$ in cash
+      gives volatility $a\sigma_P$ and mean $r_f + a(\mu_P - r_f)$. Solve for
+      the volatility target: $a(13) = 20$, so $a = 20/13 = 1.5385$ — the
+      investor borrows $53.85\%$ of capital at the risk-free rate and holds
+      $153.85\%$ in the tangency mix. Then
+      $\mathbb{E}[R] = 3 + 1.5385(10 - 3) = 3 + 1.5385(7) = 3 + 10.769
+      = 13.77\%$. The Sharpe ratio is unchanged at
+      $(13.77 - 3)/20 = 7/13 = 0.538$: leverage moves you along the capital
+      allocation line, it does not tilt the line. The trap this is built around
+      is reaching for $20\%$ of volatility by *reweighting the risky assets*
+      toward the noisier one. That produces a portfolio off the tangency point,
+      on a flatter line out of $(0, r_f)$, and therefore a lower expected return
+      at the same $20\%$ risk. With a risk-free asset available, the risky mix
+      is the same for everyone and only $a$ varies.
+    expects: "13.77%"
+    tolerance: 0.0001
+    rubric:
+      - >
+        Solves $a\sigma_P = 20\%$ for $a = 20/13 > 1$ and reads it as borrowing
+        at $r_f$.
+      - >
+        Computes $r_f + a(\mu_P - r_f)$ rather than reweighting the risky
+        assets to raise volatility.
+    targets:
+      - quant-finance.portfolio.tangency
+
+  - id: qport-tangency-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      An investor has identified the tangency portfolio for their universe and
+      can borrow and lend freely at the risk-free rate. They want a higher
+      expected return than the tangency portfolio offers. What should they do?
+    answer: >
+      Borrow at $r_f$ and hold more than $100\%$ of capital in the *same*
+      tangency portfolio. Every mix of cash and a risky portfolio $P$ traces a
+      straight line out of $(0, r_f)$ whose slope is $P$'s Sharpe ratio, and the
+      tangency portfolio is by construction the one with the steepest such line.
+      Moving out along that line with $a > 1$ — a levered position — raises both
+      mean and volatility while keeping the slope, so at any risk level it beats
+      every other risky mix. Reweighting toward the highest-return asset lands
+      on a portfolio with a strictly lower Sharpe ratio and therefore a flatter
+      line: more return than tangency, yes, but less return than levered
+      tangency at the same volatility. This is two-fund separation — everyone
+      holds the identical risky mix and expresses risk appetite only through
+      $a$ — and the trap it is built to catch is treating "I want more return"
+      as a reason to change the risky weights.
+    choices:
+      - text: >
+          Borrow at $r_f$ and hold more than $100\%$ of capital in the tangency
+          portfolio, leaving its weights unchanged.
+        correct: true
+        feedback: >
+          Right — leverage moves you out along the steepest capital allocation
+          line, and its slope, the tangency Sharpe ratio, is unchanged.
+      - text: >
+          Shift the risky weights toward the asset with the highest expected
+          return, then hold no cash.
+        feedback: >
+          That leaves the tangency point for a portfolio with a lower Sharpe
+          ratio, so the resulting line out of $(0,r_f)$ is flatter and is beaten
+          by levered tangency at the same risk.
+      - text: >
+          Hold the tangency portfolio and accept its return — with a risk-free
+          asset available, no higher expected return is attainable.
+        feedback: >
+          Higher expected return is always attainable by borrowing; the
+          tangency portfolio maximises Sharpe, not expected return.
+      - text: >
+          Move to the frontier portfolio directly above tangency, at the same
+          volatility but higher mean.
+        feedback: >
+          No such portfolio exists. Tangency is on the efficient frontier, so
+          nothing available has its risk and a higher mean.
+    rubric:
+      - >
+        Identifies the capital allocation line's slope as the risky
+        portfolio's Sharpe ratio, maximised at tangency.
+      - >
+        Chooses leverage over reweighting, invoking two-fund separation.
+    targets:
+      - quant-finance.portfolio.tangency
+
+  # --- growth-optimal leverage --------------------------------------------------
+
+  - id: qport-growth-optimal-leverage-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A continuously rebalanced strategy has excess mean $\mu_e = 10\%$ and
+      volatility $\sigma = 40\%$, so its log wealth grows at
+      $g(f) = r_f + f\mu_e - f^{2}\sigma^{2}/2$ at leverage $f$. Above the
+      growth-optimal leverage, growth falls away again. At what leverage
+      $f > 0$ does the strategy's growth rate drop all the way back to $r_f$ —
+      so that all the risk is being run for no compounding benefit at all?
+    answer: >
+      $f = 1.25$, which is exactly twice the optimum. Set
+      $g(f) = r_f$: the excess growth $f\mu_e - f^{2}\sigma^{2}/2$ must vanish,
+      so $f(\mu_e - f\sigma^{2}/2) = 0$ and the positive root is
+      $f = 2\mu_e/\sigma^{2} = 2(0.10)/0.16 = 1.25$. The optimum itself is
+      $f^{*} = \mu_e/\sigma^{2} = 0.625$, so the zero-benefit point sits at
+      $2f^{*}$, and the best achievable excess growth is
+      $S^{2}/2 = (0.10/0.40)^{2}/2 = 0.0625/2 = 3.125\%$ a year. This is the
+      discrete Kelly picture in continuous form — $g$ is a concave parabola
+      through the origin in excess terms, so betting twice Kelly earns nothing
+      and betting more than that compounds *negatively* while carrying more
+      than double the volatility. The trap is reading $f^{*}$ as a safety limit:
+      the leverage at which growth turns negative is $2f^{*}$, but the leverage
+      at which the marginal contribution of more size turns negative is
+      $f^{*}$, and everything between the two is risk taken for a shrinking
+      return.
+    expects: "1.25"
+    rubric:
+      - >
+        Sets the excess growth $f\mu_e - f^{2}\sigma^{2}/2$ to zero and takes
+        the nonzero root $f = 2\mu_e/\sigma^{2}$.
+      - >
+        Identifies it as twice $f^{*} = \mu_e/\sigma^{2}$, the same
+        over-betting geometry as discrete Kelly.
+    targets:
+      - quant-finance.portfolio.growth-optimal-leverage
+      - quant-games.kelly.log-growth
+    connects:
+      - quant-finance.portfolio.growth-optimal-leverage ~ quant-games.kelly.log-growth
+
+  - id: qport-growth-optimal-leverage-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A strategy has excess mean $\mu_e = 12\%$ and volatility $\sigma = 30\%$.
+      What leverage $f^{*}$ maximizes its long-run log growth rate? Give an
+      exact fraction.
+    answer: >
+      $f^{*} = 4/3 \approx 1.333$. Maximize
+      $g(f) = r_f + f\mu_e - f^{2}\sigma^{2}/2$: it is a concave quadratic in
+      $f$, so $g'(f) = \mu_e - f\sigma^{2} = 0$ gives
+      $f^{*} = \mu_e/\sigma^{2} = 0.12/0.09 = 4/3$. The strategy should be run
+      about a third larger than unlevered. Its Sharpe ratio is
+      $S = 0.12/0.30 = 0.4$, so the maximum excess growth is
+      $S^{2}/2 = 0.16/2 = 8\%$ a year — the growth depends on the strategy only
+      through $S$, which is why Sharpe is the quantity that compounds. The trap
+      is dividing by $\sigma$ rather than $\sigma^{2}$: that gives
+      $0.12/0.30 = 0.4$, which is the Sharpe ratio, not a leverage, and is
+      dimensionally the wrong object.
+    expects: "4/3"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Differentiates $g(f)$ and solves $\mu_e = f\sigma^{2}$, dividing by
+        variance rather than volatility.
+      - >
+        Reports $4/3$ and can state the resulting growth as $r_f + S^{2}/2$.
+    targets:
+      - quant-finance.portfolio.growth-optimal-leverage
+
+  # --- beta and the CAPM --------------------------------------------------------
+
+  - id: qport-beta-capm-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A book of $1{,}000{,}000$ dollars holds $55\%$ in stock A and $45\%$ in
+      stock B. Against a market index with volatility $\sigma_m = 5\%$, the
+      covariances are $\operatorname{Cov}(R_A, R_m) = 0.0042$ and
+      $\operatorname{Cov}(R_B, R_m) = -0.0009$. How many dollars of the index
+      must be sold short to leave the book beta-neutral?
+    answer: >
+      $762{,}000$ dollars. Beta is covariance over market *variance*, and
+      $\operatorname{Var}(R_m) = 0.05^{2} = 0.0025$, so
+      $\beta_A = 0.0042/0.0025 = 1.68$ and
+      $\beta_B = -0.0009/0.0025 = -0.36$; stock B moves against the index. Beta
+      is linear in weights, so the book's beta is the weighted average
+      $0.55(1.68) + 0.45(-0.36) = 0.924 - 0.162 = 0.762$. Shorting $\beta$
+      dollars of index per dollar of book removes exactly that exposure, so the
+      hedge is $0.762(1{,}000{,}000) = 762{,}000$ dollars of index sold short.
+      Two traps. Dividing the covariances by $\sigma_m = 0.05$ instead of by
+      $\sigma_m^{2} = 0.0025$ inflates every beta twentyfold and would have the
+      desk short more than fifteen million dollars of index. And averaging the
+      two betas without weights gives $(1.68 - 0.36)/2 = 0.66$, which
+      under-hedges by about a hundred thousand dollars because the high-beta
+      name carries the larger position.
+    expects: "762000"
+    rubric:
+      - >
+        Divides each covariance by $\operatorname{Var}(R_m) = \sigma_m^{2}$,
+        not by $\sigma_m$.
+      - >
+        Uses linearity of beta in weights and converts the portfolio beta into
+        a dollar notional of index to short.
+    targets:
+      - quant-finance.portfolio.beta-capm
+    exercises:
+      - quant-statistics.regression.beta-cov-var
+
+  - id: qport-beta-capm-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A stock has $\beta = 0.65$. The risk-free rate is $4\%$ and the market's
+      *expected return* is $10\%$. What expected return does the CAPM assign to
+      the stock?
+    answer: >
+      $7.9\%$. The security market line prices excess return, not total return:
+      $\mathbb{E}[R_i] = r_f + \beta_i(\mathbb{E}[R_m] - r_f)$. The equity
+      premium here is $10 - 4 = 6\%$, so
+      $\mathbb{E}[R_i] = 4 + 0.65(6) = 4 + 3.9 = 7.9\%$. Sanity check the
+      shape: $\beta$ below one means the stock is compensated less than the
+      market, and $7.9\%$ duly sits between $r_f = 4\%$ and
+      $\mathbb{E}[R_m] = 10\%$, closer to the market because $0.65$ is nearer
+      $1$ than $0$. The trap is the wording — the problem quotes the market's
+      expected return, not the premium, and multiplying $\beta$ by $10\%$ gives
+      $4 + 6.5 = 10.5\%$, a stock with beta below one somehow out-earning the
+      market it under-tracks. The premium is always
+      $\mathbb{E}[R_m] - r_f$.
+    expects: "7.9%"
+    tolerance: 0.0001
+    rubric:
+      - >
+        Converts the market's expected return into a premium by subtracting
+        $r_f$ before multiplying by $\beta$.
+      - >
+        Adds $r_f$ back, landing between $r_f$ and $\mathbb{E}[R_m]$.
+    targets:
+      - quant-finance.portfolio.beta-capm
+
+  - id: qport-beta-capm-03
+    kind: work
+    difficulty: routine
+    statement: >
+      A stock has volatility $\sigma_i = 32\%$ and correlation $0.45$ with a
+      market whose volatility is $\sigma_m = 18\%$. What is its beta?
+    answer: >
+      $\beta = 0.8$. Use the correlation form
+      $\beta_i = \rho_{im}\sigma_i/\sigma_m = 0.45(32)/18 = 14.4/18 = 0.8$.
+      This is the same object as $\operatorname{Cov}(R_i,R_m)/
+      \operatorname{Var}(R_m)$, since
+      $\operatorname{Cov} = \rho_{im}\sigma_i\sigma_m$ and one factor of
+      $\sigma_m$ cancels — checking directly,
+      $\operatorname{Cov} = 0.45(0.32)(0.18) = 0.02592$ and
+      $0.02592/0.0324 = 0.8$. Note that the stock is nearly twice as volatile as
+      the market yet has beta below one: only the shared part of its movement
+      counts, and a correlation of $0.45$ means most of that $32\%$ is
+      idiosyncratic. The trap is reporting $\sigma_i/\sigma_m = 1.78$ and
+      leaving the correlation out.
+    expects: "0.8"
+    rubric:
+      - >
+        Applies $\beta = \rho_{im}\sigma_i/\sigma_m$, keeping the correlation
+        factor.
+      - >
+        Gets $0.8$ and recognises a volatile stock can still have beta below
+        one.
+    targets:
+      - quant-finance.portfolio.beta-capm
+
+  # --- alpha, residual risk and the information ratio ---------------------------
+
+  - id: qport-alpha-information-ratio-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A manager's fund has $\beta = 1.15$ against a market with volatility
+      $\sigma_m = 16\%$, total volatility $\sigma_i = 26\%$, and a measured
+      alpha of $4.2\%$ a year. What is the fund's information ratio?
+    answer: >
+      $0.229$. The information ratio is alpha over *residual* volatility, so
+      split the variance first. Systematic variance is
+      $\beta^{2}\sigma_m^{2} = 1.3225(0.0256) = 0.033856$; total variance is
+      $0.26^{2} = 0.0676$; so residual variance is
+      $0.0676 - 0.033856 = 0.033744$ and $\omega = \sqrt{0.033744} = 18.37\%$.
+      Then $\operatorname{IR} = \alpha/\omega = 4.2/18.37 = 0.229$. The split is
+      almost exactly even here — $R^{2} = 0.033856/0.0676 = 0.501$, so the
+      market explains half this fund's variance and the correlation with the
+      market is $\sqrt{0.501} = 0.708$. The trap is dividing alpha by *total*
+      volatility, $4.2/26 = 0.162$, which charges the alpha for market risk the
+      manager was never being judged on; the point of the information ratio is
+      that a benchmark-relative book's risk is what is left after the benchmark
+      is stripped out. A second trap is subtracting volatilities rather than
+      variances: $26 - 1.15(16) = 7.6\%$ would report an
+      $\operatorname{IR}$ of $0.55$, more than double the truth.
+    expects: "0.229"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Decomposes $\sigma_i^{2} = \beta^{2}\sigma_m^{2} + \omega^{2}$ and
+        solves for $\omega$, subtracting variances rather than volatilities.
+      - >
+        Divides alpha by residual volatility, not by total volatility.
+    targets:
+      - quant-finance.portfolio.alpha-information-ratio
+
+  - id: qport-alpha-information-ratio-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A stock has total volatility $25\%$, and a regression of its excess
+      returns on the market's has $R^{2} = 0.36$. What is its residual
+      volatility $\omega$?
+    answer: >
+      $\omega = 20\%$. In the single-factor decomposition
+      $\sigma_i^{2} = \beta^{2}\sigma_m^{2} + \omega^{2}$, the regression
+      $R^{2}$ is the fraction of variance explained by the market, so the
+      residual fraction is $1 - R^{2} = 0.64$. Hence
+      $\omega^{2} = 0.64\sigma_i^{2} = 0.64(0.0625) = 0.04$ and
+      $\omega = \sqrt{0.04} = 20\%$. Neither $\beta$ nor $\sigma_m$ is needed —
+      $R^{2}$ already packages them, and it also tells you the correlation with
+      the market is $\sqrt{0.36} = 0.6$. The trap is taking $\omega$ to be
+      $(1 - R^{2})\sigma_i = 0.64(25) = 16\%$: $R^{2}$ splits *variance*, so the
+      $0.64$ must be applied before the square root, and applying it after
+      understates residual risk by four full points.
+    expects: "20%"
+    tolerance: 0.0001
+    rubric:
+      - >
+        Reads $R^{2}$ as the explained fraction of variance, so residual
+        variance is $(1-R^{2})\sigma_i^{2}$.
+      - >
+        Takes the square root at the end rather than scaling volatility
+        directly by $1 - R^{2}$.
+    targets:
+      - quant-finance.portfolio.alpha-information-ratio
+
+  # --- the fundamental law of active management --------------------------------
+
+  - id: qport-breadth-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A systematic manager's forecasts have an information coefficient of
+      $\operatorname{IC} = 0.06$ on each bet, and the bets can be treated as
+      independent with risk allocated optimally across them. The fund needs an
+      information ratio of $1.2$ to raise capital. How many independent bets a
+      year, $\operatorname{BR}$, does that require?
+    answer: >
+      $400$ bets a year. Invert
+      $\operatorname{IR} \approx \operatorname{IC}\sqrt{\operatorname{BR}}$:
+      $\sqrt{\operatorname{BR}} = \operatorname{IR}/\operatorname{IC}
+      = 1.2/0.06 = 20$, so $\operatorname{BR} = 20^{2} = 400$. That is roughly
+      one and a half independent bets per trading day, which is why an
+      $\operatorname{IC}$ of $0.06$ — a correlation between forecast and outcome
+      that no eye could see in a scatter plot — is a viable business only when
+      it is applied continuously. The same arithmetic is a sample-size
+      calculation: an $\operatorname{IC}$ of $0.06$ is a tiny effect, and the
+      number of independent trials needed before it separates from noise scales
+      as the square of the ratio of noise to effect, which is exactly the
+      $(\operatorname{IR}/\operatorname{IC})^{2}$ appearing here. The trap is
+      linearity — assuming twice the target $\operatorname{IR}$ needs twice the
+      breadth. It needs four times: going from $1.2$ to $2.4$ takes
+      $\operatorname{BR}$ from $400$ to $1600$.
+    expects: "400"
+    rubric:
+      - >
+        Inverts $\operatorname{IR} = \operatorname{IC}\sqrt{\operatorname{BR}}$
+        to $\operatorname{BR} = (\operatorname{IR}/\operatorname{IC})^{2}$.
+      - >
+        Squares rather than scaling linearly, and can read the result as the
+        sample size at which an effect this small becomes detectable.
+    targets:
+      - quant-finance.portfolio.breadth
+      - quant-statistics.testing.sample-size
+    connects:
+      - quant-finance.portfolio.breadth ~ quant-statistics.testing.sample-size
+
+  - id: qport-breadth-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A market-making signal has $\operatorname{IC} = 0.025$ and is applied to
+      $\operatorname{BR} = 2500$ independent bets a year. What information ratio
+      does the fundamental law predict?
+    answer: >
+      $\operatorname{IR} = 1.25$. Apply
+      $\operatorname{IR} \approx \operatorname{IC}\sqrt{\operatorname{BR}}
+      = 0.025\sqrt{2500} = 0.025(50) = 1.25$. An
+      $\operatorname{IC}$ of $0.025$ means the forecast and the realized return
+      share about one part in $1600$ of their variance — utterly invisible on
+      any single trade — and yet repeated $2500$ times it produces a
+      world-class information ratio. That is the whole content of the law:
+      breadth, not conviction, is what converts a faint edge into a track
+      record, and the square root is why the conversion is so demanding at low
+      breadth. Every clause of the law's hypothesis matters, though — equal
+      $\operatorname{IC}$ across bets, genuine independence, and optimal risk
+      allocation. Drop independence and the effective count collapses, which is
+      the usual reason a backtest promising $1.25$ delivers a third of it.
+    expects: "1.25"
+    rubric:
+      - >
+        Multiplies $\operatorname{IC}$ by $\sqrt{\operatorname{BR}}$ rather
+        than by $\operatorname{BR}$.
+      - >
+        States at least one hypothesis the law needs, such as independence of
+        the bets.
+    targets:
+      - quant-finance.portfolio.breadth
+
+  - id: qport-breadth-03
+    kind: work
+    difficulty: routine
+    statement: >
+      A desk currently achieves an information ratio of $0.8$. Its
+      $\operatorname{IC}$ cannot be improved. By what factor must its breadth
+      rise for the information ratio to reach $1.6$?
+    answer: >
+      A factor of $4$. Since
+      $\operatorname{IR} = \operatorname{IC}\sqrt{\operatorname{BR}}$ with
+      $\operatorname{IC}$ held fixed, $\operatorname{IR}$ is proportional to
+      $\sqrt{\operatorname{BR}}$, so doubling $\operatorname{IR}$ requires
+      $\operatorname{BR}$ to rise by $2^{2} = 4$. Formally,
+      $\operatorname{BR}_{\text{new}}/\operatorname{BR}_{\text{old}}
+      = (1.6/0.8)^{2} = 4$. This square-root scaling is the hard economics of
+      the business: the first doubling of a track record's quality costs four
+      times the number of independent opportunities, the next doubling costs
+      sixteen, and a desk trading a few hundred times a year cannot buy its way
+      to an $\operatorname{IR}$ of $3$ by trading a bit more. The trap is
+      assuming proportionality and answering $2$.
+    expects: "4"
+    rubric:
+      - >
+        Uses $\operatorname{IR} \propto \sqrt{\operatorname{BR}}$ at fixed
+        $\operatorname{IC}$.
+      - >
+        Squares the ratio of information ratios rather than taking it
+        directly.
+    targets:
+      - quant-finance.portfolio.breadth
+
+  # --- correlated bets shrink effective breadth --------------------------------
+
+  - id: qport-effective-breadth-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A desk runs $N = 120$ positions whose average pairwise correlation is
+      $\bar\rho = 0.25$, on signals with $\operatorname{IC} = 0.08$. Using
+      effective breadth $N/[1 + (N-1)\bar\rho]$ in place of $N$, what
+      information ratio should the desk actually expect?
+    answer: >
+      About $0.158$. Effective breadth first:
+      $N_{\text{eff}} = 120/[1 + 119(0.25)] = 120/[1 + 29.75] = 120/30.75
+      = 3.90$. Then
+      $\operatorname{IR} \approx \operatorname{IC}\sqrt{N_{\text{eff}}}
+      = 0.08\sqrt{3.90} = 0.08(1.975) = 0.158$. Compare the naive calculation
+      that treats the positions as independent:
+      $0.08\sqrt{120} = 0.08(10.95) = 0.876$, more than five times larger and
+      completely fictitious. The saturation is the striking part —
+      $N_{\text{eff}}$ is capped at $1/\bar\rho = 4$ however many positions are
+      added, so this desk has already captured $97.6\%$ of every bet it will
+      ever get from this signal, and the $121$st position adds essentially
+      nothing. The trap named here is counting positions as bets: a hundred and
+      twenty variations on one idea, or a hundred and twenty names all reading
+      the same factor, is about four bets, and the resulting overstatement of
+      $\operatorname{IR}$ is what turns a promising backtest into a
+      disappointing year.
+    expects: "0.158"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Computes $N_{\text{eff}} = N/[1 + (N-1)\bar\rho] = 3.90$, using
+        $N - 1$ and not $N$ in the denominator.
+      - >
+        Applies the fundamental law to $N_{\text{eff}}$ rather than $N$, and
+        notes the cap at $1/\bar\rho$.
+    targets:
+      - quant-finance.portfolio.effective-breadth
+    exercises:
+      - quant-finance.portfolio.breadth
+
+  - id: qport-effective-breadth-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Twenty-five equally weighted bets have average pairwise correlation
+      $\bar\rho = 0.1$. What is their effective breadth $N_{\text{eff}}$?
+    answer: >
+      $N_{\text{eff}} = 7.35$. Substitute into
+      $N_{\text{eff}} = N/[1 + (N-1)\bar\rho] = 25/[1 + 24(0.1)]
+      = 25/3.4 = 7.353$. So twenty-five positions behave, for the purpose of
+      the fundamental law, like about seven and a third independent ones —
+      roughly $29\%$ of the nominal count, and the theoretical ceiling for this
+      correlation is $1/\bar\rho = 10$, which no number of extra positions will
+      pass. The derivation is just portfolio variance again: the equal-weighted
+      sum of $N$ correlated unit bets has variance
+      $N[1 + (N-1)\bar\rho]$ rather than $N$, and the effective count is the $N$
+      that would give the same variance if the bets were independent. The trap
+      is writing $N\bar\rho$ in the denominator instead of
+      $1 + (N-1)\bar\rho$, which answers $10$ and quietly returns the ceiling
+      as though it had already been reached.
+    expects: "7.35"
+    tolerance: 0.005
+    rubric:
+      - >
+        Uses $N/[1 + (N-1)\bar\rho]$ with $N - 1 = 24$ pairs' worth of
+        correlation in the denominator.
+      - >
+        Compares the result to the ceiling $1/\bar\rho = 10$.
+    targets:
+      - quant-finance.portfolio.effective-breadth
