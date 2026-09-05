@@ -1,0 +1,1163 @@
+# Problems targeting quant-mental.approximation — the approximation toolkit.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. Every estimate here is checked
+# against the exact value it approximates, and every `tolerance` is set to
+# accept the technique's honest accuracy while rejecting the slip the node
+# warns about. No problem reuses a lesson's worked example or a card's numbers.
+# See ../README.md.
+
+problems:
+  # --- truncation error -------------------------------------------------------
+
+  - id: qapprox-truncation-error-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You estimate $\sin(0.3)$ by keeping the first two nonzero Taylor terms,
+      $x - x^{3}/6$. Before touching a calculator, report your honest error
+      bar: the size of the first term you threw away. Give it as a plain
+      decimal.
+    answer: >
+      $0.00002025$. The Maclaurin series is $\sin x = x - x^{3}/6 + x^{5}/120 -
+      \dots$, so keeping through $x^{3}$ discards $x^{5}/120$ first. At
+      $x = 0.3$ that is $0.3^{5}/120 = 0.00243/120 = 0.00002025$. The estimate
+      itself is $0.3 - 0.027/6 = 0.3 - 0.0045 = 0.2955$, and the exact value is
+      $\sin(0.3) = 0.29552021$, so the true error is $0.00002021$ — the dropped
+      term predicted it to three significant figures, and predicted the sign
+      too, since the discarded $+x^{5}/120$ means the estimate is *low*. The
+      trap is reaching for $x^{4}/24 = 0.0003375$, which is the next term of
+      $\cos$, not $\sin$: the sine series has only odd powers, so the gap
+      between the kept term and the dropped one is two orders, not one, and
+      the error bar is sixteen times smaller than the reflex answer.
+    expects: "0.00002025"
+    tolerance: 0.000002
+    rubric:
+      - >
+        Identifies $x^{5}/120$ as the first dropped term — the sine series
+        skips even powers, so the next term after $x^{3}$ is $x^{5}$, not
+        $x^{4}$.
+      - >
+        Evaluates it at $x = 0.3$ rather than quoting the general form, and
+        notes that the positive dropped term makes the estimate low.
+    targets:
+      - quant-mental.approximation.truncation-error
+
+  - id: qapprox-truncation-error-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      You estimate $e^{-0.2}$ by keeping three terms of $e^{-x} \approx 1 - x +
+      x^{2}/2$, which gives $1 - 0.2 + 0.02 = 0.82$. The first term you dropped
+      is $-x^{3}/6$. Without computing the exact value, which report is
+      correct?
+    answer: >
+      The estimate is high by roughly $0.0013$. The first omitted term is
+      $-x^{3}/6 = -0.008/6 = -0.001333$, and its *sign* is inherited by the
+      remainder when the later terms are much smaller still: the truncation
+      threw away a negative quantity, so the surviving estimate sits above the
+      truth. Checking, $e^{-0.2} = 0.81873075$, and $0.82 - 0.81873 = 0.00127$
+      — the dropped term called both the size and the direction. The tempting
+      wrong move is to size the error by the *last term kept*, $x^{2}/2 = 0.02$,
+      which is fifteen times too pessimistic; the error bar is always the first
+      term omitted, never the last one retained.
+    choices:
+      - text: >
+          High by roughly $0.0013$, since the first dropped term is negative
+        correct: true
+        feedback: >
+          Right — $-x^{3}/6 = -0.00133$, and the remainder inherits that sign,
+          so the truncated sum overshoots. The exact value $0.818731$ confirms
+          an overshoot of $0.00127$.
+      - text: >
+          Low by roughly $0.0013$, since the first dropped term is negative
+        feedback: >
+          The size is right but the direction is backwards: dropping a negative
+          term leaves the estimate too *large*, not too small.
+      - text: >
+          High by roughly $0.02$, the size of the last term kept
+        feedback: >
+          The error bar is the first term omitted, not the last one retained.
+          $x^{2}/2 = 0.02$ overstates the miss by a factor of fifteen.
+      - text: >
+          Nothing can be said — a remainder's sign needs the exact value
+        feedback: >
+          For an alternating series with rapidly shrinking terms the remainder
+          takes the sign of the first omitted term, which is exactly what makes
+          this toolkit safe to use.
+    rubric:
+      - >
+        Sizes the error by the first *omitted* term, $-x^{3}/6$, not by the
+        last term kept.
+      - >
+        Reads the direction off that term's sign: a dropped negative leaves the
+        estimate high.
+    targets:
+      - quant-mental.approximation.truncation-error
+
+  # --- small-x expansions -----------------------------------------------------
+
+  - id: qapprox-log-linearization-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A fund reports a simple annual return of $7\%$. A risk system wants the
+      continuously compounded equivalent, $\ln(1.07)$. Estimate it with the
+      two-term expansion $\ln(1+x) \approx x - x^{2}/2$, then sanity-check by
+      exponentiating your answer with $e^{y} \approx 1 + y + y^{2}/2$ and
+      confirming you land near $1.07$. Report the log-return to five decimals.
+    answer: >
+      $0.06755$. With $x = 0.07$, the quadratic pass gives $0.07 - 0.0049/2 =
+      0.07 - 0.00245 = 0.06755$. The exact value is $\ln(1.07) = 0.06765865$,
+      so the estimate is low by $0.00011$ — and it is low because the next term
+      of the series, $+x^{3}/3 = 0.000114$, is positive and was discarded, which
+      matches the miss almost exactly. The round trip confirms it: with
+      $y = 0.06755$, $e^{y} \approx 1 + 0.06755 + 0.06755^{2}/2 = 1 + 0.06755 +
+      0.00228 = 1.06983$, within $0.0002$ of the $1.07$ we started from. The
+      trap here is stopping at the linear pass $\ln(1.07) \approx 0.07$: at a
+      $7\%$ rate that is a $0.0035$ absolute miss, a $3.5\%$ relative error,
+      big enough to matter once it is multiplied by a horizon.
+    expects: "0.06755"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Subtracts $x^{2}/2 = 0.00245$ rather than reporting the linear pass
+        $0.07$.
+      - >
+        Notes the direction — the discarded $+x^{3}/3$ makes the two-term
+        estimate slightly low — and closes the loop by exponentiating back to
+        roughly $1.07$.
+    targets:
+      - quant-mental.approximation.log-linearization
+
+  - id: qapprox-log-linearization-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A discount factor over one period at a continuously compounded rate of
+      $5\%$ is $e^{-0.05}$. Estimate it with $e^{x} \approx 1 + x + x^{2}/2$
+      taken at $x = -0.05$. Give five decimals.
+    answer: >
+      $0.95125$. Substituting $x = -0.05$: $1 + (-0.05) + (-0.05)^{2}/2 =
+      1 - 0.05 + 0.00125 = 0.95125$. The exact value is $e^{-0.05} =
+      0.95122942$, so the quadratic pass is high by only $0.00002$ — the next
+      term $x^{3}/6 = -0.0000208$ is negative and was dropped, which is exactly
+      the overshoot observed. The point of the exercise is the quadratic term's
+      *sign*: because $x$ is negative but $x^{2}$ is positive, the correction
+      $+0.00125$ pushes the estimate up, away from the naive linear pass
+      $1 - 0.05 = 0.95$, which is low by $0.00123$ — fifty times worse.
+    expects: "0.95125"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Squares the negative $x$ correctly, so the $x^{2}/2$ correction is
+        added, not subtracted.
+      - >
+        Beats the linear pass $0.95$ and can say by how much.
+    targets:
+      - quant-mental.approximation.log-linearization
+
+  # --- (1+x)^n and the compounding correction ---------------------------------
+
+  - id: qapprox-binomial-approx-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A position compounds at $4\%$ per period for $9$ periods. Estimate the
+      growth factor $(1.04)^{9}$ using $1 + nx$ plus the second-order
+      correction $\binom{n}{2}x^{2}$. Give four decimals.
+    answer: >
+      $1.4176$. The linear pass is $1 + 9(0.04) = 1.36$. The correction is
+      $\binom{9}{2}x^{2} = 36 \times 0.0016 = 0.0576$, so the corrected estimate
+      is $1.36 + 0.0576 = 1.4176$. The exact value is $(1.04)^{9} = 1.42331$:
+      the linear pass alone was low by $0.0633$, a $4.4\%$ relative miss, while
+      the corrected estimate is low by only $0.0057$, a $0.4\%$ miss — a
+      tenfold improvement for one multiplication. What is left over is the
+      third-order term $\binom{9}{3}x^{3} = 84 \times 0.000064 = 0.0054$, which
+      accounts for almost all of the residual and confirms the estimate is
+      still low, as every truncated binomial with positive $x$ must be. The
+      trap is treating a $4\%$ rate compounded nine times as a $36\%$ gain:
+      percentage changes multiply, and the missing $6.3$ points are precisely
+      the cross terms that multiplication produces and addition does not.
+    expects: "1.4176"
+    tolerance: 0.006
+    rubric:
+      - >
+        Uses $\binom{9}{2} = 36$, not $9$ or $81$, as the coefficient of
+        $x^{2}$.
+      - >
+        States that the truncated estimate is *low* for positive $x$, because
+        every remaining term of the binomial expansion is positive.
+    targets:
+      - quant-mental.approximation.binomial-approx
+
+  - id: qapprox-binomial-approx-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A quantity shrinks by $2\%$ in each of $15$ consecutive periods. Estimate
+      the surviving fraction $(0.98)^{15}$ using the linear pass plus the
+      $\binom{n}{2}x^{2}$ correction. Give three decimals.
+    answer: >
+      $0.742$. Here $x = -0.02$ and $n = 15$, so the linear pass is
+      $1 + 15(-0.02) = 0.70$ and the correction is $\binom{15}{2}x^{2} =
+      105 \times 0.0004 = +0.042$ — positive, because $x^{2}$ is positive even
+      though $x$ is not. The corrected estimate is $0.70 + 0.042 = 0.742$
+      against an exact $(0.98)^{15} = 0.73857$, a miss of $0.0034$, versus the
+      linear pass's miss of $0.0386$. Note the direction flip against the
+      previous case: with $x$ negative the linear pass runs *low* and the
+      correction pushes back up, so "fifteen two-percent losses cost thirty
+      percent" understates what survives. The cumulative loss is $25.8\%$, not
+      $30\%$.
+    expects: "0.742"
+    tolerance: 0.005
+    rubric:
+      - >
+        Adds the correction — $x^{2}$ is positive for negative $x$, so
+        $\binom{15}{2}x^{2}$ raises the estimate.
+      - >
+        Reports the surviving fraction, not the loss, and can convert between
+        the two.
+    targets:
+      - quant-mental.approximation.binomial-approx
+
+  - id: qapprox-binomial-approx-03
+    kind: justify
+    difficulty: standard
+    statement: >
+      Explain why the second-order correction to $(1+x)^{n}$ is
+      $\binom{n}{2}x^{2}$ and not $nx^{2}$ or $n^{2}x^{2}/2$ — and say what
+      $\binom{n}{2}$ is counting.
+    answer: >
+      Expand the product $(1+x)^{n} = (1+x)(1+x)\cdots(1+x)$ by choosing, from
+      each of the $n$ factors, either the $1$ or the $x$. Terms with exactly
+      one $x$ chosen contribute $x$ once for each factor you could have picked
+      it from, giving $nx$ — the linear pass. Terms with exactly two $x$'s
+      chosen contribute $x^{2}$ once for each *pair* of factors, and the number
+      of pairs is $\binom{n}{2} = n(n-1)/2$. So the correction counts unordered
+      pairs of periods in which the gain compounds on itself. This also
+      explains the two wrong forms: $nx^{2}$ would count only one product per
+      period, and $n^{2}x^{2}/2$ would count ordered pairs including a period
+      paired with itself — it overcounts by $n/2$, the diagonal that the
+      $(n-1)$ in $\binom{n}{2}$ removes. For $n$ large and $x$ small the two
+      agree to leading order, which is why the sloppy version often passes
+      unnoticed, but at $n = 9$ it inflates the correction from $36x^{2}$ to
+      $40.5x^{2}$.
+    rubric:
+      - >
+        Derives the coefficient by choosing $x$ from exactly two of the $n$
+        factors, so the count is $\binom{n}{2}$ unordered pairs.
+      - >
+        Says what goes wrong with $n^{2}x^{2}/2$: it counts ordered pairs and a
+        factor paired with itself, overcounting by the diagonal.
+      - >
+        Connects the pair count to the interpretation — the correction is the
+        gain compounding on an earlier period's gain.
+    targets:
+      - quant-mental.approximation.binomial-approx
+
+  # --- square roots by linearization ------------------------------------------
+
+  - id: qapprox-sqrt-estimate-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Estimate $\sqrt{2000}$ mentally to four significant figures. There is no
+      perfect square near $2000$, so pull out the factor of $100$ first and
+      then pick the anchor that makes $|b|/a^{2}$ smallest.
+    answer: >
+      $44.72$. Write $\sqrt{2000} = 10\sqrt{20}$. The obvious anchor for
+      $\sqrt{20}$ is $a = 4$ with $b = 4$, giving $4 + 4/8 = 4.5$ and hence
+      $45$ — but $b/a^{2} = 4/16 = 0.25$ is not small, so that estimate is
+      poor. The better anchor is $4.5$ itself, since $4.5^{2} = 20.25$: now
+      $b = 20 - 20.25 = -0.25$ and $b/a^{2} = -0.0123$. Linearizing,
+      $\sqrt{20} \approx 4.5 + (-0.25)/(2 \times 4.5) = 4.5 - 0.02778 =
+      4.47222$, so $\sqrt{2000} \approx 44.7222$. The exact value is
+      $44.72136$, an error of $0.00086$ — against the crude anchor's error of
+      $0.279$, more than three hundred times worse. The lesson is that "nearest
+      perfect square" is the wrong criterion; the right one is smallest
+      relative offset, and a half-integer anchor is fair game because its
+      square is just as easy to write down.
+    expects: "44.72"
+    tolerance: 0.05
+    rubric:
+      - >
+        Factors out $100$ so the linearization is applied to $\sqrt{20}$ rather
+        than to a four-digit number.
+      - >
+        Chooses the anchor by the size of $|b|/a^{2}$, not by integrality —
+        $4.5^{2} = 20.25$ beats $4^{2} = 16$ by a wide margin.
+      - >
+        Reports four significant figures and can say the estimate is high,
+        because the dropped term $-b^{2}/(8a^{3})$ is negative.
+    targets:
+      - quant-mental.approximation.sqrt-estimate
+
+  - id: qapprox-sqrt-estimate-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Estimate $\sqrt{170}$ by linearizing at the nearest perfect square. Give
+      three decimals.
+    answer: >
+      $13.038$. The nearest perfect square is $169 = 13^{2}$, so $a = 13$ and
+      $b = 1$: $\sqrt{170} \approx 13 + 1/26 = 13.03846$. The exact value is
+      $13.038405$, so the estimate is high by $0.00006$, matching the predicted
+      dropped term $-b^{2}/(8a^{3}) = -1/17576 = -0.000057$ to the digit. The
+      trap is anchoring below at $144 = 12^{2}$, which gives
+      $12 + 26/24 = 13.083$ — an error of $0.045$, nearly a thousand times
+      larger, because $b/a^{2} = 26/144 = 0.18$ is no longer small. Anchor
+      distance, not anchor familiarity, is what controls the error.
+    expects: "13.038"
+    tolerance: 0.005
+    rubric:
+      - >
+        Anchors at $169$, giving $b = 1$, rather than at a more distant square.
+      - >
+        Divides by $2a = 26$, not by $a$ or by $2$.
+    targets:
+      - quant-mental.approximation.sqrt-estimate
+
+  - id: qapprox-sqrt-estimate-03
+    kind: justify
+    difficulty: standard
+    statement: >
+      Show that the linearized estimate $\sqrt{a^{2}+b} \approx a + b/(2a)$ is
+      always an overestimate of the true root, for either sign of $b$, provided
+      $a^{2}+b > 0$. Give an argument that does not require computing a Taylor
+      remainder.
+    answer: >
+      Square the estimate. $(a + b/(2a))^{2} = a^{2} + 2a \cdot b/(2a) +
+      b^{2}/(4a^{2}) = a^{2} + b + b^{2}/(4a^{2})$. That exceeds $a^{2}+b$ by
+      $b^{2}/(4a^{2})$, which is strictly positive whenever $b \ne 0$, and does
+      not depend on the sign of $b$ because $b$ appears squared. Since squaring
+      is increasing on the positive reals, an estimate whose square is larger
+      than $a^{2}+b$ is itself larger than $\sqrt{a^{2}+b}$. So the estimate
+      always overshoots. The Taylor reading agrees and adds the size: the next
+      term is $-b^{2}/(8a^{3})$, negative for $a > 0$, and dividing the squared
+      excess $b^{2}/(4a^{2})$ by roughly $2a$ — the derivative of the square —
+      recovers exactly that. The squaring argument is the one to use in an
+      interview: it is two lines, it needs no calculus, and it makes the
+      $b^{2}$ dependence visible, which is why halving the anchor distance
+      quarters the error.
+    rubric:
+      - >
+        Squares the estimate and identifies the excess $b^{2}/(4a^{2})$
+        explicitly.
+      - >
+        Notes the excess is positive for either sign of $b$, because $b$ enters
+        squared — so the overshoot is not a large-$b$ artefact.
+      - >
+        Connects the squared excess back to the $-b^{2}/(8a^{3})$ Taylor term,
+        or at least to the quadratic dependence on anchor distance.
+    targets:
+      - quant-mental.approximation.sqrt-estimate
+
+  # --- rule of 72 -------------------------------------------------------------
+
+  - id: qapprox-rule-72-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A fund compounds at $12\%$ a year. Using the rule of 72, how many years
+      does it take to *quadruple*?
+    answer: >
+      About $12$ years. Quadrupling is two doublings, and doublings are
+      additive in time because each one multiplies by the same factor: the
+      doubling time is $72/12 = 6$ years, so quadrupling takes
+      $2 \times 6 = 12$ years. Equivalently, run the rule with $144$ in the
+      numerator, since $\ln 4 = 2\ln 2$. The exact answer is
+      $\ln 4/\ln(1.12) = 1.38629/0.11333 = 12.23$ years, so the estimate is low
+      by about $0.23$ years — under $2\%$, and in the expected direction, since
+      $12\%$ sits just outside the band where $72$ is tuned. The trap is
+      reaching for $72/12 = 6$ and reporting it as the answer to the question
+      asked, or halving the rate to "$72/6 = 12$" by accident and getting the
+      right number for the wrong reason; the honest route names two doublings
+      first.
+    expects: "12"
+    tolerance: 0.5
+    rubric:
+      - >
+        Recognises quadrupling as two doublings and adds the times rather than
+        multiplying or halving the rate.
+      - >
+        Gets the doubling time $72/12 = 6$ years right, and states the answer
+        as roughly $12$ years with an error of well under a year.
+    targets:
+      - quant-mental.approximation.rule-72
+
+  - id: qapprox-rule-72-02
+    kind: work
+    difficulty: standard
+    statement: >
+      An investor wants their money to double in $6$ years. What annual
+      compounding rate does the rule of 72 point to? Give the answer as a
+      number of percent.
+    answer: >
+      $12$ percent. The rule is symmetric in its two unknowns: $t \approx 72/r$
+      rearranges to $r \approx 72/t = 72/6 = 12$. Checking exactly, doubling in
+      six years needs $(1+r)^{6} = 2$, so $r = 2^{1/6} - 1 = 0.12246$, or
+      $12.25\%$ — the rule is low by a quarter of a percentage point, about
+      $2\%$ relative, which is the accuracy the rule advertises in this range.
+      The useful habit is noticing that $72$ has divisors everywhere: $6$, $8$,
+      $9$ and $12$ all go in cleanly, so both directions of the rule stay
+      mental. Solving for the rate is where the rule earns its keep, because
+      the exact inverse needs a sixth root and nobody takes one in their head.
+    expects: "12"
+    tolerance: 0.5
+    rubric:
+      - >
+        Inverts the rule correctly, $r \approx 72/t$, rather than multiplying.
+      - >
+        Can name the exact requirement $2^{1/6}-1 = 12.25\%$ and say the rule
+        is low by a quarter of a point.
+    targets:
+      - quant-mental.approximation.rule-72
+
+  - id: qapprox-rule-72-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      A savings account pays $1\%$ a year. The rule of 72 predicts a doubling
+      time of $72$ years; the exact figure is $69.66$ years. Which statement
+      explains the direction of the miss?
+    answer: >
+      At small $r$ the true doubling time approaches $69.3/r$, so $72/r$
+      overstates it. The exact doubling time is $\ln 2/\ln(1+r)$, and for small
+      $r$ the denominator $\ln(1+r) \to r$, so the whole expression tends to
+      $\ln 2/r = 0.6931/r$ — the "rule of 69.3" in percent terms. The numerator
+      $72$ is deliberately inflated above $69.3$ to offset the second-order
+      term $-r^{2}/2$ in $\ln(1+r)$, which shortens the true doubling time at
+      larger rates. At $r = 1\%$ there is almost no second-order term left to
+      offset, so the inflation is uncompensated and $72/1 = 72$ overshoots the
+      true $69.66$ by $3.4\%$. The rule is tuned for the $6$–$10\%$ band and
+      degrades in a predictable direction outside it.
+    choices:
+      - text: >
+          At small $r$ the true doubling time approaches $69.3/r$, so $72/r$
+          overstates it
+        correct: true
+        feedback: >
+          Right — $\ln(1+r) \to r$, so the exact time tends to $\ln 2/r$. The
+          extra $2.7$ in the numerator has no second-order term left to cancel.
+      - text: >
+          At small $r$ the true doubling time approaches $100/r$, so $72/r$
+          understates it
+        feedback: >
+          $100/r$ would be the answer if growth were additive. Compounding
+          makes the limit $\ln 2/r \approx 69.3/r$, and $72/r$ sits above it.
+      - text: >
+          The rule is exact at every rate; the gap is rounding in $\ln 2$
+        feedback: >
+          The rule is a deliberate approximation, not a rounded identity — its
+          error is about $1\%$ near $r = 8\%$ and grows in both directions.
+      - text: >
+          At small $r$ the second-order term grows, so $72/r$ understates the
+          time
+        feedback: >
+          The second-order term $-r^{2}/2$ *shrinks* as $r$ shrinks, and the
+          miss here is an overstatement, not an understatement.
+    rubric:
+      - >
+        Takes the small-$r$ limit of $\ln 2/\ln(1+r)$ and lands on $69.3/r$.
+      - >
+        Explains the $72$ as an offset for the second-order term, which is what
+        disappears at low rates.
+    targets:
+      - quant-mental.approximation.rule-72
+
+  - id: qapprox-rule-72-04
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Derive the rule of 72 from $t = \ln 2/\ln(1+r)$, and explain precisely
+      why a numerator of $72$ beats the theoretically correct $69.3$ over the
+      range of rates people actually quote.
+    answer: >
+      Doubling means $(1+r)^{t} = 2$; taking logs gives $t = \ln 2/\ln(1+r)$.
+      For small $r$, $\ln(1+r) \approx r - r^{2}/2 = r(1 - r/2)$, so
+      $t \approx \ln 2/(r(1-r/2)) \approx (\ln 2/r)(1 + r/2)$ using
+      $1/(1-u) \approx 1+u$. With $r$ expressed in percent, $\ln 2 = 0.6931$
+      becomes $69.31$, and the bracket says the true numerator is not constant
+      at all: it is roughly $69.31(1 + r/200)$, which equals $71.1$ at
+      $r = 5\%$, $72.1$ at $r = 8\%$ and $72.8$ at $r = 10\%$. A single fixed
+      numerator of $72$ therefore tracks the drifting true value across the
+      whole $6$–$10\%$ band to within about $1\%$, while $69.3$ is only right
+      in the limit $r \to 0$, a regime nobody quotes. The second reason is
+      arithmetic, not analysis: $72 = 8 \times 9 = 6 \times 12 = 4 \times 18$,
+      so the division stays mental for every rate an interviewer will name,
+      whereas $69.3$ needs long division exactly when speed is the point.
+    rubric:
+      - >
+        Starts from $(1+r)^{t}=2$ and takes logs to reach
+        $t = \ln 2/\ln(1+r)$.
+      - >
+        Expands $\ln(1+r)$ to second order and shows the effective numerator
+        rises with $r$ as roughly $69.3(1+r/200)$, landing near $72$ in the
+        usual band.
+      - >
+        Names the divisibility of $72$ as the second, non-mathematical reason —
+        the rule must be executable in one's head.
+    targets:
+      - quant-mental.approximation.rule-72
+
+  # --- anchor constants -------------------------------------------------------
+
+  - id: qapprox-anchors-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Using only the memorized table — $\sqrt2 \approx 1.41421$,
+      $\sqrt3 \approx 1.73205$, $\sqrt5 \approx 2.23607$ — estimate
+      $\sqrt{60}$ to four significant figures. Do not linearize; combine
+      anchors.
+    answer: >
+      $7.746$. Factor inside the root: $60 = 4 \times 15$, so
+      $\sqrt{60} = 2\sqrt{15} = 2\sqrt3\sqrt5$. From the table,
+      $\sqrt3\sqrt5 = 1.73205 \times 2.23607 = 3.87299$, and doubling gives
+      $7.74597$. The exact value is $\sqrt{60} = 7.745967$, so four anchored
+      digits in and four correct digits out — no linearization, no error term
+      worth naming, because the only inaccuracy is the rounding already present
+      in the memorized constants. The trap is forgetting the perfect-square
+      factor and reporting $\sqrt3\sqrt5 = 3.873$, which answers $\sqrt{15}$;
+      the other trap is adding roots, since $\sqrt3 + \sqrt5 = 3.968$ is not
+      $\sqrt8$ and roots never distribute over sums. Pull out squares first,
+      then multiply what remains.
+    expects: "7.746"
+    tolerance: 0.005
+    rubric:
+      - >
+        Splits $60$ as $4 \times 3 \times 5$ and pulls the $2$ outside the
+        root.
+      - >
+        Multiplies $\sqrt3$ and $\sqrt5$ rather than adding them, and keeps
+        enough digits that the answer is good to four significant figures.
+    targets:
+      - quant-mental.approximation.anchors
+
+  - id: qapprox-anchors-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Using only $\log_{10}2 \approx 0.30103$, estimate $\log_{10}(1.25)$ to
+      five decimals.
+    answer: >
+      $0.09691$. Write $1.25 = 10/8 = 10/2^{3}$, so
+      $\log_{10}(1.25) = \log_{10}10 - 3\log_{10}2 = 1 - 3(0.30103) =
+      1 - 0.90309 = 0.09691$. The exact value is $0.0969100$, correct to every
+      digit carried — as it must be, since the manipulation is an identity and
+      the only error is the rounding in $\log_{10}2$ itself. This is the
+      pattern that makes a four-entry table go a long way: any number built
+      from $2$s, $5$s and powers of ten has a log reachable in one subtraction.
+      The trap is dividing rather than subtracting — $\log_{10}(10/8)$ is not
+      $\log_{10}10/\log_{10}8$, which would give $1/0.90309 = 1.107$, an answer
+      off by a factor of eleven and on the wrong side of $1$.
+    expects: "0.09691"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Rewrites $1.25$ as $10/2^{3}$ so the table's single entry suffices.
+      - >
+        Subtracts logs for a quotient rather than dividing them.
+    targets:
+      - quant-mental.approximation.anchors
+
+  # --- powers of two ----------------------------------------------------------
+
+  - id: qapprox-powers-of-two-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A key space has $2^{64}$ elements. Using $2^{10} = 1024$ and
+      $1.024^{2} = 1.048576$, estimate the size as a mantissa times $10^{19}$.
+      Report the mantissa to four decimals.
+    answer: >
+      $1.8447$. Split the exponent as $2^{64} = (2^{10})^{6} \times 2^{4}$, so
+      the estimate is $(1.024 \times 10^{3})^{6} \times 16 =
+      10^{18} \times 1.024^{6} \times 16$. Build $1.024^{6}$ from the given
+      square: $1.024^{2} = 1.048576$, $1.024^{4} = 1.048576^{2} = 1.099512$,
+      and $1.024^{6} = 1.099512 \times 1.048576 = 1.152922$. Then
+      $16 \times 1.152922 = 18.44674$, which is $1.844674 \times 10^{19}$. The
+      exact value is $18446744073709551616 = 1.8446744 \times 10^{19}$ —
+      matching to seven significant figures, because $2^{10} \approx 10^{3}$ is
+      not a loose approximation but an exact statement once the $1.024$ factor
+      is carried. The trap is dropping that factor: $16 \times 10^{18} =
+      1.6 \times 10^{19}$ understates the true count by $15\%$, which is the
+      compounded $2.4\%$ per block over six blocks.
+    expects: "1.8447"
+    tolerance: 0.002
+    rubric:
+      - >
+        Splits $64$ as $6$ blocks of ten bits plus a remainder of $4$, and
+        handles the remainder as a factor of $16$.
+      - >
+        Carries $1.024^{6}$ rather than treating $2^{10}$ as exactly $10^{3}$,
+        and can say the omission would cost about $15\%$.
+    targets:
+      - quant-mental.approximation.powers-of-two
+
+  - id: qapprox-powers-of-two-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Estimate $2^{25}$ as a mantissa times $10^{7}$, using $2^{10} = 1024$ and
+      $1.024^{2} = 1.048576$. Give the mantissa to four decimals.
+    answer: >
+      $3.3554$. Write $2^{25} = (2^{10})^{2} \times 2^{5} =
+      10^{6} \times 1.048576 \times 32 = 33.554432 \times 10^{6}$, which is
+      $3.3554432 \times 10^{7}$. The exact value is $33554432$, so this is not
+      an approximation at all once $1.024^{2}$ is carried exactly — the "$2^{10}
+      \approx 10^{3}$" shortcut becomes exact bookkeeping when the correction
+      factor is kept. Dropping it gives $32 \times 10^{6} = 3.2 \times 10^{7}$,
+      low by $4.9\%$, which is the two-block compounding of $2.4\%$. The habit
+      worth forming is splitting the exponent into whole blocks of ten plus a
+      small remainder, because the remainder is always a memorized small power
+      of two.
+    expects: "3.3554"
+    tolerance: 0.002
+    rubric:
+      - >
+        Splits $25$ into two ten-bit blocks and a remainder of $5$, using
+        $2^{5} = 32$.
+      - >
+        Applies the $1.048576$ correction rather than treating the blocks as
+        exactly $10^{6}$.
+    targets:
+      - quant-mental.approximation.powers-of-two
+
+  # --- digit counting ---------------------------------------------------------
+
+  - id: qapprox-digits-of-2-100-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      How many decimal digits does $6^{120}$ have? Use $\log_{10}2 \approx
+      0.30103$ and $\log_{10}3 \approx 0.47712$.
+    answer: >
+      $94$ digits. Since $6 = 2 \times 3$, $\log_{10}6 = 0.30103 + 0.47712 =
+      0.77815$. Then $\log_{10}(6^{120}) = 120 \times 0.77815 = 93.378$, and
+      the digit count is $\lfloor 93.378 \rfloor + 1 = 93 + 1 = 94$. The exact
+      value of $6^{120}$ does indeed have $94$ digits, and the fractional part
+      $0.378$ tells you more: $10^{0.378} \approx 2.39$, so the number begins
+      with the digits $2.39\ldots$. Two traps sit here. The first is forgetting
+      the $+1$ and answering $93$ — the floor counts the powers of ten below
+      the number, and a number between $10^{93}$ and $10^{94}$ has $94$ digits,
+      not $93$. The second is a false rounding: $93.378$ is close enough to
+      $93.4$ that rounding to $93$ feels natural, but the digit rule floors and
+      then adds one, and rounding to the nearest integer first would give $93$
+      here and the wrong answer whenever the fractional part exceeds $0.5$.
+    expects: "94"
+    rubric:
+      - >
+        Splits $\log_{10}6$ into $\log_{10}2 + \log_{10}3$ rather than looking
+        for a $6$ in the table.
+      - >
+        Applies $\lfloor \log_{10}N \rfloor + 1$ — floors, then adds one, not
+        rounds.
+    targets:
+      - quant-mental.approximation.digits-of-2-100
+
+  - id: qapprox-digits-of-2-100-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A cryptographic key space of size $2^{256}$ is often described by its
+      decimal length. How many decimal digits does $2^{256}$ have? Use
+      $\log_{10}2 \approx 0.30103$.
+    answer: >
+      $78$ digits. $\log_{10}(2^{256}) = 256 \times 0.30103 = 77.064$, so the
+      count is $\lfloor 77.064 \rfloor + 1 = 78$. The exact value confirms it:
+      $2^{256} = 1.1579 \times 10^{77}$, a $78$-digit number beginning with
+      $1$, and the fractional part $0.064$ predicts that leading mantissa since
+      $10^{0.064} = 1.159$. Cross-checking with the bit-block shortcut gives
+      the same place: $2^{256} = (2^{10})^{25} \times 2^{6} \approx
+      10^{75} \times 1.024^{25} \times 64$, and $1.024^{25} \approx 1.81$, so
+      $64 \times 1.81 = 115.8$, that is $1.158 \times 10^{77}$. The trap is
+      reporting $77$: the exponent of ten is one less than the digit count for
+      every number that is not an exact power of ten.
+    expects: "78"
+    rubric:
+      - >
+        Multiplies the exponent by $\log_{10}2$ rather than by any other
+        constant, giving $77.06$.
+      - >
+        Converts to a digit count with floor-plus-one, so the answer is $78$
+        and not $77$.
+    targets:
+      - quant-mental.approximation.digits-of-2-100
+
+  # --- normal quantiles -------------------------------------------------------
+
+  - id: qapprox-normal-quantiles-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A fair coin is tossed $10000$ times. By the central limit theorem the
+      number of heads is approximately normal with mean $5000$ and standard
+      deviation $\sqrt{10000 \times 0.25} = 50$. Using the memorized quantile
+      table, what is the half-width of the two-sided $95\%$ interval for the
+      head count, in heads?
+    answer: >
+      $98$ heads. The two-sided $95\%$ cutoff is $1.96\sigma$, and the CLT has
+      already supplied $\sigma = 50$: the standard deviation of a
+      $\mathrm{Binomial}(n,p)$ count is $\sqrt{np(1-p)} =
+      \sqrt{10000 \times 0.5 \times 0.5} = \sqrt{2500} = 50$. So the half-width
+      is $1.96 \times 50 = 98$, and the interval runs from $4902$ to $5098$
+      heads. This is the whole payoff of the quantile table: the CLT tells you
+      the shape and the scale, and the table converts the scale into a quoted
+      probability in one multiplication. Two traps. Using $\sqrt{n} = 100$ as
+      the standard deviation ignores the $p(1-p) = 0.25$ factor and doubles the
+      interval to $\pm 196$. Using $2\sigma = 100$ instead of $1.96\sigma$ is
+      the milder slip and gives $95.45\%$ coverage rather than $95\%$ — fine as
+      a gut check, wrong in a quoted figure.
+    expects: "98"
+    rubric:
+      - >
+        Uses $1.96$, the two-sided $95\%$ quantile, not $1.645$ or $2.576$.
+      - >
+        Multiplies by the CLT standard deviation $50 = \sqrt{np(1-p)}$, not by
+        $\sqrt{n} = 100$.
+      - >
+        Reports a half-width in heads and can state the resulting interval.
+    targets:
+      - quant-mental.approximation.normal-quantiles
+      - quant-probability.limits.clt
+    connects:
+      - quant-mental.approximation.normal-quantiles ~ quant-probability.limits.clt
+
+  - id: qapprox-normal-quantiles-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A portfolio's daily return has a standard deviation of $0.8\%$ and is
+      treated as normal with mean zero. What is the half-width of the
+      two-sided $90\%$ interval for tomorrow's return? Give a percentage to
+      three decimals.
+    answer: >
+      $1.316\%$. The two-sided $90\%$ cutoff leaves $5\%$ in each tail, so the
+      multiplier is $1.645$: the half-width is
+      $1.645 \times 0.8\% = 1.316\%$, and the interval runs from $-1.316\%$ to
+      $+1.316\%$. The arithmetic is worth doing as $1.6 \times 0.8 = 1.28$ plus
+      $0.045 \times 0.8 = 0.036$, giving $1.316$ without reaching for a
+      calculator. The trap is the shared multiplier: $1.645$ serves both the
+      two-sided $90\%$ interval and the one-sided $95\%$ cutoff, and quoting
+      this as a $95\%$ interval doubles the tail probability you are actually
+      claiming. Say "two-sided" or "one-sided" out loud before multiplying.
+    expects: "1.316%"
+    tolerance: 0.0001
+    rubric:
+      - >
+        Picks $1.645$ for a two-sided $90\%$ interval, not $1.96$.
+      - >
+        Reports a half-width, and distinguishes the two-sided $90\%$ reading of
+        $1.645$ from its one-sided $95\%$ reading.
+    targets:
+      - quant-mental.approximation.normal-quantiles
+
+  - id: qapprox-normal-quantiles-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      An analyst in a hurry quotes a confidence interval as $\pm 2\sigma$
+      instead of $\pm 1.96\sigma$, still calling it a $95\%$ interval. What
+      actually happens to the coverage?
+    answer: >
+      It rises to about $95.45\%$: the interval is slightly *wider* than a true
+      $95\%$ interval, so it covers slightly more than advertised. The
+      memorized pair is $\Pr(|Z| \le 1.96) = 95\%$ against
+      $\Pr(|Z| \le 2) = 95.45\%$, a gap of $0.45$ percentage points. In
+      practical terms the analyst is being conservative by about one part in
+      eleven of the tail mass — the excluded tail shrinks from $5\%$ to
+      $4.55\%$. That is harmless for a gut check on whether a move is unusual
+      and wrong for a number that gets quoted, reported or backtested, because
+      a stated $95\%$ interval that actually covers $95.45\%$ will fail an
+      exceedance count in the direction of too few breaches.
+    choices:
+      - text: >
+          It rises to about $95.45\%$ — the interval is slightly wider than a
+          true $95\%$ interval
+        correct: true
+        feedback: >
+          Right: $\Pr(|Z|\le2) = 95.45\%$ against $\Pr(|Z|\le1.96) = 95\%$, so
+          widening the multiplier buys $0.45$ extra percentage points of
+          coverage.
+      - text: >
+          It falls to about $94.5\%$ — the interval is slightly too narrow
+        feedback: >
+          $2 > 1.96$, so the interval got wider, not narrower, and coverage
+          went up rather than down.
+      - text: >
+          It is unchanged to the nearest tenth of a percent
+        feedback: >
+          The gap is $0.45$ percentage points, more than four times "the
+          nearest tenth" — small, but not invisible in an exceedance count.
+      - text: >
+          It rises to about $99\%$, since $2\sigma$ is the standard $99\%$
+          cutoff
+        feedback: >
+          The two-sided $99\%$ cutoff is $2.576\sigma$, not $2\sigma$. At
+          $2\sigma$ the coverage is $95.45\%$.
+    rubric:
+      - >
+        Knows both table entries — $1.96 \to 95\%$ and $2 \to 95.45\%$ — and
+        reads the direction correctly.
+      - >
+        Says the rounding is conservative rather than anti-conservative, and
+        that it is acceptable for a gut check but not for a quoted figure.
+    targets:
+      - quant-mental.approximation.normal-quantiles
+
+  # --- annualizing ------------------------------------------------------------
+
+  - id: qapprox-annualizing-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A strategy returns $2.5\%$ per quarter. Annualize it using the linear
+      pass plus the $\binom{n}{2}r^{2}$ correction, and report the annual
+      return as a percentage to two decimals.
+    answer: >
+      $10.38\%$. With $r = 0.025$ and $n = 4$, the linear pass gives
+      $4 \times 0.025 = 0.10$, and the correction is
+      $\binom{4}{2}r^{2} = 6 \times 0.000625 = 0.00375$, so the estimate is
+      $0.10375$, or $10.375\%$. The exact figure is
+      $(1.025)^{4} - 1 = 0.103813$, or $10.38\%$ — the corrected estimate is
+      low by less than half a basis point, against the linear pass's miss of
+      $38$ basis points. The trap that costs money is quoting $10\%$: four
+      quarters of $2.5\%$ do not add, they compound, and the extra $38$ basis
+      points are the six pairs of quarters in which one quarter's gain earns
+      the next quarter's return. Note also that the correction here is small
+      only because $nr = 0.1$ is small; at a monthly horizon with the same
+      annual target, $n$ grows and the second-order term grows with $n^{2}$.
+    expects: "10.38%"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Compounds rather than adds: $(1.025)^{4}-1$, approximated as
+        $nr + \binom{n}{2}r^{2}$.
+      - >
+        Uses $\binom{4}{2} = 6$ for the correction and reports roughly
+        $10.38\%$, naming the $38$ basis points the linear pass loses.
+    targets:
+      - quant-mental.approximation.annualizing
+
+  - id: qapprox-annualizing-02
+    kind: work
+    difficulty: standard
+    statement: >
+      An annual rate of $10\%$ needs to be expressed as a monthly rate. Refine
+      the crude $R/n$ pass into $(1+R)^{1/12}-1$ using $\ln(1.1) \approx
+      0.09531$ and $e^{y} \approx 1+y+y^{2}/2$. Give the monthly rate as a
+      percentage to four decimals.
+    answer: >
+      $0.7974\%$. De-annualizing runs the compounding backwards: the monthly
+      rate solves $(1+r)^{12} = 1.10$, so $r = (1.1)^{1/12} - 1$. Take logs:
+      $\ln(1.1)/12 = 0.09531/12 = 0.0079425$. Exponentiate with the quadratic
+      pass: $e^{0.0079425} \approx 1 + 0.0079425 + 0.0000315 = 1.0079740$, so
+      $r \approx 0.7974\%$. The exact value is $0.7974140\%$ — four correct
+      decimals from two mental steps. The crude linear pass $R/n = 10\%/12 =
+      0.8333\%$ overshoots by $3.6\%$ relative, and it always overshoots,
+      because compounding twelve equal monthly gains produces more than twelve
+      times one of them; dividing the annual figure evenly hands each month too
+      much.
+    expects: "0.7974%"
+    tolerance: 0.00005
+    rubric:
+      - >
+        Goes through logs — divide $\ln(1+R)$ by $n$, then exponentiate —
+        rather than dividing the rate itself.
+      - >
+        States that $R/n$ always overshoots the true per-period rate for
+        $n > 1$, and can quantify the overshoot here as roughly $36$ basis
+        points of relative error.
+    targets:
+      - quant-mental.approximation.annualizing
+
+  # --- 20-year growth ---------------------------------------------------------
+
+  - id: qapprox-compound-growth-example-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A quantity grows at $6\%$ a year for $25$ years. Estimate the total
+      multiple using the doubling-time route, and give it to two decimals. (You
+      may use $2^{1/12} \approx 1.0595$.)
+    answer: >
+      About $4.24\times$. The linear pass is useless here — $rt = 1.5$ is
+      nowhere near small, and $1 + 25(0.06) = 2.5$ is not in the right
+      neighbourhood — so go through doublings. The rule of 72 gives a doubling
+      time of $72/6 = 12$ years, so $25$ years is $25/12 = 2.0833$ doublings,
+      and the multiple is $2^{2.0833} = 2^{2} \times 2^{1/12} =
+      4 \times 1.0595 = 4.238$. The exact value is $(1.06)^{25} = 4.2919$, so
+      the estimate is low by $1.2\%$ — good enough to sanity-check a
+      spreadsheet, not good enough to quote as a forecast. The direction is
+      predictable: the rule of 72 slightly overstates the doubling time at
+      $6\%$ (true doubling time $11.90$ years against the rule's $12$), so the
+      count of doublings is slightly understated and the multiple comes out
+      low. The trap is compounding as if additive and answering $2.5$.
+    expects: "4.24"
+    tolerance: 0.12
+    rubric:
+      - >
+        Rejects the linear pass on the grounds that $rt = 1.5$ is not small,
+        rather than applying it anyway.
+      - >
+        Converts $25$ years into $25/12 = 2.08$ doublings and evaluates
+        $2^{2.08}$ as $4 \times 2^{1/12}$.
+      - >
+        Names the direction of the miss — the rule of 72 overstates the
+        doubling time at $6\%$, so the multiple comes out low.
+    targets:
+      - quant-mental.approximation.compound-growth-example
+
+  - id: qapprox-compound-growth-example-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A quantity grows at $3\%$ a year for $12$ years. Here $rt = 0.36$ is
+      small enough for the binomial route. Estimate the multiple with the
+      linear pass plus its $\binom{n}{2}r^{2}$ correction, to three decimals.
+    answer: >
+      $1.419$. The linear pass is $1 + 12(0.03) = 1.36$, and the correction is
+      $\binom{12}{2}r^{2} = 66 \times 0.0009 = 0.0594$, giving
+      $1.36 + 0.0594 = 1.4194$. The exact value is $(1.03)^{12} = 1.42576$, so
+      the corrected estimate is low by $0.0064$, under half a percent, while
+      the linear pass alone was low by $0.066$, nearly five percent. The
+      residual is the third-order term $\binom{12}{3}r^{3} =
+      220 \times 0.000027 = 0.0059$, which accounts for almost all of it. This
+      is the regime the binomial route is for: $rt = 0.36$ is small, so two
+      terms suffice, whereas at $rt = 1.5$ the same method collapses and the
+      doubling route takes over. Knowing which side of that line you are on is
+      the actual skill.
+    expects: "1.419"
+    tolerance: 0.01
+    rubric:
+      - >
+        Uses $\binom{12}{2} = 66$ for the correction rather than $12$ or $144$.
+      - >
+        Checks that $rt = 0.36$ justifies the binomial route before applying
+        it.
+    targets:
+      - quant-mental.approximation.compound-growth-example
+
+  # --- horizon scaling and sigma lookup ---------------------------------------
+
+  - id: qapprox-vol-quantile-example-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A stock has $32\%$ annualized volatility and trades $252$ days a year.
+      How large a one-day move is a $2.576\sigma$ event? Give a percentage to
+      two decimals. (You may use $\sqrt{252} \approx 15.875$.)
+    answer: >
+      About $5.19\%$. Volatility scales with the square root of the horizon, so
+      the daily figure is $32\%/\sqrt{252} = 32\%/15.875 = 2.0158\%$. The
+      $2.576$ multiplier is the two-sided $99\%$ quantile, so the threshold is
+      $2.576 \times 2.0158\% = 5.193\%$: a one-day move beyond about $5.2\%$ in
+      either direction should occur roughly one day in a hundred, or two or
+      three times a year. The chain has two approximations and one exact step —
+      square-root time scaling (exact under iid returns, approximate in
+      practice), the memorized quantile, and the arithmetic. The trap is
+      dividing by $252$ rather than $\sqrt{252}$: that gives a daily volatility
+      of $0.127\%$ and a $2.576\sigma$ threshold of $0.33\%$, understating the
+      real threshold by a factor of nearly sixteen and turning routine days
+      into apparent crises.
+    expects: "5.19%"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides the annual volatility by $\sqrt{252}$, not by $252$.
+      - >
+        Uses $2.576$ as the two-sided $99\%$ quantile and states the resulting
+        frequency — about one day in a hundred.
+    targets:
+      - quant-mental.approximation.vol-quantile-example
+
+  - id: qapprox-vol-quantile-example-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A commodity has $40\%$ annualized volatility. What is its volatility over
+      a two-week horizon, treating the year as $26$ such periods? Give a
+      percentage to two decimals. (You may use $\sqrt{26} \approx 5.099$.)
+    answer: >
+      About $7.85\%$. Horizon scaling divides by the square root of the number
+      of periods: $40\%/\sqrt{26} = 40\%/5.099 = 7.845\%$. Equivalently, the
+      two-week variance is $1/26$ of the annual variance, and taking a square
+      root of a variance ratio is where the $\sqrt{\cdot}$ comes from — the
+      rule is really about variance adding over independent periods, with
+      volatility inheriting the square root. Sanity-check the magnitude: a
+      fortnight is roughly $1/26$ of a year, and $1/\sqrt{26} \approx 0.196$,
+      so about a fifth of the annual figure, which $7.85\%$ is. The trap is
+      linear scaling, $40\%/26 = 1.54\%$, which understates the two-week
+      volatility fivefold; the same error in reverse turns a modest daily
+      volatility into an implausible annual one.
+    expects: "7.845%"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides by $\sqrt{26}$ rather than by $26$.
+      - >
+        Explains the square root as variance adding over independent periods,
+        not as an arbitrary convention.
+    targets:
+      - quant-mental.approximation.vol-quantile-example
+
+  # --- the percent round trip -------------------------------------------------
+
+  - id: qapprox-percent-compounding-trap-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A book of business falls $35\%$ in a crash. What percentage *gain* is
+      needed afterwards to get back to the original value? Give a percentage to
+      two decimals.
+    answer: >
+      $53.85\%$. Falling $35\%$ multiplies by $0.65$, so recovery needs a
+      factor of $1/0.65 = 1.53846$, that is a gain of $53.85\%$. The asymmetry
+      is the whole point: a $35\%$ loss is not undone by a $35\%$ gain, because
+      the gain is applied to a smaller base. Checking the wrong instinct
+      explicitly, $0.65 \times 1.35 = 0.8775$, still $12.25\%$ below the start —
+      exactly $-x^{2}$ with $x = 0.35$, which is $-0.1225$. The recovery
+      requirement grows viciously: $-20\%$ needs $+25\%$, $-35\%$ needs
+      $+53.85\%$, $-50\%$ needs $+100\%$, $-80\%$ needs $+400\%$. All of it
+      follows from percent changes composing multiplicatively rather than
+      additively, so the right object to manipulate is the factor $1+x$, never
+      the percentage itself.
+    expects: "53.85%"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Inverts the factor $0.65$ rather than negating the percentage — the
+        answer is $1/0.65 - 1$, not $35\%$.
+      - >
+        Can state the symmetric round trip as a cross-check: $+35\%$ after
+        $-35\%$ leaves $-12.25\%$, which is $-x^{2}$.
+    targets:
+      - quant-mental.approximation.percent-compounding-trap
+    exercises:
+      - quant-mental.arithmetic.percent-composition
+    connects:
+      - quant-mental.approximation.percent-compounding-trap ~ quant-mental.arithmetic.percent-composition
+
+  - id: qapprox-percent-compounding-trap-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A trader's quarterly results are $+15\%$, $-15\%$, $+15\%$, $-15\%$. What
+      is the net change over the four quarters? Give a percentage to two
+      decimals, negative for a loss.
+    answer: >
+      $-4.45\%$. Group the quarters into two round trips. Each pair
+      $(1.15)(0.85) = 1 - 0.15^{2} = 0.9775$ loses $2.25\%$, so two pairs
+      multiply to $0.9775^{2} = 0.955506$, a net loss of $4.4494\%$. Note that
+      the two round trips do *not* simply add to $-4.5\%$: they compound too,
+      leaving $0.005$ percentage points less damage than the additive guess,
+      which is the same cross-term effect one level up. The order of the four
+      quarters is irrelevant, since multiplication commutes — a useful thing to
+      say out loud, because the question invites a search for path dependence
+      that is not there. The trap is answering zero on the grounds that two ups
+      and two downs of equal size cancel; they never do, and the shortfall per
+      round trip is exactly $x^{2}$.
+    expects: "-4.45%"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Multiplies the four factors rather than summing the percentages, and
+        does not answer zero.
+      - >
+        Uses $(1.15)(0.85) = 0.9775$ per round trip and squares it, noting the
+        two round trips compound rather than add.
+    targets:
+      - quant-mental.approximation.percent-compounding-trap
+
+  # --- error discipline -------------------------------------------------------
+
+  - id: qapprox-error-discipline-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You quote $(1.01)^{20} \approx 1.20$ from the linear pass. State the
+      honest error bar that should accompany the quote — the size of the first
+      term you dropped — as a plain decimal.
+    answer: >
+      $0.019$. The binomial expansion is $(1+x)^{n} = 1 + nx +
+      \binom{n}{2}x^{2} + \dots$, so the first discarded term is
+      $\binom{20}{2}x^{2} = 190 \times 0.0001 = 0.019$. That is the number to
+      say aloud: "about $1.20$, low by roughly $0.019$", because the dropped
+      term is positive and every later term is positive too, so the linear pass
+      can only understate. The exact value is $(1.01)^{20} = 1.22019$, an error
+      of $0.0202$ — the error bar was right to within a tenth of itself, and it
+      was available before any exact computation. Two ways to get the bar
+      wrong: quoting $nx^{2}/2 = 0.001$, which uses $n$ where $\binom{n}{2}$
+      belongs and understates by a factor of nineteen, or quoting no bar at
+      all, which turns a controlled estimate into a guess. The bar is nearly
+      $10\%$ of the quantity being estimated above $1$, which is itself the
+      signal that the linear pass is near the edge of its useful range here.
+    expects: "0.019"
+    tolerance: 0.002
+    rubric:
+      - >
+        Identifies $\binom{20}{2}x^{2}$, not $nx^{2}/2$, as the first dropped
+        term.
+      - >
+        Reports the bar *with a direction* — the estimate is low, because every
+        omitted term is positive.
+    targets:
+      - quant-mental.approximation.error-discipline
+
+  - id: qapprox-error-discipline-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      You estimate $\sqrt{30}$ by linearizing at $25$: $5 + 5/10 = 5.5$. Which
+      is the honest way to report that, judged before any exact computation?
+    answer: >
+      "$\sqrt{30} \approx 5.5$, high by roughly $0.025$." The next term of the
+      expansion is $-b^{2}/(8a^{3})$ with $a = 5$ and $b = 5$, which is
+      $-25/(8 \times 125) = -25/1000 = -0.025$: negative, so the estimate
+      overshoots, and of size $0.025$. The exact value is $5.47723$, an actual
+      overshoot of $0.0228$ — the bar was right in sign and right in magnitude
+      to within a tenth. Reporting it turns the estimate into something an
+      interviewer can use, because they now know the answer is between about
+      $5.47$ and $5.5$. Note how large the bar is here relative to the
+      $\sqrt{170}$ case: $b/a^{2} = 5/25 = 0.2$ is a big relative offset, and
+      the error grows with its square, which is the signal to look for a closer
+      anchor if more precision is needed.
+    choices:
+      - text: >
+          $\sqrt{30} \approx 5.5$, high by roughly $0.025$, since the dropped
+          term $-b^{2}/(8a^{3})$ is $-0.025$
+        correct: true
+        feedback: >
+          Right in both parts: the dropped term is negative, so the estimate is
+          high, and $-25/1000$ sizes the miss. The exact value $5.47723$ is
+          $0.023$ below $5.5$.
+      - text: >
+          $\sqrt{30} \approx 5.5$, low by roughly $0.025$
+        feedback: >
+          The magnitude is right but the sign is not: the linearized square
+          root always overshoots, because squaring $a + b/(2a)$ exceeds
+          $a^{2}+b$ by $b^{2}/(4a^{2})$.
+      - text: >
+          $\sqrt{30} \approx 5.5$, exact to two decimals
+        feedback: >
+          It is not — $\sqrt{30} = 5.477$, so the second decimal is already
+          wrong. Claiming unearned precision is the failure this node is about.
+      - text: >
+          $\sqrt{30} \approx 5.5$, with no error statement possible without a
+          calculator
+        feedback: >
+          The whole point of the toolkit is that the first dropped term is
+          computable in your head: $-b^{2}/(8a^{3}) = -0.025$ needs one
+          division.
+    rubric:
+      - >
+        Sizes the bar from the first dropped term $-b^{2}/(8a^{3})$ rather than
+        declining to state one.
+      - >
+        Gets the direction right — the linearized root overshoots — and says so
+        unprompted.
+    targets:
+      - quant-mental.approximation.error-discipline
