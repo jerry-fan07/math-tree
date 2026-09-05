@@ -1,0 +1,1630 @@
+# Problems targeting quant-finance.risk — losing gracefully, made checkable.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's
+# ending with something the lesson just handed over. Every book value, loss
+# level, volatility and confidence pair here is a fresh instance: no lesson
+# worked example and no card instance is reused, and the unit's canonical
+# sigma = 1% daily, 99% one-day, 50% drawdown book is deliberately avoided.
+# Money is written in dollars or millions, never with a currency sign, and
+# every numeric answer was verified by computation. See ../README.md.
+
+problems:
+  # --- the loss distribution ---------------------------------------------------
+
+  - id: qrisk-loss-distribution-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A book worth $240$ million is marked at $192$ million at the end of the
+      horizon. The risk report quotes the decline on the arithmetic convention;
+      a second system quotes the same move on the log convention. By how many
+      percentage points does the log figure exceed the arithmetic one? Give the
+      gap to two decimals.
+    answer: >
+      By $2.31$ percentage points. The loss itself is unambiguous:
+      $L = -(192 - 240) = 48$ million, positive because the sign convention
+      makes bigger worse. The two conventions then divide it differently. The
+      arithmetic decline is $48/240 = 0.20$, that is $20.00\%$. The log decline
+      is the magnitude of $\ln(192/240) = \ln(0.8) \approx -0.22314$, that is
+      $22.31\%$. The gap is $22.31 - 20.00 = 2.31$ percentage points. The reason
+      is compounding: a log return is the exponent that reproduces the move
+      multiplicatively, and since $0.8 < 1$ the exponent needed is larger in
+      magnitude than the simple ratio. Two things follow for a risk report. On
+      small moves the two agree to within a rounding error, which is why the
+      convention is usually left unstated and why it silently bites on the one
+      day that matters. And the convention is not a presentational choice: a
+      $20\%$ limit breached on one system is not breached on the other, so a
+      quoted decline with no convention attached is not yet a quantity.
+    expects: "2.31"
+    tolerance: 0.005
+    rubric:
+      - >
+        Computes both conventions on the same move: $48/240$ arithmetic and
+        $\ln(192/240)$ in magnitude for the log figure.
+      - >
+        Reports the difference as $2.31$ percentage points and says why the log
+        magnitude is the larger of the two on a decline.
+    targets:
+      - quant-finance.risk.loss-distribution
+
+  - id: qrisk-loss-distribution-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A fund's risk mandate is written on the log convention: over the horizon,
+      the log loss may not exceed $0.05$. The operations desk monitors book
+      value directly and needs the same limit expressed as an arithmetic
+      percentage decline in book value. What percentage decline corresponds to
+      a log loss of exactly $0.05$? Give the answer to two decimals.
+    answer: >
+      A decline of $4.88\%$. A log loss of $0.05$ means
+      $\ln(V_h/V_0) = -0.05$, so $V_h/V_0 = e^{-0.05} \approx 0.95123$. The
+      arithmetic decline is $1 - 0.95123 = 0.04877$, that is $4.88\%$ of book
+      value. Note which way the inequality runs: the arithmetic figure is
+      *smaller* than the log figure on a decline, the mirror image of the
+      previous problem, because the same move is being divided by the starting
+      value rather than expressed as a compounding exponent. The trap is to
+      read the limit as $5\%$ of book value and set the monitor there. That is
+      not a rounding shortcut — it is a limit that is looser than the mandate
+      by about twelve basis points of book value, and on a large book that gap
+      is real money in a position the desk is not authorized to hold. Since the
+      operations desk owns the alert, the conversion belongs on its side, not
+      in a footnote.
+    expects: "4.88"
+    tolerance: 0.005
+    rubric:
+      - >
+        Inverts the log convention: a log loss of $0.05$ is a value ratio of
+        $e^{-0.05}$.
+      - >
+        Reports the arithmetic decline as $1 - e^{-0.05} \approx 4.88\%$ and
+        notes it is smaller than the $5\%$ a careless reader would set.
+    targets:
+      - quant-finance.risk.loss-distribution
+
+  # --- value at risk -----------------------------------------------------------
+
+  - id: qrisk-var-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A desk's loss over the horizon, in millions, takes the value $-5$ with
+      probability $0.55$, $0$ with probability $0.24$, $4$ with probability
+      $0.12$, $11$ with probability $0.06$ and $60$ with probability $0.03$.
+      Compute $\operatorname{VaR}_{0.95}$ and $\operatorname{VaR}_{0.99}$, and
+      report the difference $\operatorname{VaR}_{0.99} -
+      \operatorname{VaR}_{0.95}$ in millions.
+    answer: >
+      A difference of $49$ million. Value at risk is the smallest loss level
+      whose CDF has reached the confidence level, so accumulate probability
+      from the most profitable outcome upward:
+      $\Pr(L \le -5) = 0.55$, $\Pr(L \le 0) = 0.79$, $\Pr(L \le 4) = 0.91$,
+      $\Pr(L \le 11) = 0.97$, $\Pr(L \le 60) = 1$. For $\alpha = 0.95$ the first
+      level reaching $0.95$ is $11$, so $\operatorname{VaR}_{0.95} = 11$. For
+      $\alpha = 0.99$, the level $11$ only reaches $0.97$, so the quantile jumps
+      to the next atom and $\operatorname{VaR}_{0.99} = 60$. The difference is
+      $60 - 11 = 49$ million. That cliff is the whole lesson: two percentage
+      points of confidence moved the reported risk by a factor of more than
+      five, because the quantile can only ever land on an atom of the loss law
+      and there is nothing between $11$ and $60$ for it to land on. Two traps.
+      Reading $\alpha$ as the tail probability rather than the confidence level
+      accumulates from the wrong end and returns $-5$ and $0$. And a desk that
+      quotes only the $95\%$ number has reported $11$ for a book whose bad day
+      is $60$ — VaR is silent about everything past the quantile, and here that
+      silence hides almost all of the loss.
+    expects: "49"
+    exercises:
+      - quant-probability.random-variables.quantiles
+      - quant-probability.random-variables.cdf
+    rubric:
+      - >
+        Accumulates the CDF from the profit end and takes the smallest level
+        with $\Pr(L \le x) \ge \alpha$ at each confidence level.
+      - >
+        Gets $\operatorname{VaR}_{0.95} = 11$ and $\operatorname{VaR}_{0.99} =
+        60$, difference $49$, and explains the jump as the quantile landing on
+        the next atom.
+    targets:
+      - quant-finance.risk.var
+
+  - id: qrisk-var-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A risk report states that the book's $99\%$ ten-day value at risk is $12$
+      million. Which reading of that sentence is correct?
+    answer: >
+      The book loses more than $12$ million over a ten-day window on roughly
+      one such window in a hundred, and the report says nothing about how much
+      more. Value at risk is a quantile of the loss distribution, defined by
+      $\operatorname{VaR}_{\alpha}(L) = \inf\{x : \Pr(L \le x) \ge \alpha\}$, so
+      $\alpha = 0.99$ fixes the frequency of a breach at about $1\%$ and fixes
+      nothing else. The two misreadings an interviewer is listening for are both
+      in the choices. Reading it as a maximum loss is wrong because the
+      quantile is a threshold, not a bound: a book that loses $12.4$ million in
+      the tail and a book that loses $400$ million in the tail carry the same
+      $12$ million VaR, which is exactly the defect expected shortfall exists to
+      repair. Reading it as an expected loss is wrong in a different direction:
+      the mean loss is dominated by the ordinary days on the profitable side of
+      the distribution and is nowhere near the $99$th percentile. The third
+      slip, confusing $\alpha$ with $1 - \alpha$, turns a once-a-hundred event
+      into a ninety-nine-in-a-hundred one and inverts the whole report.
+    choices:
+      - text: >
+          Losses exceed $12$ million on about one ten-day window in a hundred,
+          and the figure says nothing about how large those losses are.
+        correct: true
+        feedback: >
+          Right — the quantile fixes the frequency of a breach and is silent
+          about the size of the loss beyond it.
+      - text: >
+          The most the book can lose over ten days is $12$ million, except in
+          a genuine market crisis.
+        feedback: >
+          VaR is a threshold, not a bound. The tail past the quantile is
+          unconstrained, which is the defect expected shortfall repairs.
+      - text: >
+          The book's average loss over a ten-day window is $12$ million.
+        feedback: >
+          That is the mean, not the $99$th percentile — and the mean is pulled
+          down by all the ordinary profitable windows.
+      - text: >
+          The book loses more than $12$ million on about $99$ ten-day windows
+          in a hundred.
+        feedback: >
+          This swaps $\alpha$ for $1-\alpha$. The confidence level is the
+          probability of *not* breaching, so the breach rate is about $1\%$.
+    rubric:
+      - >
+        States the quantile reading: the breach probability is $1-\alpha$, and
+        the horizon and confidence level are both part of the quantity.
+      - >
+        Names both refusals — VaR is not a maximum loss and not an expected
+        loss — rather than only one of them.
+    targets:
+      - quant-finance.risk.var
+
+  - id: qrisk-var-03
+    kind: work
+    difficulty: routine
+    statement: >
+      A risk system reports the loss CDF at four levels only:
+      $\Pr(L \le 2) = 0.86$, $\Pr(L \le 5) = 0.94$, $\Pr(L \le 9) = 0.975$ and
+      $\Pr(L \le 20) = 1$, with losses in millions. What is
+      $\operatorname{VaR}_{0.95}$, in millions?
+    answer: >
+      $9$ million. The definition is $\operatorname{VaR}_{\alpha}(L) =
+      \inf\{x : \Pr(L \le x) \ge \alpha\}$ — the *smallest* reported level whose
+      CDF has reached $\alpha$. Walk the table upward: $0.86$ at level $2$ is
+      short of $0.95$, $0.94$ at level $5$ is still short, and $0.975$ at level
+      $9$ is the first value that reaches it, so $\operatorname{VaR}_{0.95} =
+      9$. The near miss is the point of the exercise. The level $5$ carries a
+      CDF of $0.94$, agonizingly close to the confidence level, and a reader
+      who rounds it up reports $5$ — a number that understates the desk's risk
+      by almost half on nothing but a rounding instinct. The quantile takes the
+      first level at or above $\alpha$, never the last one below it, and with a
+      discrete law that is a real difference rather than a technicality. Note
+      also that the reported figure sits well past $\alpha$ at $0.975$: with
+      atoms this coarse, a $95\%$ VaR is often in practice a $97.5\%$ one.
+    expects: "9"
+    exercises:
+      - quant-probability.random-variables.cdf
+    rubric:
+      - >
+        Applies the infimum definition: the smallest tabulated level with
+        $\Pr(L \le x) \ge 0.95$.
+      - >
+        Answers $9$, and rejects $5$ explicitly because $0.94$ has not reached
+        the confidence level.
+    targets:
+      - quant-finance.risk.var
+
+  # --- normal VaR --------------------------------------------------------------
+
+  - id: qrisk-normal-var-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A book worth $320$ million has daily P&L that is normal with a standard
+      deviation of $0.85\%$ of book value and a positive mean drift of
+      $0.03\%$ of book value per day. Daily moves are independent. Using
+      $z_{0.99} = 2.326$ and $\operatorname{VaR}_{\alpha} = z_{\alpha}\sigma_h
+      - \mu h$ over a horizon of $h = 10$ trading days, what is the $99\%$
+      ten-day VaR, in millions? Give the answer to two decimals.
+    answer: >
+      About $19.05$ million. The two terms scale differently, which is the
+      whole content of the problem. The deviation scales with the square root
+      of the horizon: $\sigma_{10} = 0.85\% \times \sqrt{10} = 0.85\% \times
+      3.16228 \approx 2.68794\%$ of book value. The mean scales linearly:
+      $\mu h = 0.03\% \times 10 = 0.30\%$. So the VaR in percentage terms is
+      $2.326 \times 2.68794\% - 0.30\% \approx 6.25214\% - 0.30\% =
+      5.95214\%$, and on $320$ million that is $0.0595214 \times 320 \approx
+      19.05$ million. Three traps sit in the arithmetic. Scaling the drift by
+      $\sqrt{10}$ as well gives $0.0949\%$ and overstates the answer by about
+      $0.66$ million; the asymmetry between the two scalings is the reason
+      drift is negligible at a one-day horizon and material at a one-year one.
+      Dropping the drift term entirely gives $20.01$ million, nearly a million
+      too conservative. And adding the drift rather than subtracting it
+      forgets that a positive expected return reduces the loss quantile — the
+      sign convention makes profits negative losses, so drift pushes the whole
+      loss distribution left.
+    expects: "19.05"
+    tolerance: 0.02
+    exercises:
+      - quant-probability.continuous.normal
+    rubric:
+      - >
+        Scales the deviation by $\sqrt{10}$ and the mean by $10$, not both by
+        the same factor.
+      - >
+        Assembles $z_{0.99}\sigma_{10} - \mu h$ as a percentage and converts to
+        about $19.05$ million on a $320$ million book.
+    targets:
+      - quant-finance.risk.normal-var
+
+  - id: qrisk-normal-var-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A book worth $60$ million has daily P&L that is normal with mean $0$ and
+      a standard deviation of $1.4\%$ of book value. Basel's market-risk
+      confidence level is $\alpha = 0.975$, for which $z_{0.975} = 1.960$. What
+      is the $97.5\%$ one-day VaR, in millions? Give the answer to three
+      decimals.
+    answer: >
+      $1.646$ million. Under a zero-mean normal the whole computation is one
+      multiplication, $\operatorname{VaR}_{\alpha} = z_{\alpha}\sigma$: here
+      $1.960 \times 1.4\% = 2.744\%$ of book value, and $0.02744 \times 60 =
+      1.6464$, so $1.646$ million to three decimals. Two remarks worth making
+      unprompted in an interview. First, the assumptions are doing real work
+      even though the arithmetic is trivial — normality and a zero mean are
+      both being used, and normality is the one that fails, since a real daily
+      return distribution has more mass past $1.96\sigma$ than this formula
+      credits. Second, $1.960$ is the familiar two-sided $95\%$ figure being
+      used one-sided here; a reader who recalls it as a two-sided number and
+      halves the tail reaches for $z_{0.9875}$ instead and reports too much
+      risk. The whole point of quoting $z$ in the problem is that the formula
+      is not the difficulty — knowing which $z$ belongs to which tail is.
+    expects: "1.646"
+    tolerance: 0.001
+    rubric:
+      - >
+        Applies $\operatorname{VaR}_{\alpha} = z_{\alpha}\sigma$ with the
+        zero-mean assumption stated.
+      - >
+        Converts $1.960 \times 1.4\% = 2.744\%$ to $1.646$ million on the $60$
+        million book.
+    targets:
+      - quant-finance.risk.normal-var
+
+  # --- VaR is not subadditive --------------------------------------------------
+
+  - id: qrisk-var-subadditivity-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two independent positions are held. Position A loses $180$ with
+      probability $0.03$ and nothing otherwise; position B loses $120$ with
+      probability $0.035$ and nothing otherwise. Compute
+      $\operatorname{VaR}_{0.95}$ for each position alone and for the combined
+      book, and report the subadditivity violation
+      $\operatorname{VaR}_{0.95}(A+B) - \operatorname{VaR}_{0.95}(A) -
+      \operatorname{VaR}_{0.95}(B)$.
+    answer: >
+      A violation of $120$. Standalone first. For A, $\Pr(L_A \le 0) = 0.97 \ge
+      0.95$, so the quantile is already reached at zero and
+      $\operatorname{VaR}_{0.95}(A) = 0$. For B, $\Pr(L_B \le 0) = 0.965 \ge
+      0.95$, so $\operatorname{VaR}_{0.95}(B) = 0$ as well. Now the book. By
+      independence the four outcomes are: no default, probability
+      $0.97 \times 0.965 = 0.93605$, loss $0$; B alone, probability
+      $0.97 \times 0.035 = 0.03395$, loss $120$; A alone, probability
+      $0.03 \times 0.965 = 0.02895$, loss $180$; both, probability
+      $0.03 \times 0.035 = 0.00105$, loss $300$. Accumulating in loss order:
+      $\Pr(L \le 0) = 0.93605$, which is now *below* $0.95$, and
+      $\Pr(L \le 120) = 0.97 \ge 0.95$. So
+      $\operatorname{VaR}_{0.95}(A+B) = 120$ and the violation is
+      $120 - 0 - 0 = 120$. Nothing pathological was assumed: the positions are
+      independent, which is the strongest diversification available, and
+      merging them still manufactured risk out of nothing. The mechanism is
+      that each default individually sits under the $5\%$ threshold while the
+      probability of *at least one* — $1 - 0.93605 = 6.395\%$ — clears it, so
+      the merged quantile steps off zero onto the smaller of the two loss
+      atoms. That is why VaR cannot be safely allocated across desks: the
+      parts can each report zero while the whole reports $120$.
+    expects: "120"
+    exercises:
+      - quant-probability.random-variables.cdf
+    rubric:
+      - >
+        Finds both standalone figures to be $0$ because each default
+        probability sits under $1-\alpha$.
+      - >
+        Builds the four-outcome joint law, sorts by loss, and reads
+        $\operatorname{VaR}_{0.95}(A+B) = 120$ from $\Pr(L \le 0) = 0.93605 <
+        0.95$.
+      - >
+        Reports the violation as $120$ and names the mechanism — at least one
+        default clears the threshold that neither clears alone.
+    targets:
+      - quant-finance.risk.var-subadditivity
+
+  - id: qrisk-var-subadditivity-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Take the same two independent positions: A loses $180$ with probability
+      $0.03$, B loses $120$ with probability $0.035$, each losing nothing
+      otherwise. Now work at $\alpha = 0.99$. What is
+      $\operatorname{VaR}_{0.99}$ for the combined book?
+    answer: >
+      $180$. The joint law is unchanged — losses $0$, $120$, $180$ and $300$
+      with probabilities $0.93605$, $0.03395$, $0.02895$ and $0.00105$ — but
+      the confidence level moves the quantile. Accumulating:
+      $\Pr(L \le 0) = 0.93605$, $\Pr(L \le 120) = 0.97$, both short of $0.99$,
+      and $\Pr(L \le 180) = 0.99895 \ge 0.99$, so
+      $\operatorname{VaR}_{0.99}(A+B) = 180$. Compare the standalone figures at
+      this level: $\Pr(L_A \le 0) = 0.97 < 0.99$ forces
+      $\operatorname{VaR}_{0.99}(A) = 180$, and $\Pr(L_B \le 0) = 0.965 < 0.99$
+      forces $\operatorname{VaR}_{0.99}(B) = 120$, summing to $300$. Since
+      $180 \le 300$, subadditivity *holds* here. That is the refinement worth
+      carrying out of these two problems: the violation is not a property of
+      VaR in the abstract but of VaR at a particular confidence level against a
+      particular loss law, and moving $\alpha$ past every default probability
+      makes it disappear. It is also why "just use a higher confidence level"
+      is not a fix — the level at which the violation bites depends on the book,
+      and a desk optimizing against the limit will find whichever level it
+      is set at.
+    expects: "180"
+    rubric:
+      - >
+        Reuses the joint law and accumulates to the first level with
+        $\Pr(L \le x) \ge 0.99$, giving $180$.
+      - >
+        Compares against the standalone sum $180 + 120 = 300$ and observes that
+        subadditivity holds at this level, so the violation is level-specific.
+    targets:
+      - quant-finance.risk.var-subadditivity
+
+  # --- expected shortfall ------------------------------------------------------
+
+  - id: qrisk-expected-shortfall-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A book's loss over the horizon, in millions, is $0$ with probability
+      $0.90$, $6$ with probability $0.06$, $15$ with probability $0.03$ and
+      $90$ with probability $0.01$. Compute $\operatorname{ES}_{0.95}$ using the
+      quantile-average definition, $\operatorname{ES}_{\alpha} =
+      \frac{1}{1-\alpha}$ times the integral of $\operatorname{VaR}_{u}$ over
+      $u$ from $\alpha$ to $1$. Give the answer in millions.
+    answer: >
+      $28.2$ million. The loss law has atoms, so the naive conditional formula
+      is not the definition to reach for — the quantile average is. First map
+      $\operatorname{VaR}_{u}$ across the tail. The CDF is $0.90$ at level $0$,
+      $0.96$ at $6$, $0.99$ at $15$ and $1$ at $90$, so
+      $\operatorname{VaR}_{u} = 6$ for $u$ in $(0.90, 0.96]$, $15$ for
+      $(0.96, 0.99]$ and $90$ for $(0.99, 1)$. Integrating over
+      $(0.95, 1)$, a stretch of length $0.05$: the level $6$ covers
+      $0.95$ to $0.96$, a length of $0.01$; the level $15$ covers $0.03$; the
+      level $90$ covers $0.01$. The integral is $6(0.01) + 15(0.03) +
+      90(0.01) = 0.06 + 0.45 + 0.90 = 1.41$, and dividing by $1 - \alpha =
+      0.05$ gives $28.2$. Now the trap, which is the reason this problem is
+      demanding. Computing $\mathbb{E}[L \mid L \ge \operatorname{VaR}_{0.95}]$
+      directly gives $\mathbb{E}[L \mid L \ge 6] = (0.06(6) + 0.03(15) +
+      0.01(90))/0.10 = 1.71/0.10 = 17.1$, badly wrong. The conditioning event
+      has probability $0.10$, not $0.05$, because the atom at $6$ straddles the
+      quantile: the conditional formula silently averages over twice the tail
+      it was asked for and dilutes the $90$ with a level that is only partly in
+      the tail. The two agree whenever the loss law is continuous at the
+      quantile, and that is exactly the condition a discrete book violates.
+    expects: "28.2"
+    tolerance: 0.05
+    exercises:
+      - quant-probability.expectation.expectation
+    rubric:
+      - >
+        Maps $\operatorname{VaR}_{u}$ over the tail $(0.95, 1)$ and weights each
+        level by the length of $u$ it occupies.
+      - >
+        Reaches $1.41/0.05 = 28.2$ and explains why the conditional form gives
+        $17.1$ — the atom at $6$ makes the conditioning event twice the
+        intended tail.
+    targets:
+      - quant-finance.risk.expected-shortfall
+
+  - id: qrisk-expected-shortfall-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A book's daily loss is normal with mean $0$ and standard deviation
+      $\sigma = 1.3\%$ of book value. Using $z_{0.95} = 1.645$ and the standard
+      normal density $\varphi(1.645) \approx 0.10311$, compute
+      $\operatorname{ES}_{0.95}$ as a percentage of book value, to two decimals.
+    answer: >
+      About $2.68\%$ of book value. Under a zero-mean normal the shortfall has
+      the closed form $\operatorname{ES}_{\alpha} = \sigma\varphi(z_{\alpha})
+      /(1-\alpha)$, so $\operatorname{ES}_{0.95} = 1.3\% \times 0.10311/0.05 =
+      1.3\% \times 2.0622 \approx 2.68\%$. Set it beside the quantile it sits
+      past: $\operatorname{VaR}_{0.95} = z_{0.95}\sigma = 1.645 \times 1.3\%
+      \approx 2.14\%$. The shortfall is about a quarter larger, and every bit of
+      that comes from averaging the tail rather than reading its edge. Two
+      things to notice. The ratio $\varphi(z_{\alpha})/((1-\alpha)z_{\alpha})$
+      is the whole story and it depends only on $\alpha$, not on $\sigma$ — the
+      book's volatility scales both numbers identically, which is why the
+      $97.5\%$ shortfall and the $99\%$ quantile happen to coincide under
+      normality and why Basel could swap one for the other. And the gap of
+      about $25\%$ here is a *normal* gap; under a fat-tailed law it is much
+      wider, because the tail being averaged has far more mass out at the
+      extremes than the normal credits.
+    expects: "2.68"
+    tolerance: 0.005
+    rubric:
+      - >
+        Uses $\operatorname{ES}_{\alpha} = \sigma\varphi(z_{\alpha})/(1-\alpha)$
+        with $1-\alpha = 0.05$ in the denominator, not $\alpha$.
+      - >
+        Reports $2.68\%$ and compares it to the $2.14\%$ quantile, attributing
+        the gap to averaging the tail.
+    targets:
+      - quant-finance.risk.expected-shortfall
+
+  - id: qrisk-expected-shortfall-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Explain why expected shortfall is subadditive while value at risk is not.
+      Argue from the representation of $\operatorname{ES}_{\alpha}(L)$ as the
+      largest average loss achievable by reweighting outcomes, subject to no
+      outcome receiving more than $1/(1-\alpha)$ times its own probability, and
+      say precisely which step of that argument the quantile cannot supply.
+    answer: >
+      The representation is the argument. Write
+      $\operatorname{ES}_{\alpha}(L) = \max_{Q} \mathbb{E}_{Q}[L]$, the maximum
+      taken over all reweightings $Q$ of the original law whose density against
+      the true probability is bounded by $1/(1-\alpha)$. This is the same object
+      as the tail average: the reweighting that achieves the maximum piles the
+      full allowance $1/(1-\alpha)$ onto the worst outcomes until it has used up
+      its total mass of one, which is precisely averaging the worst $1-\alpha$
+      fraction. Subadditivity is now one line. For any two losses $A$ and $B$,
+      let $Q^{*}$ be the reweighting that attains $\operatorname{ES}_{\alpha}
+      (A+B)$. Then $\operatorname{ES}_{\alpha}(A+B) = \mathbb{E}_{Q^{*}}[A+B] =
+      \mathbb{E}_{Q^{*}}[A] + \mathbb{E}_{Q^{*}}[B]$ by linearity of
+      expectation under a fixed measure, and each term is at most the maximum
+      over all admissible reweightings of its own leg, so the sum is at most
+      $\operatorname{ES}_{\alpha}(A) + \operatorname{ES}_{\alpha}(B)$. The
+      structure is entirely generic: a maximum of a sum is at most the sum of
+      the maxima, and expectation is linear. Nothing about the loss law was
+      used, so the inequality holds for every joint distribution, dependent or
+      not, discrete or continuous. Equality is attained exactly when a single
+      reweighting is simultaneously worst for both legs — when the two books'
+      bad tails coincide — which is the sense in which ES charges for shared
+      tail risk and rewards genuine diversification. Now the failure. VaR has
+      no such representation. It is not an average of anything: it is a single
+      point of the CDF, and the two operations that make the argument work,
+      linearity of expectation and taking a maximum over a *convex* set of
+      reweightings, are both unavailable to a quantile. The quantile of a sum
+      is not any function of the quantiles of the parts, because it depends on
+      how the parts' tails line up in probability rather than on their sizes.
+      Two independent small-default positions demonstrate this concretely: each
+      default sits under the tail budget so each quantile is zero, while the
+      probability of at least one default clears the budget and the merged
+      quantile jumps to a positive atom. The deep statement behind all of this
+      is convexity — ES is a concave-tail average and therefore a convex
+      functional of the loss, and subadditivity together with positive
+      homogeneity is exactly convexity; VaR is not convex, which is also why
+      optimizing a book against a VaR limit is a non-convex problem that
+      rewards stuffing losses just past the quantile.
+    rubric:
+      - >
+        States the reweighting representation of $\operatorname{ES}_{\alpha}$
+        and identifies the maximizing reweighting as the tail average.
+      - >
+        Completes the two-step argument — linearity under the fixed maximizing
+        measure, then bounding each leg by its own maximum — and notes it uses
+        nothing about the joint law.
+      - >
+        Explains what VaR lacks: a quantile is not an average, so neither
+        linearity nor the maximum-over-a-convex-set step is available, and
+        gives the independent-default counterexample or an equivalent.
+    targets:
+      - quant-finance.risk.expected-shortfall
+
+  # --- coherence ---------------------------------------------------------------
+
+  - id: qrisk-coherence-01
+    kind: decide
+    difficulty: demanding
+    statement: >
+      A risk committee is choosing a measure to set desk limits with. Which of
+      these four candidates is coherent — monotone, translation invariant,
+      positively homogeneous and subadditive?
+    answer: >
+      $\operatorname{ES}_{0.975}$, and it is the only one of the four. Take the
+      others in turn. The mean-plus-two-deviations rule $\rho(L) = \mathbb{E}[L]
+      + 2\sqrt{\operatorname{Var}(L)}$ is subadditive, since the standard
+      deviation of a sum is at most the sum of the standard deviations, and it
+      is translation invariant and positively homogeneous — but it fails
+      *monotonicity*, which is the axiom nobody checks. A book that always
+      loses exactly $10$ has $\rho = 10$; a book that loses $9$ or $0$ on a coin
+      flip is better in every state of the world yet scores $4.5 + 2(4.5) =
+      13.5$. A limit built on it would refuse the strictly safer book. VaR at
+      any level satisfies the first three and fails subadditivity, which is the
+      whole reason this unit exists. The percentile spread
+      $\operatorname{VaR}_{0.99} - \operatorname{VaR}_{0.95}$ fails two axioms
+      at once: it is not monotone, and it is not translation invariant, because
+      adding cash shifts both quantiles equally and leaves the difference
+      unchanged, so a book made genuinely safer by holding capital scores the
+      same. Expected shortfall passes all four. Worth naming even so are the two
+      caveats an interviewer will probe: positive homogeneity ignores
+      liquidity, since unwinding twice the position costs more than twice as
+      much, and ES is not elicitable, which is what makes it awkward to
+      backtest directly.
+    choices:
+      - text: >
+          $\rho(L) = \mathbb{E}[L] + 2\sqrt{\operatorname{Var}(L)}$
+        feedback: >
+          Subadditive and translation invariant, but not monotone: a book that
+          always loses $10$ scores less than one losing $9$ or $0$ on a flip.
+      - text: >
+          $\operatorname{VaR}_{0.99}$
+        feedback: >
+          It satisfies the first three axioms and fails subadditivity — merging
+          independent books can raise it, so it cannot be allocated safely.
+      - text: >
+          $\operatorname{ES}_{0.975}$
+        correct: true
+        feedback: >
+          Right — the tail average satisfies all four, which is why Basel moved
+          market-risk capital onto it.
+      - text: >
+          $\rho(L) = \operatorname{VaR}_{0.99}(L) - \operatorname{VaR}_{0.95}(L)$
+        feedback: >
+          Not translation invariant: holding cash shifts both quantiles equally
+          and leaves the spread unchanged, so real safety is invisible to it.
+    rubric:
+      - >
+        Names all four axioms and checks the candidates against them rather
+        than picking on familiarity.
+      - >
+        Identifies the specific failure of each distractor — monotonicity for
+        the deviation rule, subadditivity for VaR, translation invariance for
+        the spread.
+    targets:
+      - quant-finance.risk.coherence
+
+  - id: qrisk-coherence-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A desk's book has $\operatorname{ES}_{0.975}(L) = 24$ million. It halves
+      every position and simultaneously sets aside $3$ million of cash, so the
+      new loss is $L' = 0.5L - 3$. Using only positive homogeneity and
+      translation invariance, what is $\operatorname{ES}_{0.975}(L')$, in
+      millions?
+    answer: >
+      $9$ million. Apply the axioms in either order. Positive homogeneity gives
+      $\operatorname{ES}(0.5L) = 0.5 \times 24 = 12$, since scaling every
+      outcome by a non-negative constant scales the whole loss distribution and
+      hence any quantile-average of it by the same constant. Translation
+      invariance then gives $\operatorname{ES}(0.5L - 3) = 12 - 3 = 9$: cash
+      held against the book reduces the risk measure by exactly the amount of
+      cash, no more and no less. So $\operatorname{ES}_{0.975}(L') = 9$ million.
+      Two points the arithmetic is teaching. Neither step needed the loss
+      distribution — the axioms are structural, which is exactly what makes
+      them useful for reasoning about a book you cannot fully see. And the two
+      interventions are not equally efficient here: halving the positions took
+      $12$ million off the measure while the cash took only $3$, because
+      homogeneity is multiplicative and translation is additive. The traps are
+      applying the cash before the halving, which gives $0.5(24 - 3) = 10.5$
+      and quietly halves the cash as well, and adding the cash rather than
+      subtracting it, which mistakes the sign convention — cash reduces losses,
+      and losses are the positive direction.
+    expects: "9"
+    rubric:
+      - >
+        Applies positive homogeneity to the scaling and translation invariance
+        to the cash, in the order the composition $L' = 0.5L - 3$ dictates.
+      - >
+        Answers $9$ and rejects $10.5$, which halves the cash along with the
+        positions.
+    targets:
+      - quant-finance.risk.coherence
+
+  # --- fat tails ---------------------------------------------------------------
+
+  - id: qrisk-fat-tails-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A book worth $150$ million has a daily loss standard deviation of
+      $1.6\%$ of book value. The risk system reports a $99\%$ one-day VaR under
+      a normal model with $z_{0.99} = 2.326$. A researcher refits the same
+      volatility with a Student $t$ on $6$ degrees of freedom, whose raw $99\%$
+      quantile is $3.143$ and which must be scaled by $\sqrt{(6-2)/6}$ to match
+      a variance of $1$. By how many millions does the normal model understate
+      the $99\%$ one-day VaR? Give the answer to three decimals.
+    answer: >
+      By about $0.577$ million. The scaling is the step that decides the answer.
+      A raw $t_6$ has variance $6/(6-2) = 1.5$, so to compare it with a
+      standardized normal its quantile must be multiplied by
+      $\sqrt{4/6} \approx 0.81650$: the effective $99\%$ multiplier is
+      $3.143 \times 0.81650 \approx 2.56625$. Against the normal's $2.326$ that
+      is a gap of $0.24025$ in multiplier units, which on a daily $\sigma$ of
+      $1.6\%$ is $0.24025 \times 0.016 \approx 0.0038438$ of book value, and on
+      $150$ million is $0.577$ million. In levels the normal VaR is
+      $2.326 \times 1.6\% \times 150 = 5.582$ million against the $t$ figure of
+      $2.56625 \times 1.6\% \times 150 \approx 6.159$ million — about $10\%$
+      more risk from the same volatility estimate. The trap is skipping the
+      variance match and using $3.143$ raw, which reports $7.543$ million and
+      attributes to fat tails an error that is mostly a units mismatch: an
+      unscaled $t_6$ simply has a larger variance than the book does. The
+      honest comparison holds the second moment fixed and lets only the *shape*
+      of the tail differ, and the shape alone is worth ten percent here. Note
+      also which direction the error runs and where it worsens: the normal
+      understates, and the gap widens as $\alpha \to 1$, so the same exercise at
+      $99.9\%$ would show a far larger shortfall than this one.
+    expects: "0.577"
+    tolerance: 0.002
+    exercises:
+      - quant-statistics.descriptive.skew-kurtosis
+    rubric:
+      - >
+        Scales the raw $t_6$ quantile by $\sqrt{4/6}$ before comparing it to
+        the normal, and says why: the raw $t_6$ has variance $1.5$.
+      - >
+        Converts the multiplier gap $2.56625 - 2.326$ into $0.577$ million on a
+        $150$ million book at $\sigma = 1.6\%$.
+    targets:
+      - quant-finance.risk.fat-tails
+
+  - id: qrisk-fat-tails-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A desk computes daily VaR from a normal model fitted to a correctly
+      estimated volatility. What do the fat tails of real daily returns do to
+      that estimate?
+    answer: >
+      They make it too small, and the error grows with the confidence level.
+      Excess kurtosis of roughly $3$ to $10$ against the normal's $0$ means
+      real returns put more mass far from the mean than a normal with the same
+      variance does, so every quantile deep in the tail is understated — and
+      because a normal density decays as the exponential of a negative square,
+      the relative shortfall widens the further out you go. That is the
+      unpleasant direction: the error is smallest where it is cheap and largest
+      exactly where the capital number matters. Under normality a $5\sigma$ day
+      has probability about $5.7 \times 10^{-7}$, roughly one day in seven
+      thousand years of $252$-day years, and indices deliver several a decade.
+      The other three readings all get something backwards. Volatility being
+      estimated correctly is stipulated, so this is a shape error, not a level
+      error, and no amount of better variance estimation fixes it. The error
+      does not shrink as $\alpha \to 1$; it grows. And aggregation runs the
+      other way from what the last option claims: summing many daily returns
+      pulls the distribution toward normality, which is why monthly returns
+      look far more normal than daily ones and why a model can look calibrated
+      at a monthly horizon while failing badly at a daily one.
+    choices:
+      - text: >
+          The estimate is too small, and the shortfall widens as $\alpha \to 1$.
+        correct: true
+        feedback: >
+          Right — real returns carry more far-tail mass than a variance-matched
+          normal, and the gap grows with the confidence level.
+      - text: >
+          The estimate is too small at $95\%$ but converges to the truth as
+          $\alpha \to 1$.
+        feedback: >
+          The opposite: the normal density decays too fast, so the relative
+          error is worst in the far tail.
+      - text: >
+          The estimate is too large, since a fat-tailed law has more mass near
+          the center as well.
+        feedback: >
+          More central mass is real, but the quantile deep in the tail is what
+          VaR reads, and there the fat-tailed law dominates.
+      - text: >
+          Nothing, provided the volatility was estimated correctly — VaR
+          depends only on the variance.
+        feedback: >
+          VaR reads a quantile, not a variance. Two laws can share a variance
+          and differ by a factor in the tail.
+    rubric:
+      - >
+        Names the direction of the error — understatement — and ties it to
+        excess kurtosis rather than to a mis-estimated variance.
+      - >
+        States that the error widens with $\alpha$, and ideally that
+        aggregation thins tails so longer horizons look more normal.
+    targets:
+      - quant-finance.risk.fat-tails
+
+  # --- estimating VaR and ES ---------------------------------------------------
+
+  - id: qrisk-var-estimation-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A desk runs historical simulation on $500$ days of daily P&L, revaluing
+      today's book on each past day's moves. Sorted worst-first, the five
+      largest losses in the sample are $46.0$, $31.5$, $24.8$, $21.3$ and
+      $19.6$ million. Report the $99\%$ historical-simulation expected
+      shortfall, in millions, to two decimals.
+    answer: >
+      $28.64$ million. Historical simulation reads the quantile off the
+      empirical distribution: with $n = 500$ days at $\alpha = 0.99$, the tail
+      holds $n(1-\alpha) = 5$ observations, so
+      $\operatorname{VaR}_{0.99}$ is the fifth worst day, $19.6$ million, and
+      the expected shortfall is the average of the losses at or beyond it —
+      the whole five. That is $(46.0 + 31.5 + 24.8 + 21.3 + 19.6)/5 = 143.2/5 =
+      28.64$ million. Set the two numbers side by side: the shortfall is nearly
+      $50\%$ above the quantile, far more than the $25\%$ gap a normal law
+      would produce at $95\%$, which is the sample telling you its tail is not
+      normal. Now the caveat that matters more than the arithmetic. This entire
+      figure rests on five observations out of five hundred; the other $495$
+      days influence it only by not being in the tail. Replacing the single
+      worst day with a day $20$ million worse moves the reported ES by $4$
+      million on its own, and no loss larger than $46.0$ can ever appear in the
+      output, because historical simulation cannot produce a scenario the
+      sample did not contain. The two traps are averaging only the four days
+      *strictly* beyond the quantile, which drops the $19.6$ and inflates the
+      answer to $30.9$, and reporting the fifth-worst day itself as the ES,
+      which just restates the VaR.
+    expects: "28.64"
+    tolerance: 0.01
+    exercises:
+      - quant-statistics.descriptive.empirical-distribution
+    rubric:
+      - >
+        Locates the tail as $n(1-\alpha) = 5$ observations and identifies the
+        fifth worst day as $\operatorname{VaR}_{0.99}$.
+      - >
+        Averages all five tail losses to $28.64$ and names the sample-size
+        constraint — five days carry the whole number, capped by the worst day
+        observed.
+    targets:
+      - quant-finance.risk.var-estimation
+
+  - id: qrisk-var-estimation-02
+    kind: work
+    difficulty: routine
+    statement: >
+      A risk system estimates a $97.5\%$ VaR by historical simulation from
+      $800$ days of P&L. Counting from the worst day, which rank in the sorted
+      sample is the reported figure read from?
+    answer: >
+      The $20$th worst day. The tail holds $n(1-\alpha) = 800 \times 0.025 =
+      20$ observations, and the quantile sits at the boundary of that tail, so
+      the reported VaR is the $20$th largest loss in the sample. The rank is
+      the useful diagnostic, not the number itself: it tells you immediately
+      how much data the estimate rests on. Twenty observations is comparatively
+      comfortable; the same desk asking for a $99.5\%$ figure from the same
+      sample would be reading rank $4$, and the corresponding expected
+      shortfall would be an average of four days. That is the binding
+      constraint on every historical method — the sample size in the tail
+      shrinks as $(1-\alpha)n$, so pushing the confidence level up while
+      holding the window fixed buys precision in name only. The trap is
+      computing $800 \times 0.975 = 780$ and counting from the wrong end;
+      the $780$th worst day is the same observation only if you then count
+      inward, and stating the rank from the worst end removes the ambiguity.
+      Lengthening the window is the obvious remedy and has its own cost:
+      $2000$ days reaches back through a different volatility regime, and the
+      resulting estimate describes a book and a market that no longer exist.
+    expects: "20"
+    rubric:
+      - >
+        Computes the tail count as $n(1-\alpha) = 20$ rather than $n\alpha$.
+      - >
+        States the rank counting from the worst day and notes what the rank
+        says about how much data the estimate rests on.
+    targets:
+      - quant-finance.risk.var-estimation
+
+  # --- backtesting -------------------------------------------------------------
+
+  - id: qrisk-backtesting-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A $99\%$ one-day VaR model is backtested over $250$ trading days. Under
+      the null that the model is correctly calibrated and breaches are
+      independent, the exception count is binomial with $n = 250$ and
+      $p = 0.01$. What is the probability of observing at most one exception,
+      as a percentage? Give the answer to one decimal.
+    answer: >
+      About $28.6\%$. Compute the two binomial terms. With no exceptions,
+      $\Pr(0) = 0.99^{250} \approx 0.08106$. With exactly one,
+      $\Pr(1) = 250(0.01)(0.99^{249}) \approx 250(0.01)(0.081877) \approx
+      0.20469$. Their sum is $0.28575$, so about $28.6\%$. The expected count
+      is $np = 2.5$, and this says that a correctly calibrated model produces
+      an implausibly clean-looking year — one exception or none — better than
+      one year in four. That is the point. A desk that sees zero breaches and
+      concludes its model is conservative has drawn a conclusion the data
+      cannot support: the observation is entirely ordinary under the null.
+      Symmetrically, the frequency test has very little power in this
+      direction, which is why Basel's traffic light is one-sided, penalizing at
+      $5$ to $9$ exceptions and rejecting at $10$ or more rather than flagging
+      too few. Two traps. Using a normal approximation with
+      $\sqrt{np(1-p)} \approx 1.57$ handles a mean of $2.5$ badly and misstates
+      this probability materially — the binomial is skewed at this $p$ and
+      should be computed exactly. And a year of $250$ days is simply a small
+      experiment for a $1\%$ event: distinguishing a well-calibrated model from
+      one that is off by half requires far more than one year of data, which is
+      the practical reason exception counting is paired with independence
+      testing rather than trusted alone.
+    expects: "28.6"
+    tolerance: 0.1
+    rubric:
+      - >
+        Uses the binomial with $n = 250$, $p = 0.01$ and computes both
+        $\Pr(0)$ and $\Pr(1)$ exactly rather than approximating.
+      - >
+        Reports about $28.6\%$ and draws the inference — a clean-looking year
+        is unremarkable under the null, so few exceptions is weak evidence of
+        conservatism.
+    targets:
+      - quant-finance.risk.backtesting
+
+  - id: qrisk-backtesting-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Two years of backtesting a $99\%$ daily VaR model produce almost exactly
+      the expected number of exceptions, but nearly all of them fall inside two
+      short windows. Why do breaches cluster like that?
+    answer: >
+      Because volatility clusters, and the model is being fed an unconditional
+      volatility while the market delivers a conditional one. The null behind a
+      backtest has two parts: the right unconditional rate, and independence
+      across days. This model passes the first and fails the second. Real
+      volatility arrives in regimes — a calm stretch, then a turbulent one — so
+      a VaR computed from an average-of-the-sample sigma is too loose in calm
+      periods, where it almost never breaches, and much too tight in turbulent
+      ones, where it breaches on consecutive days. Average the two and the
+      count comes out right while the pattern is badly wrong, which is exactly
+      why a frequency test alone is not a backtest and why independence tests
+      exist. The practical consequence is worse than the statistic suggests: a
+      model that breaches once a year at random is survivable, and one that
+      breaches four days running has delivered its whole year of losses inside
+      a fortnight, when the desk is least able to absorb them. The remedies
+      follow directly from the diagnosis — exponentially weight recent data, or
+      model the conditional volatility, so that the reported number tracks the
+      regime rather than averaging across regimes.
+    choices:
+      - text: >
+          Volatility clusters, so a model using an unconditional volatility is
+          too loose in calm regimes and too tight in turbulent ones.
+        correct: true
+        feedback: >
+          Right — the count comes out right on average while the independence
+          half of the null fails.
+      - text: >
+          The model's confidence level is set too tight, so it breaches more
+          often than it should.
+        feedback: >
+          The total count is stipulated to be about right; this describes the
+          frequency failure, which is the other diagnosis.
+      - text: >
+          Clustering at this sample size is what independent breaches look
+          like — nothing is wrong with the model.
+        feedback: >
+          Independent breaches at $p = 0.01$ do occasionally bunch, but
+          concentrating nearly all of them in two windows is far outside that.
+      - text: >
+          The book's positions changed during those windows, so the VaR was
+          computed on the wrong portfolio.
+        feedback: >
+          A real operational risk, but it does not explain a pattern that
+          recurs across regimes; volatility clustering does.
+    rubric:
+      - >
+        Separates the two halves of the backtesting null — unconditional rate
+        and independence — and identifies which one failed.
+      - >
+        Names volatility clustering as the mechanism and says why clustered
+        breaches are worse for a desk than the same count spread out.
+    targets:
+      - quant-finance.risk.backtesting
+
+  # --- square-root-of-time scaling ---------------------------------------------
+
+  - id: qrisk-vol-scaling-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A desk reports a $95\%$ one-day VaR of $3.24$ million. A regulator asks
+      for the $99\%$ ten-day figure on the same book. Assume daily P&L is
+      normal with mean $0$ and that daily moves are uncorrelated with a common
+      variance; use $z_{0.95} = 1.645$ and $z_{0.99} = 2.326$. What is the
+      $99\%$ ten-day VaR, in millions? Give the answer to two decimals.
+    answer: >
+      About $14.49$ million. Two conversions compose, and doing them
+      separately keeps them straight. The confidence level: VaR is
+      $z_{\alpha}\sigma$ under a zero-mean normal, so changing $\alpha$ just
+      rescales by the ratio of quantiles, $2.326/1.645 \approx 1.41398$. The
+      horizon: the volatility itself scales by $\sqrt{10} \approx 3.16228$,
+      because variances add across ten uncorrelated increments. The combined
+      factor is $1.41398 \times 3.16228 \approx 4.47140$, and $3.24 \times
+      4.47140 \approx 14.49$ million. The order does not matter — both steps are
+      multiplications by constants — but conflating them does. Two traps.
+      Scaling the horizon by $10$ rather than $\sqrt{10}$ reports $45.82$
+      million, treating risk as though it accumulated like a mean; it is the
+      mean that scales linearly and the deviation that scales as $\sqrt{T}$,
+      and confusing the two is the single most common error in this
+      conversion. And rescaling the confidence level by $0.99/0.95$ rather than
+      by the ratio of *quantiles* gives $3.38$ million, since the confidence
+      level enters only through $z_{\alpha}$ and the map from $\alpha$ to
+      $z_{\alpha}$ is steeply nonlinear out here. Worth naming out loud: the
+      $\sqrt{10}$ step needs uncorrelated increments with a common variance, and
+      needs nothing at all about normality — normality is being used only for
+      the two $z$ values.
+    expects: "14.49"
+    tolerance: 0.02
+    rubric:
+      - >
+        Separates the two conversions: a quantile ratio $2.326/1.645$ for the
+        confidence level and $\sqrt{10}$ for the horizon.
+      - >
+        Reports about $14.49$ million and rejects scaling the horizon by $10$,
+        naming that the mean scales linearly while the deviation scales as
+        $\sqrt{T}$.
+    targets:
+      - quant-finance.risk.vol-scaling
+
+  - id: qrisk-vol-scaling-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A strategy's P&L is reported weekly, with a weekly volatility of $2.4\%$.
+      Weekly returns are uncorrelated with a common variance. What is the
+      annualized volatility, using $52$ weeks in a year, as a percentage? Give
+      the answer to two decimals.
+    answer: >
+      About $17.31\%$. Variances add across the $52$ uncorrelated weekly
+      increments, so the annual variance is $52$ times the weekly one and the
+      annual volatility is $2.4\% \times \sqrt{52} = 2.4\% \times 7.21110
+      \approx 17.31\%$. The rule is indifferent to the period being used, which
+      is the useful part: nothing here says "days", and the same arithmetic
+      converts weeks to a year, days to a month or seconds to an hour, provided
+      the increments are uncorrelated with a common variance. Two traps. Using
+      $\sqrt{252}$ out of habit annualizes a *daily* number and reports
+      $38.10\%$, more than double the truth — the count must match the sampling
+      frequency of the volatility being scaled. And multiplying by $52$ rather
+      than $\sqrt{52}$ gives $124.8\%$, the linear-scaling error again. It is
+      also worth noticing what this does to a Sharpe ratio: the mean scales by
+      $52$ while the deviation scales by $\sqrt{52}$, so the ratio scales by
+      $\sqrt{52} \approx 7.21$ as well, which is why a weekly edge that looks
+      like noise annualizes into a respectable-looking number.
+    expects: "17.31"
+    tolerance: 0.02
+    rubric:
+      - >
+        Scales by $\sqrt{52}$, matching the period count to the weekly
+        sampling frequency of the input.
+      - >
+        Reports about $17.31\%$ and rejects $\sqrt{252}$, which would annualize
+        a daily figure instead.
+    targets:
+      - quant-finance.risk.vol-scaling
+
+  - id: qrisk-vol-scaling-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      State precisely what must be true of the per-period returns for
+      $\sigma_T = \sigma\sqrt{T}$ to hold exactly, prove it from the variance of
+      a sum, and then say which commonly cited assumption the rule does *not*
+      need and why an interviewer asks about it.
+    answer: >
+      Start from the sum. Let $r_1, \dots, r_T$ be the per-period returns and
+      $R = \sum_{t=1}^{T} r_t$ the return over the whole horizon. Expanding the
+      variance of a sum, $\operatorname{Var}(R) = \sum_{t}
+      \operatorname{Var}(r_t) + \sum_{s \ne t} \operatorname{Cov}(r_s, r_t)$.
+      Two conditions collapse this to $T\sigma^{2}$. First, every increment has
+      the same variance $\sigma^{2}$, so the first sum is $T\sigma^{2}$.
+      Second, the increments are pairwise uncorrelated, so every covariance
+      term vanishes and the second sum is $0$. Taking square roots gives
+      $\sigma_T = \sigma\sqrt{T}$. That is the whole proof, and it identifies
+      the two hypotheses exactly: equal variances and zero autocorrelation.
+      Independent and identically distributed increments is the usual
+      sufficient condition quoted, but it is strictly stronger than needed —
+      uncorrelated is enough, and identical distribution is more than required
+      since only the second moment is used. Now the assumption the rule does
+      not need: normality. Nothing above referred to the shape of the return
+      distribution. Variance is additive over uncorrelated summands whatever
+      those summands look like, so the scaling rule holds for a fat-tailed,
+      skewed or discrete return law just as it does for a Gaussian one. This is
+      why the question gets asked. A candidate who answers "it assumes returns
+      are normal" has named the wrong hypothesis and, worse, has named one that
+      is false in practice while missing the two that genuinely fail: real P&L
+      is autocorrelated — positively for trend-following books and for illiquid
+      books whose stale marks smooth real moves, negatively for mean-reverting
+      market-making P&L — and its variance is not constant, because volatility
+      clusters. There is a real caveat about normality, but it lies elsewhere:
+      scaling a *VaR* rather than a volatility across horizons uses
+      $\operatorname{VaR}_{T} = z_{\alpha}\sigma\sqrt{T}$, and that step does
+      assume the horizon-$T$ loss law keeps the same shape, which fails when
+      aggregation pulls a fat-tailed daily law toward normality. So the honest
+      statement is that $\sqrt{T}$ scaling of volatility needs uncorrelated,
+      equal-variance increments and no distributional assumption, while
+      $\sqrt{T}$ scaling of a quantile quietly needs one more.
+    rubric:
+      - >
+        Expands $\operatorname{Var}(\sum r_t)$ into variances plus covariances
+        and states the two conditions that kill each term.
+      - >
+        Notes that i.i.d. is sufficient but stronger than necessary —
+        uncorrelated with equal variance is what the proof uses.
+      - >
+        Identifies normality as the assumption *not* needed, and separates that
+        from the genuine distributional assumption hidden in scaling a
+        quantile rather than a volatility.
+    targets:
+      - quant-finance.risk.vol-scaling
+
+  # --- when the scaling breaks -------------------------------------------------
+
+  - id: qrisk-scaling-failure-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A trend-following book's daily P&L has volatility $\sigma = 1\%$ per day
+      and autocorrelation $\rho_k = 0.3^{k}$ at lag $k$. Using
+      $\operatorname{Var}(\sum_{t=1}^{T} r_t) = \sigma^{2}(T +
+      2\sum_{k=1}^{T-1}(T-k)\rho_k)$, what is the honest five-day volatility, as
+      a percentage? Give the answer to two decimals.
+    answer: >
+      About $2.84\%$. Evaluate the correction sum at $T = 5$:
+      $\sum_{k=1}^{4}(5-k)(0.3^{k}) = 4(0.3) + 3(0.09) + 2(0.027) +
+      1(0.0081) = 1.2 + 0.27 + 0.054 + 0.0081 = 1.5321$. The weights $(T-k)$
+      matter — there are four pairs of days one apart, three pairs two apart,
+      and so on — and dropping them is the commonest slip here. Then
+      $\operatorname{Var} = \sigma^{2}(5 + 2(1.5321)) = \sigma^{2}(8.0642)$, so
+      $\sigma_5 = 1\% \times \sqrt{8.0642} \approx 1\% \times 2.83975 \approx
+      2.84\%$. Compare the naive rule: $\sqrt{5} \approx 2.23607$ gives
+      $2.24\%$, understating five-day risk by about $27\%$. That direction is
+      the signature of positive autocorrelation, and it is exactly what a
+      trend-following book has — moves in one direction beget moves in the same
+      direction, so the horizon return is more dispersed than independent
+      increments would make it. Two consequences. A desk scaling this book's
+      daily VaR by $\sqrt{T}$ reports materially too little risk at every
+      horizon, and the gap widens with $T$ because more cross terms enter.
+      And the same arithmetic run with a negative $\rho$ overstates instead,
+      which is the market-maker's case; a book with $\rho = -0.4$ at lag one
+      has an honest two-day multiplier of $\sqrt{2(0.6)} \approx 1.095$ against
+      the naive $1.414$. The rule is not conservative — it errs in whichever
+      direction the autocorrelation points.
+    expects: "2.84"
+    tolerance: 0.01
+    exercises:
+      - quant-statistics.time-series.acf
+      - quant-probability.joint.covariance
+    rubric:
+      - >
+        Evaluates $\sum_{k=1}^{4}(5-k)(0.3^{k}) = 1.5321$ with the $(T-k)$
+        weights, not a plain sum of the autocorrelations.
+      - >
+        Reaches $\sigma_5 = \sigma\sqrt{8.0642} \approx 2.84\%$ and reports the
+        direction of the naive rule's error — understatement under positive
+        autocorrelation.
+    targets:
+      - quant-finance.risk.scaling-failure
+
+  - id: qrisk-scaling-failure-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A market-making book's daily P&L has lag-one autocorrelation
+      $\rho = -0.4$. By what percentage does the naive $\sqrt{2}$ rule overstate
+      the honest two-day volatility? Give the answer to one decimal.
+    answer: >
+      By about $29.1\%$. For two periods $\operatorname{Var}(r_1 + r_2) =
+      2\sigma^{2}(1 + \rho)$, so the honest multiplier is
+      $\sqrt{2(1 + \rho)} = \sqrt{2(0.6)} = \sqrt{1.2} \approx 1.09545$ against
+      the naive $\sqrt{2} \approx 1.41421$. The overstatement is
+      $1.41421/1.09545 - 1 \approx 0.29099$, that is $29.1\%$. Note that the
+      question asks for the overstatement relative to the honest figure, which
+      is the ratio above; expressing the same gap as a fraction of the naive
+      number gives $22.5\%$ instead, and the two are not interchangeable — the
+      denominator has to be stated. The economics behind the sign: a
+      mean-reverting book gives back part of each day's move on the next day,
+      so two-day P&L is less dispersed than two independent days would be, and
+      $\sqrt{T}$ therefore charges the desk for risk it does not run. This is
+      the direction that is *not* protective. A trend-follower's positive
+      autocorrelation makes $\sqrt{T}$ understate, which is dangerous; a
+      market-maker's negative autocorrelation makes it overstate, which is
+      merely expensive, since capital is being set aside against a
+      distribution wider than the real one. Neither is the rule being
+      conservative — it is being wrong in whichever direction the book's serial
+      dependence happens to point.
+    expects: "29.1"
+    tolerance: 0.05
+    rubric:
+      - >
+        Computes both multipliers, $\sqrt{2(1-0.4)} \approx 1.095$ honest
+        against $\sqrt{2} \approx 1.414$ naive.
+      - >
+        Reports the overstatement as $29.1\%$ of the honest figure and states
+        the denominator being used.
+    targets:
+      - quant-finance.risk.scaling-failure
+
+  # --- drawdown ----------------------------------------------------------------
+
+  - id: qrisk-drawdown-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A fund's month-end equity, in millions, runs $100$, $128$, $112$, $141$,
+      $99$, $120$. What is the maximum drawdown over this path, as a
+      percentage? Give the answer to two decimals.
+    answer: >
+      About $29.79\%$. Drawdown is measured against the *running* peak
+      $M_t = \max_{s \le t} V_s$, not against the starting value and not
+      against the final peak, so track the peak forward: $100$, $128$, $128$,
+      $141$, $141$, $141$. Now the drawdown at each point,
+      $D_t = (M_t - V_t)/M_t$: $0$, $0$, $(128-112)/128 = 12.50\%$, $0$,
+      $(141-99)/141 = 29.79\%$, $(141-120)/141 = 14.89\%$. The maximum is
+      $29.79\%$, the trough at $99$ measured against the peak of $141$ that
+      preceded it. Three traps live in this path, and each gives a different
+      wrong answer. Measuring against the $100$ the fund started at reports
+      $(100-99)/100 = 1\%$ and makes a badly damaged fund look untouched —
+      the path *ended* above where it started, which is exactly why endpoint
+      thinking fails here. Measuring the $112$ dip against $141$, a peak it had
+      not yet reached, uses information from the future and reports $20.6\%$
+      for that leg. And reporting the final $120$ against $141$ treats the
+      current position as the worst one, when the fund has already partly
+      recovered. The recovery arithmetic is the natural follow-up: from $99$
+      back to $141$ requires a gain of $42/99 \approx 42.4\%$, far more than
+      the $29.79\%$ that was lost, because compounding is not symmetric — this
+      is the number an investor decides on, not the drawdown itself.
+    expects: "29.79"
+    tolerance: 0.01
+    rubric:
+      - >
+        Tracks the running peak forward through the path rather than using the
+        starting value or the global maximum.
+      - >
+        Reports $29.79\%$ from the $141$ peak to the $99$ trough, and rejects
+        the $1\%$ that measuring from the start would give.
+    targets:
+      - quant-finance.risk.drawdown
+
+  - id: qrisk-drawdown-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A fund is down $62\%$ from its peak. What percentage gain on the current
+      equity is required to return to that peak? Give the answer to one
+      decimal.
+    answer: >
+      About $163.2\%$. A loss of $x$ leaves $1 - x$ of the peak, and returning
+      to the peak requires multiplying that remainder by $1/(1-x)$, a gain of
+      $x/(1-x)$. Here $0.62/0.38 \approx 1.63158$, so $163.2\%$ — the fund must
+      make more than two and a half times what it lost, in percentage terms, to
+      stand where it started. That asymmetry is the entire point and it
+      accelerates: down $10\%$ needs $11.1\%$, down $20\%$ needs $25\%$, down
+      $62\%$ needs $163\%$, down $90\%$ needs $900\%$. The trap is answering
+      $62\%$, which quietly applies the recovery percentage to the peak rather
+      than to the reduced equity that actually has to compound; a $62\%$ gain
+      on $0.38$ of the peak reaches only $0.62$ of it. It is worth converting
+      the number into time, because that is what an investor experiences: at an
+      annual return of $12\%$, closing this gap takes
+      $\ln(1/0.38)/\ln(1.12) \approx 0.9676/0.11333 \approx 8.5$ years of doing
+      everything right. That is why drawdown, not VaR, is the risk measure
+      redemptions are written against — a one-day quantile says nothing about a
+      hole that takes most of a decade to climb out of.
+    expects: "163.2"
+    tolerance: 0.05
+    rubric:
+      - >
+        Applies $x/(1-x)$ to the reduced equity rather than the peak.
+      - >
+        Reports about $163.2\%$ and explains why $62\%$ is wrong — the gain
+        compounds on $0.38$ of the peak, not on the peak.
+    targets:
+      - quant-finance.risk.drawdown
+
+  # --- drawdown against volatility and drift -----------------------------------
+
+  - id: qrisk-drawdown-vs-vol-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A book runs $18\%$ annual volatility. With no drift, its expected maximum
+      drawdown over a horizon $T$ is about $1.25\sigma\sqrt{T}$; over $4$ years
+      that is one number. Now give the same book a drift large enough for a
+      Sharpe ratio of $0.75$, so that its typical drawdown becomes
+      $\sigma/(2S)$. By how many percentage points does the drift reduce the
+      figure?
+    answer: >
+      By $33$ percentage points. Driftless first: $1.25 \times 18\% \times
+      \sqrt{4} = 1.25 \times 18\% \times 2 = 45\%$. With drift, the drawdown
+      process is stationary rather than growing, and the typical depth is
+      $\sigma/(2S) = 18\%/(2 \times 0.75) = 18\%/1.5 = 12\%$. The reduction is
+      $45 - 12 = 33$ percentage points. The interesting part is not the
+      arithmetic but the change in *character*. Without drift the expected
+      maximum drawdown grows without bound as $\sqrt{T}$: run the book long
+      enough and it will visit any depth you care to name, because a driftless
+      walk has no restoring force. With positive drift the drawdown becomes a
+      stationary process — exponentially distributed at a typical time with
+      mean $\sigma^{2}/(2\mu)$ — and the maximum over $[0,T]$ then grows only
+      logarithmically in $T$. So the drift has not merely shrunk a number; it
+      has changed the horizon dependence from a power law to a logarithm, which
+      is what makes a positive-edge strategy survivable at all. Two cautions
+      the answer should carry. The $12\%$ is a *typical* depth, not a maximum:
+      the same book will visit several times that over a long run, since the
+      exponential distribution has a long right tail. And both formulas assume
+      the parameters are known, whereas $\mu$ is estimated from exactly the
+      kind of noisy sample that makes it look larger than it is.
+    expects: "33"
+    tolerance: 0.05
+    exercises:
+      - quant-finance.risk.vol-scaling
+    rubric:
+      - >
+        Computes the driftless figure as $1.25\sigma\sqrt{T} = 45\%$ and the
+        stationary one as $\sigma/(2S) = 12\%$.
+      - >
+        Reports a reduction of $33$ percentage points and names the change in
+        horizon dependence — $\sqrt{T}$ growth against logarithmic growth.
+    targets:
+      - quant-finance.risk.drawdown-vs-vol
+
+  - id: qrisk-drawdown-vs-vol-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A strategy runs $\sigma = 24\%$ annual volatility with an annual drift of
+      $\mu = 9\%$. Using $\sigma^{2}/(2\mu)$, what is its typical drawdown, as a
+      percentage?
+    answer: >
+      $32\%$. Substituting, $\sigma^{2}/(2\mu) = 0.24^{2}/(2 \times 0.09) =
+      0.0576/0.18 = 0.32$, that is $32\%$ — a book that at a typical moment sits
+      almost a third under its high-water mark, which is a number most
+      investors would not tolerate even though the strategy is genuinely
+      profitable. The formula's shape is what to carry away. Drawdown is
+      *quadratic* in volatility and only *linear* in drift, so the two obvious
+      interventions are not comparable: halving $\sigma$ to $12\%$ at the same
+      $\mu$ gives $0.0144/0.18 = 8\%$, a fourfold improvement, while doubling
+      $\mu$ to $18\%$ at the same $\sigma$ gives $0.0576/0.36 = 16\%$, only a
+      twofold one. Cutting risk beats chasing return, and it beats it by a
+      factor of two in exponent terms. The trap is reading $\sigma^{2}/(2\mu)$
+      as though it were symmetric in its two inputs and concluding that a
+      proportional improvement in either is worth the same; the squared
+      numerator says otherwise. It is also worth noting that this is a typical
+      depth rather than a worst case, and that halving volatility usually costs
+      half the expected return too unless the leverage is being cut against an
+      unchanged edge.
+    expects: "32"
+    tolerance: 0.05
+    rubric:
+      - >
+        Substitutes into $\sigma^{2}/(2\mu)$ correctly, squaring the volatility
+        and doubling the drift.
+      - >
+        Reports $32\%$ and states the asymmetry — quadratic in $\sigma$, linear
+        in $\mu$ — with the two comparison figures.
+    targets:
+      - quant-finance.risk.drawdown-vs-vol
+
+  # --- leverage and ruin -------------------------------------------------------
+
+  - id: qrisk-leverage-ruin-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A strategy has an annual drift of $\mu = 6\%$ and annual volatility
+      $\sigma = 15\%$. A portfolio manager runs it at leverage $L = 6$. Using
+      $g(L) = L\mu - L^{2}\sigma^{2}/2$, what is the expected log growth rate at
+      that leverage, as a percentage?
+    answer: >
+      $-4.5\%$: the strategy loses money almost surely. Locate the parabola
+      first. The growth-optimal leverage is $L^{*} = \mu/\sigma^{2} =
+      0.06/0.0225 \approx 2.667$, and growth crosses back through zero at
+      $2L^{*} \approx 5.333$. At $L = 6$ the manager is past that crossing:
+      $g(6) = 6(0.06) - 36(0.0225)/2 = 0.36 - 0.405 = -0.045$, that is $-4.5\%$
+      a year. Nothing has gone wrong with the strategy — the edge is exactly
+      what it was, positive and real — and the position still has positive
+      expected *arithmetic* return, $6 \times 6\% = 36\%$ a year. What kills it
+      is the $-L^{2}\sigma^{2}/2$ drag: leverage scales the edge linearly and
+      the variance penalty quadratically, so past $2L^{*}$ the penalty wins and
+      the log wealth drifts down with probability one. No bad luck is required
+      and no tail event needs to occur. Two things to add. The gap between
+      arithmetic and log expectations is the whole phenomenon: a book can have
+      a positive expected value and negative expected growth, and it is growth
+      that determines where the wealth path actually goes over time. And the
+      margin floor sits underneath all of this as a separate constraint — at
+      $L = 6$ an adverse move of $1/6 \approx 16.7\%$ wipes out the equity
+      outright, so even a manager who had stayed below $2L^{*}$ would not
+      thereby be safe.
+    expects: "-4.5"
+    tolerance: 0.05
+    rubric:
+      - >
+        Computes $L^{*} = \mu/\sigma^{2} \approx 2.667$ and the zero-growth
+        crossing at $2L^{*} \approx 5.333$, placing $L = 6$ beyond it.
+      - >
+        Evaluates $g(6) = -4.5\%$ and explains that a positive-edge strategy
+        loses almost surely there, with no bad luck required.
+    targets:
+      - quant-finance.risk.leverage-ruin
+
+  - id: qrisk-leverage-ruin-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A risk committee rules that no adverse move of $12\%$ or smaller may be
+      capable of wiping out the equity behind a position. For an
+      equity-financed position at leverage $L$, an adverse move of $1/L$ does
+      exactly that. What is the largest leverage the rule permits? Give the
+      answer to two decimals.
+    answer: >
+      About $8.33$. An equity-financed position at leverage $L$ holds $L$ units
+      of asset per unit of equity, so a move of $x$ against it costs $Lx$ per
+      unit of equity and wipes the equity out when $Lx = 1$, that is at
+      $x = 1/L$. The committee requires that this wipeout move be *larger* than
+      $12\%$, so $1/L > 0.12$ and $L < 1/0.12 \approx 8.333$: the largest
+      permitted leverage is $8.33$. Notice what this constraint is and is not.
+      It is not an optimization — it makes no reference to $\mu$, to $\sigma$,
+      or to any estimate at all, which is precisely its virtue, since the
+      quantities a limit is protecting against are the ones the desk has
+      estimated wrong. And it is not the only binding floor: a Kelly
+      calculation on the same book might well permit less than $8.33$, in
+      which case the growth criterion binds first and the limit is slack. Two
+      practical caveats belong in the answer. Margin calls arrive before the
+      equity actually reaches zero, so the effective floor is tighter than
+      $1/L$ and a book can be forced out of a position that would have
+      recovered — converting a drawdown into a permanent loss. And a $12\%$
+      adverse move is not remote at the horizons this rule is written over;
+      sizing so that a plausible move is exactly survivable is not a margin of
+      safety.
+    expects: "8.33"
+    tolerance: 0.005
+    rubric:
+      - >
+        Sets the wipeout move $1/L$ against the $12\%$ threshold and solves for
+        $L$.
+      - >
+        Reports about $8.33$ and notes that margin calls bind before the
+        equity reaches zero, so the real floor is tighter.
+    targets:
+      - quant-finance.risk.leverage-ruin
+
+  - id: qrisk-leverage-ruin-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Show that expected log growth $g(L) = L\mu - L^{2}\sigma^{2}/2$ is
+      maximized at $L^{*} = \mu/\sigma^{2}$ and vanishes at $2L^{*}$, and then
+      explain why staying below $2L^{*}$ is necessary but nowhere near
+      sufficient for a book to survive. Name the mechanism that operates
+      independently of the growth calculation.
+    answer: >
+      The parabola first. Differentiating, $g'(L) = \mu - L\sigma^{2}$, which
+      vanishes at $L = \mu/\sigma^{2} = L^{*}$; since $g''(L) = -\sigma^{2} <
+      0$, the function is strictly concave and that stationary point is the
+      global maximum. For the crossing, factor: $g(L) = L(\mu -
+      L\sigma^{2}/2)$, which is zero at $L = 0$ and at $L = 2\mu/\sigma^{2} =
+      2L^{*}$. A parabola through the origin is symmetric about its vertex, so
+      the second root sits at exactly twice the optimum — that is the whole
+      content of "double Kelly". Past it, $g(L) < 0$: the strategy's log wealth
+      has negative drift and, by the strong law applied to the sum of
+      independent per-period log returns, wealth tends to zero almost surely.
+      That is a statement about certainty, not about risk. No tail event is
+      needed and the edge is genuinely there the whole time; the
+      $-L^{2}\sigma^{2}/2$ term simply grows quadratically while the edge term
+      grows linearly, so past $2L^{*}$ the volatility drag consumes the edge
+      and then some. Now the insufficiency, which is the more important half.
+      The growth calculation describes the long-run drift of a path that is
+      permitted to continue. A real equity-financed book has an absorbing
+      barrier at zero: at leverage $L$ an adverse move of $1/L$ eliminates the
+      equity outright, and in practice a margin call arrives earlier still,
+      forcing the position to be sold at the worst available price. Once the
+      barrier is hit the path stops, and no amount of positive long-run growth
+      applies to a path that has ended. This is gambler's ruin against an
+      infinitely rich opponent: with an absorbing state at zero and a
+      counterparty that cannot be exhausted, the survival question is decided
+      by the size of each bet relative to the bankroll, not by the sign of the
+      edge. So the two constraints are genuinely separate. $2L^{*}$ is derived
+      from $\mu$ and $\sigma$, both estimated, and the parabola punishes
+      overshoot far more steeply than undershoot — which is the argument for
+      sizing at half Kelly, where three-quarters of the growth is retained for
+      half the leverage. The margin floor, by contrast, is derived from
+      nothing but the leverage itself and the size of a move the market can
+      deliver, and it is the one that ends the game.
+    exercises:
+      - quant-games.kelly.overbetting
+      - quant-processes.ruin.infinite-opponent
+    rubric:
+      - >
+        Differentiates to $L^{*} = \mu/\sigma^{2}$, confirms concavity, and
+        factors $g(L) = L(\mu - L\sigma^{2}/2)$ to get the crossing at
+        $2L^{*}$.
+      - >
+        States that past $2L^{*}$ a profitable strategy loses almost surely,
+        attributing it to the quadratic drag rather than to bad luck.
+      - >
+        Identifies the absorbing barrier at zero — the $1/L$ wipeout move and
+        the earlier margin call — as a mechanism the growth calculation does
+        not see, and links it to ruin against an infinitely rich opponent.
+    targets:
+      - quant-finance.risk.leverage-ruin
+
+  # --- limits, stops and vol targeting -----------------------------------------
+
+  - id: qrisk-limits-and-stops-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A strategy has an annual drift of $\mu = 9\%$ and annual volatility
+      $\sigma = 20\%$. The desk sizes it at half the growth-optimal leverage
+      rather than at the optimum. Using $g(L) = L\mu - L^{2}\sigma^{2}/2$, what
+      is the expected log growth rate at that half-Kelly leverage, as a
+      percentage? Give the answer to two decimals.
+    answer: >
+      About $7.59\%$. The optimum is $L^{*} = \mu/\sigma^{2} = 0.09/0.04 =
+      2.25$, so half-Kelly is $L = 1.125$. Then $g(1.125) = 1.125(0.09) -
+      (1.125)^{2}(0.04)/2 = 0.10125 - 0.0253125 = 0.0759375$, that is
+      $7.59\%$. Compare full Kelly: $g(2.25) = 0.2025 - 0.10125 = 0.10125$, or
+      $10.13\%$. Half the leverage retains three-quarters of the growth. That
+      ratio is not a coincidence of these numbers — writing $L = fL^{*}$ gives
+      $g(fL^{*}) = (\mu^{2}/\sigma^{2})(f - f^{2}/2)$, which at $f = 1/2$ is
+      $0.375$ of $\mu^{2}/\sigma^{2}$ against $0.5$ at $f = 1$, so the
+      three-quarters holds for every strategy. This is the whole case for
+      fractional sizing, and it is a case about estimation rather than taste.
+      The parabola is flat near its top and steep past it, so overshooting
+      $L^{*}$ costs far more than undershooting by the same amount — and $\mu$
+      is estimated from a short, noisy sample and is systematically flattered
+      by the selection that got the strategy funded. Halving the leverage
+      halves the volatility of the equity curve and quarters the typical
+      drawdown, since drawdown goes as $\sigma^{2}/(2\mu)$ and both terms
+      scale, while giving up a quarter of the growth. A position limit does
+      the same trade in a cruder currency: it bounds what any single wrong
+      estimate can cost, at the price of some expected return, and both are
+      insurance against the parameter rather than against the market.
+    expects: "7.59"
+    tolerance: 0.005
+    connects:
+      - quant-finance.risk.limits-and-stops ~ quant-games.kelly.fractional
+    exercises:
+      - quant-games.kelly.kelly-fraction
+    rubric:
+      - >
+        Computes $L^{*} = 2.25$ and evaluates $g$ at $1.125$ rather than
+        halving the growth rate itself.
+      - >
+        Reports $7.59\%$ against full Kelly's $10.13\%$ and identifies the
+        three-quarters ratio as general, from $g(fL^{*}) \propto f - f^{2}/2$.
+      - >
+        Ties fractional sizing to estimation error in $\mu$ and to the
+        asymmetry of the parabola around its maximum.
+    targets:
+      - quant-finance.risk.limits-and-stops
+      - quant-games.kelly.fractional
+
+  - id: qrisk-limits-and-stops-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A desk targets $12\%$ annual volatility on a strategy whose base notional
+      is $500$ million. Forecast volatility has risen to $40\%$. A separate
+      hard position limit caps the strategy's notional at $250$ million. What
+      notional does the desk run, in millions?
+    answer: >
+      $150$ million. Vol targeting rescales notional by
+      $\sigma_{\text{target}}/\sigma_{\text{forecast}} = 12\%/40\% = 0.3$, so
+      the base notional of $500$ million becomes $0.3 \times 500 = 150$
+      million. Then check the limit: $150 \le 250$, so the cap is not binding
+      and the desk runs $150$ million. The order matters — the two rules are
+      applied as a minimum, not composed — and the trap is to apply the cap
+      first and scale it, reporting $0.3 \times 250 = 75$ million, which
+      double-counts the de-risking. The two tools are doing different jobs and
+      it is worth saying which is which. Vol targeting is continuous and
+      responsive: as volatility clusters upward it cuts size automatically,
+      keeping the *risk* the book runs roughly stationary even though its
+      notional swings by a factor of three. The position limit is discrete and
+      unresponsive by design: it does not care what the volatility forecast
+      says, because its job is to bound the damage when the forecast itself is
+      wrong. That is why a desk keeps both. Here the vol target happens to
+      bind, but had forecast volatility instead fallen to $10\%$, the scale
+      factor of $1.2$ would call for $600$ million and the cap would bite at
+      $250$ — the limit exists precisely for the calm periods in which every
+      model recommends a larger position.
+    expects: "150"
+    rubric:
+      - >
+        Applies the scale factor $12/40 = 0.3$ to the base notional, then
+        checks the cap as a separate minimum.
+      - >
+        Answers $150$ million and rejects $75$, which would apply the scaling
+        to the already-capped figure.
+    targets:
+      - quant-finance.risk.limits-and-stops
+
+  # --- correlation breakdown ---------------------------------------------------
+
+  - id: qrisk-correlation-breakdown-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A book splits across two sub-portfolios with weights $0.65$ and $0.35$
+      and volatilities $18\%$ and $26\%$. The risk system estimates their
+      correlation at $\rho = 0.1$ from calm-market data. A stress test reruns
+      the same book at $\rho = 0.9$. By how many percentage points does
+      portfolio volatility rise? Give the answer to two decimals.
+    answer: >
+      By about $4.76$ percentage points. Portfolio variance is
+      $w_1^{2}\sigma_1^{2} + w_2^{2}\sigma_2^{2} + 2w_1w_2\rho\sigma_1\sigma_2$,
+      and only the cross term moves. The two variance terms contribute
+      $0.65^{2}(0.18)^{2} + 0.35^{2}(0.26)^{2} = 0.0136890 + 0.0082810 =
+      0.0219700$ regardless of $\rho$. The cross term is
+      $2(0.65)(0.35)\rho(0.18)(0.26) = 0.021294\rho$. At $\rho = 0.1$ the
+      variance is $0.0219700 + 0.0021294 = 0.0240994$, so $\sigma_p \approx
+      15.52\%$. At $\rho = 0.9$ it is $0.0219700 + 0.0191646 = 0.0411346$, so
+      $\sigma_p \approx 20.28\%$. The increase is $20.28 - 15.52 \approx 4.76$
+      percentage points, a rise of about $31\%$ in the book's risk with not one
+      position changed and not one individual volatility moved. Three things
+      the arithmetic is teaching. The whole effect lives in a single term, so a
+      correlation matrix estimated in calm markets is the single most fragile
+      input in the computation. The diversification benefit that made the calm
+      figure attractive — $15.52\%$ against a weighted-average volatility of
+      $0.65(18) + 0.35(26) = 20.8\%$ — is almost entirely gone at $\rho = 0.9$.
+      And the honest stress test goes further than this: a bivariate normal has
+      zero tail dependence whatever $\rho$ is, so even the $20.28\%$ figure
+      understates the probability of both legs crashing at once. The working
+      rule is to stress toward $\rho \to 1$ and to count independent bets
+      rather than positions.
+    expects: "4.76"
+    tolerance: 0.02
+    exercises:
+      - quant-probability.joint.variance-sum
+      - quant-finance.portfolio.portfolio-variance
+    rubric:
+      - >
+        Recognizes that only the cross term $2w_1w_2\rho\sigma_1\sigma_2$
+        depends on $\rho$ and computes it at both values.
+      - >
+        Reports $15.52\%$ calm against $20.28\%$ stressed, a rise of about
+        $4.76$ percentage points, and notes the lost diversification against
+        the $20.8\%$ weighted average.
+    targets:
+      - quant-finance.risk.correlation-breakdown
+
+  - id: qrisk-correlation-breakdown-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A book holds $n = 40$ equally weighted names, each with volatility
+      $\sigma = 20\%$, with average pairwise correlation $\bar\rho = 0.05$.
+      Using $\sigma_p^{2} = \sigma^{2}[\bar\rho + (1-\bar\rho)/n]$, what is
+      portfolio volatility, as a percentage? Give the answer to two decimals.
+    answer: >
+      About $5.43\%$. Substituting, $\sigma_p^{2} = 0.04[0.05 + 0.95/40] =
+      0.04[0.05 + 0.02375] = 0.04(0.07375) = 0.00295$, so $\sigma_p =
+      \sqrt{0.00295} \approx 0.054314$, that is $5.43\%$. The structure of the
+      bracket is the lesson. The second term, $(1-\bar\rho)/n$, is the
+      idiosyncratic part and vanishes as $n$ grows; the first term,
+      $\bar\rho$, does not depend on $n$ at all. So adding names buys less and
+      less, and the floor as $n \to \infty$ is $\sigma\sqrt{\bar\rho} =
+      20\%\sqrt{0.05} \approx 4.47\%$ — this book of forty names has already
+      captured most of the diversification available to it, and the fortieth
+      name did almost nothing. That floor is the number to carry into a stress
+      test, because $\bar\rho$ is the input that moves in a crisis: at
+      $\bar\rho = 0.7$ the same book has $\sigma_p = 20\%\sqrt{0.7 + 0.3/40}
+      \approx 16.9\%$, more than three times the calm figure, purely from the
+      correlation regime shifting. The trap is treating position count as
+      diversification. Forty names sharing one common factor is closer to one
+      bet than to forty, and the count says nothing about how many independent
+      bets are actually being run.
+    expects: "5.43"
+    tolerance: 0.02
+    rubric:
+      - >
+        Substitutes into $\sigma^{2}[\bar\rho + (1-\bar\rho)/n]$ and takes the
+        square root, reporting about $5.43\%$.
+      - >
+        Identifies $\sigma\sqrt{\bar\rho}$ as the large-$n$ floor and notes
+        that $\bar\rho$, not $n$, is what moves in a crisis.
+    targets:
+      - quant-finance.risk.correlation-breakdown

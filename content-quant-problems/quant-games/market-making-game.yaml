@@ -1,0 +1,1538 @@
+# Problems targeting quant-games.market-making-game — "make me a market on X".
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. Every quote, fill and session here
+# is a fresh instance: no lesson worked example is reused. Prices are bare
+# numbers in the units of the quantity being quoted, never with a currency sign.
+# See ../README.md.
+
+problems:
+  # --- the rules of play ------------------------------------------------------
+
+  - id: qmmg-protocol-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You are quoting a market on the number of hotel rooms in a convention
+      district, size one, and you re-quote after each round. Round 1 you show
+      $84$ / $96$ and the interviewer sells you one at $84$. Round 2 you show
+      $78$ / $90$ and he passes. Round 3 you show $74$ / $86$ and he sells you
+      one at $74$. The truth is then announced as $71$. What is your total score?
+    answer: >
+      $-16$. Score each fill against the truth separately and add. He sold to
+      you at your bid twice, so both fills are purchases: the round-1 unit marks
+      to $T - b = 71 - 84 = -13$, and the round-3 unit marks to
+      $71 - 74 = -3$. The round-2 pass is not a trade and scores exactly $0$ —
+      an unfilled quote costs nothing, however good or bad it was. The total is
+      $-13 + (-3) + 0 = -16$. Two traps. The first is to average the two traded
+      prices to $79$ and score $2(71 - 79) = -16$ — right here only by
+      coincidence of the equal sizes, and wrong the moment the fills differ in
+      size. The second is to treat the pass as a round that must score
+      something, or to score the round-3 quote's midpoint against the truth;
+      only prices you actually traded at enter the mark.
+    expects: "-16"
+    rubric:
+      - >
+        Marks each fill as $T - b$ because both trades were the interviewer
+        selling into your bid, giving $-13$ and $-3$.
+      - >
+        Scores the passed round as $0$ rather than marking the un-traded quote
+        against the truth, and sums to $-16$.
+    targets:
+      - quant-games.market-making-game.protocol
+
+  - id: qmmg-protocol-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Four candidates are asked to make a market on the number of operational
+      lighthouses in a country, size one. Which answer fails the exercise on the
+      spot, rather than merely scoring badly?
+    answer: >
+      The $5$ at $4000$ quote fails immediately. It satisfies the letter of the
+      rules — a bid below an ask, honoured for size one — but it carries no
+      information about the quantity and no risk to the quoter, so there is
+      nothing for the interviewer to trade against and nothing to grade. A joke
+      market and a refusal to quote are the same answer wearing different
+      clothes, and both end the exercise. The other three are all legitimate
+      plays of the game and differ only in outcome: $60$ / $140$ lifted at $140$
+      against a truth of $95$ scores $a - T = 140 - 95 = 45$; $70$ / $150$ hit at
+      $70$ against a truth of $44$ scores $T - b = 44 - 70 = -26$, a real loss
+      honestly taken; and $110$ / $130$ passed scores $0$. Losing money on a
+      defensible quote is an ordinary result. Quoting a width that cannot lose
+      is not a quote.
+    choices:
+      - text: >
+          "$5$ at $4000$, one" — a bid and an ask, held firm, but four hundred
+          times apart.
+        correct: true
+        feedback: >
+          Right — the width is so large that no trade can hurt you, which means
+          the quote states nothing about the quantity. This is the one answer
+          that ends the interview rather than scoring badly.
+      - text: >
+          "$60$ at $140$, one" — lifted at $140$, truth revealed as $95$.
+        feedback: >
+          A legitimate play with a good outcome: $a - T = 140 - 95 = 45$. The
+          quote was defensible and the mark rewarded it.
+      - text: >
+          "$70$ at $150$, one" — hit at $70$, truth revealed as $44$.
+        feedback: >
+          A loss, not a failure: $T - b = 44 - 70 = -26$. You honoured a price
+          you had committed to and the mark reflects how far it sat from the
+          truth.
+      - text: >
+          "$110$ at $130$, one" — the interviewer passes.
+        feedback: >
+          A pass scores $0$. A tight market the interviewer declines to trade is
+          a fine result; it is a market he cannot pick off.
+    rubric:
+      - >
+        Separates failing the exercise from scoring badly: a loss on a
+        defensible quote is an ordinary result.
+      - >
+        Names the $5$ at $4000$ market as unfalsifiable — no trade against
+        it can hurt the quoter, so it states nothing about the quantity.
+    targets:
+      - quant-games.market-making-game.protocol
+
+  - id: qmmg-protocol-03
+    kind: work
+    difficulty: routine
+    statement: >
+      You quote $128$ / $141$, size one, on the number of active drilling rigs in
+      a basin. The interviewer buys one from you. The truth is announced as
+      $156$. What is your score on the trade?
+    answer: >
+      $-15$. He bought from you, so the trade happened at your *ask*, and a unit
+      sold at $a$ marks to $a - T = 141 - 156 = -15$. Getting the sign right is
+      the whole exercise: you are short one unit of a quantity that turned out to
+      be worth more than the price you sold it at, so you lose the difference.
+      The standard slip is to compute $T - a = 156 - 141 = 15$ and report a
+      profit, which is the mark for the side you did *not* trade — that is what
+      you would have scored had he sold to you at $141$ instead. A quick check
+      that never fails: you are short, the truth came in above your traded price,
+      so the score must be negative.
+    expects: "-15"
+    rubric:
+      - >
+        Identifies "buys from you" as a fill at the ask, so the mark is
+        $a - T$ and not $T - a$.
+      - >
+        Reports $141 - 156 = -15$ and confirms the sign against being short into
+        a truth above the traded price.
+    targets:
+      - quant-games.market-making-game.protocol
+
+  # --- pinning the quantity down ----------------------------------------------
+
+  - id: qmmg-clarify-the-quantity-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      "Make me a market on the height of that tower, in metres." Two readings are
+      in play: height to the roof, which you put at $305$, and height to the tip
+      of the antenna, which you put at $381$. Within either reading your residual
+      uncertainty is $\pm 5$. The interviewer declines to say which he means, so
+      you must quote a market that contains both readings and their residual
+      uncertainty. What is the smallest half-spread that does?
+    answer: >
+      $43$. Unresolved ambiguity is not an argument to have after the reveal — it
+      is variance, and variance is paid for in the width. The truth could be as
+      low as $305 - 5 = 300$ and as high as $381 + 5 = 386$, so the market must
+      span $[300, 386]$. The centre sits at $\frac{300 + 386}{2} = 343$, which is
+      also the midpoint $\frac{305 + 381}{2}$ of the two readings, and the
+      half-spread is $\frac{386 - 300}{2} = 43$, giving a market of $300$ /
+      $386$. Note how the two sources of uncertainty stack rather than average:
+      the $38$ that separates the two readings from their midpoint and the $5$ of
+      within-reading error add to $43$. The trap is quoting $\pm 5$ around one
+      reading you privately picked, say $300$ / $310$; the interviewer then means
+      the other reading, trades once, and collects the entire $76$-point gap that
+      one closed question would have removed.
+    expects: "43"
+    rubric:
+      - >
+        Takes the span the truth can occupy as $[305 - 5,\ 381 + 5] = [300,
+        386]$ rather than committing to one reading.
+      - >
+        Reports the half-spread as $\frac{386 - 300}{2} = 43$, and notes that the
+        between-reading and within-reading uncertainties add.
+    targets:
+      - quant-games.market-making-game.clarify-the-quantity
+
+  - id: qmmg-clarify-the-quantity-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      You are asked to make a market on the height of a tower and you can hear
+      two readings in the question. Which response plays the game correctly?
+    answer: >
+      Ask one closed question, then commit. "To the roof or to the antenna tip?"
+      takes five seconds, has a one-word answer, and collapses a $76$-point fork
+      that no defensible spread could absorb cheaply. The other three responses
+      are the classic failure modes on either side of it. Interrogating the
+      question until nothing is uncertain refuses the exercise — the game is
+      pricing under uncertainty, and an interviewer who wanted a researched
+      answer would not have asked for a market. Quoting first and reinterpreting
+      afterwards is worse than either: the reinterpretation always arrives after
+      you have been traded with, always in the direction that helps you, and it
+      reads as welching on a price you had committed to. And narrowing because
+      the interviewer sounded confident imports his manner into your width, which
+      is information about him and none about the quantity.
+    choices:
+      - text: >
+          Ask "to the roof, or to the tip of the antenna?", take the one-word
+          answer, and quote around that reading.
+        correct: true
+        feedback: >
+          Right — one closed question, then commit. The fork is far too wide to
+          absorb in a spread, and resolving it costs a few seconds.
+      - text: >
+          Ask about the reading, the measurement standard, the year, the
+          reference datum and the tolerance until nothing ambiguous is left.
+        feedback: >
+          This refuses the exercise. Pricing under residual uncertainty is what
+          is being tested; an interviewer who wanted certainty would not have
+          asked for a two-sided price.
+      - text: >
+          Quote $300$ / $310$ straight away, and if you are traded with, explain
+          that you had meant the roof reading.
+        feedback: >
+          This is welching. The reinterpretation arrives only after the fill and
+          only in the direction that helps you, which is exactly why it is not
+          allowed.
+      - text: >
+          Quote narrowly because the interviewer asked the question as though the
+          answer were obvious.
+        feedback: >
+          His manner is information about him, not about the tower. Width comes
+          from your uncertainty about the quantity, and the ambiguity has not
+          gone anywhere.
+    rubric:
+      - >
+        Picks the single closed question and the commitment that follows it,
+        rather than open-ended interrogation.
+      - >
+        Rejects reinterpreting the question after a fill as welching, and
+        rejects taking width from the interviewer's manner.
+    targets:
+      - quant-games.market-making-game.clarify-the-quantity
+
+  # --- centre first, then width -----------------------------------------------
+
+  - id: qmmg-fair-value-first-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      "Make me a market on the number of elevator trips a $40$-storey office
+      tower runs on a weekday." Build the centre from this chain: $40$ floors
+      carrying about $60$ workers each; each worker makes about $4$ elevator
+      journeys a day; and a car averages about $6$ people per trip. What fair
+      value does the decomposition give?
+    answer: >
+      $1600$ trips. Multiply the chain out one factor at a time and watch the
+      units. Workers: $40 \times 60 = 2400$. Person-journeys per day:
+      $2400 \times 4 = 9600$. That is a count of *people moved*, not of trips, so
+      the last factor converts one to the other — each trip carries $6$ people,
+      so the number of trips is $\frac{9600}{6} = 1600$. The decisive step is the
+      direction of that last division. Multiplying instead gives
+      $9600 \times 6 = 57600$, which is off by a factor of $36$ and fails a
+      one-second sanity check: a tower cannot run more trips than it moves
+      people. Saying the chain out loud is what buys you the recovery when the
+      interviewer pushes back — if he thinks $60$ workers a floor is high, you
+      revise that one factor and the centre moves proportionally, instead of
+      abandoning an unimprovable number you produced by feel.
+    expects: "1600"
+    rubric:
+      - >
+        Multiplies $40 \times 60 \times 4 = 9600$ person-journeys and keeps track
+        of what that quantity counts.
+      - >
+        Divides by the $6$ people carried per trip rather than multiplying, and
+        checks that trips must come out below person-journeys.
+    exercises:
+      - quant-mental.fermi.decomposition
+    targets:
+      - quant-games.market-making-game.fair-value-first
+
+  - id: qmmg-fair-value-first-02
+    kind: justify
+    difficulty: standard
+    statement: >
+      Your belief about an unfamiliar quantity is built from a chain of estimated
+      factors, so your uncertainty about it is multiplicative — you might be out
+      by a factor of two either way, not by a fixed number of units. Explain why
+      centring your market on the arithmetic mean of that belief puts the truth
+      below your centre more often than above it, and why the geometric centre is
+      the safer anchor once the counterparty gets to choose his side.
+    answer: >
+      A multiplicative error distribution is right-skewed: the downside is
+      bounded by zero while the upside is not, so a factor-of-two miss upward
+      moves the value much further in absolute terms than a factor-of-two miss
+      downward. Averaging over that shape pulls the arithmetic mean above the
+      median. Concretely, if the truth is equally likely to be $\frac{C}{2}$,
+      $C$, or $2C$, the arithmetic mean is
+      $\frac{C}{3}(\frac{1}{2} + 1 + 2) \approx 1.17C$, while the median and the
+      geometric mean are both $C$ — so a market centred at $1.17C$ has the truth
+      below it two times in three. That asymmetry is harmless against a coin-flip
+      counterparty, whose two signs cancel, but it is not harmless against a
+      counterparty who picks his side: a centre that is high two-thirds of the
+      time is a bid that gets hit two-thirds of the time, and every one of those
+      fills is a purchase above the truth. Centring on the geometric mean of your
+      bounds makes the two sides equally likely to be the profitable one, which
+      is what "fair" has to mean when the other side chooses.
+    rubric:
+      - >
+        Identifies the belief as right-skewed because the error is
+        multiplicative, so the arithmetic mean sits above the median.
+      - >
+        Gives a concrete asymmetry — for instance $\frac{C}{2}$, $C$, $2C$ with
+        arithmetic mean $\approx 1.17C$ against a median of $C$.
+      - >
+        Connects the skew to side selection: the counterparty trades the side the
+        centre is wrong on, so the median, not the mean, balances the two sides.
+    targets:
+      - quant-games.market-making-game.fair-value-first
+
+  # --- width -------------------------------------------------------------------
+
+  - id: qmmg-width-uncertainty-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You are certain the quantity is above $80$ and certain it is below $2000$,
+      so you take the geometric mean of the bounds as your centre. Your error on
+      a quantity built this way is multiplicative, and you judge one standard
+      deviation of it to be a factor of $1.6$ rather than a fixed number of
+      units. Quoting a one-standard-deviation half-width in log space, what is
+      your bid?
+    answer: >
+      $250$. The centre is $\sqrt{80 \times 2000} = \sqrt{160000} = 400$. The
+      width then has to be taken in the same coordinates the error lives in.
+      Because the uncertainty is a *ratio*, one standard deviation down is a
+      division, not a subtraction: the bid is $\frac{400}{1.6} = 250$ and the ask
+      is $400 \times 1.6 = 640$, giving a market of $250$ / $640$. Note that this
+      market is not centred arithmetically — $\frac{250 + 640}{2} = 445$, not
+      $400$ — and that is correct, because the belief itself is not symmetric in
+      units. The trap is converting the ratio into an absolute band, quoting
+      $400 \pm 0.6 \times 400$, or $160$ / $640$: the ask is right and the bid is
+      far too low, so the market is honest on one side and gives away a free
+      option on the other. The other trap is quoting the arithmetic mean of the
+      bounds, $1040$, as a centre, which sits above the upper bound of anything
+      you would actually guess.
+    expects: "250"
+    tolerance: 0.5
+    rubric:
+      - >
+        Takes the centre as the geometric mean $\sqrt{80 \times 2000} = 400$
+        rather than the arithmetic mean of the bounds.
+      - >
+        Applies the one-standard-deviation factor multiplicatively, dividing by
+        $1.6$ for the bid, and notes the resulting market is asymmetric in units.
+    targets:
+      - quant-games.market-making-game.width-uncertainty
+      - quant-mental.fermi.log-error
+    connects:
+      - quant-games.market-making-game.width-uncertainty ~ quant-mental.fermi.log-error
+
+  - id: qmmg-width-uncertainty-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      You have quoted $250$ / $640$ on a quantity you bracketed between $80$ and
+      $2000$. Which of the following is a reason to tighten the market?
+    answer: >
+      Only the resolved ambiguity. Width is a statement about your uncertainty,
+      so it should move exactly when your uncertainty moves — and confirming that
+      one of two readings of the question is the intended one genuinely deletes
+      part of your belief, so the market narrows on real information. Nothing
+      else on the list is information about the quantity. "Can you do better?" is
+      a question, and a question carries no evidence about the truth; tightening
+      in response sells the interviewer a narrower option for nothing, and he
+      will ask again. Two passes are close to uninformative — he passes when the
+      truth is inside your market, which is what a well-set width is supposed to
+      produce — and tightening to *manufacture* a trade is paying for flow you do
+      not want. And a lift is information, but it points the other way: it says
+      the truth is above your ask, so the right response is to re-centre upward,
+      not to shrink the width around a centre that has just been shown to be
+      wrong.
+    choices:
+      - text: >
+          The interviewer confirms that the question means the one reading you
+          were unsure about, removing the other from your belief.
+        correct: true
+        feedback: >
+          Right — the ambiguity was part of your variance, and resolving it
+          genuinely shrinks the belief. That is the one thing on this list that
+          is information about the quantity.
+      - text: >
+          The interviewer says "that is very wide — can you do better than that?"
+        feedback: >
+          A question carries no evidence about the truth. Tightening here hands
+          over a narrower option for free, and invites the same pressure again.
+      - text: >
+          He has passed twice in a row, so a narrower market is needed to get a
+          trade done.
+        feedback: >
+          A pass is roughly what a correctly set width produces. Tightening to
+          manufacture flow is buying trades you were being paid to avoid.
+      - text: >
+          He lifted your ask, which shows the market was in the wrong place.
+        feedback: >
+          A lift is information, but it says the centre is too low, not that the
+          width is too large. Re-centre upward; the width should if anything stay
+          put.
+    rubric:
+      - >
+        Ties any tightening to information that actually shrinks the belief
+        about the quantity.
+      - >
+        Rejects pressure, a run of passes, and a lift as reasons to narrow —
+        the lift moves the centre, not the width.
+    targets:
+      - quant-games.market-making-game.width-uncertainty
+
+  # --- quoting mechanics -------------------------------------------------------
+
+  - id: qmmg-quote-hygiene-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You intend a centre of $720$ with a half-spread of $45$, size two, but you
+      state the market in the wrong order and say "$765$ at $675$, two". Before
+      any truth is revealed, what is the largest total the counterparty can take
+      out of you on that quote?
+    answer: >
+      $180$. The stated market has a bid of $765$ and an ask of $675$, so it is
+      crossed: you are offering to buy at a price higher than the price you are
+      offering to sell at. The counterparty buys two units from you at $675$ and
+      immediately sells them back to you at $765$, ending flat, and the truth
+      never enters the calculation — per unit he takes $765 - 675 = 90$, and at
+      size two that is $2 \times 90 = 180$. That is the feature to notice: the
+      profit is riskless, so it does not depend on $T$ and no later re-quote can
+      claw it back. The correct market was $720 - 45 = 675$ bid and
+      $720 + 45 = 765$ offered, stated bid first as "$675$ at $765$, two". The
+      trap is thinking the loss is bounded by how wrong your centre turns out to
+      be; a crossed quote loses the full width regardless of whether $720$ was a
+      brilliant estimate.
+    expects: "180"
+    rubric:
+      - >
+        Recognises the stated quote as crossed — a bid of $765$ above an ask of
+        $675$ — rather than as a wide market.
+      - >
+        Computes the riskless extraction as $(765 - 675) \times 2 = 180$ and
+        notes that the truth never enters, so the loss is independent of the
+        estimate's quality.
+    targets:
+      - quant-games.market-making-game.quote-hygiene
+
+  - id: qmmg-quote-hygiene-02
+    kind: decide
+    difficulty: routine
+    statement: >
+      Four quotes are delivered in a session. Which one is a mechanical mistake
+      rather than a defensible market?
+    answer: >
+      "$412$ at $388$, one" is crossed: the bid, $412$, sits above the ask,
+      $388$. That is free money for the counterparty and it ends the interview,
+      because it takes no view at all about the quantity — anyone can be bought
+      from at $388$ and sold to at $412$ for a riskless $24$ a unit. The other
+      three are all fine, and it is worth being clear about why. "$388$ at $412$,
+      one" is the same market stated correctly, bid before ask, with the size
+      attached. "$350$ at $450$, one" is much wider, but width is a statement
+      about uncertainty, not a fault; a wide market you can defend beats a tight
+      one you get run over in. And "$380$ at $420$, one" delivered in four
+      seconds is exactly right: speed is part of the mechanics, because a long
+      silence is itself information about how confident you are.
+    choices:
+      - text: >
+          "$412$ at $388$, one."
+        correct: true
+        feedback: >
+          Right — the bid is above the ask, so the quote is crossed and can be
+          taken on both sides for a riskless $24$ a unit.
+      - text: >
+          "$388$ at $412$, one."
+        feedback: >
+          A clean quote: bid below ask, size attached, sensible ticks. Nothing
+          wrong here.
+      - text: >
+          "$350$ at $450$, one."
+        feedback: >
+          Wide, not wrong. A width you can defend is a statement about your
+          uncertainty, and it is far safer than a tight market you cannot back.
+      - text: >
+          "$380$ at $420$, one," delivered about four seconds after the question.
+        feedback: >
+          Correct on both counts — the market is clean and the delivery is quick.
+          A long pause would have leaked more than the quote does.
+    rubric:
+      - >
+        Identifies the crossed quote by comparing bid to ask, not by how
+        wide or narrow the market looks.
+      - >
+        Recognises that a wide market and a fast delivery are both correct,
+        so width alone is never the fault.
+    targets:
+      - quant-games.market-making-game.quote-hygiene
+
+  # --- half-spread minus selection ---------------------------------------------
+
+  - id: qmmg-mark-to-truth-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Your fair value is $V = 260$ and your half-spread is $s = 35$, so you show
+      $225$ / $295$, size one. The interviewer's habit is to buy from you $60\%$
+      of the time and sell to you $40\%$ of the time, and which way he goes has
+      nothing to do with the quantity. The truth turns out to be $T = 302$. What
+      is your expected score on one trade?
+    answer: >
+      $26.6$. Write each side in the decomposition. Selling at the ask scores
+      $V + s - T = s - (T - V) = 35 - 42 = -7$, which matches
+      $295 - 302 = -7$. Buying at the bid scores $T - (V - s) = s + (T - V) =
+      35 + 42 = 77$, which matches $302 - 225 = 77$. He buys from you — you sell
+      — with probability $0.6$, so the expectation is
+      $0.6(-7) + 0.4(77) = -4.2 + 30.8 = 26.6$. Equivalently,
+      $s + (0.4 - 0.6)(T - V) = 35 - 0.2 \times 42 = 26.6$. The instructive part
+      is that the imbalance is not adverse selection: his $60/40$ lean is fixed
+      in advance and uncorrelated with $T$, so it merely fails to cancel your
+      error rather than exploiting it, and it happens here to cut your expected
+      score below $s$ only because $V$ undershot. Had the truth come in *below*
+      $260$, the same lean would have paid you more than $s$. Only a side choice
+      that responds to $T$ can lose money systematically.
+    expects: "26.6"
+    tolerance: 0.005
+    rubric:
+      - >
+        Writes each fill as $s \mp (T - V)$, giving $-7$ at the ask and $77$ at
+        the bid, and checks both against the raw prices.
+      - >
+        Weights by the stated $0.6$ / $0.4$ side probabilities to get $26.6$, and
+        distinguishes a fixed lean from selection correlated with $T$.
+    targets:
+      - quant-games.market-making-game.mark-to-truth
+
+  - id: qmmg-mark-to-truth-02
+    kind: work
+    difficulty: standard
+    statement: >
+      You quote $76$ / $100$, size one — a fair value of $88$ with a half-spread
+      of $12$. The truth turns out to be $150$, so your estimate was out by $62$.
+      The interviewer decides his side by a coin flip, independent of the
+      quantity. What is your expected score on the trade?
+    answer: >
+      $12$ — exactly the half-spread, despite the $62$-point miss. Sold at the
+      ask, the mark is $100 - 150 = -50$; bought at the bid, it is
+      $150 - 76 = 74$. Averaging over the coin flip,
+      $0.5(-50) + 0.5(74) = \frac{-50 + 74}{2} = 12$. The decomposition says why
+      this had to happen: the two sides score $s - (T - V)$ and $s + (T - V)$,
+      and against a side chosen without reference to $T$ the error term enters
+      with each sign equally often and cancels, leaving $s$. Accuracy is not what
+      pays you against uninformed flow; the width is. The trap is assuming a
+      badly missed centre must lose money — it does not, and reading this
+      backwards is what makes people quote too tight in pursuit of a good centre.
+      What a bad centre does cost you is variance: the two outcomes here are
+      $-50$ and $74$, a spread of $124$ around a mean of $12$.
+    expects: "12"
+    rubric:
+      - >
+        Marks both sides against $T = 150$, getting $-50$ and $74$, and averages
+        them to $12$.
+      - >
+        Explains via $s \pm (T - V)$ that the error cancels against an uninformed
+        side choice, so the expected score is $s$ regardless of accuracy.
+    targets:
+      - quant-games.market-making-game.mark-to-truth
+
+  # --- adverse selection --------------------------------------------------------
+
+  - id: qmmg-adverse-selection-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      The truth $T$ is equally likely to be $12$, $24$, $36$, $48$ or $60$, so
+      $\mathbb{E}[T] = 36$. You quote $30$ / $42$, size one — centred exactly on
+      the mean. Your counterparty knows $T$ and trades whenever it is profitable
+      for him: he lifts your ask when $T > 42$, hits your bid when $T < 30$, and
+      passes otherwise. What is your expected score per round?
+    answer: >
+      $-9.6$. Split by what he does. He lifts when $T \in \{48, 60\}$, which
+      happens with probability $\frac{2}{5}$, and conditional on that
+      $\mathbb{E}[T \mid \text{lift}] = \frac{48 + 60}{2} = 54$, so the fill
+      marks to $42 - 54 = -12$. He hits when $T \in \{12, 24\}$, probability
+      $\frac{2}{5}$, and $\mathbb{E}[T \mid \text{hit}] = \frac{12 + 24}{2} =
+      18$, so that fill marks to $18 - 30 = -12$. He passes when $T = 36$,
+      probability $\frac{1}{5}$, scoring $0$. The expectation is
+      $\frac{2}{5}(-12) + \frac{2}{5}(-12) + \frac{1}{5}(0) = -4.8 - 4.8 = -9.6$.
+      Every fill this market gets loses $12$, and the market is dead centre on
+      the mean. That is the whole content of adverse selection: your quotes are
+      two free options and he exercises only the one in the money, so the
+      *conditional* mean given a trade is nothing like the unconditional mean.
+      The trap is computing $\mathbb{E}[T] = 36$, noting it sits between your
+      bid and your ask, and concluding the market is safe.
+    expects: "-9.6"
+    tolerance: 0.005
+    rubric:
+      - >
+        Conditions on the trade rather than using $\mathbb{E}[T] = 36$, getting
+        $\mathbb{E}[T \mid \text{lift}] = 54$ and
+        $\mathbb{E}[T \mid \text{hit}] = 18$.
+      - >
+        Weights the two $-12$ fills by $\frac{2}{5}$ each and the pass by
+        $\frac{1}{5}$ to reach $-9.6$.
+    targets:
+      - quant-games.market-making-game.adverse-selection
+      - quant-games.auctions.winners-curse
+    connects:
+      - quant-games.auctions.winners-curse ~ quant-games.market-making-game.adverse-selection
+
+  - id: qmmg-adverse-selection-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Your belief about $T$ is uniform on $[140, 260]$, so $\mathbb{E}[T] = 200$,
+      and you quote $180$ / $220$. The counterparty knows $T$ exactly and lifts
+      your ask whenever $T > 220$. Given that he has just lifted, what is
+      $\mathbb{E}[T \mid \text{lift}]$?
+    answer: >
+      $240$. A lift tells you $T > 220$, and conditioning a uniform belief on
+      that event leaves a uniform belief on $[220, 260]$, whose mean is
+      $\frac{220 + 260}{2} = 240$. So the fill you just took marks to
+      $220 - 240 = -20$ in expectation, even though your centre of $200$ was the
+      true mean of your prior. The number to compare against is $200$: being
+      traded with moved your fair value $40$ points away from you, and that
+      $40$-point gap is the adverse selection your spread has to be paid for in
+      advance. The trap is answering $200$ — the unconditional mean is exactly
+      the quantity the lift has just invalidated — or answering $220$, the ask
+      itself, which is the *lower bound* of the conditional support and therefore
+      the most optimistic value consistent with the trade rather than its
+      average.
+    expects: "240"
+    rubric:
+      - >
+        Conditions the uniform belief on $T > 220$, leaving uniform on
+        $[220, 260]$.
+      - >
+        Reports the conditional mean $\frac{220 + 260}{2} = 240$ and reads the
+        $40$-point move away from the prior mean as the adverse selection.
+    targets:
+      - quant-games.market-making-game.adverse-selection
+
+  - id: qmmg-adverse-selection-03
+    kind: justify
+    difficulty: standard
+    statement: >
+      A candidate protests that his market cannot lose in the long run because it
+      is centred exactly on $\mathbb{E}[T]$, so his errors will average out.
+      Explain why a market centred on the true mean can still lose on every
+      single fill, and identify precisely which assumption of his argument fails.
+    answer: >
+      His argument would be right if the *set of trades* were a fair sample of
+      his belief, and it is not. A two-sided quote is a pair of options handed
+      over for free: the bid is a put struck at $b$ and the ask a call struck at
+      $a$, both live at once. A counterparty who knows more about $T$ exercises
+      exactly the one that is in the money — he lifts when $T > a$ and hits when
+      $T < b$ — so the trades that occur are precisely the realisations on which
+      the quote was wrong, and the ones that would have paid are the ones he
+      passes on. Formally, $\mathbb{E}[T \mid \text{lift}] > \mathbb{E}[T]$ and
+      $\mathbb{E}[T \mid \text{hit}] < \mathbb{E}[T]$, so the relevant
+      expectation is conditional on the fill and never equals the unconditional
+      mean he centred on. Averaging out requires the two error signs to appear
+      about equally often among the fills; selection guarantees they do not. The
+      remedy is not a better centre, which is what he is offering — a perfectly
+      centred market still loses here — but a wider one, because the spread is
+      the premium charged in advance for options he is otherwise giving away.
+    rubric:
+      - >
+        Names the quote as a pair of free options and the fills as the
+        counterparty's exercise of whichever is in the money.
+      - >
+        States the conditional inequalities
+        $\mathbb{E}[T \mid \text{lift}] > \mathbb{E}[T]$ and
+        $\mathbb{E}[T \mid \text{hit}] < \mathbb{E}[T]$, so fills are a biased
+        sample.
+      - >
+        Locates the failed assumption in "errors average out" — the two signs are
+        not equally represented among trades — and points at width, not accuracy,
+        as the fix.
+    targets:
+      - quant-games.market-making-game.adverse-selection
+
+  # --- the spread that survives informed flow ----------------------------------
+
+  - id: qmmg-spread-compensation-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You model the flow as a mixture: with probability $\alpha = 0.35$ the
+      counterparty is informed and takes an average of $\delta = 48$ of value out
+      of you, and otherwise he trades for reasons unrelated to the quantity. You
+      want an expected profit of at least $4$ per trade. What is the narrowest
+      full width — bid to ask — that achieves it?
+    answer: >
+      $41.6$. Expected profit per trade is
+      $(1 - \alpha)s + \alpha(s - \delta) = s - \alpha\delta$, since the
+      half-spread $s$ is earned on every fill and only the informed fraction
+      costs you $\delta$. The adverse-selection charge is
+      $\alpha\delta = 0.35 \times 48 = 16.8$, so break-even needs $s \ge 16.8$
+      and a profit of $4$ needs $s \ge 4 + 16.8 = 20.8$. The full width is
+      $2s = 41.6$. Two things to hold onto. First, your spread is set by the
+      *counterparty's* information, not by yours: $\alpha$ and $\delta$ are facts
+      about him. Second, the trap is charging the full $\delta = 48$ of
+      half-spread as though every trade were informed, which quotes a width of
+      $96$ and prices you out of the $65\%$ of flow that was paying you. The
+      opposite trap is quoting $s = 4$ because that is the profit you wanted,
+      forgetting that the $16.8$ has to be covered before any profit begins.
+    expects: "41.6"
+    tolerance: 0.005
+    rubric:
+      - >
+        Uses $s - \alpha\delta$ for expected profit per trade, so the
+        adverse-selection charge is $0.35 \times 48 = 16.8$.
+      - >
+        Solves $s \ge 4 + 16.8 = 20.8$ and doubles it to a full width of $41.6$,
+        rather than charging $\delta$ in full or quoting the target profit as the
+        half-spread.
+    exercises:
+      - quant-games.market-making-game.adverse-selection
+    targets:
+      - quant-games.market-making-game.spread-compensation
+
+  - id: qmmg-spread-compensation-02
+    kind: justify
+    difficulty: standard
+    statement: >
+      Derive the zero-expected-profit half-spread under the mixture model — a
+      fraction $\alpha$ of informed flow that takes $\delta$ from you, and
+      $1 - \alpha$ of flow unrelated to the quantity — and explain what the model
+      says about quoting into an imminent announcement, when $\alpha$ approaches
+      $1$.
+    answer: >
+      Take the two cases and weight them. An uninformed fill pays you the
+      half-spread, $s$, because the counterparty's side is uncorrelated with the
+      sign of your error and the error term cancels in expectation. An informed
+      fill pays $s - \delta$: you still collect the half-spread, but he takes
+      $\delta$ of value on average by choosing the profitable side. Expected
+      profit per trade is therefore
+      $(1 - \alpha)s + \alpha(s - \delta) = s - \alpha\delta$, and the
+      zero-expected-profit width is $s = \alpha\delta$ — a spread narrower than
+      that loses money on average no matter how good your centre is, and a spread
+      wider than that earns $s - \alpha\delta$ per fill. The reading that matters
+      is that $s$ is determined by the counterparty's information rather than
+      your own: you can be perfectly calibrated and still need a wide market
+      because he knows more. Push $\alpha \to 1$ and the break-even width becomes
+      $\delta$ itself, and worse, the $\delta$ that a fully informed counterparty
+      extracts grows with the width you quote — he simply waits for a market he
+      can pick off. There is then no finite $s$ that survives, which is exactly
+      why quotes are pulled before a scheduled announcement rather than merely
+      widened.
+    rubric:
+      - >
+        Weights the two cases correctly, giving expected profit
+        $s - \alpha\delta$ and a break-even half-spread of $\alpha\delta$.
+      - >
+        Says explicitly that the width is set by the counterparty's information,
+        not the quoter's accuracy.
+      - >
+        Handles $\alpha \to 1$: no finite spread is viable, so the response is to
+        stop quoting rather than to widen.
+    targets:
+      - quant-games.market-making-game.spread-compensation
+
+  # --- updating on flow ---------------------------------------------------------
+
+  - id: qmmg-update-on-flow-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Your belief about $T$ is uniform on $[0, 600]$, so $\mathbb{E}[T] = 300$,
+      and you show $200$ / $400$, size one. With probability $0.6$ the
+      counterparty is informed and lifts your ask only when $T > 400$; otherwise
+      he is uninformed and takes a side by a coin flip, so he lifts with
+      probability $\frac{1}{2}$ whatever $T$ is. He lifts. What is your updated
+      fair value $\mathbb{E}[T \mid \text{lift}]$?
+    answer: >
+      $400$. Do the Bayes step first, then the conditional mean. Under the prior,
+      $\Pr(T > 400) = \frac{200}{600} = \frac{1}{3}$, so an informed lift has
+      probability $0.6 \times \frac{1}{3} = 0.2$, while an uninformed lift has
+      probability $0.4 \times \frac{1}{2} = 0.2$. Hence $\Pr(\text{lift}) = 0.4$
+      and $\Pr(\text{informed} \mid \text{lift}) = \frac{0.2}{0.4} = 0.5$ — the
+      lift is exactly as likely to have been noise as information. Now mix the
+      two posteriors. If he was informed, $T$ is uniform on $[400, 600]$ with
+      mean $500$; if he was not, the lift told you nothing and $T$ is still
+      uniform on $[0, 600]$ with mean $300$. So
+      $\mathbb{E}[T \mid \text{lift}] = 0.5 \times 500 + 0.5 \times 300 = 400$.
+      Two errors bracket this. Repeating $300$ treats the trade as noise, which
+      it is only half the time. Jumping to $500$ treats it as fully informative
+      and ignores the $0.4$ of flow that trades for its own reasons. And note
+      where the answer lands: your new centre is $400$, the very price you were
+      just lifted at, so any ask you now show must sit above $400$.
+    expects: "400"
+    tolerance: 0.5
+    rubric:
+      - >
+        Computes $\Pr(\text{informed} \mid \text{lift}) = \frac{0.2}{0.4} = 0.5$
+        from the two ways a lift can arise.
+      - >
+        Mixes $\mathbb{E}[T \mid T > 400] = 500$ with the unchanged prior mean
+        $300$ at those weights to get $400$, shrinking the move toward zero
+        rather than jumping to $500$.
+      - >
+        Notices the new centre equals the lifted price, so the next ask must be
+        above $400$.
+    exercises:
+      - quant-statistics.bayesian.posterior
+    targets:
+      - quant-games.market-making-game.update-on-flow
+
+  - id: qmmg-update-on-flow-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      You were just lifted at $400$, your updated fair value is $400$, and you
+      still judge a half-spread of $40$ to be right. Which of these next quotes
+      breaks the hard rule that follows from the update?
+    answer: >
+      $375$ / $395$ breaks it. Being lifted at $400$ is evidence that the truth
+      is above $400$; offering again at $395$ therefore invites him to buy from
+      you a second time at a price your own posterior has already ruled out as
+      too low, and you would be paying him to repeat the trade that just hurt
+      you. The rule is blunt because it needs to be: never show an ask below a
+      price you were just lifted at. The other three all respect it. $360$ /
+      $440$ is the symmetric market around the new centre of $400$. $380$ /
+      $460$ leans the pair upward, which is right if you are now short and want
+      to make buying back cheap and getting shorter expensive. $400$ / $480$
+      leans harder in the same direction. Reasonable people can argue about how
+      much to skew; nobody can defend an ask of $395$. Note also that $375$ /
+      $395$ is not merely low — it is *narrower* than the others, which is the
+      opposite of what new evidence that you were wrong should do.
+    choices:
+      - text: >
+          $375$ / $395$
+        correct: true
+        feedback: >
+          Right — the ask sits below the $400$ you were just lifted at, so you
+          are offering to repeat a trade your own posterior says was a loser.
+      - text: >
+          $360$ / $440$
+        feedback: >
+          The symmetric market around the updated centre of $400$. It respects
+          the rule; whether it should be skewed for the short position is a
+          separate question.
+      - text: >
+          $380$ / $460$
+        feedback: >
+          Centre $420$, leaned up for the short position. The ask is well above
+          $400$, so the hard rule holds.
+      - text: >
+          $400$ / $480$
+        feedback: >
+          A larger upward skew, still legitimate. It makes buying back cheap for
+          him and getting you shorter expensive.
+    rubric:
+      - >
+        Applies the hard rule — no ask below a price you were just lifted at
+        — to reject $375$ / $395$.
+      - >
+        Accepts the symmetric and upward-skewed markets as legitimate, and
+        notes the rejected quote also narrows when the evidence argued
+        against narrowing.
+    targets:
+      - quant-games.market-making-game.update-on-flow
+
+  # --- inventory ----------------------------------------------------------------
+
+  - id: qmmg-inventory-risk-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Over a session you buy $3$ units at $88$ and sell $7$ units at $104$. Your
+      remaining belief about $T$ has standard deviation $15$. What is the
+      standard deviation of your total mark when the truth is announced?
+    answer: >
+      $60$. Write the total mark as a function of $T$:
+      $3(T - 88) + 7(104 - T) = (3 - 7)T + (728 - 264) = -4T + 464$. Only the
+      *net* position multiplies $T$; the prices contribute a constant, and a
+      constant has no variance. So
+      $\operatorname{Var} = q^{2}\operatorname{Var}(T) = (-4)^{2} \times 15^{2} =
+      16 \times 225 = 3600$ and the standard deviation is
+      $\sqrt{3600} = |q| \times 15 = 4 \times 15 = 60$. The trap is using the
+      gross $10$ units traded, giving $150$: the three longs and three of the
+      shorts have already cancelled each other's exposure, and no announcement of
+      $T$ can move them. Note what this says about the game — risk is quadratic
+      in $q$ while exposure is linear, so a net position of $4$ carries sixteen
+      times the variance of a net position of $1$, and none of it can be hedged
+      before the reveal.
+    expects: "60"
+    rubric:
+      - >
+        Collapses the fills to a net position, writing the mark as
+        $-4T + 464$ so the prices drop out of the variance.
+      - >
+        Reports $|q|\sigma = 4 \times 15 = 60$ rather than using the $10$ gross
+        units traded.
+    exercises:
+      - quant-games.market-making-game.mark-to-truth
+    targets:
+      - quant-games.market-making-game.inventory-risk
+
+  - id: qmmg-inventory-risk-02
+    kind: work
+    difficulty: standard
+    statement: >
+      You end a session short $4$ units at an average traded price of $260$. The
+      truth is announced as $233$. What is your mark?
+    answer: >
+      $108$. Inventory marks at $q(T - \bar{p})$ with $q$ signed: short four
+      means $q = -4$, and $\bar{p} = 260$, so the mark is
+      $-4(233 - 260) = -4 \times (-27) = 108$. The sanity check is the story:
+      you sold four units at $260$ each and the quantity turned out to be worth
+      $233$, so you collected $27$ a unit on four units. Both traps are sign
+      errors. Writing $q = 4$ because "four units" sounds positive gives $-108$
+      and turns a good session into a bad one; writing $q(\bar{p} - T)$ gives the
+      same flip. The formula is worth keeping in the signed form because it also
+      tells you where the risk was: at $|q| = 4$ this position moves $4$ for
+      every $1$ that your belief about $T$ moves, so the $108$ is a draw from a
+      distribution four times as wide as the single-unit one.
+    expects: "108"
+    rubric:
+      - >
+        Uses the signed position $q = -4$ in $q(T - \bar{p})$.
+      - >
+        Reports $-4(233 - 260) = 108$ and checks it against the story of selling
+        above the truth.
+    targets:
+      - quant-games.market-making-game.inventory-risk
+
+  # --- skewing ------------------------------------------------------------------
+
+  - id: qmmg-quote-skewing-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      After the flow has been absorbed, your fair value is $720$ and your
+      half-spread is $60$. You are long $3$ units, and your rule is to lean the
+      whole pair by $8$ per unit of inventory in the direction that flattens you.
+      What ask do you show?
+    answer: >
+      $756$. Keep the two adjustments separate and apply them in order. First the
+      centre: $720$ is already the re-centred value, so the symmetric market is
+      $720 - 60 = 660$ bid and $720 + 60 = 780$ offered. Then the skew: you are
+      *long*, so the trade you want is a sale, and you make selling attractive by
+      moving both prices *down* — a lower ask is easier for him to lift, and a
+      lower bid discourages him from making you longer still. The lean is
+      $3 \times 8 = 24$, so the market becomes $660 - 24 = 636$ bid and
+      $780 - 24 = 756$ offered. The ask is $756$. Two traps. Skewing the wrong
+      way — up to $684$ / $804$ — is the reflex of wanting a better price for
+      what you already own, and it makes you longer. Shifting only one side, say
+      to $660$ / $756$, is the same instrument in different dress but silently
+      cuts the width to $48$, so you have skewed and tightened at once when only
+      the skew was intended. Note that the skew is not a view: you still believe
+      $720$.
+    expects: "756"
+    rubric:
+      - >
+        Builds the symmetric market $660$ / $780$ around the re-centred fair
+        value before applying any lean.
+      - >
+        Moves both prices down by $3 \times 8 = 24$ because a long position wants
+        to sell, giving an ask of $756$, and keeps the width at $120$.
+    targets:
+      - quant-games.market-making-game.quote-skewing
+
+  - id: qmmg-quote-skewing-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Two lifts in a row have left you short $2$ units. You have already
+      re-centred on what those lifts taught you. Which way should the inventory
+      adjustment move your next quote?
+    answer: >
+      Both prices up. Short means the trade you want is a purchase, so you make
+      buying cheap for yourself to arrange and selling expensive: a higher bid is
+      more attractive for him to hit, which flattens you, and a higher ask
+      demands more compensation before you get shorter still. Moving both prices
+      down is the exact reverse and would tempt him to lift again into a position
+      that is already the one you are trying to reduce. Leaving the market
+      symmetric ignores the position entirely — defensible if you were flat, but
+      you are not, and the mark risk grows like $q^{2}$. And widening both sides
+      symmetrically is a different instrument: it prices uncertainty, not
+      inventory, and it leaves you just as likely to get shorter as longer. The
+      point to hold onto is that this adjustment sits *on top of* the
+      informational re-centring, which has already happened here — skewing is not
+      a second opinion about where the truth is.
+    choices:
+      - text: >
+          Shift both the bid and the ask up.
+        correct: true
+        feedback: >
+          Right — short wants to buy, so a higher bid invites the fill that
+          flattens you and a higher ask charges more for getting shorter.
+      - text: >
+          Shift both the bid and the ask down.
+        feedback: >
+          Backwards. A lower ask is easier to lift, which makes you shorter still
+          — the position you are trying to reduce.
+      - text: >
+          Leave the market symmetric around the re-centred value.
+        feedback: >
+          That would be right if you were flat. With $q = -2$ the mark risk grows
+          like $q^{2}$, and the quote is the only tool you have for reducing it.
+      - text: >
+          Widen both sides by the same amount, leaving the centre where it is.
+        feedback: >
+          Widening prices uncertainty, not inventory. It leaves you exactly as
+          likely to get shorter as longer, which is not what a short position
+          needs.
+    rubric:
+      - >
+        Moves both prices up because a short position wants the purchase,
+        making the bid easy to hit and the ask expensive to lift.
+      - >
+        Distinguishes skew from widening, and from the informational
+        re-centring that has already been applied.
+    targets:
+      - quant-games.market-making-game.quote-skewing
+
+  - id: qmmg-quote-skewing-03
+    kind: justify
+    difficulty: standard
+    statement: >
+      A candidate refuses to skew: "my fair value is my fair value, and shading
+      my quotes away from it means quoting a price I do not believe." Answer him.
+      Explain what the skew is compensation for, and why it is consistent with
+      still believing the centre.
+    answer: >
+      The centre answers "what is $T$?" and the skew answers a different
+      question: "what am I willing to be paid to take more of this risk?" Those
+      have different inputs, and conflating them is his mistake. Inventory marks
+      at $q(T - \bar{p})$, so the variance you are carrying is
+      $q^{2}\operatorname{Var}(T)$ — quadratic in the position — and in this game
+      it cannot be hedged, only waited out until the truth is announced. Adding a
+      unit to a position of size $q$ therefore adds far more risk than the first
+      unit did, so the price at which you are indifferent to adding one is
+      genuinely worse than the price at which you were indifferent to starting.
+      Charging that is not a statement about $T$; it is a statement about your
+      own balance sheet, and the counterparty is free to decline. Symmetrically,
+      the side that reduces $q$ removes risk, so you can afford to pay up for it
+      and still be better off. The clean way to hold it: re-centre on what the
+      flow taught you, which is the belief step, then lean the pair by an amount
+      growing with $|q|$ and with your remaining uncertainty, which is the risk
+      step. Refusing the second step means quoting as though the second unit were
+      as cheap to carry as the first, which is the belief that is actually false.
+    rubric:
+      - >
+        Separates the informational step, which sets the centre, from the risk
+        step, which sets the lean.
+      - >
+        Grounds the lean in $q^{2}\operatorname{Var}(T)$ — marginal risk rises
+        with the position, and it cannot be hedged before the reveal.
+      - >
+        Concludes that the skewed price is a charge for risk, not a revised
+        estimate of $T$, so believing the centre and skewing are consistent.
+    targets:
+      - quant-games.market-making-game.quote-skewing
+
+  # --- sizing -------------------------------------------------------------------
+
+  - id: qmmg-size-discipline-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Your half-spread is $24$ and you expect adverse selection to cost $15$ per
+      fill, while the per-unit standard deviation of the mark is $30$. You are
+      willing to put $800$ of capital at risk, and the growth-optimal size is
+      $q^{*} = \frac{\text{edge per unit}}{\text{variance per unit}} \times 800$.
+      You then quote a quarter of that. What size do you show?
+    answer: >
+      $2$. Edge per unit is the half-spread net of what the informed flow takes:
+      $24 - 15 = 9$. Variance per unit is $30^{2} = 900$. So
+      $q^{*} = \frac{9}{900} \times 800 = 0.01 \times 800 = 8$ units at full
+      Kelly, and a quarter of that is $\frac{8}{4} = 2$. The fractional haircut
+      is not timidity: full Kelly is optimal only if the edge is known, and here
+      $9$ is the difference of two estimates you made about an unfamiliar
+      quantity, either of which could be out by half. Overstating the edge
+      overstates $q^{*}$ proportionally, and the growth penalty for being over
+      the optimum is much harsher than for being under it. Two traps. Using the
+      raw half-spread $24$ as the edge gives $q^{*} = \frac{24}{900} \times 800
+      = 21.3$ and a quoted size of $5$ — better than twice too big, because it
+      prices the trade as though nobody on the other side knew anything. And
+      using the standard deviation $30$ rather than the variance $900$ in the
+      denominator is a dimensional error that flatters the size by a factor of
+      $30$.
+    expects: "2"
+    rubric:
+      - >
+        Takes edge per unit as $24 - 15 = 9$, net of adverse selection, not the
+        raw half-spread.
+      - >
+        Divides by the variance $900$, not the standard deviation, giving
+        $q^{*} = 8$, and quarters it to $2$.
+    exercises:
+      - quant-games.kelly.kelly-fraction
+    targets:
+      - quant-games.market-making-game.size-discipline
+
+  - id: qmmg-size-discipline-02
+    kind: decide
+    difficulty: routine
+    statement: >
+      You quoted size one, were lifted, and the interviewer's follow-up questions
+      suggest he knew something you did not. What is the mistake among the
+      responses below?
+    answer: >
+      Doubling the size to look unbothered. It raises the stake at the exact
+      moment the evidence has moved against the edge you were sizing on: if he
+      is informed, your estimate of $\alpha$ should have gone *up* and your
+      estimate of the net edge $s - \alpha\delta$ down, so the growth-optimal
+      size has fallen, not risen. Doing the opposite is a bet on how the decision
+      looks rather than on what it is worth, and it is the single most reliably
+      punished habit in this exercise. The other three are all sound. Cutting
+      size while widening is the textbook response to a rise in either $\alpha$
+      or your own uncertainty. Re-centring above the lift price and keeping size
+      one separates the informational response from the sizing response, which is
+      right. And declining to quote the leg you cannot price — the one where the
+      ambiguity lives — is the honest version of "no finite spread works here".
+    choices:
+      - text: >
+          Quote size two on the next market, to show the fill did not rattle you.
+        correct: true
+        feedback: >
+          Right — this raises the stake immediately after evidence that the edge
+          was smaller than you thought. Appearance is not a term in the sizing
+          formula.
+      - text: >
+          Keep size one, widen the market, and re-centre above the price you were
+          lifted at.
+        feedback: >
+          Sound. Higher $\alpha$ means a wider break-even spread, and the lift is
+          information about where the truth sits.
+      - text: >
+          Cut to a smaller size and widen, since your estimate of the edge has
+          just been shown to be unreliable.
+        feedback: >
+          Sound. Uncertainty about the edge itself is exactly what the fractional
+          haircut on Kelly is for.
+      - text: >
+          Say you will not quote the part of the question you cannot pin down,
+          and quote the part you can.
+        feedback: >
+          Legitimate. When no finite spread is viable on a leg, declining it
+          beats quoting a width you cannot defend.
+    rubric:
+      - >
+        Identifies the size increase as raising the stake just after
+        evidence that the net edge $s - \alpha\delta$ has fallen.
+      - >
+        Recognises cutting size, widening and re-centring as the sound
+        responses, and declining an unpriceable leg as legitimate.
+    targets:
+      - quant-games.market-making-game.size-discipline
+
+  # --- calibration --------------------------------------------------------------
+
+  - id: qmmg-calibration-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Over $25$ questions you stated $80\%$ intervals and $12$ of them contained
+      the truth. Model your errors as centred and normal, so a symmetric interval
+      of half-width $k$ standard deviations hits with probability
+      $\Pr(|Z| \le k)$. Use $\Pr(|Z| \le 0.6433) = 0.48$ and
+      $\Pr(|Z| \le 1.2816) = 0.80$. By what factor must you multiply every
+      half-width to bring the hit rate to its advertised level? Give the factor
+      to two decimal places.
+    answer: >
+      About $1.99$ — call it a doubling. Your realized hit rate is
+      $\frac{12}{25} = 0.48$, so whatever you have been calling an $80\%$
+      interval is in fact a $48\%$ interval, which under the normal model has
+      half-width $k = 0.6433$ standard deviations. An honest $80\%$ interval
+      needs $k' = 1.2816$. Since both are measured in the same standard
+      deviations, the required rescaling is the ratio
+      $\frac{1.2816}{0.6433} \approx 1.99$. The fix is mechanical, not moral: you
+      do not need to think harder about any individual question, you need to
+      multiply every half-width by two and re-measure. The trap is rescaling by
+      the ratio of the *probabilities*, $\frac{0.80}{0.48} \approx 1.67$, which
+      confuses a coverage level with a width — probabilities are not
+      proportional to widths, and the further into the tail you go the more width
+      each extra point of coverage costs. Note also that calibration is a
+      property of the batch: no single one of those $25$ intervals was wrong, and
+      $12$ hits out of $25$ is what makes the claim testable.
+    expects: "1.99"
+    tolerance: 0.01
+    rubric:
+      - >
+        Converts the realized $\frac{12}{25} = 0.48$ hit rate into a half-width
+        of $0.6433$ standard deviations and the $80\%$ target into $1.2816$.
+      - >
+        Takes the ratio $\frac{1.2816}{0.6433} \approx 1.99$ rather than the
+        ratio of coverage probabilities.
+    exercises:
+      - quant-statistics.testing.ci
+    targets:
+      - quant-games.market-making-game.calibration
+
+  - id: qmmg-calibration-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A candidate states $40$ intervals at $90\%$ confidence over a series of
+      estimation questions, and $22$ of them contain the truth. Treat the
+      intervals as independent trials. Under the hypothesis that they really are
+      $90\%$ intervals, how many standard deviations below the expected number of
+      hits does $22$ sit? Give the answer to two decimal places.
+    answer: >
+      About $-7.38$. Under the hypothesis, the hit count is binomial with
+      $n = 40$ and $p = 0.9$, so the expected number of hits is
+      $40 \times 0.9 = 36$ and the standard deviation is
+      $\sqrt{40 \times 0.9 \times 0.1} = \sqrt{3.6} \approx 1.897$. The observed
+      $22$ therefore sits
+      $\frac{22 - 36}{1.897} \approx -7.38$ standard deviations below
+      expectation. A discrepancy of that size is not bad luck over forty
+      questions; it is a statement that the intervals are not what they are
+      labelled. This is exactly why interviewers ask a *series* of estimation
+      questions rather than one: a single miss says nothing, because a $90\%$
+      interval is supposed to miss sometimes, while forty of them turn a vague
+      impression of overconfidence into a number. The trap is dividing by
+      $\sqrt{n} = 6.32$ or by $p(1-p) = 0.09$ instead of by
+      $\sqrt{np(1-p)}$, and the deeper one is judging any single interval at all
+      — calibration is a property of the batch.
+    expects: "-7.38"
+    tolerance: 0.005
+    rubric:
+      - >
+        Uses the binomial mean $np = 36$ and standard deviation
+        $\sqrt{np(1-p)} = \sqrt{3.6} \approx 1.897$.
+      - >
+        Reports $\frac{22 - 36}{1.897} \approx -7.38$ and reads it as evidence
+        about the batch rather than about any one interval.
+    targets:
+      - quant-games.market-making-game.calibration
+
+  # --- overconfidence -----------------------------------------------------------
+
+  - id: qmmg-overconfidence-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You quote markets on six independent questions in a session, each time
+      showing what you call a $90\%$ market, but your stated $90\%$ ranges
+      actually contain the truth only $45\%$ of the time. The interviewer knows
+      every truth and trades exactly when the truth lies outside your market. How
+      many more fills do you expect to give him over the session than an honestly
+      calibrated quoter would?
+    answer: >
+      $2.7$ more fills. The bridge from calibration to trading is the
+      observation that "the truth is outside my market" and "he gets to pick me
+      off" are the same event: he lifts when $T$ is above your ask and hits when
+      it is below your bid, and passes when it is inside. So the fill probability
+      per question is one minus the hit rate. Yours is $1 - 0.45 = 0.55$, giving
+      $6 \times 0.55 = 3.3$ expected fills by linearity of expectation. An
+      honestly calibrated quoter's is $1 - 0.90 = 0.10$, giving
+      $6 \times 0.10 = 0.6$. The difference is $3.3 - 0.6 = 2.7$. That is the
+      real cost of the overconfidence: not a bad score on one question, but more
+      than five times as many opportunities handed to someone who knows more than
+      you, every one of them a fill you did not want. The trap is treating
+      overconfidence as an aesthetic flaw — a market that looks impressively
+      tight — rather than reading the hit rate directly as the rate at which you
+      are picked off.
+    expects: "2.7"
+    tolerance: 0.005
+    rubric:
+      - >
+        Identifies "the truth falls outside the market" with "the informed
+        counterparty trades", so the fill rate per question is one minus the hit
+        rate.
+      - >
+        Computes $6(0.55) = 3.3$ against $6(0.10) = 0.6$ by linearity and reports
+        the difference $2.7$.
+    targets:
+      - quant-games.market-making-game.overconfidence
+
+  - id: qmmg-overconfidence-02
+    kind: decide
+    difficulty: routine
+    statement: >
+      Stated $90\%$ ranges on general-knowledge quantities typically contain the
+      truth only $30\%$ to $50\%$ of the time, and the mechanism is anchoring:
+      the first number that comes to mind fixes the scale and the outward
+      adjustment stops too early. Which countermeasure actually attacks that
+      mechanism?
+    answer: >
+      Produce the bounds before the point estimate, and ask what would have to be
+      true for the answer to be ten times larger. Both halves work by refusing to
+      let a point estimate be laid down first: if there is no anchor, there is
+      nothing for the adjustment to stop short of, and the ten-times question
+      forces you to look for a story on the far side of your range — if you can
+      tell one, the bound is too near. The other three all leave the anchor in
+      place. Thinking harder about the point estimate is the anchor's own
+      preferred remedy and tends to make it feel more solid. Averaging two point
+      estimates made a minute apart samples twice from the same anchored
+      distribution, so the average inherits the anchor and the spread of the two
+      understates the real error. And asking the interviewer whether you are
+      close outsources the calibration you are being tested on, and he will not
+      answer.
+    choices:
+      - text: >
+          Write down the upper and lower bounds first, then ask what would make
+          the truth ten times bigger.
+        correct: true
+        feedback: >
+          Right — no anchor is laid down for the adjustment to stop short of, and
+          the ten-times prompt sends you looking for evidence beyond your own
+          bound.
+      - text: >
+          Spend longer refining the point estimate before setting the range
+          around it.
+        feedback: >
+          This strengthens the anchor rather than removing it. A more confident
+          centre produces a narrower range, not a better-calibrated one.
+      - text: >
+          Make two independent point estimates a minute apart and average them.
+        feedback: >
+          Both draws come from the same anchored distribution, so the average
+          keeps the anchor and their closeness gives a false sense of precision.
+      - text: >
+          Ask the interviewer whether your range sounds about right.
+        feedback: >
+          He will not tell you, and calibration is precisely what he is
+          measuring. This outsources the thing being tested.
+    rubric:
+      - >
+        Chooses the countermeasure that prevents an anchor from being laid
+        down, rather than one applied after it.
+      - >
+        Explains why two estimates a minute apart share the anchor, so their
+        closeness understates the real error.
+    targets:
+      - quant-games.market-making-game.overconfidence
+
+  # --- a full worked session ----------------------------------------------------
+
+  - id: qmmg-worked-747-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      "Make me a market on the number of public elementary schools in a state,"
+      size one per round. You are certain the answer is above $200$ and below
+      $5000$, so you centre at the geometric mean, $1000$. Round 1 you quote
+      $800$ / $1200$; he lifts. Round 2 you re-centre to $1350$, take a
+      half-spread of $200$, skew the pair up by $50$ for the short, and quote
+      $1200$ / $1600$; he lifts again. Round 3 you quote $1450$ / $1900$ and he
+      passes. The truth is announced as $1720$. What is your total score?
+    answer: >
+      $-640$. Mark each fill separately against the truth. Both fills are sales,
+      because he lifted your ask both times, so each scores $a - T$: round 1 gives
+      $1200 - 1720 = -520$, and round 2 gives $1600 - 1720 = -120$. Round 3 is a
+      pass and scores $0$. The total is $-520 - 120 = -640$. It is worth seeing
+      where the damage sat. The whole of round 1's $-520$ came from an opening
+      half-spread of $200$ — twenty percent of the centre — on a quantity you had
+      just bracketed between $200$ and $5000$, a factor of five either way. A
+      bracket that wide cannot support a market that tight, and the interviewer
+      collected on the mismatch immediately. Rounds 2 and 3 were played correctly:
+      the re-centre, the skew and the wider market cut the second fill's damage to
+      $-120$ and stopped the third trade happening at all. The trap is netting the
+      two fills against an average price of $\frac{1200 + 1600}{2} = 1400$ and
+      reporting $2(1400 - 1720) = -640$ — right here only because the sizes were
+      equal, and a habit that breaks the moment they are not.
+    expects: "-640"
+    rubric:
+      - >
+        Marks both lifts as sales at $a - T$, giving $-520$ and $-120$, and
+        scores the pass as $0$.
+      - >
+        Attributes the bulk of the loss to round 1's half-spread of $200$ against
+        a $200$-to-$5000$ bracket, not to the later re-centring or skew.
+    exercises:
+      - quant-games.market-making-game.width-uncertainty
+      - quant-games.market-making-game.quote-skewing
+    targets:
+      - quant-games.market-making-game.worked-747
+
+  - id: qmmg-worked-747-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Same session, same truth of $1720$, but suppose round 1 had been quoted as
+      a factor of $1.6$ either way around the centre of $1000$ — that is, $625$ /
+      $1600$ — and the interviewer had lifted at $1600$ and then passed for the
+      rest of the session. What is the score?
+    answer: >
+      $-120$. One fill, a sale at the ask, marking to $a - T = 1600 - 1720 =
+      -120$; every later round is a pass and scores nothing. Compare that with
+      the $-640$ the tight opening produced: more than four-fifths of the loss in
+      the original session was manufactured by a single decision about width, and
+      it was made before any information had arrived. Two features of the honest
+      market are worth naming. It is not centred arithmetically —
+      $\frac{625 + 1600}{2} = 1112.5$, not $1000$ — because a multiplicative
+      belief is not symmetric in units, and forcing symmetry is what produces
+      markets that are too tight on the upside. And it is wide enough that the
+      truth of $1720$ sits only just outside it, so the single fill it gives up is
+      a near miss rather than a windfall for the counterparty. The trap is
+      reading the improvement as luck: the width was chosen from a stated
+      factor-of-$1.6$ uncertainty, before the truth was known, and it would have
+      protected the session against a truth on either side.
+    expects: "-120"
+    rubric:
+      - >
+        Scores the single lift as $1600 - 1720 = -120$ and the passes as $0$.
+      - >
+        Compares against $-640$ and attributes the difference to the opening
+        width rather than to luck or to the later rounds.
+    targets:
+      - quant-games.market-making-game.worked-747
+
+  - id: qmmg-worked-747-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      Reviewing the session that scored $-640$ — bracket $200$ to $5000$, centre
+      $1000$, opening market $800$ / $1200$ lifted, then $1200$ / $1600$ lifted,
+      then $1450$ / $1900$ passed, truth $1720$ — which decision was the error?
+    answer: >
+      The opening half-spread of $200$. It claims a precision of about twenty
+      percent on a quantity you had just said might be anywhere from $200$ to
+      $5000$ — a factor of five in each direction — and the counterparty needed
+      no special insight to collect on that mismatch, only the ability to read
+      your own bracket back to you. Everything after it was played correctly.
+      Re-centring upward after the lift is the required response: the lift is
+      evidence that the truth is above your ask, and repeating the quote would
+      have invited the same trade again. Skewing the pair up by $50$ once short
+      is the right risk adjustment, layered on top of the re-centring rather than
+      instead of it. And size one was appropriate; on a quantity known only to
+      within a factor of five, a larger size would have multiplied the same error
+      rather than fixing it. Note the pattern this reveals — the round that cost
+      the most was the round with the least information, which is exactly when
+      the market should have been widest.
+    choices:
+      - text: >
+          Opening with a half-spread of $200$ around $1000$, given a bracket of
+          $200$ to $5000$.
+        correct: true
+        feedback: >
+          Right — a factor-of-five bracket cannot support a twenty-percent
+          market, and the first fill alone accounts for $-520$ of the $-640$.
+      - text: >
+          Re-centring from $1000$ to $1350$ after the first lift.
+        feedback: >
+          Correct play. A lift says the truth is above your ask; leaving the
+          centre where it was would have offered the same trade a second time.
+      - text: >
+          Skewing the round-2 pair up by $50$ because the first lift left you
+          short.
+        feedback: >
+          Correct play. The skew is a charge for carrying the position, applied
+          after the informational re-centring rather than instead of it.
+      - text: >
+          Quoting size one rather than a larger size.
+        feedback: >
+          Appropriate. On a quantity known only to within a factor of five, a
+          bigger size multiplies the width error instead of correcting it.
+    rubric:
+      - >
+        Locates the error in the opening width, measuring it against the
+        $200$-to-$5000$ bracket the candidate had just stated.
+      - >
+        Defends the re-centre, the skew and the size of one as correct play,
+        so the loss is attributed to the round with the least information.
+    exercises:
+      - quant-games.market-making-game.clarify-the-quantity
+    targets:
+      - quant-games.market-making-game.worked-747
+
+  # --- what the game keeps and drops --------------------------------------------
+
+  - id: qmmg-game-vs-real-markets-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      An exchange market maker and an interview candidate face the same per-fill
+      economics: expected profit $0.4$ a fill with a per-fill standard deviation
+      of $12$, and fills independent. The exchange maker gets $9000$ fills in a
+      day; the candidate gets $2$ in a session. By what factor does the exchange
+      maker's ratio of expected profit to standard deviation of profit exceed the
+      candidate's? Give the factor to two decimal places.
+    answer: >
+      About $67.08$. Over $n$ independent fills the expected profit is
+      $n\mu$ while the standard deviation is $\sigma\sqrt{n}$, so the ratio is
+      $\frac{n\mu}{\sigma\sqrt{n}} = \frac{\mu\sqrt{n}}{\sigma}$ — it grows like
+      $\sqrt{n}$. The exchange maker gets
+      $\frac{0.4\sqrt{9000}}{12} \approx 3.16$ and the candidate
+      $\frac{0.4\sqrt{2}}{12} \approx 0.047$, so the factor between them is
+      $\frac{\sqrt{9000}}{\sqrt{2}} = \sqrt{4500} \approx 67.08$ — the $\mu$ and
+      $\sigma$ cancel entirely. This is the sharpest thing the comparison says:
+      an identical edge is a business at $9000$ fills and a coin flip at $2$. The
+      real maker is relying on the law of large numbers to convert a tiny per-fill
+      edge into a reliable day, and the candidate cannot, which is why interview
+      grading is on process rather than on the score. The trap is dividing the
+      fill counts, $\frac{9000}{2} = 4500$, and reporting that: profit scales with
+      $n$ but risk scales with $\sqrt{n}$, so the advantage is the square root of
+      the ratio, not the ratio.
+    expects: "67.08"
+    tolerance: 0.005
+    rubric:
+      - >
+        Writes the ratio as $\frac{\mu\sqrt{n}}{\sigma}$, noting that expected
+        profit grows like $n$ while its standard deviation grows like $\sqrt{n}$.
+      - >
+        Cancels $\mu$ and $\sigma$ to get $\sqrt{9000/2} = \sqrt{4500} \approx
+        67.08$, rather than the raw fill ratio $4500$.
+    targets:
+      - quant-games.market-making-game.game-vs-real-markets
+
+  - id: qmmg-game-vs-real-markets-02
+    kind: decide
+    difficulty: routine
+    statement: >
+      Which of these features of professional market making has no counterpart in
+      the interview game?
+    answer: >
+      Queue priority in a limit order book. The game has no book at all: you
+      state a price to one counterparty who takes it or does not, so there is
+      nothing to queue behind, no time priority to earn or lose, and no reason to
+      compete on latency for the right to requote first. That machinery belongs to
+      market microstructure, and it is the largest single thing the compression
+      drops, along with hedging inventory in correlated instruments — in the game
+      the position only resolves when the truth is announced. The other three all
+      survive the compression intact, which is why the exercise is worth playing.
+      Re-centring on flow is the same Bayesian step a real maker performs when his
+      quotes get hit repeatedly on one side. Skewing on inventory is the same risk
+      adjustment, done by hand rather than by a model. And earning the spread
+      minus what the informed take is the identical economics, run at two trades
+      instead of thousands.
+    choices:
+      - text: >
+          Queue priority at a price level, and the latency competition for the
+          right to requote first.
+        correct: true
+        feedback: >
+          Right — the game has no order book, so there is no queue to stand in
+          and nothing for speed to win. This is microstructure's territory, not
+          the game's.
+      - text: >
+          Moving the whole market after being repeatedly hit on one side.
+        feedback: >
+          Kept. This is the same Bayesian re-centring a real maker performs on
+          one-sided flow; only the number of fills differs.
+      - text: >
+          Leaning quotes against an accumulated position.
+        feedback: >
+          Kept. A real desk does it with a model and the candidate does it by
+          hand, but it is the same risk adjustment.
+      - text: >
+          Earning the spread minus what better-informed counterparties take.
+        feedback: >
+          Kept — this is the identical economics, which is exactly why the game
+          is worth playing at two trades.
+    rubric:
+      - >
+        Identifies queue priority and latency as machinery with no
+        counterpart, because the game has no order book.
+      - >
+        Confirms that re-centring on flow, skewing on inventory and spread
+        minus adverse selection all survive the compression.
+    targets:
+      - quant-games.market-making-game.game-vs-real-markets
