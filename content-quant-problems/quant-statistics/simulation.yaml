@@ -1,0 +1,1623 @@
+# Problems targeting quant-statistics.simulation — estimating by sampling, and
+# the places a simulated answer quietly stops meaning what it says.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. No problem here reuses a lesson's
+# worked example or a card's instance. See ../README.md.
+
+problems:
+  # --- the uniform stream as the primitive ------------------------------------
+
+  - id: qsim-uniform-prng-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A risk run is driven by the toy generator $x_{k+1} = (11 x_k + 5) \bmod
+      24$ with output $U_k = x_k/24$, seeded at $x_0 = 7$. The run consumes
+      $2000$ draws. How many *distinct* values of $U$ does it actually see?
+    answer: >
+      $4$. Iterate the recursion from $x_0 = 7$: $x_1 = (77 + 5) \bmod 24 = 82
+      \bmod 24 = 10$, $x_2 = (110 + 5) \bmod 24 = 115 \bmod 24 = 19$, $x_3 =
+      (209 + 5) \bmod 24 = 214 \bmod 24 = 22$, and $x_4 = (242 + 5) \bmod 24 =
+      247 \bmod 24 = 7 = x_0$. The state has returned to the seed after four
+      steps, so the whole stream is the cycle $7, 10, 19, 22$ repeated $500$
+      times, and the outputs are only $7/24, 10/24, 19/24, 22/24 \approx
+      0.2917, 0.4167, 0.7917, 0.9167$. The two wrong answers are both
+      instructive: $2000$ treats the draws as genuinely random, and $24$ assumes
+      the generator sweeps its whole state space. It does not, because full
+      period needs $a - 1 = 10$ to be divisible by every prime factor of $m =
+      24$, and $3$ divides $24$ but not $10$. The lesson generalizes: a
+      simulation cannot resolve anything finer than its generator's period,
+      whatever $n$ you type.
+    expects: "4"
+    tolerance: 0.001
+    rubric:
+      - >
+        Iterates the recursion rather than assuming the period equals the
+        modulus — the answer is the cycle length, not $24$ and not $2000$.
+      - >
+        Names the consequence: repeated draws are the same numbers again, so the
+        effective sample size is capped by the period no matter how large $n$ is.
+    targets:
+      - quant-statistics.simulation.uniform-prng
+    exercises:
+      - quant-probability.continuous.uniform
+
+  - id: qsim-uniform-prng-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A generator advances by $x_{k+1} = (9 x_k + 4) \bmod 25$ and reports
+      $U_k = x_k/25$. It is seeded at $x_0 = 3$. What is $U_2$?
+    answer: >
+      $0.32$. Advance the state twice: $x_1 = (9 \times 3 + 4) \bmod 25 = 31
+      \bmod 25 = 6$, then $x_2 = (9 \times 6 + 4) \bmod 25 = 58 \bmod 25 = 8$.
+      The output is $U_2 = x_2/25 = 8/25 = 0.32$. Two things are worth saying
+      out loud. First, nothing here is random: fix the seed and this $0.32$
+      appears every single time, which is exactly the reproducibility the method
+      trades randomness for. Second, the map from state to output is the
+      division by the modulus, so the outputs live on the grid $0, 1/25,
+      2/25, \dots$ — a pseudorandom uniform is always a discrete approximation
+      to a continuous law, and only the fineness of that grid hides it.
+    expects: "0.32"
+    rubric:
+      - >
+        Advances the state exactly twice and divides by $m = 25$ at the end,
+        rather than dividing at each step.
+      - >
+        Recognizes the output as deterministic given the seed.
+    targets:
+      - quant-statistics.simulation.uniform-prng
+    exercises:
+      - quant-probability.continuous.uniform
+
+  # --- Monte Carlo estimation -------------------------------------------------
+
+  - id: qsim-monte-carlo-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two fair four-sided dice are rolled independently and you want $\theta =
+      \mathbb{E}[\lvert X_1 - X_2 \rvert]$. Six simulated pairs come back as
+      $(1,4), (3,3), (2,1), (4,2), (1,1), (3,4)$. Report the Monte Carlo
+      estimate $\hat{\theta}_6$ as an exact fraction.
+    answer: >
+      $7/6 \approx 1.1667$. Apply $h(x_1,x_2) = \lvert x_1 - x_2 \rvert$ to each
+      simulated pair: $3, 0, 1, 2, 0, 1$. Their sum is $7$, so $\hat{\theta}_6 =
+      7/6 \approx 1.1667$. The exact value is available here and worth
+      comparing: over all $16$ equally likely pairs the absolute differences
+      contribute $2 \times (3 \times 1 + 2 \times 2 + 1 \times 3) = 20$, giving
+      $\theta = 20/16 = 1.25$. So six draws land about $0.083$ low — entirely
+      unremarkable, since the per-draw standard deviation of $\lvert X_1 - X_2
+      \rvert$ is close to $1$ and the standard error at $n = 6$ is therefore
+      around $0.4$. The point of the exercise is that the estimator never needed
+      the exact enumeration: $h$ can be any function you can evaluate on a
+      simulated draw, and the average of those evaluations is the answer.
+    expects: "7/6"
+    tolerance: 0.005
+    rubric:
+      - >
+        Evaluates $h$ on each simulated pair and averages the six values of $h$,
+        rather than averaging the dice and applying $h$ afterwards.
+      - >
+        Treats the estimate as one draw from a sampling distribution — the gap
+        to the exact $1.25$ is noise of the expected size, not an error.
+    targets:
+      - quant-statistics.simulation.monte-carlo
+    exercises:
+      - quant-probability.expectation.expectation
+
+  - id: qsim-monte-carlo-02
+    kind: work
+    difficulty: standard
+    statement: >
+      You are estimating $\theta = \mathbb{E}[h(U)]$ for $h(u) = 3u^{2} + 1$ and
+      $U$ uniform on $(0,1)$. Four uniform draws arrive: $0.1, 0.4, 0.6, 0.9$.
+      What is $\hat{\theta}_4$?
+    answer: >
+      $2.005$. Evaluate $h$ at each draw: $h(0.1) = 3(0.01) + 1 = 1.03$,
+      $h(0.4) = 3(0.16) + 1 = 1.48$, $h(0.6) = 3(0.36) + 1 = 2.08$, and
+      $h(0.9) = 3(0.81) + 1 = 3.43$. The four values sum to $8.02$, so
+      $\hat{\theta}_4 = 8.02/4 = 2.005$. The exact answer is $\theta =
+      3\mathbb{E}[U^{2}] + 1 = 3(1/3) + 1 = 2$, so four draws already sit within
+      $0.005$ — luckier than typical, since the per-draw standard deviation of
+      $h(U)$ is about $0.9$ and the standard error at $n = 4$ is near $0.45$.
+      The standard slip is to average the draws first, getting $\bar{u} = 0.5$
+      and $h(0.5) = 1.75$: that computes $h(\mathbb{E}[U])$, a different and
+      wrong quantity, and the gap between the two is exactly the curvature of
+      $h$ that Jensen's inequality measures.
+    expects: "2.005"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Averages $h$ of the draws, not $h$ of the average — $h(\bar{u}) = 1.75$
+        is the named trap.
+      - >
+        Checks the estimate against the exact $\theta = 2$ and calls the
+        difference sampling noise of the expected size.
+    targets:
+      - quant-statistics.simulation.monte-carlo
+    exercises:
+      - quant-probability.expectation.lotus
+
+  - id: qsim-monte-carlo-03
+    kind: decide
+    difficulty: demanding
+    statement: >
+      A desk simulates $n$ paths, averages them into an unbiased estimate
+      $\hat{\theta}_n$ of an expected loss $\theta > 0$, and reports the implied
+      capacity $1/\hat{\theta}_n$ as an estimate of $1/\theta$. Why is the
+      reported capacity biased even though $\hat{\theta}_n$ is not?
+    answer: >
+      Because $1/x$ is strictly convex on the positive axis, so by Jensen's
+      inequality $\mathbb{E}[1/\hat{\theta}_n] > 1/\mathbb{E}[\hat{\theta}_n] =
+      1/\theta$ whenever $\hat{\theta}_n$ has any spread at all. Unbiasedness
+      survives only linear transformations: $\mathbb{E}[a\hat{\theta}_n + b] =
+      a\theta + b$ always, but for a nonlinear $g$ the equality
+      $\mathbb{E}[g(\hat{\theta}_n)] = g(\theta)$ generally fails. The size of
+      the bias is roughly $g''(\theta)\operatorname{Var}(\hat{\theta}_n)/2$ by a
+      second-order expansion, so here it is about
+      $\operatorname{Var}(\hat{\theta}_n)/\theta^{3}$ — of order $1/n$, hence
+      shrinking, but shrinking one power faster than the standard error and so
+      invisible in the error bar. That is what makes it dangerous: the capacity
+      is reported with a symmetric interval that does not know it is centred in
+      the wrong place, and the overstatement is largest exactly when $\theta$ is
+      small and the simulation is noisiest.
+    choices:
+      - text: >
+          $1/x$ is convex, so Jensen's inequality makes
+          $\mathbb{E}[1/\hat{\theta}_n]$ strictly larger than $1/\theta$; the
+          bias is of order $1/n$ and shrinks faster than the standard error.
+        correct: true
+        feedback: >
+          Right, and the order-$1/n$ rate is why it hides: the error bar shrinks
+          like $n^{-1/2}$ and never flags the offset.
+      - text: >
+          The paths are not truly independent, so the sample average is biased
+          before the reciprocal is taken.
+        feedback: >
+          Dependence widens the honest error bar but leaves
+          $\mathbb{E}[\hat{\theta}_n] = \theta$ intact — the bias here appears
+          even with perfectly independent paths.
+      - text: >
+          The bias comes from the central limit theorem not having taken hold at
+          finite $n$.
+        feedback: >
+          Unbiasedness of $\hat{\theta}_n$ holds at every $n$ and owes nothing to
+          the central limit theorem; the reciprocal is what breaks it.
+      - text: >
+          There is no bias — $1/\hat{\theta}_n$ is a consistent estimator of
+          $1/\theta$, so it is unbiased.
+        feedback: >
+          Consistency and unbiasedness are different properties. $1/\hat{\theta}_n$
+          is indeed consistent, and still biased at every finite $n$.
+    rubric:
+      - >
+        Names convexity and Jensen's inequality, and gets the direction right —
+        the reported capacity is too *large*.
+      - >
+        Distinguishes consistency from unbiasedness, and notes the bias is of
+        order $1/n$ while the standard error is of order $n^{-1/2}$.
+    targets:
+      - quant-statistics.simulation.monte-carlo
+    exercises:
+      - quant-probability.expectation.linearity
+
+  - id: qsim-monte-carlo-04
+    kind: justify
+    difficulty: standard
+    statement: >
+      Show that $\hat{\theta}_n = \frac{1}{n}\sum_{i=1}^{n} h(X_i)$ satisfies
+      $\mathbb{E}[\hat{\theta}_n] = \theta$ for every $n$, and say precisely
+      which hypothesis that argument uses. Then say what the law of large
+      numbers adds that unbiasedness alone does not.
+    answer: >
+      Unbiasedness is one line of linearity: $\mathbb{E}[\hat{\theta}_n] =
+      \frac{1}{n}\sum_{i=1}^{n}\mathbb{E}[h(X_i)] = \frac{1}{n}(n\theta) =
+      \theta$. Linearity of expectation holds for *any* random variables with
+      finite means, so the only hypothesis used is that each $X_i$ has the law of
+      $X$ — identical distribution, nothing more. Independence is never invoked,
+      which is why an autocorrelated simulation still centres on the right
+      answer; what dependence damages is $\operatorname{Var}(\hat{\theta}_n) =
+      \sigma^{2}/n$, whose derivation does discard cross-covariances. What the
+      law of large numbers adds is convergence: unbiasedness at $n = 1$ is the
+      statement that a single draw is right *on average*, which is compatible
+      with every individual run being wildly wrong. The weak law says
+      $\hat{\theta}_n \to \theta$ in probability, so the spread around the
+      correct centre actually collapses as $n$ grows. Unbiasedness fixes the
+      target, the law of large numbers licenses hitting it, and only then does
+      the central limit theorem say how fast.
+    rubric:
+      - >
+        Gives the linearity computation and states explicitly that independence
+        is not needed for it — only a common mean.
+      - >
+        Separates the two guarantees: unbiasedness centres the estimator at every
+        $n$, the law of large numbers is what makes the scatter around that
+        centre vanish.
+      - >
+        Notes where independence *is* needed — the variance $\sigma^{2}/n$, not
+        the mean.
+    targets:
+      - quant-statistics.simulation.monte-carlo
+      - quant-probability.limits.wlln
+    connects:
+      - quant-probability.limits.wlln ~ quant-statistics.simulation.monte-carlo
+    exercises:
+      - quant-probability.expectation.linearity
+
+  # --- Monte Carlo error ------------------------------------------------------
+
+  - id: qsim-mc-error-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A payoff has per-draw standard deviation $\sigma = 2.5$. You have already
+      run $2500$ paths, and the desk wants the $95\%$ interval half-width — take
+      it as $1.96\sigma/\sqrt{n}$ — cut to $0.049$. How many *additional* paths
+      must you run?
+    answer: >
+      $7500$. The current half-width is $1.96 \times 2.5/\sqrt{2500} = 4.9/50 =
+      0.098$, so the target $0.049$ is exactly half of it. Solving $1.96 \times
+      2.5/\sqrt{n} = 0.049$ gives $\sqrt{n} = 4.9/0.049 = 100$ and $n = 10000$,
+      of which $2500$ are already done, leaving $10000 - 2500 = 7500$ more. The
+      trap is the reflex "half the width, twice the paths", which would answer
+      $2500$ additional paths: the error falls as $1/\sqrt{n}$, not $1/n$, so
+      halving it costs a factor of $2^{2} = 4$ in $n$, and buying the *fourth*
+      halving after that would cost another $30000$ on top. Notice too that
+      $\sigma$ never moves — the only lever inside $1.96\sigma/\sqrt{n}$ that
+      responds to more computing is $n$, which is precisely why variance
+      reduction, which attacks $\sigma$ instead, is worth so much.
+    expects: "7500"
+    rubric:
+      - >
+        Inverts $1.96\sigma/\sqrt{n}$ for $n$ rather than scaling $n$ linearly
+        with the width — the $1/\sqrt{n}$ rate is the whole problem.
+      - >
+        Subtracts the $2500$ paths already run, answering the question asked.
+    targets:
+      - quant-statistics.simulation.mc-error
+    exercises:
+      - quant-probability.limits.root-n
+
+  - id: qsim-mc-error-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A simulation of $n = 900$ independent draws returns values $h(X_1), \dots,
+      h(X_{900})$ with sample standard deviation $\hat{\sigma} = 4.5$. What
+      standard error should be reported alongside $\hat{\theta}_{900}$?
+    answer: >
+      $0.15$. The standard error of the Monte Carlo average is
+      $\hat{\sigma}/\sqrt{n} = 4.5/\sqrt{900} = 4.5/30 = 0.15$, and the reported
+      answer should be $\hat{\theta}_{900} \pm 1.96 \times 0.15 \approx
+      \hat{\theta}_{900} \pm 0.294$ at $95\%$. Two mistakes are common enough to
+      name. Quoting $4.5$ itself as the uncertainty confuses the spread of a
+      single simulated value with the spread of the average of $900$ of them,
+      and overstates the error by the factor $\sqrt{900} = 30$. Dividing by $n$
+      instead of $\sqrt{n}$ gives $0.005$ and understates it by the same factor
+      the other way. The sample standard deviation of the $h(X_i)$ costs nothing
+      once the draws exist, so there is never a reason to report a simulated
+      number without it.
+    expects: "0.15"
+    rubric:
+      - >
+        Divides $\hat{\sigma}$ by $\sqrt{n} = 30$, not by $n = 900$ and not by
+        nothing at all.
+      - >
+        Reports the standard error as the uncertainty in the *average*, keeping
+        it distinct from the per-draw spread $\hat{\sigma}$.
+    targets:
+      - quant-statistics.simulation.mc-error
+    exercises:
+      - quant-probability.limits.root-n
+
+  # --- why simulate at all: the dimension does not enter -----------------------
+
+  - id: qsim-dimension-independence-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      In $d = 6$ dimensions a second-order product rule with $m = 12$ nodes per
+      axis costs $12^{6} = 2985984$ evaluations and delivers an error of order
+      $m^{-2}$. How many Monte Carlo draws, with $\sigma = 1$, reach that same
+      error?
+    answer: >
+      $20736$. The grid's error is of order $m^{-2} = 12^{-2} = 1/144 \approx
+      0.006944$. Monte Carlo with $\sigma = 1$ has error $1/\sqrt{n}$, so
+      matching requires $1/\sqrt{n} = 1/144$, that is $n = 144^{2} = 20736$
+      draws. Set the two costs side by side: about $3.0 \times 10^{6}$ grid
+      evaluations against about $2.1 \times 10^{4}$ simulated draws, a factor of
+      roughly $144$ in favour of simulation at this accuracy — and the factor
+      grows without bound in $d$, because the grid pays $m^{d}$ while Monte
+      Carlo pays a cost that never mentions $d$ at all. The rate comparison is
+      the compact way to see it: the grid achieves $m^{-2} = n^{-2/d}$, which
+      beats $n^{-1/2}$ only while $2/d > 1/2$. At $d = 6$ that inequality has
+      already failed, and this arithmetic is what the failure costs.
+    expects: "20736"
+    rubric:
+      - >
+        Converts the grid's node count $m$ into its *error* $m^{-2}$ first, then
+        inverts $\sigma/\sqrt{n}$ against that error.
+      - >
+        Compares the two counts and attributes the gap to $m^{d}$ versus a cost
+        that does not involve $d$.
+    targets:
+      - quant-statistics.simulation.dimension-independence
+    exercises:
+      - quant-statistics.simulation.mc-error
+
+  - id: qsim-dimension-independence-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A *fourth*-order product rule has error of order $n^{-4/d}$ in $d$
+      dimensions, against Monte Carlo's $n^{-1/2}$. At which dimension $d$ does
+      the grid stop being the faster-converging method?
+    answer: >
+      $d = 8$. The grid converges faster exactly while $4/d > 1/2$, that is
+      while $d < 8$; at $d = 8$ the two exponents are equal at $1/2$, and beyond
+      it the grid is strictly slower. The general statement is that a
+      $p$-th-order rule crosses over at $d = 2p$, so the second-order rule of
+      the unit statement breaks even at $d = 4$ and this one merely doubles that
+      reach. It is worth noticing how weak the reward for a better rule is:
+      quadrupling the order buys four extra dimensions of viability, while the
+      grid's *cost* $m^{d}$ keeps multiplying by $m$ for each one of them. That
+      asymmetry — polynomial gain in the exponent against exponential growth in
+      the count — is the curse of dimensionality in one line, and no order of
+      accuracy escapes it.
+    expects: "8"
+    rubric:
+      - >
+        Sets the two convergence exponents equal, $4/d = 1/2$, rather than
+        comparing the error constants.
+      - >
+        States the general crossover $d = 2p$ for a $p$-th-order rule, so the
+        answer is a formula rather than a memorized $4$.
+    targets:
+      - quant-statistics.simulation.dimension-independence
+    exercises:
+      - quant-statistics.simulation.mc-error
+
+  # --- estimating π with a dartboard ------------------------------------------
+
+  - id: qsim-estimate-pi-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A run of $n = 5000$ darts on the unit square puts $3898$ inside the
+      quarter disc. Report the *estimated* standard error of $\hat{\pi}$, using
+      the observed hit fraction rather than the true $p$, to four decimal places.
+    answer: >
+      $0.0234$. The hit fraction is $\hat{p} = 3898/5000 = 0.7796$, so
+      $\hat{\pi} = 4 \times 0.7796 = 3.1184$. Each dart is a Bernoulli trial,
+      so the plug-in variance of one indicator is $\hat{p}(1 - \hat{p}) = 0.7796
+      \times 0.2204 = 0.171824$, the variance of $\hat{p}$ is that over $n$, and
+      multiplying $\hat{p}$ by $4$ multiplies the standard deviation by $4$:
+      $\operatorname{SE}(\hat{\pi}) = 4\sqrt{0.171824/5000} = 4 \times
+      0.0058621 \approx 0.0234$. So the honest report is $\hat{\pi} = 3.1184 \pm
+      0.0234$, an interval that comfortably contains $3.1416$ — and note that
+      the second decimal is already at the edge of what this run resolves. The
+      standing approximation $1.64/\sqrt{n}$ uses the *true* $p = \pi/4$ and
+      gives $0.0232$ here; the two agree to three decimals precisely because
+      $\hat{p}$ is close to $p$. The trap is rescaling the estimate by $4$ but
+      forgetting to rescale its standard error, which would understate the
+      uncertainty fourfold.
+    expects: "0.0234"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses the Bernoulli variance $\hat{p}(1-\hat{p})$ of a single indicator,
+        divided by $n$, rather than any circle-specific formula.
+      - >
+        Carries the factor of $4$ through the standard error as well as the point
+        estimate.
+    targets:
+      - quant-statistics.simulation.estimate-pi
+    exercises:
+      - quant-probability.geometric.probability-as-area
+
+  - id: qsim-estimate-pi-02
+    kind: work
+    difficulty: routine
+    statement: >
+      Of $900$ darts thrown uniformly on the unit square, $702$ land inside the
+      quarter disc $x^{2} + y^{2} \le 1$. What is $\hat{\pi}$?
+    answer: >
+      $3.12$. The quarter disc has area $\pi/4$ inside a square of area $1$, so
+      the probability a uniform dart lands in it is exactly $\pi/4$ and the hit
+      fraction estimates that: $\hat{p} = 702/900 = 0.78$. Multiplying by four
+      undoes the quarter, giving $\hat{\pi} = 4 \times 0.78 = 3.12$. The
+      accompanying error bar, from $1.64/\sqrt{n}$, is $1.64/30 \approx 0.055$,
+      so $3.12$ and the true $3.1416$ differ by well under one standard error
+      and this run has no business claiming a second decimal. That is the whole
+      lesson of the dartboard: the estimator is trivial to write down and
+      hopeless to make precise, since each extra decimal costs a hundredfold in
+      throws.
+    expects: "3.12"
+    rubric:
+      - >
+        Identifies the hit probability as the *area* $\pi/4$ and multiplies the
+        fraction by $4$.
+      - >
+        Attaches an error bar and does not read more decimals out of $3.12$ than
+        $900$ throws support.
+    targets:
+      - quant-statistics.simulation.estimate-pi
+    exercises:
+      - quant-probability.geometric.probability-as-area
+
+  # --- inverse transform sampling ---------------------------------------------
+
+  - id: qsim-inverse-transform-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A latency model uses the standard logistic law, whose CDF is
+      $F(x) = 1/(1 + \exp(-x))$ on the whole real line. Inverse transform
+      sampling is fed the draw $U = 0.8$. What value does it return, to four
+      decimal places?
+    answer: >
+      $1.3863$. Set $u = 1/(1 + \exp(-x))$ and solve: $1 + \exp(-x) = 1/u$, so
+      $\exp(-x) = (1 - u)/u$ and $x = \ln(u/(1 - u))$ — the log-odds, or logit,
+      which is why this law is the backbone of logistic regression. At $u = 0.8$
+      the odds are $0.8/0.2 = 4$, so $x = \ln 4 \approx 1.3863$. Check it
+      forward: $\exp(-1.3863) = 0.25$, and $1/(1 + 0.25) = 0.8$ exactly, which
+      is the discipline worth keeping — substitute the answer back into $F$ and
+      confirm you recover $u$. Two structural notes. The quantile function
+      diverges at both ends, so a draw near $0$ or $1$ produces a large
+      magnitude, which is the sampler faithfully reproducing the logistic's
+      heavier-than-normal tails. And $1 - U$ is uniform too, so feeding $0.2$
+      returns $-1.3863$: the antithetic partner of a draw is its mirror image
+      through the median, for free.
+    expects: "1.3863"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Inverts the logistic CDF symbolically to $x = \ln(u/(1-u))$ before
+        substituting, rather than solving numerically.
+      - >
+        Verifies the answer by pushing it back through $F$ and recovering $0.8$.
+    targets:
+      - quant-statistics.simulation.inverse-transform
+    exercises:
+      - quant-probability.random-variables.quantiles
+
+  - id: qsim-inverse-transform-02
+    kind: work
+    difficulty: demanding
+    statement: >
+      An operational loss is exactly zero with probability $0.4$ and otherwise
+      exponential with rate $0.4$, so its CDF is
+      $F(x) = 1 - 0.6\exp(-0.4x)$ for $x \ge 0$ and $0$ below. What does inverse
+      transform sampling return for the draw $U = 0.7$, to four decimal places?
+    answer: >
+      $1.7329$. First locate the draw against the atom: $F(0) = 1 - 0.6 = 0.4$,
+      so any $u \le 0.4$ returns the value $0$, and $u = 0.7$ is above that and
+      lands on the continuous part. Solve $0.7 = 1 - 0.6\exp(-0.4x)$, giving
+      $0.6\exp(-0.4x) = 0.3$, so $\exp(-0.4x) = 0.5$ and
+      $x = \ln 2 / 0.4 \approx 0.6931/0.4 \approx 1.7329$. The point of the
+      instance is that nothing in the method needed the CDF to be continuous.
+      The quantile function $q(u) = \inf\{x : F(x) \ge u\}$ maps the entire
+      interval $(0, 0.4]$ to the single point $0$ — the flat spot in $q$ is the
+      jump in $F$ — and maps $(0.4, 1)$ onto the exponential part. The reflex
+      error is to ignore the atom and use the plain exponential inverse
+      $-\ln(1 - u)/0.4$, which returns $3.0099$ here: badly too large, because it
+      spends the whole unit interval on the continuous piece that only owns
+      $60\%$ of the probability.
+    expects: "1.7329"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Compares $u$ against $F(0) = 0.4$ before inverting, so the atom at zero
+        is handled rather than assumed away.
+      - >
+        Keeps the factor $0.6$ inside the exponential term — dropping it is the
+        named trap and gives $3.0099$.
+    targets:
+      - quant-statistics.simulation.inverse-transform
+    exercises:
+      - quant-probability.random-variables.cdf
+
+  - id: qsim-inverse-transform-03
+    kind: work
+    difficulty: standard
+    statement: >
+      A variable has density $f(x) = 2x$ on $(0,1)$. Using inverse transform
+      sampling, what value does the uniform draw $U = 0.49$ produce?
+    answer: >
+      $0.7$. Integrate the density to get the CDF: $F(x) = \int_0^x 2t\,dt =
+      x^{2}$ on $(0,1)$. Solving $u = x^{2}$ on that range gives $x = \sqrt{u}$,
+      so the sampler is simply $X = \sqrt{U}$, and $U = 0.49$ returns
+      $\sqrt{0.49} = 0.7$. The shape is a useful sanity check on the whole
+      method: $f$ puts more mass near $1$ than near $0$, and the square root
+      pushes uniform draws upward — $\sqrt{0.49} = 0.7 > 0.49$ — exactly as it
+      should. The common slip is inverting the *density* instead of the
+      distribution function, which here would mean solving $2x = u$ and
+      returning $0.245$; the density is not a probability and has no business
+      being set equal to a uniform draw.
+    expects: "0.7"
+    rubric:
+      - >
+        Integrates $f$ to the CDF $x^{2}$ first, then inverts it — inverting the
+        density is the named trap.
+      - >
+        Sanity-checks the direction: a density increasing on $(0,1)$ must map
+        uniforms upward.
+    targets:
+      - quant-statistics.simulation.inverse-transform
+    exercises:
+      - quant-probability.random-variables.pdf
+
+  # --- sampling a discrete law from a cumulative table -------------------------
+
+  - id: qsim-discrete-sampling-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A fill-size generator draws from probabilities $(0.12, 0.28, 0.30, 0.18,
+      0.12)$ on five values using a linear scan of the cumulative table, and the
+      table is ordered largest-probability-first. What is the expected number of
+      comparisons per draw?
+    answer: >
+      $2.48$. A linear scan returns at position $j$ after exactly $j$
+      comparisons, so the expected cost is $\sum_j j\,p_{(j)}$ where $p_{(j)}$
+      is the $j$-th probability *in the order the table is stored*. Sorting
+      largest-first gives $0.30, 0.28, 0.18, 0.12, 0.12$, so the expectation is
+      $1(0.30) + 2(0.28) + 3(0.18) + 4(0.12) + 5(0.12) = 0.30 + 0.56 + 0.54 +
+      0.48 + 0.60 = 2.48$ comparisons. Compare the given order $0.12, 0.28,
+      0.30, 0.18, 0.12$, which costs $0.12 + 0.56 + 0.90 + 0.72 + 0.60 = 2.90$:
+      sorting is free at setup and buys a $14\%$ cut in the inner loop forever
+      after. Two sanity bounds worth carrying. The cost can never exceed $k = 5$,
+      and it is exactly $3$ — the mean position — when the law is uniform, so
+      any answer above $3$ for a sorted table has a sign error somewhere.
+    expects: "2.48"
+    tolerance: 0.005
+    rubric:
+      - >
+        Weights each *position* by the probability stored there, after sorting,
+        rather than weighting the values themselves.
+      - >
+        Notes that sorting largest-first is what makes the sum small, and that
+        the uniform law's cost $(k+1)/2 = 3$ is the ceiling for a sorted table.
+    targets:
+      - quant-statistics.simulation.discrete-sampling
+    exercises:
+      - quant-statistics.simulation.inverse-transform
+
+  - id: qsim-discrete-sampling-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A discrete law puts probabilities $(0.25, 0.15, 0.35, 0.25)$ on the values
+      $5, 6, 7, 8$ in that order. A uniform draw returns $U = 0.62$. Which value
+      does the cumulative-table sampler emit?
+    answer: >
+      $7$. Form the cumulative sums in the stored order: $c_1 = 0.25$, $c_2 =
+      0.40$, $c_3 = 0.75$, $c_4 = 1.00$. Now find the smallest $j$ with $U \le
+      c_j$: $0.62 > 0.25$ and $0.62 > 0.40$, but $0.62 \le 0.75$, so $j = 3$ and
+      the sampler returns the third value, $7$. Equivalently the draw has landed
+      in the interval $(0.40, 0.75]$, whose length $0.35$ is precisely the
+      probability of that value — the whole method is cutting $[0,1]$ into
+      pieces of the right lengths and reporting where the uniform falls. The
+      slip that matters is returning the *index* $3$ rather than the value $7$
+      it labels; the two coincide only when the values happen to be $1, 2,
+      \dots, k$.
+    expects: "7"
+    rubric:
+      - >
+        Accumulates the probabilities and compares $U$ with the cumulative sums,
+        not with the individual $p_j$.
+      - >
+        Reports the value attached to the winning index, not the index.
+    targets:
+      - quant-statistics.simulation.discrete-sampling
+    exercises:
+      - quant-statistics.simulation.inverse-transform
+
+  # --- Walker's alias method ---------------------------------------------------
+
+  - id: qsim-alias-method-01
+    kind: decide
+    difficulty: demanding
+    statement: >
+      An alias table for $(0.1, 0.4, 0.2, 0.3)$ on outcomes $1$ to $4$ has
+      columns retaining their own outcome up to heights $0.4, 1, 0.8, 1$, with
+      columns $1$ and $3$ aliasing to outcomes $2$ and $4$. A candidate saves a
+      uniform by picking the column as $i = \lceil 4U \rceil$ and then reusing
+      that same $U$ for the retain-or-alias test. What happens?
+    answer: >
+      The sampler collapses to the uniform law on four outcomes. Once $i =
+      \lceil 4U \rceil$ has selected column $i$, the draw $U$ is known to lie in
+      $((i-1)/4, i/4]$ — it is no longer uniform on $(0,1)$, and that is what
+      the height test assumes. Column $1$ confines $U$ to $(0, 0.25]$ and tests
+      it against the retained height $0.4$, so the test passes every time;
+      column $3$ confines $U$ to $(0.5, 0.75]$ against a height of $0.8$, again
+      always passing; columns $2$ and $4$ are pure and pass trivially. No alias
+      is ever taken, so every outcome appears with probability $1/4$ instead of
+      $0.1, 0.4, 0.2, 0.3$. The two uniforms are not a wasteful convention: the
+      method needs the column choice and the within-column height to be
+      independent. The legitimate saving is to reuse the *scaled fractional
+      part* $4U - (i-1)$, which is uniform on $(0,1)$ given the column and
+      independent of it; reusing $U$ raw is not the same thing.
+    choices:
+      - text: >
+          The sampler returns the wrong law — conditioned on the column, $U$ is
+          confined to that column's subinterval, so the height test never
+          triggers an alias and every outcome comes out with probability $1/4$.
+        correct: true
+        feedback: >
+          Exactly: the height test needs a variable uniform on $(0,1)$ given the
+          column, and $U$ given $i$ is uniform on a width-$1/4$ slice instead.
+      - text: >
+          Nothing changes — $U$ is uniform, so it is a valid input to both steps.
+        feedback: >
+          $U$ is uniform *unconditionally*, but the second step conditions on the
+          column the first step chose, and conditioning destroys the uniformity.
+      - text: >
+          It is unbiased but slower, because the correlation between the two uses
+          forces more retries.
+        feedback: >
+          The alias method has no retry loop at all — every draw returns a value
+          — so nothing here costs time; what it costs is correctness.
+      - text: >
+          It only breaks for laws with more than two outcomes per column, which
+          the alias construction never produces.
+        feedback: >
+          Every alias column holds at most two outcomes by construction, and this
+          table breaks anyway, so that cannot be the distinguishing condition.
+    rubric:
+      - >
+        Identifies the conditional distribution of $U$ given $i$ as the problem —
+        uniform on a width-$1/k$ slice, not on $(0,1)$.
+      - >
+        Works out the concrete consequence for this table rather than saying
+        "correlated" and stopping.
+      - >
+        Knows the legitimate repair: reuse the scaled fractional part
+        $kU - (i-1)$, which is uniform and independent of the column.
+    targets:
+      - quant-statistics.simulation.alias-method
+    exercises:
+      - quant-statistics.simulation.discrete-sampling
+
+  - id: qsim-alias-method-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Using that same table for $(0.1, 0.4, 0.2, 0.3)$ — column $1$ retains
+      outcome $1$ up to height $0.4$ and aliases the rest to outcome $2$, column
+      $3$ retains outcome $3$ up to $0.8$ and aliases to outcome $4$, columns
+      $2$ and $4$ are pure — a draw gives $U_1 = 0.15$ and $U_2 = 0.62$. Which
+      outcome is returned?
+    answer: >
+      $2$. The first uniform picks the column: $i = \lceil 4 \times 0.15 \rceil
+      = \lceil 0.6 \rceil = 1$. The second uniform decides inside that column:
+      column $1$ retains its own outcome only up to height $0.4$, and $U_2 =
+      0.62 > 0.4$, so the draw falls in the aliased part and the sampler returns
+      the alias, outcome $2$. Check the arithmetic of the table against the law
+      it is supposed to reproduce: outcome $2$ is reached from column $2$ with
+      probability $\tfrac{1}{4}(1) = 0.25$ and from column $1$'s alias with
+      probability $\tfrac{1}{4}(0.6) = 0.15$, totalling $0.4$, exactly $p_2$.
+      The reflex error is to read $U_2 \le 0.62$ as "below the height, keep the
+      column's own outcome" without checking which side of $0.4$ it is on, and
+      answer $1$.
+    expects: "2"
+    rubric:
+      - >
+        Uses $\lceil kU_1 \rceil$ for the column and the *second* uniform for the
+        retain-or-alias test, in that order.
+      - >
+        Compares $U_2$ with the column's retained height and takes the alias when
+        it exceeds it.
+    targets:
+      - quant-statistics.simulation.alias-method
+    exercises:
+      - quant-statistics.simulation.discrete-sampling
+
+  # --- rejection sampling -------------------------------------------------------
+
+  - id: qsim-rejection-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You sample the density $f(x) = 12x^{2}(1-x)$ on $(0,1)$ by rejection,
+      using a uniform proposal on $(0,1)$ and the tightest valid envelope
+      constant $M$. What is the acceptance rate of a single attempt, as an exact
+      fraction?
+    answer: >
+      $9/16$. The proposal density is $g(x) = 1$ on $(0,1)$, so the requirement
+      $f \le Mg$ reads $M \ge \max_x f(x)$ and the tightest choice is the
+      maximum itself. Differentiate: $f'(x) = 24x - 36x^{2} = 12x(2 - 3x)$,
+      which vanishes on $(0,1)$ at $x = 2/3$, and $f(2/3) = 12 \times
+      \tfrac{4}{9} \times \tfrac{1}{3} = \tfrac{48}{27} = \tfrac{16}{9} \approx
+      1.7778$. So $M = 16/9$ and the acceptance probability of one attempt is
+      $1/M = 9/16 = 0.5625$. The number of attempts per accepted draw is
+      geometric with mean $M \approx 1.78$, so producing $10^{6}$ draws costs
+      about $1.78 \times 10^{6}$ proposals and the same number of uniforms for
+      the accept test. The whole cost of the method is the tightness of the
+      envelope, and the named trap sits right here: shaving $M$ below $16/9$ to
+      raise the acceptance rate does not make the sampler faster, it makes it
+      wrong, because wherever $f > Mg$ the accept rule can never fire and that
+      part of the density is silently truncated.
+    expects: "9/16"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Maximizes $f/g$ — here just $f$, since $g \equiv 1$ — by differentiating,
+        rather than guessing an envelope.
+      - >
+        Reports the acceptance rate as $1/M$ and connects it to the geometric
+        attempt count with mean $M$.
+      - >
+        Names why $M$ cannot be shaved below the maximum: the accept test cannot
+        fire where $f > Mg$, so the sampled law is truncated, not merely slower.
+    targets:
+      - quant-statistics.simulation.rejection
+    exercises:
+      - quant-probability.random-variables.pdf
+
+  - id: qsim-rejection-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A rejection sampler runs with envelope constant $M = 1.6$ and is asked for
+      $50000$ accepted draws. Roughly how many proposals will it generate?
+    answer: >
+      $80000$. Each attempt is accepted with probability $1/M = 1/1.6 = 0.625$,
+      independently of the others, so the number of attempts needed for one
+      accepted draw is geometric with mean $M = 1.6$. Over $50000$ accepted
+      draws the expected total is $1.6 \times 50000 = 80000$ proposals, with the
+      actual count concentrated tightly around that by the law of large numbers.
+      The reading to carry away is that $M$ is a price quoted in proposals per
+      accepted draw: an envelope with $M = 1.6$ throws away $37.5\%$ of its
+      work, and a badly matched envelope with $M = 20$ would throw away $95\%$.
+      That is why rejection sampling degrades so sharply in high dimension,
+      where the tightest available $M$ typically grows exponentially in the
+      dimension and the acceptance rate collapses toward zero.
+    expects: "80000"
+    rubric:
+      - >
+        Uses $\mathbb{E}[\text{attempts}] = M$ per accepted draw and multiplies,
+        rather than dividing by $M$.
+      - >
+        Reads $M$ as a cost ratio and notes that the wasted fraction is
+        $1 - 1/M$.
+    targets:
+      - quant-statistics.simulation.rejection
+    exercises:
+      - quant-probability.random-variables.pdf
+
+  # --- Box–Muller ----------------------------------------------------------------
+
+  - id: qsim-box-muller-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Box–Muller turns $(U_1, U_2)$ into $Z_1 = \sqrt{-2\ln U_1}\cos(2\pi U_2)$
+      and $Z_2 = \sqrt{-2\ln U_1}\sin(2\pi U_2)$. For the draw $U_1 = 0.4$, what
+      is $Z_1^{2} + Z_2^{2}$, to four decimal places?
+    answer: >
+      $1.8326$, and $U_2$ never enters. Writing $R = \sqrt{-2\ln U_1}$, the two
+      outputs are $R\cos\Theta$ and $R\sin\Theta$ with $\Theta = 2\pi U_2$, so
+      $Z_1^{2} + Z_2^{2} = R^{2}(\cos^{2}\Theta + \sin^{2}\Theta) = R^{2} = -2\ln
+      U_1$. At $U_1 = 0.4$ that is $-2\ln 0.4 \approx -2(-0.9163) \approx
+      1.8326$. This identity is the transform read backwards, and it is the
+      cleanest way to remember why it works. The squared radius of a standard
+      bivariate normal is exponential with mean $2$; $-2\ln U_1$ is exactly an
+      inverse-transform draw from that law, since $\Pr(-2\ln U \le t) = \Pr(U
+      \ge e^{-t/2}) = 1 - e^{-t/2}$; and the angle is uniform on $[0, 2\pi)$ by
+      rotational symmetry, which $2\pi U_2$ supplies. So the first uniform sets
+      the radius and the second sets the direction, independently — and one
+      check on any implementation is that the mean of $Z_1^{2} + Z_2^{2}$ over
+      many draws should come out at $2$, matching a chi-square with two degrees
+      of freedom.
+    expects: "1.8326"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Recognizes that the Pythagorean identity removes $U_2$ entirely, so the
+        answer depends on $U_1$ alone.
+      - >
+        Identifies $-2\ln U_1$ as an exponential draw with mean $2$ — the squared
+        radius of the bivariate normal — rather than treating it as a formula.
+    targets:
+      - quant-statistics.simulation.box-muller
+    exercises:
+      - quant-probability.continuous.normal
+
+  - id: qsim-box-muller-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Apply Box–Muller to $U_1 = 0.6$ and $U_2 = 0.125$. What is
+      $Z_1 = \sqrt{-2\ln U_1}\cos(2\pi U_2)$, to four decimal places?
+    answer: >
+      $0.7147$. The radius is $R = \sqrt{-2\ln 0.6} = \sqrt{-2(-0.5108)} =
+      \sqrt{1.0217} \approx 1.0108$. The angle is $\Theta = 2\pi \times 0.125 =
+      \pi/4$, whose cosine is $\sqrt{2}/2 \approx 0.7071$. Multiplying,
+      $Z_1 \approx 1.0108 \times 0.7071 \approx 0.7147$. The partner output is
+      $Z_2 = R\sin(\pi/4)$, numerically the same $0.7147$ here purely because
+      this angle is the diagonal — for any other $U_2$ they differ, and they are
+      independent standard normals across draws despite sharing $R$. Two
+      mechanical traps: $2\pi U_2$ is in radians, so a calculator in degrees
+      returns $\cos(0.7854^{\circ}) \approx 1$ and an answer near $1.01$; and
+      $\ln$ here is the natural logarithm, since $\log_{10} 0.6$ would give a
+      radius of about $0.67$ instead.
+    expects: "0.7147"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Computes the radius from $U_1$ and the angle from $U_2$ separately, in
+        radians, before multiplying.
+      - >
+        Uses the natural logarithm, and notes that both outputs of the pair are
+        usable normals rather than discarding $Z_2$.
+    targets:
+      - quant-statistics.simulation.box-muller
+    exercises:
+      - quant-probability.continuous.normal
+
+  # --- simulating correlated normals ---------------------------------------------
+
+  - id: qsim-correlated-normals-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two risk factors have covariance matrix with rows $(4, 3)$ and $(3, 9)$
+      and mean zero. You simulate them as $X = LZ$ for the lower-triangular
+      Cholesky factor $L$ and independent standard normals $Z$. A draw gives
+      $Z_1 = 1$ and $Z_2 = -0.5$. What is $X_2$, to four decimal places?
+    answer: >
+      $0.2010$. Solve for $L$ with rows $(\ell_{11}, 0)$ and $(\ell_{21},
+      \ell_{22})$ entrywise from $LL^{T} = \Sigma$. The first diagonal gives
+      $\ell_{11}^{2} = 4$, so $\ell_{11} = 2$. The off-diagonal gives
+      $\ell_{11}\ell_{21} = 3$, so $\ell_{21} = 1.5$. The second diagonal gives
+      $\ell_{21}^{2} + \ell_{22}^{2} = 9$, so $\ell_{22} = \sqrt{9 - 2.25} =
+      \sqrt{6.75} \approx 2.5981$. Then $X_2 = 1.5 Z_1 + 2.5981 Z_2 = 1.5 -
+      1.2990 \approx 0.2010$ (and $X_1 = 2Z_1 = 2$). Check the construction
+      rather than the arithmetic: $\operatorname{Var}(X_2) = 1.5^{2} + 6.75 = 9$
+      and $\operatorname{Cov}(X_1, X_2) = 2 \times 1.5 = 3$, both matching
+      $\Sigma$, so the correlation is $3/(2 \times 3) = 0.5$. The trap is
+      applying the unit-variance recipe $\rho Z_1 + \sqrt{1-\rho^{2}}Z_2$ to
+      correlated *factors* rather than to standardized ones: that would give
+      $0.5 - 0.4330 = 0.0670$, a variable with variance $1$ instead of $9$.
+    expects: "0.2010"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Extracts $L$ from $LL^{T} = \Sigma$ entry by entry rather than quoting
+        the unit-variance two-dimensional formula.
+      - >
+        Verifies the factor by reproducing the variances and covariance of
+        $\Sigma$ from $L$.
+    targets:
+      - quant-statistics.simulation.correlated-normals
+    exercises:
+      - quant-statistics.simulation.box-muller
+
+  - id: qsim-correlated-normals-02
+    kind: work
+    difficulty: standard
+    statement: >
+      You need a standard bivariate normal pair with correlation $\rho = -0.6$
+      from independent standard normals. A draw gives $Z_1 = 2$ and $Z_2 = 1$.
+      What is the second coordinate of the correlated pair?
+    answer: >
+      $-0.4$. The construction is $(Z_1,\; \rho Z_1 + \sqrt{1-\rho^{2}}Z_2)$.
+      Here $\rho^{2} = 0.36$, so $\sqrt{1 - 0.36} = \sqrt{0.64} = 0.8$ exactly,
+      and the second coordinate is $-0.6(2) + 0.8(1) = -1.2 + 0.8 = -0.4$. The
+      two properties to confirm are that the variance is
+      $\rho^{2} + (1 - \rho^{2}) = 1$, so the coordinate is genuinely standard
+      normal, and that the covariance with $Z_1$ is $\rho \times 1 + \sqrt{1 -
+      \rho^{2}} \times 0 = \rho = -0.6$, which is the correlation since both
+      variances are $1$. Negative $\rho$ changes nothing structurally — the
+      square root only ever sees $\rho^{2}$ — so the same one-liner covers the
+      whole range $-1 < \rho < 1$. The trap is writing $\rho Z_1 +
+      (1 - \rho^{2})Z_2$ without the square root, which would give $-1.2 + 0.64
+      = -0.56$ and a coordinate with variance $0.36 + 0.4096 = 0.7696$ rather
+      than $1$.
+    expects: "-0.4"
+    rubric:
+      - >
+        Uses $\sqrt{1-\rho^{2}}$, not $1-\rho^{2}$, as the weight on the second
+        independent normal.
+      - >
+        Checks that the constructed coordinate has variance $1$ and covariance
+        $\rho$ with the first.
+    targets:
+      - quant-statistics.simulation.correlated-normals
+    exercises:
+      - quant-statistics.simulation.box-muller
+
+  - id: qsim-correlated-normals-03
+    kind: decide
+    difficulty: demanding
+    statement: >
+      The pair $(Z_1,\; \rho Z_1 + \sqrt{1-\rho^{2}}Z_2)$ is not merely two
+      normal marginals that happen to have correlation $\rho$ — it is genuinely
+      *bivariate* normal. Which fact establishes that, and why does the
+      distinction matter for a simulation?
+    answer: >
+      Both coordinates are linear combinations of the same two independent
+      normals $Z_1, Z_2$, so *every* linear combination $aX_1 + bX_2$ is again a
+      linear combination of $Z_1$ and $Z_2$ and hence univariate normal — which
+      is exactly the defining property of a jointly normal vector. That is
+      strictly stronger than having normal marginals with correlation $\rho$:
+      one can build pairs whose marginals are both standard normal, whose
+      correlation is any value you like, and whose joint law is not bivariate
+      normal at all, for instance by flipping the sign of one coordinate on a
+      well-chosen region. Why it matters in a simulation is that the joint law is
+      what prices anything depending on both factors at once — a basket, a
+      spread option, a portfolio tail — and two joint laws with identical
+      marginals and identical $\rho$ can put very different mass in the corner
+      where both factors are extreme. Cholesky construction guarantees you are
+      simulating the Gaussian joint law and not merely matching its first two
+      moments.
+    choices:
+      - text: >
+          Every linear combination of the pair is a linear combination of the
+          independent $Z_1, Z_2$, hence normal — and that is the definition of
+          joint normality, which is strictly stronger than normal marginals plus
+          a correlation.
+        correct: true
+        feedback: >
+          Right, and the strictness is the point: matching marginals and $\rho$
+          does not pin down the joint tail, which is what a basket payoff reads.
+      - text: >
+          Each coordinate is individually normal and their correlation is $\rho$,
+          which is all bivariate normality requires.
+        feedback: >
+          That is the standard confusion. Normal marginals with a given
+          correlation can be assembled into non-Gaussian joint laws.
+      - text: >
+          The central limit theorem applies because the coordinates are sums of
+          two terms.
+        feedback: >
+          A sum of two variables is nowhere near a limit; normality here is
+          exact and comes from closure of the normal family under linear maps.
+      - text: >
+          It follows because the covariance matrix is positive semidefinite.
+        feedback: >
+          Positive semidefiniteness is what lets a Cholesky factor exist at all;
+          it says nothing about the shape of the law being simulated.
+    rubric:
+      - >
+        States the defining property — all linear combinations normal — and
+        derives it from closure of the normal family under linear maps.
+      - >
+        Says explicitly that normal marginals plus a correlation do not imply
+        joint normality.
+      - >
+        Names a consequence a simulation would actually feel, such as the joint
+        tail that a two-factor payoff reads.
+    targets:
+      - quant-statistics.simulation.correlated-normals
+      - quant-probability.joint.bivariate-normal
+    connects:
+      - quant-probability.joint.bivariate-normal ~ quant-statistics.simulation.correlated-normals
+    exercises:
+      - quant-statistics.simulation.box-muller
+
+  # --- the bootstrap ---------------------------------------------------------------
+
+  - id: qsim-bootstrap-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A sample of three observations is $\{2, 5, 11\}$ and the statistic of
+      interest is the median. Over the exact bootstrap distribution — all $27$
+      equally likely resamples of size three, drawn with replacement — what is
+      the probability that the resampled median equals $11$, as an exact
+      fraction?
+    answer: >
+      $7/27 \approx 0.2593$. The median of three values is the largest one only
+      when at least two of the three draws are $11$. Counting ordered triples:
+      exactly two elevens can occur in $\binom{3}{2} = 3$ positions with $2$
+      choices for the remaining draw, giving $3 \times 2 = 6$ triples, and all
+      three elevens give $1$ more, so $7$ of the $27$ triples. Hence $7/27$. By
+      symmetry the median is $2$ with the same probability $7/27$, and it is the
+      middle value $5$ with probability $13/27$. Two things this shows at a
+      glance. The bootstrap distribution of a median on a tiny sample is
+      supported on the observed values only — it can never produce a number the
+      data did not contain — so it is a discrete, lumpy caricature of a
+      continuous sampling distribution. And it is computed here *exactly*, with
+      no resampling loop at all: for small $n$ the "$B$ resamples" step is only
+      a Monte Carlo approximation to an enumeration, which is why raising $B$
+      cannot buy statistical accuracy that $n = 3$ does not contain.
+    expects: "7/27"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Counts ordered resamples with replacement out of $3^{3} = 27$, and gets
+        the "at least two" condition for the median of three.
+      - >
+        Notes that the bootstrap distribution lives on the observed values only,
+        and that at this size it can be enumerated rather than simulated.
+    targets:
+      - quant-statistics.simulation.bootstrap
+    exercises:
+      - quant-probability.expectation.variance
+
+  - id: qsim-bootstrap-02
+    kind: work
+    difficulty: routine
+    statement: >
+      You draw $B = 2000$ bootstrap resamples and the $2000$ replicated values
+      of the statistic have sample standard deviation $0.42$. What is the
+      bootstrap estimate of the standard error of $\hat{\theta}$?
+    answer: >
+      $0.42$. The bootstrap standard error *is* the standard deviation of the
+      replicates — that is the whole construction: the spread of
+      $\hat{\theta}^{*}_1, \dots, \hat{\theta}^{*}_B$ across resamples stands in
+      for the spread of $\hat{\theta}$ across hypothetical new samples, so no
+      further division is called for. The named trap is dividing by $\sqrt{B} =
+      \sqrt{2000} \approx 44.7$ to get $0.0094$, by analogy with the standard
+      error of a mean. That confuses two different roles for $B$. The
+      replicates are not repeated measurements of $\hat{\theta}$ whose average
+      is the quantity of interest; they are draws from an estimated *sampling
+      distribution*, and what you want is its width. What $\sqrt{B}$ does govern
+      is the Monte Carlo error in estimating that width, which is a second-order
+      effect: raising $B$ from $2000$ to $200000$ sharpens the estimate of
+      $0.42$ but leaves $0.42$ itself where it is, because the statistical
+      accuracy is set by $n$.
+    expects: "0.42"
+    rubric:
+      - >
+        Reports the replicate standard deviation itself, without dividing by
+        $\sqrt{B}$ — the named trap.
+      - >
+        Separates the two roles of $B$: it controls simulation noise in the
+        estimate of the standard error, never the standard error itself.
+    targets:
+      - quant-statistics.simulation.bootstrap
+    exercises:
+      - quant-probability.expectation.variance
+
+  - id: qsim-bootstrap-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      A statistic computed on the original data is $\hat{\theta} = 0.62$. The
+      mean of its bootstrap replicates is $\bar{\theta}^{*} = 0.655$. Report the
+      bias-corrected estimate of $\theta$.
+    answer: >
+      $0.585$. The bootstrap estimate of the bias is $\bar{\theta}^{*} -
+      \hat{\theta} = 0.655 - 0.62 = 0.035$: the resampling world, where the
+      "true" parameter is the one computed from the observed data, shows the
+      statistic running $0.035$ high on average, and the bootstrap principle
+      transfers that to the real world. Correcting means *subtracting* the
+      estimated bias from the original statistic, $0.62 - 0.035 = 0.585$, not
+      from the replicate mean. Writing it as $2\hat{\theta} - \bar{\theta}^{*} =
+      1.24 - 0.655 = 0.585$ makes the reflection visible and is the safer form
+      to remember. The two standard slips both come from losing track of which
+      quantity plays the role of truth: reporting $\bar{\theta}^{*} = 0.655$ as
+      an improved estimate moves in exactly the wrong direction, and reporting
+      $\bar{\theta}^{*} - 0.035 = 0.62$ merely returns the original number.
+      Correction is not free, either — it typically inflates the variance, so it
+      is worth applying only when the estimated bias is large relative to the
+      standard error.
+    expects: "0.585"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Computes the bias as $\bar{\theta}^{*} - \hat{\theta}$ and subtracts it
+        from $\hat{\theta}$, equivalently $2\hat{\theta} - \bar{\theta}^{*}$.
+      - >
+        Moves the estimate in the direction opposite to the observed drift, and
+        notes that bias correction costs variance.
+    targets:
+      - quant-statistics.simulation.bootstrap
+    exercises:
+      - quant-probability.expectation.expectation
+
+  # --- where the bootstrap fails ----------------------------------------------
+
+  - id: qsim-bootstrap-caveats-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A desk holds $n = 8$ daily P and L observations and bootstraps a
+      top-of-sample statistic, the mean of the two largest values. What is the
+      probability that a single resample of size $8$ contains *neither* of the
+      two largest observations?
+    answer: >
+      $0.1001$. A resample draws $8$ values independently and uniformly from the
+      $8$ observations, with replacement, so each individual draw avoids both of
+      the top two with probability $6/8 = 0.75$, and the eight draws are
+      independent: $(0.75)^{8} = 0.1001$ to four places. The complementary
+      $0.8999$ is the probability that the resampled statistic is built on at
+      least one of two fixed numbers. That is the failure in miniature. About one
+      resample in ten carries no information at all about the top of the sample,
+      and the other nine are pinned to whichever observed extreme they happened
+      to catch, so the bootstrap distribution of this statistic is a short list
+      of atoms sitting on the observed values rather than a smooth stand-in for
+      its true sampling law. The trap is to compute a hypergeometric-style
+      answer: resampling is *with* replacement, so the draws are independent and
+      the count of distinct observations never enters.
+    expects: "0.1001"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Treats the eight resample draws as independent and computes
+        $(6/8)^{8}$ — with replacement, not without.
+      - >
+        Names the consequence: a statistic controlled by the edge of the sample
+        gives a bootstrap distribution of atoms on the observed extremes, not an
+        approximation to the truth.
+    targets:
+      - quant-statistics.simulation.bootstrap-caveats
+    exercises:
+      - quant-statistics.simulation.bootstrap
+
+  - id: qsim-bootstrap-caveats-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Three statistics are computed on $n = 400$ independent observations from a
+      continuous distribution, and each is given a percentile interval by the
+      plain iid bootstrap. For exactly one of them the bootstrap is not
+      consistent. Which?
+    answer: >
+      The smallest observation in the sample. The bootstrap is consistent for
+      statistics that are smooth functionals of the underlying law — small
+      perturbations of $F$ move $T(F)$ a little — and both the sample variance
+      and a quantile at a point of positive density qualify, since each is an
+      average or a level crossing of the bulk of the data and no single
+      observation controls it. The sample minimum is the opposite: it is a
+      property of the *edge* of the support, and $\hat{F}_n$ has a hard edge
+      exactly at the observed minimum where the true $F$ has none. A resample
+      contains the observed minimum with probability
+      $1 - (1 - 1/400)^{400} \approx 1 - e^{-1} \approx 0.632$, and can never
+      produce a value below it, so the bootstrap distribution puts an atom of
+      mass about $0.632$ on the one number already seen and assigns zero mass to
+      the entire region where the true minimum's sampling distribution actually
+      lives. The interval is one-sided by construction and does not shrink to the
+      right thing as $n$ grows.
+    choices:
+      - text: >
+          The $90$th percentile, at a point where the density is strictly
+          positive.
+        feedback: >
+          A quantile at a point of positive density is a smooth functional of
+          $F$ — the bootstrap is consistent for it, and this is the standard
+          example of a quantile it handles.
+      - text: >
+          The smallest observation in the sample.
+        correct: true
+        feedback: >
+          Right: the minimum is governed by the edge of the support, where the
+          empirical distribution has a hard boundary the true law does not, and
+          the resampled minimum repeats the observed one about $63.2\%$ of the
+          time.
+      - text: >
+          The sample variance, the observations having a finite fourth moment.
+        feedback: >
+          The variance is a smooth functional and the fourth moment is exactly
+          the condition that makes its own sampling variance finite — this is a
+          case the bootstrap is built for.
+    rubric:
+      - >
+        Sorts the three by whether the statistic depends on the bulk of $F$
+        smoothly or is pinned to the edge of the support.
+      - >
+        Gives the mechanism for the failing case, not just the verdict: the
+        resampled minimum repeats the observed minimum with probability about
+        $0.632$ and can never fall below it.
+    targets:
+      - quant-statistics.simulation.bootstrap-caveats
+    exercises:
+      - quant-statistics.simulation.bootstrap
+
+  # --- variance reduction: the figure of merit --------------------------------
+
+  - id: qsim-variance-reduction-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A pricing estimator has per-draw variance $\sigma^{2} = 2.4$ at unit cost
+      per path. A proposed scheme cuts the per-draw variance to $0.6$, but each
+      path costs more to generate. Under a fixed compute budget, what is the
+      largest per-path cost multiple at which the scheme still beats the naive
+      sampler?
+    answer: >
+      $4$. Write the budget as $T$ units of compute. At cost $c$ per path the
+      budget buys $n = T/c$ paths, so the final variance of the estimator is
+      $\sigma^{2}/n = \sigma^{2} c / T$ — proportional to the product
+      $\sigma^{2} \times c$ and to nothing else, with the budget $T$ cancelling
+      out of any comparison. The naive sampler scores $2.4 \times 1 = 2.4$; the
+      scheme scores $0.6c$. It wins while $0.6c < 2.4$, so the break-even
+      multiple is $c = 4$. The reading is clean and worth carrying: a device that
+      divides the variance by $4$ can afford to be up to $4$ times slower per
+      path and no more, because the two ratios trade one for one. The standard
+      error is that a variance cut is self-evidently good — a scheme that halves
+      the variance at triple the cost scores $1.5$ against the baseline's $1$ and
+      is a genuine loss, however impressive the variance reduction looks in
+      isolation.
+    expects: "4"
+    rubric:
+      - >
+        Writes the final variance as $\sigma^{2} c / T$ and observes the budget
+        cancels, so only the product of variance and cost matters.
+      - >
+        Solves $0.6c = 2.4$ for the break-even multiple rather than comparing
+        per-draw variances alone.
+    targets:
+      - quant-statistics.simulation.variance-reduction
+    exercises:
+      - quant-statistics.simulation.mc-error
+
+  - id: qsim-variance-reduction-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A naive estimator needs $n = 250000$ draws to reach a target standard
+      error. A variance-reduction device cuts the per-draw variance to $0.16$ of
+      its old value at unchanged cost per draw. How many draws now reach the same
+      standard error?
+    answer: >
+      $40000$. The standard error is $\sigma/\sqrt{n}$, so holding it fixed
+      means holding $\sigma^{2}/n$ fixed: multiply the variance by $0.16$ and
+      you may multiply $n$ by the same $0.16$, giving
+      $0.16 \times 250000 = 40000$. The cross-check runs the other way. The
+      device cuts the standard deviation by $\sqrt{0.16} = 0.4$, and buying that
+      same factor by brute force would have cost $1/0.4^{2} = 6.25$ times the
+      samples — precisely the $250000/40000 = 6.25$ just saved. This is why the
+      bookkeeping is always done in variance and never in standard deviation:
+      the sample size trades linearly against variance, so removing half the
+      variance is worth exactly a doubling of $n$, and removing $84\%$ of it is
+      worth a $6.25$-fold increase. Quoting the device as a $60\%$ cut in
+      standard error and then scaling $n$ by that number is the usual slip.
+    expects: "40000"
+    rubric:
+      - >
+        Holds $\sigma^{2}/n$ fixed rather than $\sigma/n$ — sample size scales
+        with the variance, not the standard deviation.
+      - >
+        Checks the answer both ways, as $0.16 \times 250000$ and as
+        $250000/6.25$ where $6.25 = 1/0.4^{2}$.
+    targets:
+      - quant-statistics.simulation.variance-reduction
+    exercises:
+      - quant-statistics.simulation.mc-error
+
+  # --- antithetic variates ----------------------------------------------------
+
+  - id: qsim-antithetic-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A payoff is $h(u) = u^{2}$, evaluated on the uniform stream. Compute the
+      correlation $\rho$ between the antithetic pair $Y_1 = h(U)$ and
+      $Y_2 = h(1-U)$.
+    answer: >
+      $-0.875$. The moments of $U$ on $(0,1)$ are $\mathbb{E}[U^{2}] = 1/3$ and
+      $\mathbb{E}[U^{4}] = 1/5$, so
+      $\operatorname{Var}(Y_1) = 1/5 - 1/9 = 4/45$, and $Y_2$ has the same
+      variance because $1-U$ is uniform too. The cross moment is an honest
+      integral:
+      $\mathbb{E}[U^{2}(1-U)^{2}] = \int_0^1 (u^{2} - 2u^{3} + u^{4})\,du
+      = 1/3 - 1/2 + 1/5 = 1/30$. Hence
+      $\operatorname{Cov}(Y_1, Y_2) = 1/30 - (1/3)^{2} = 1/30 - 1/9 = -7/90$,
+      and $\rho = (-7/90)/(4/45) = -7/8 = -0.875$. The pair average then has
+      variance $\sigma^{2}(1+\rho)/2 = (4/45)(0.125)/2 = 1/180 \approx
+      0.00556$, against $2/45 \approx 0.0444$ for two independent draws — one
+      eighth the variance for the same two evaluations. The sign was never in
+      doubt, since $h$ is increasing and a large $U$ forces $Y_1$ large and $Y_2$
+      small; what the computation buys is the magnitude.
+    expects: "-0.875"
+    rubric:
+      - >
+        Computes $\mathbb{E}[U^{2}(1-U)^{2}]$ rather than assuming $Y_1$ and
+        $Y_2$ are independent — the whole method lives in that cross term.
+      - >
+        Uses the symmetry $\operatorname{Var}(Y_1) = \operatorname{Var}(Y_2)$,
+        so $\rho$ is the covariance over that common variance, and reads off
+        $1 + \rho = 0.125$ as the factor the pairing buys.
+    targets:
+      - quant-statistics.simulation.antithetic
+    exercises:
+      - quant-probability.expectation.lotus
+
+  - id: qsim-antithetic-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A desk prices a monotone payoff with $500$ antithetic pairs — $1000$
+      evaluations in all — and reports the average of the $500$ pair averages. A
+      single evaluation has variance $\sigma^{2} = 3.2$, and the mirrored
+      evaluations within a pair have correlation $\rho = -0.8$. What is the
+      variance of the reported estimator?
+    answer: >
+      $0.00064$. One pair average $A = (Y_1 + Y_2)/2$ has variance
+      $\sigma^{2}(1+\rho)/2 = 3.2 \times 0.2 / 2 = 0.32$. Distinct pairs are
+      driven by independent uniforms, so the $500$ pair averages are independent
+      and identically distributed and the estimator is simply their mean:
+      $0.32/500 = 0.00064$. The comparison worth stating is against spending the
+      same $1000$ evaluations independently, which gives $3.2/1000 = 0.0032$ —
+      five times more variance, and $1/(1+\rho) = 5$ is exactly that factor.
+      Put the other way, reaching $0.00064$ without the trick would have taken
+      $3.2/0.00064 = 5000$ independent evaluations, so the $1000$ paired ones do
+      the work of five thousand. The bookkeeping trap is dividing by $1000$
+      instead of $500$: the dependence lives *inside* each pair, so the effective
+      sample size for the outer average is the number of pairs, never the number
+      of evaluations.
+    expects: "0.00064"
+    rubric:
+      - >
+        Divides by the number of pairs, not the number of evaluations — only the
+        pairs are independent.
+      - >
+        Reads $1 + \rho$ as the ratio against the same evaluation budget spent
+        independently, and can quote the equivalent independent sample size.
+    targets:
+      - quant-statistics.simulation.antithetic
+    exercises:
+      - quant-statistics.simulation.variance-reduction
+
+  - id: qsim-antithetic-03
+    kind: work
+    difficulty: standard
+    statement: >
+      An antithetic run reports $A = (Y_1 + Y_2)/2$, where the two mirrored
+      evaluations satisfy $\operatorname{Var}(Y_1) = \operatorname{Var}(Y_2) =
+      9$, and the observed variance of $A$ is $1.5$. What is
+      $\operatorname{Cov}(Y_1, Y_2)$?
+    answer: >
+      $-6$. Expand the variance of the sum with its cross term kept:
+      $\operatorname{Var}(Y_1 + Y_2) = \operatorname{Var}(Y_1) +
+      \operatorname{Var}(Y_2) + 2\operatorname{Cov}(Y_1, Y_2)$. Since $A$ is
+      that sum halved, $\operatorname{Var}(A) = \frac{1}{4}(9 + 9 +
+      2\operatorname{Cov}(Y_1,Y_2))$, and setting it to $1.5$ gives
+      $18 + 2\operatorname{Cov}(Y_1,Y_2) = 6$, so
+      $\operatorname{Cov}(Y_1,Y_2) = -6$ and $\rho = -6/9 = -2/3$. Notice that
+      the antithetic formula $\operatorname{Var}(A) = \sigma^{2}(1+\rho)/2 =
+      9(1/3)/2 = 1.5$ is not a separate fact to memorise: it *is* the
+      variance-of-a-sum identity specialised to two equal variances, which is
+      why the covariance term is the only thing the method can manipulate. The
+      floor is $\operatorname{Cov}(Y_1,Y_2) = -9$ at $\rho = -1$, where $A$
+      would be constant and a single pair would price the payoff exactly; the
+      ceiling is $+9$, where pairing is strictly worse than two independent
+      draws.
+    expects: "-6"
+    rubric:
+      - >
+        Uses $\operatorname{Var}(Y_1 + Y_2) = \operatorname{Var}(Y_1) +
+        \operatorname{Var}(Y_2) + 2\operatorname{Cov}(Y_1,Y_2)$ and keeps the
+        factor $1/4$ from halving the sum.
+      - >
+        Identifies the antithetic variance formula as that identity with equal
+        variances, so the covariance is the single available lever.
+    targets:
+      - quant-statistics.simulation.antithetic
+      - quant-probability.joint.variance-sum
+    connects:
+      - quant-probability.joint.variance-sum ~ quant-statistics.simulation.antithetic
+    exercises:
+      - quant-probability.joint.covariance
+
+  # --- control variates -------------------------------------------------------
+
+  - id: qsim-control-variates-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A pilot run reports $\operatorname{Var}(Y) = 20$,
+      $\operatorname{Var}(C) = 8$ and $\operatorname{Cov}(Y,C) = -12$, where
+      the control's mean $\mu_C$ is known in closed form. What is the per-draw
+      variance of the optimally controlled estimator?
+    answer: >
+      $2$. The optimal coefficient is
+      $b^{*} = \operatorname{Cov}(Y,C)/\operatorname{Var}(C) = -12/8 = -1.5$,
+      and its sign is the point: the estimator $Y_i - b^{*}(C_i - \mu_C)$ with a
+      negative $b^{*}$ *adds* a multiple of $C - \mu_C$, and a negatively
+      correlated control is exactly as useful as a positively correlated one of
+      the same magnitude. The controlled variance is
+      $\operatorname{Var}(Y)(1 - \rho^{2})$ with
+      $\rho = -12/\sqrt{20 \times 8} \approx -0.9487$, so
+      $\rho^{2} = 144/160 = 0.9$ and the variance is $20 \times 0.1 = 2$.
+      Checking against the raw quadratic in $b$ closes the loop:
+      $20 - 2(-1.5)(-12) + (-1.5)^{2}(8) = 20 - 36 + 18 = 2$. Ninety percent of
+      the variance is gone, which is the $R^{2}$ of regressing $Y$ on $C$; only
+      $\rho^{2}$ enters the saving, never the sign, so the instinct to discard a
+      negatively correlated control throws away a good one.
+    expects: "2"
+    rubric:
+      - >
+        Gets $b^{*} = -1.5$ with its sign and does not treat a negative
+        covariance as unusable.
+      - >
+        Uses $\operatorname{Var}(Y)(1 - \rho^{2})$ with $\rho^{2} =
+        \operatorname{Cov}(Y,C)^{2}/(\operatorname{Var}(Y)\operatorname{Var}(C))$,
+        or equivalently evaluates the quadratic at $b^{*}$.
+    targets:
+      - quant-statistics.simulation.control-variates
+    exercises:
+      - quant-probability.joint.covariance
+
+  - id: qsim-control-variates-02
+    kind: work
+    difficulty: standard
+    statement: >
+      You want a control variate that removes three quarters of your estimator's
+      variance. What is the smallest magnitude of correlation between the target
+      $Y$ and the control $C$ that achieves it? Give four decimal places.
+    answer: >
+      $0.8660$. At the optimal coefficient the variance is multiplied by
+      $1 - \rho^{2}$, so removing three quarters of it means
+      $1 - \rho^{2} = 0.25$, that is $\rho^{2} = 0.75$ and
+      $\lvert \rho \rvert = \sqrt{0.75} \approx 0.8660$. The number is worth
+      internalising because the square is punishing: a control correlated $0.5$
+      with the target removes only $25\%$ of the variance, worth a mere
+      $1.33$-fold increase in $n$ and rarely worth the plumbing, while $0.9$
+      removes $81\%$ and $0.99$ removes $98\%$. That is why real control
+      variates are chosen to be near-copies of the thing being priced — a
+      geometric-average basket standing in for an arithmetic one, a European
+      payoff standing in for its path-dependent cousin — rather than merely
+      suggestive correlates. Solving $1 - \rho = 0.25$ instead is the standard
+      error and badly understates what the control must deliver.
+    expects: "0.866"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Solves $1 - \rho^{2} = 0.25$, not $1 - \rho = 0.25$ — the saving is the
+        $R^{2}$ of the regression, not the correlation itself.
+      - >
+        Draws the practical consequence: only a strongly correlated control pays
+        for the work of finding and pricing it.
+    targets:
+      - quant-statistics.simulation.control-variates
+    exercises:
+      - quant-statistics.simulation.variance-reduction
+
+  # --- importance sampling ----------------------------------------------------
+
+  - id: qsim-importance-sampling-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      To estimate $\theta = \Pr(Z > 3)$ for $Z \sim N(0,1)$, you sample
+      $Y \sim N(3,1)$ instead and average $\mathbf{1}\{Y > 3\}\,w(Y)$.
+      Evaluate the likelihood-ratio weight $w$ at the draw $y = 3$, to four
+      decimal places.
+    answer: >
+      $0.0111$. The weight is the ratio of the two densities at the same point,
+      and both are standard-normal shapes, so the normalizing constants cancel
+      before any arithmetic:
+      $w(y) = \exp(-y^{2}/2)/\exp(-(y-3)^{2}/2) =
+      \exp\left(\frac{(y-3)^{2} - y^{2}}{2}\right) =
+      \exp\left(\frac{9 - 6y}{2}\right) = e^{4.5 - 3y}$. At $y = 3$ this is
+      $e^{4.5 - 9} = e^{-4.5} \approx 0.011109$, so $0.0111$ to four places. The
+      plausibility check is the part interviewers actually want: the true
+      $\theta = \Pr(Z > 3) \approx 0.00135$, and under the shifted proposal
+      about half the draws clear the threshold and carry weights of order
+      $0.011$ and falling, so the average of
+      $\mathbf{1}\{Y > 3\}\,w(Y)$ lands in the right range after a handful of
+      draws. Naive sampling from $N(0,1)$ would need on the order of $1/0.00135
+      \approx 740$ draws just to see one success.
+    expects: "0.0111"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Cancels the normalizing constants and reduces the weight to
+        $e^{4.5 - 3y}$ before substituting, rather than evaluating two densities
+        numerically.
+      - >
+        Sanity-checks the magnitude against the true tail probability instead of
+        reporting a number with no plausibility check.
+    targets:
+      - quant-statistics.simulation.importance-sampling
+    exercises:
+      - quant-probability.continuous.normal
+
+  - id: qsim-importance-sampling-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A naive Monte Carlo run estimates a rare-event probability $p = 0.0004$ by
+      counting hits. You want a relative standard error of $5\%$ — a standard
+      error equal to $5\%$ of $p$ itself. Treating $1 - p$ as $1$, how many
+      draws does that take?
+    answer: >
+      $1000000$. Each draw is an indicator with variance
+      $p(1-p) \approx p$, so the estimator's standard error is $\sqrt{p/n}$ and
+      the *relative* standard error is $\sqrt{p/n}/p = 1/\sqrt{np}$. Setting
+      $1/\sqrt{np} = 0.05$ gives $np = 400$, hence
+      $n = 400/0.0004 = 10^{6}$ draws. Since $np$ is the expected number of hits,
+      the rule to carry into an interview is stated in hits rather than draws:
+      about $400$ hits for $5\%$ relative accuracy, about $10000$ for $1\%$,
+      whatever $p$ happens to be. The cost of a rare-event estimate therefore
+      scales as $1/p$, which is the quantity importance sampling attacks
+      directly — shift the proposal so that hits are common, reweight by $f/g$ to
+      keep the answer unbiased, and the same accuracy arrives in a few thousand
+      draws instead of a million.
+    expects: "1000000"
+    rubric:
+      - >
+        Works in relative rather than absolute error and reaches $np = 400$ — the
+        criterion is a number of hits, not a number of draws.
+      - >
+        Names the $1/p$ scaling as the reason importance sampling exists for
+        rare events.
+    targets:
+      - quant-statistics.simulation.importance-sampling
+    exercises:
+      - quant-statistics.simulation.mc-error
+
+  # --- seeds, streams and reproducibility -------------------------------------
+
+  - id: qsim-seeding-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two strategies are compared by simulation, each with per-path payoff
+      variance $4$. Run on independent random streams, $10000$ paths per strategy
+      are needed to resolve the difference in means to the required precision.
+      Driving both strategies from the same stream — common random numbers —
+      makes the paired payoffs correlated with $\rho = 0.9$. How many
+      common-random-number paths reach the same precision?
+    answer: >
+      $1000$. The quantity being estimated is the mean of the difference
+      $D = Y_A - Y_B$, so the variance that matters is
+      $\operatorname{Var}(D)$. On independent streams the cross term vanishes:
+      $\operatorname{Var}(D) = 4 + 4 = 8$, and $10000$ paths put variance
+      $8/10000 = 0.0008$ on the mean difference. Under common random numbers,
+      $\operatorname{Var}(D) = 4 + 4 - 2(0.9)\sqrt{4 \times 4} = 8 - 7.2 =
+      0.8$, so matching the precision needs $0.8/n = 0.0008$ and $n = 1000$ — a
+      tenfold saving bought by reusing a seed and nothing else. The mechanism is
+      that the shared stream sends both strategies through identical simulated
+      scenarios, so the scenario noise cancels in the difference and only the
+      genuine performance gap survives. This is the one place where seed reuse is
+      a technique rather than a mistake, and it is the same covariance term the
+      antithetic method exploits, with the sign reversed: there you want the
+      pair anticorrelated, here you want the two arms as correlated as possible.
+    expects: "1000"
+    rubric:
+      - >
+        Estimates the variance of the *difference*, keeping the
+        $-2\operatorname{Cov}$ term that common random numbers create, rather
+        than each arm's variance separately.
+      - >
+        Reads the saving as $\operatorname{Var}(D)$ falling from $8$ to $0.8$
+        and names the cancelled scenario noise as the reason.
+    targets:
+      - quant-statistics.simulation.seeding
+    exercises:
+      - quant-probability.expectation.variance
+
+  - id: qsim-seeding-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A generator has period $2^{32}$, about $4.29 \times 10^{9}$ outputs. A
+      grid job runs $64$ workers in parallel, each started at an arbitrary point
+      of that same generator and each consuming $10^{8}$ draws. What fraction of
+      a full period does the job consume in total? Give two decimal places.
+    answer: >
+      $1.49$. The job asks the generator for
+      $64 \times 10^{8} = 6.4 \times 10^{9}$ numbers against a period of
+      $2^{32} \approx 4.29 \times 10^{9}$, a ratio of about $1.49$. Being
+      larger than $1$ is the entire finding: between them the workers demand more
+      output than the generator has, so some stretch of the sequence is
+      *certainly* replayed by two different workers. Those two are then not
+      independent in any sense — their draws are literally the same numbers — and
+      pooling them understates the variance of whatever the job estimates, with
+      no error message and no visible symptom. Choosing $64$ distinct seeds does
+      not repair it, because distinct starting points on one cycle are not
+      disjoint segments of it. The fix is structural: a counter-based generator,
+      an explicit jump-ahead that hands each worker a provably disjoint block, or
+      simply a generator whose period dwarfs the job by many orders of magnitude.
+    expects: "1.49"
+    tolerance: 0.005
+    rubric:
+      - >
+        Compares total consumption $64 \times 10^{8}$ against the period, not
+        one worker's $10^{8}$.
+      - >
+        Concludes that overlap is certain once the ratio exceeds $1$, and that
+        distinct seeds alone do not produce disjoint streams.
+    targets:
+      - quant-statistics.simulation.seeding
+    exercises:
+      - quant-statistics.simulation.uniform-prng

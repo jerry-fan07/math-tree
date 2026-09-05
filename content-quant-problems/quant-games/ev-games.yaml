@@ -1,0 +1,1207 @@
+# Problems targeting quant-games.ev-games — pricing games by expectation.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. No instance here repeats a lesson's
+# worked example or a card's numbers. See ../README.md.
+
+problems:
+  # --- fair value of a game ---------------------------------------------------
+
+  - id: qev-fair-value-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A game runs in two stages. A fair coin is flipped: heads pays $9$ and the
+      game ends; tails instead lets you draw one of four tokens, marked $2$,
+      $2$, $5$ and $11$, and collect the number on it. Separately, every player
+      is handed a flat $1.5$ appearance credit whatever happens. A counterparty
+      offers to sell you one play at $7.75$. What is your edge per play?
+    answer: >
+      $0.75$. Price the components and add them, which linearity permits even
+      though the credit and the payoff are not independent of anything. The
+      token draw is worth $(2 + 2 + 5 + 11)/4 = 20/4 = 5$, so the two-stage
+      payoff is worth $\frac{1}{2}(9) + \frac{1}{2}(5) = 4.5 + 2.5 = 7$. Adding
+      the credit, the fair value is $7 + 1.5 = 8.5$. Your edge at a price $p$ is
+      $\mathbb{E}[X] - p = 8.5 - 7.75 = 0.75$, and it is positive because you
+      are the buyer paying below fair value; the same quote would be a $0.75$
+      loss per play to the seller. Two ways to go wrong: forgetting the credit
+      leaves $7 - 7.75 = -0.75$ and flips the sign of the trade, and averaging
+      the two branch payoffs as $(9 + 5)/2$ only happens to work here because
+      the coin is fair.
+    expects: "0.75"
+    rubric:
+      - >
+        Prices the tails branch as the token average $5$ before weighting the
+        two branches, rather than averaging token faces with the heads payoff.
+      - >
+        Adds the flat credit as a separate component of the fair value, and
+        subtracts the quoted price in the order $\mathbb{E}[X] - p$ so the sign
+        matches being the buyer.
+    targets:
+      - quant-games.ev-games.fair-value
+
+  - id: qev-fair-value-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A scratch card pays $20$ with probability $0.15$, pays $5$ with
+      probability $0.35$, and pays nothing otherwise. What is its fair value?
+    answer: >
+      $4.75$. The three outcomes are exhaustive, so the nothing branch carries
+      probability $1 - 0.15 - 0.35 = 0.5$ and contributes zero. The weighted sum
+      is $0.15(20) + 0.35(5) + 0.5(0) = 3 + 1.75 = 4.75$. That is the price at
+      which neither buying nor selling one card has an expected profit: sold at
+      $5$ the seller keeps $0.25$ a card on average, and bought at $4$ the buyer
+      keeps $0.75$. Note what fair value is not — it is not a typical outcome,
+      since half the cards pay nothing at all and no card ever pays $4.75$.
+    expects: "4.75"
+    rubric:
+      - >
+        Recovers the missing branch probability as $0.5$ and weights each payoff
+        by its own probability rather than averaging the two stated payoffs.
+      - >
+        Reads $4.75$ as a price, not as a prediction of what one card pays.
+    targets:
+      - quant-games.ev-games.fair-value
+
+  - id: qev-fair-value-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      You have worked out that a one-shot game is worth exactly $6.2$. A
+      counterparty shows you a two-sided market in that game: they will buy one
+      play from you at $6.5$, or sell you one play at $6.9$. Which action has a
+      positive edge?
+    answer: >
+      Sell the game to them at $6.5$, for an edge of $6.5 - 6.2 = 0.3$ per play.
+      Edge is always the difference between fair value and the price you
+      transact at, signed by which side you take: as a seller you receive the
+      price and hand over a payoff worth $6.2$, so your edge is
+      $p - \mathbb{E}[X]$; as a buyer it is $\mathbb{E}[X] - p$. Their whole
+      market sits above your $6.2$, so buying at $6.9$ loses $0.7$ a play and
+      only the sale is profitable. The trap is reading "the game is worth more
+      than nothing" as a reason to buy — a game with a positive value is still a
+      bad purchase at any price above that value.
+    choices:
+      - text: >
+          Sell one play at $6.5$
+        correct: true
+        feedback: >
+          You collect $6.5$ for a payoff worth $6.2$, an edge of $0.3$.
+      - text: >
+          Buy one play at $6.9$
+        feedback: >
+          That pays $6.9$ for something worth $6.2$ — an edge of $-0.7$. A
+          positive value does not make any price a good price.
+      - text: >
+          Both, since the game has a positive expected payoff
+        feedback: >
+          Only the side that transacts on the favourable size of $6.2$ has an
+          edge; the buy is a loss whatever the game is worth.
+      - text: >
+          Neither, since the market straddles nothing and $6.2$ is inside it
+        feedback: >
+          $6.2$ is *below* both quotes, not between them — the market is not
+          straddling fair value at all.
+    rubric:
+      - >
+        Compares both quotes against $6.2$ and notices the whole market sits
+        above fair value.
+      - >
+        Signs the edge by the side of the trade — $p - \mathbb{E}[X]$ when
+        selling — rather than taking an absolute difference.
+    targets:
+      - quant-games.ev-games.fair-value
+
+  # --- the pay-per-pip die -----------------------------------------------------
+
+  - id: qev-pay-per-pip-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Roll one fair six-sided die and collect $12$ divided by the face shown, in
+      dollars. Give the fair value of this game as an exact fraction.
+    answer: >
+      $49/10 = 4.9$. The payoff is $g(X) = 12/X$ for $X$ uniform on
+      $\{1,\dots,6\}$, and a payoff function must be averaged over the faces,
+      never evaluated at the average face:
+      $\mathbb{E}[12/X] = \frac{1}{6}\sum_{k=1}^{6} \frac{12}{k}
+      = 2\left(1 + \frac{1}{2} + \frac{1}{3} + \frac{1}{4} + \frac{1}{5} +
+      \frac{1}{6}\right) = 2 \cdot \frac{49}{20} = \frac{49}{10} = 4.9$.
+      The seductive wrong answer is $12/\mathbb{E}[X] = 12/3.5 = 24/7 \approx
+      3.43$, which is what you get by pushing the reciprocal through the
+      expectation. It is too small, and predictably so: $x \mapsto 1/x$ is
+      convex on the positive faces, so averaging the reciprocals must exceed the
+      reciprocal of the average. A game whose payoff is any non-linear function
+      of the face has to be priced face by face.
+    expects: "49/10"
+    rubric:
+      - >
+        Averages $12/k$ over the six faces rather than dividing $12$ by the mean
+        face — the answer is not $24/7$.
+      - >
+        Names the direction of the error: convexity of $1/x$ forces
+        $\mathbb{E}[1/X] > 1/\mathbb{E}[X]$, so the naive figure understates.
+    targets:
+      - quant-games.ev-games.pay-per-pip
+    exercises:
+      - quant-games.ev-games.fair-value
+
+  - id: qev-pay-per-pip-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Roll one fair six-sided die. If the face is even you collect $3$ dollars
+      per pip; if it is odd you collect nothing. What is the fair value?
+    answer: >
+      $6$. Only three faces pay, and each has probability $1/6$: the $2$ pays
+      $6$, the $4$ pays $12$ and the $6$ pays $18$, so the fair value is
+      $(6 + 12 + 18)/6 = 36/6 = 6$. Two shortcuts that misfire here are worth
+      naming. Multiplying the die's mean by $3$ gives $10.5$, which prices a
+      game that pays on every face. Averaging only over the paying faces gives
+      $(6 + 12 + 18)/3 = 12$, which prices a game conditioned on the face
+      already being even — a real number, but the answer to a different
+      question. The unconditional price weights every face, including the three
+      that pay zero.
+    expects: "6"
+    rubric:
+      - >
+        Divides by $6$, not $3$ — the odd faces are outcomes of the game that
+        happen to pay nothing, not outcomes to be excluded.
+      - >
+        Applies the $3$ dollars per pip to each even face before averaging.
+    targets:
+      - quant-games.ev-games.pay-per-pip
+
+  # --- symmetry pricing --------------------------------------------------------
+
+  - id: qev-symmetry-pricing-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Thirty tiles bearing thirty distinct numbers are shuffled and laid out in
+      a row. You collect a dollar for every adjacent pair whose right-hand tile
+      is larger than its left-hand tile. What is the fair value of this game?
+    answer: >
+      $14.5$. There are $29$ adjacent pairs. Rather than compute a distribution,
+      use the reversal symmetry: reading the row right-to-left is as likely an
+      arrangement as reading it left-to-right, and the reversal turns every
+      ascending pair into a descending one. So if $A$ counts ascents and $D$
+      counts descents, $A$ and $D$ have the same law, while $A + D = 29$ always,
+      because the numbers are distinct and no pair can tie. Taking expectations,
+      $2\mathbb{E}[A] = 29$, so $\mathbb{E}[A] = 29/2 = 14.5$. The
+      pair-by-pair route confirms it without contradicting it: each adjacent
+      pair is equally likely to be in either order, so its indicator is worth
+      $1/2$ and linearity gives $29 \cdot \tfrac{1}{2} = 14.5$ — the indicators
+      are heavily dependent, which never disturbs a sum of expectations.
+    expects: "14.5"
+    rubric:
+      - >
+        Uses $29$ adjacent pairs, not $30$ tiles.
+      - >
+        Justifies the value $1/2$ per pair by a symmetry — reversal, or the two
+        orders of a single pair — instead of assuming independence between
+        overlapping pairs.
+    targets:
+      - quant-games.ev-games.symmetry-pricing
+
+  - id: qev-symmetry-pricing-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Forty cards numbered $1$ through $40$ are shuffled and dealt into eight
+      hands of five cards each. You are paid the total of the numbers in one
+      named hand. What is the fair value?
+    answer: >
+      $102.5$. The whole pack totals
+      $1 + 2 + \cdots + 40 = \frac{40 \cdot 41}{2} = 820$, and that total is not
+      random — it is $820$ on every deal. The shuffle treats the eight hands
+      exchangeably, so the eight hand totals have a common expectation, and
+      those eight expectations sum to $820$. Hence each is $820/8 = 102.5$, and
+      naming a hand in advance changes nothing. The same number falls out
+      card by card: a single card is worth $820/40 = 20.5$ and a hand holds five
+      of them, so $5 \times 20.5 = 102.5$, dependence between the five cards
+      being irrelevant to a sum of expectations.
+    expects: "102.5"
+    rubric:
+      - >
+        Gets the pack total $820$ from $n(n+1)/2$ and divides by the number of
+        hands, not the number of cards.
+      - >
+        Says why the split is even — the hands are exchangeable under the
+        shuffle — rather than asserting it.
+    targets:
+      - quant-games.ev-games.symmetry-pricing
+
+  # --- pricing by conditioning on the first roll or draw ----------------------
+
+  - id: qev-condition-first-draw-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Roll a fair six-sided die repeatedly under these rules. A face of $2$,
+      $3$, $4$ or $5$ pays that many dollars and ends the game. A face of $6$
+      pays $6$ dollars and you roll again. A face of $1$ pays nothing and ends
+      the game, though everything already banked is yours to keep. What is the
+      fair value of the game?
+    answer: >
+      $4$. Let $V$ be the value of the game from a fresh roll. Because banked
+      money is safe, a re-roll leaves you facing exactly the game you started,
+      so the continuation is worth $V$ again — that self-reference is what makes
+      one equation enough. Conditioning on the first face,
+      $V = \frac{1}{6}(0) + \frac{2 + 3 + 4 + 5}{6} + \frac{1}{6}(6 + V)
+      = \frac{14}{6} + 1 + \frac{V}{6}$. So
+      $\frac{5}{6}V = \frac{14}{6} + \frac{6}{6} = \frac{20}{6}$ and $V = 4$.
+      Two traps. Treating the $1$ as paying $1$ dollar raises the answer to
+      $4.2$ and prices a different game. Stopping the recursion after one
+      re-roll — $\frac{14}{6} + \frac{1}{6}(6 + 3.5) = 3.92$ — quietly assumes
+      the second $6$ ends the game, and undervalues it.
+    expects: "4"
+    rubric:
+      - >
+        Names the continuation value as the same unknown $V$ and justifies it:
+        the game after a $6$ is the original game, since banked money is safe.
+      - >
+        Puts the $6$ paid on the continuing face inside the recursion, and gives
+        the losing face a payoff of $0$ rather than $1$.
+    targets:
+      - quant-games.ev-games.condition-first-draw
+
+  - id: qev-condition-first-draw-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A machine game works as follows. Each press pays $10$ dollars with
+      probability $0.4$ and the game then ends. Otherwise the press pays
+      nothing, you hand over a $1$ dollar re-press fee, and the game repeats
+      with the same odds. What is the fair value of one game?
+    answer: >
+      $8.5$. Condition on the first press and call the value of the game $V$.
+      With probability $0.4$ you collect $10$ and stop; with probability $0.6$
+      you pay $1$ and face the identical game again, worth $V$. So
+      $V = 0.4(10) + 0.6(V - 1) = 4 - 0.6 + 0.6V$, giving $0.4V = 3.4$ and
+      $V = 8.5$. The fee has to sit inside the recursion, because it is charged
+      once per failed press and the number of those is random: subtracting a
+      single fee at the end instead gives $0.4(10)/0.4 - 1 = 9$ and prices a
+      game that only ever charges you once. As a check, the number of presses is
+      geometric with mean $1/0.4 = 2.5$, so the expected fees are
+      $1.5 \times 1 = 1.5$ and $10 - 1.5 = 8.5$.
+    expects: "8.5"
+    rubric:
+      - >
+        Writes one equation in $V$ from the first press rather than summing an
+        infinite series term by term.
+      - >
+        Charges the fee inside the continuing branch, so it is paid once per
+        failure — the answer is not $9$.
+    targets:
+      - quant-games.ev-games.condition-first-draw
+
+  # --- the right to look is worth money ---------------------------------------
+
+  - id: qev-option-value-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      One card is drawn from a shuffled deck scored $A = 1$ through $K = 13$.
+      Before seeing it you must choose between two contracts: take a guaranteed
+      $9$ dollars, or see the card first and then decide whether to collect its
+      value or the guaranteed $9$. Give the fair value of the second contract as
+      an exact fraction.
+    answer: >
+      $127/13 \approx 9.77$. The card's rank is uniform on $\{1,\dots,13\}$,
+      each rank carrying four of the $52$ cards and so probability $1/13$. The
+      second contract pays $\max(X, 9)$: the nine ranks $1$ through $9$ are
+      replaced by the guarantee, and the four ranks $10$ through $13$ are kept
+      as they stand. Hence
+      $\mathbb{E}[\max(X,9)] = \frac{9 \cdot 9 + 10 + 11 + 12 + 13}{13}
+      = \frac{81 + 46}{13} = \frac{127}{13}$. The right to look is therefore
+      worth $\frac{127}{13} - 9 = \frac{10}{13} \approx 0.77$ over the
+      guarantee, and $\frac{127}{13} - 7 = \frac{36}{13} \approx 2.77$ over the
+      raw card, whose value is $364/52 = 7$. The trap is pricing the choice as
+      $\max(\mathbb{E}[X], 9) = \max(7, 9) = 9$: that is the best you can do
+      committing in advance, and it silently throws away every branch on which
+      looking changes your mind.
+    expects: "127/13"
+    rubric:
+      - >
+        Treats the rank as uniform on thirteen values, so each rank carries
+        weight $1/13$ and the suits never enter.
+      - >
+        Averages $\max(X,9)$ over the ranks rather than taking the maximum of
+        the two expectations — the answer is strictly above $9$.
+    targets:
+      - quant-games.ev-games.option-value
+    exercises:
+      - quant-games.ev-games.fair-value
+
+  - id: qev-option-value-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A fair six-sided die pays its face value. You may either take a guaranteed
+      $4$ dollars, or roll the die and *then* choose between the face and the
+      guaranteed $4$. A candidate prices the second offer at $4$, reasoning that
+      "the die is worth $3.5$ and the guarantee is worth $4$, so the better of
+      the two is $4$." Why is that wrong?
+    answer: >
+      The candidate has computed $\max(\mathbb{E}[X], 4) = 4$, the value of
+      committing before the roll, when the offer is worth
+      $\mathbb{E}[\max(X, 4)]$ — the average taken after the choice is made. The
+      faces $1$, $2$, $3$ and $4$ all send you to the guarantee and the faces
+      $5$ and $6$ are kept, so
+      $\mathbb{E}[\max(X,4)] = \frac{4 + 4 + 4 + 4 + 5 + 6}{6} = \frac{27}{6}
+      = 4.5$, and the right to look is worth $0.5$. The general fact is
+      $\mathbb{E}[\max(X,c)] \ge \max(\mathbb{E}[X], c)$, with equality only
+      when one side wins with probability $1$; here neither does, so the
+      inequality is strict. The error is not arithmetic — it is ordering the
+      maximum and the expectation the wrong way round.
+    choices:
+      - text: >
+          It swaps the order of $\max$ and $\mathbb{E}$ — the offer is worth
+          $\mathbb{E}[\max(X,4)] = 4.5$, not $\max(\mathbb{E}[X],4) = 4$
+        correct: true
+        feedback: >
+          Exactly. The choice is made after the roll, so the maximum belongs
+          inside the average, and the gap $0.5$ is the option value.
+      - text: >
+          It uses the wrong mean for the die — a fair die is worth $3$, not
+          $3.5$
+        feedback: >
+          The die's mean is $(1+2+3+4+5+6)/6 = 3.5$. The mean is right; the
+          ordering of the two operations is not.
+      - text: >
+          Nothing is wrong — with a guarantee above the die's mean you should
+          simply always take the guarantee
+        feedback: >
+          You take it on faces $1$ through $4$ only. On a $5$ or a $6$ you keep
+          the face, and those branches are what the offer is worth paying for.
+      - text: >
+          It is wrong because the offer is worth the best face, $6$
+        feedback: >
+          That prices a right to *choose the outcome*, not a right to see it.
+          You still bear the roll.
+    rubric:
+      - >
+        Names the error as $\max$ and $\mathbb{E}$ in the wrong order, not as an
+        arithmetic slip.
+      - >
+        Produces the correct price $4.5$ by replacing the faces below $4$ with
+        the guarantee and averaging.
+    targets:
+      - quant-games.ev-games.option-value
+
+  - id: qev-option-value-03
+    kind: justify
+    difficulty: standard
+    statement: >
+      Two games pay a random amount with the same mean $m$, but the second is
+      more spread out than the first — formally, the second payoff is the first
+      plus independent zero-mean noise. In each case you may look at the payoff
+      and instead take a guaranteed $c$. Argue that the right to look is worth
+      at least as much on the second game as on the first, and say what makes
+      the argument work.
+    answer: >
+      Write the option's price as $\mathbb{E}[\varphi(X)]$ with
+      $\varphi(x) = \max(x, c)$. That $\varphi$ is convex: it is the upper
+      envelope of two straight lines, $x$ and the constant $c$, and an upper
+      envelope of linear functions is always convex. Let $Y = X + Z$ with
+      $\mathbb{E}[Z \mid X] = 0$. Conditioning on $X$ and applying Jensen's
+      inequality to the convex $\varphi$,
+      $\mathbb{E}[\varphi(Y) \mid X] \ge \varphi(\mathbb{E}[Y \mid X])
+      = \varphi(X)$, and averaging over $X$ gives
+      $\mathbb{E}[\varphi(Y)] \ge \mathbb{E}[\varphi(X)]$. Both games have the
+      same mean $m$, so subtracting $\max(m, c)$ from both sides shows the
+      *option value* is at least as large for the spread-out game. The argument
+      needs convexity and nothing else — no distributional assumption and no
+      independence beyond the zero conditional mean — and the same computation
+      run with the concave $\min(x,c)$ reverses the inequality, which is a
+      useful check that convexity, not spread as such, is doing the work.
+    rubric:
+      - >
+        Identifies $\max(x,c)$ as convex, with a reason (upper envelope of two
+        lines) rather than by assertion.
+      - >
+        Applies Jensen conditionally on $X$ and averages, rather than applying
+        it to the unconditional distribution and hoping.
+      - >
+        Notes that the two games share a mean, so a gap in
+        $\mathbb{E}[\max(X,c)]$ is a gap in option value.
+    targets:
+      - quant-games.ev-games.option-value
+      - quant-probability.inequalities.jensen
+    connects:
+      - quant-games.ev-games.option-value ~ quant-probability.inequalities.jensen
+
+  # --- re-roll dice games as a price list --------------------------------------
+
+  - id: qev-dice-reroll-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A fair twelve-sided die, faces $1$ through $12$, pays its face value. You
+      may accept a face or discard it and roll again, up to three rolls in all,
+      and you are paid whatever face you accept. Give the value of the
+      three-roll game as an exact fraction.
+    answer: >
+      $53/6 \approx 8.83$. Work backwards. With one roll left there is no
+      choice, so $V_1 = (1 + 2 + \cdots + 12)/12 = 78/12 = 6.5$. With two rolls
+      left, accept a face only when it beats the continuation $V_1 = 6.5$, so
+      keep $7$ through $12$ and re-roll $1$ through $6$:
+      $V_2 = \frac{6(6.5) + 7 + 8 + 9 + 10 + 11 + 12}{12}
+      = \frac{39 + 57}{12} = \frac{96}{12} = 8$. With three rolls left the
+      continuation is worth $V_2 = 8$, so keep $9$ through $12$ and re-roll
+      $1$ through $8$:
+      $V_3 = \frac{8(8) + 9 + 10 + 11 + 12}{12} = \frac{64 + 42}{12}
+      = \frac{106}{12} = \frac{53}{6}$. The thresholds must be recomputed at
+      every level — reusing "keep $7$ or better" throughout gives $8$ again and
+      undervalues the game — and the marginal option values $1.5$ then $5/6$ are
+      decreasing, as they must be.
+    expects: "53/6"
+    rubric:
+      - >
+        Sets each stage's accept threshold by comparing the face to the value of
+        the *remaining* game, and recomputes it after each stage.
+      - >
+        Replaces the rejected faces by the continuation value inside the
+        average, rather than dropping them from the average.
+    targets:
+      - quant-games.ev-games.dice-reroll
+    exercises:
+      - quant-games.ev-games.option-value
+
+  - id: qev-dice-reroll-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A fair eight-sided die, faces $1$ through $8$, pays its face value. You
+      may re-roll as often as you like with no limit, but each re-roll costs a
+      fee of $1$ dollar. Playing the threshold rule "keep a $5$ or better", what
+      is the value of the game?
+    answer: >
+      $5.5$. With no cap on the number of re-rolls the game has no ladder to
+      induct along — after a re-roll you face exactly the game you started, so
+      the value is a fixed point. Let $V$ be that value. Under the stated rule
+      the four faces $5$ through $8$ are kept and the four faces $1$ through $4$
+      send you back into the game after paying the fee, so
+      $V = \frac{5 + 6 + 7 + 8}{8} + \frac{4}{8}(V - 1) = 3.25 - 0.5 + 0.5V$,
+      giving $0.5V = 2.75$ and $V = 5.5$. Check the rule against its own answer:
+      re-rolling is worth $V - 1 = 4.5$, so keeping a $5$ ($5 > 4.5$) and
+      re-rolling a $4$ ($4 < 4.5$) is exactly right and the threshold is
+      self-consistent. The common error is to subtract one fee from $V$ at the
+      end, which prices a game charging for at most one re-roll.
+    expects: "5.5"
+    rubric:
+      - >
+        Solves a fixed-point equation rather than attempting backward induction
+        over an unbounded number of rolls.
+      - >
+        Subtracts the fee inside the re-rolling branch, and verifies the
+        threshold against the continuation value $V - 1 = 4.5$ it produces.
+    targets:
+      - quant-games.ev-games.dice-reroll
+
+  # --- deciding as you go costs money ------------------------------------------
+
+  - id: qev-commit-versus-see-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Compare two games played with a fair four-sided die, faces $1$ through
+      $4$. In the first you roll three times and are paid the largest face you
+      rolled. In the second you roll up to three times and must accept or
+      discard each face before the next is rolled, being paid the face you
+      accept. Give the gap between the two values, first minus second, as an
+      exact fraction.
+    answer: >
+      $3/16 = 0.1875$. For the pay-the-best game let $M$ be the largest of three
+      faces. Since $\Pr(M \le k) = (k/4)^{3}$, the mass at $k$ is
+      $\left(k^{3} - (k-1)^{3}\right)/64$, giving $1, 7, 19, 37$ over $64$ for
+      $k = 1,2,3,4$ and
+      $\mathbb{E}[M] = \frac{1 + 14 + 57 + 148}{64} = \frac{220}{64}
+      = \frac{55}{16}$. For the accept-or-discard game, backward induction gives
+      $V_1 = 2.5$, then $V_2 = \frac{2.5 + 2.5 + 3 + 4}{4} = 3$ (keep $3$ or
+      better) and $V_3 = \frac{3 + 3 + 3 + 4}{4} = \frac{13}{4}$ (keep only a
+      $4$). The gap is $\frac{55}{16} - \frac{13}{4} = \frac{55 - 52}{16}
+      = \frac{3}{16}$. That gap is the price of irrevocability: the same three
+      observations are worth less when each must be judged before the rest
+      arrive, and it can never have the other sign, since seeing everything
+      first weakly dominates.
+    expects: "3/16"
+    rubric:
+      - >
+        Prices the pay-the-best game from $\Pr(M \le k) = (k/4)^{3}$ rather than
+        assuming the maximum behaves like the mean.
+      - >
+        Runs the accept-or-discard ladder separately, with a threshold
+        recomputed at each stage, and subtracts in the stated order.
+    targets:
+      - quant-games.ev-games.commit-versus-see
+    exercises:
+      - quant-games.ev-games.dice-reroll
+
+  - id: qev-commit-versus-see-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Two games use four rolls of a fair six-sided die. Game A rolls all four
+      and pays the largest face, which works out to $6797/1296 \approx 5.24$.
+      Game B shows the faces one at a time and each must be accepted or
+      discarded before the next appears, which works out to
+      $89/18 \approx 4.94$. Which game should you pay more for, and why?
+    answer: >
+      Game A, because it hands you the same four observations without the
+      commitment constraint. Any rule for playing Game B can be run inside Game
+      A — accept the face where B would have accepted it — so A's optimal payoff
+      is at least B's, and the inequality is strict here because B genuinely
+      discards faces that later turn out to have been the best. Numerically the
+      gap is $\frac{6797}{1296} - \frac{89}{18} = \frac{6797 - 6408}{1296}
+      = \frac{389}{1296} \approx 0.30$, which is the price of irrevocability at
+      four rolls. Note it is not the number of dice that differs, nor the
+      distribution of any single face: both games see four fair rolls, and the
+      whole difference is *when* the decision is made.
+    choices:
+      - text: >
+          Game A, because every rule available in B can be imitated in A, so A
+          weakly dominates and here strictly — a gap of about $0.30$
+        correct: true
+        feedback: >
+          Right, and the domination argument is what makes the sign of the gap
+          certain before any arithmetic.
+      - text: >
+          Game B, because being able to stop early avoids the risk of a bad
+          fourth roll
+        feedback: >
+          In A no roll can hurt you — you are paid the maximum, and a low roll
+          is simply ignored. Stopping early is a constraint, not a protection.
+      - text: >
+          Neither — both games use four fair rolls, so they have the same value
+        feedback: >
+          They share the dice but not the information structure. B must judge
+          each face before the rest arrive, and the two stated values differ.
+      - text: >
+          Game A, because rolling four dice at once has a higher expected total
+          than rolling them one at a time
+        feedback: >
+          Right answer, wrong reason: neither game pays a total, and four fair
+          rolls have the same law however they are staged.
+    rubric:
+      - >
+        Argues the direction by domination — any B strategy is available in A —
+        rather than by comparing the two numbers alone.
+      - >
+        Locates the difference in the timing of the decision, not in the dice or
+        the number of rolls.
+    targets:
+      - quant-games.ev-games.commit-versus-see
+
+  # --- stopping the deck to bet on red -----------------------------------------
+
+  - id: qev-next-card-red-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A ten-card deck holds $6$ red cards and $4$ black cards, shuffled. Cards
+      are turned face up one at a time, and at any moment before a card is
+      turned you may stop and bet that the next card is red, winning a dollar if
+      it is and losing a dollar if it is black. If you never call, you are
+      forced to bet on the last card. What is the game worth under the best
+      possible stopping rule?
+    answer: >
+      $0.2$. With $r$ reds and $b$ blacks still unseen, the next card is red
+      with probability $r/(r+b)$, so the bet placed there is worth
+      $2\frac{r}{r+b} - 1$. The point is that $r/(r+b)$ is a martingale in the
+      number of cards revealed: turning one more card sends the fraction to
+      $(r-1)/(r+b-1)$ with probability $r/(r+b)$ and to $r/(r+b-1)$ with
+      probability $b/(r+b)$, and
+      $\frac{r}{r+b}\cdot\frac{r-1}{r+b-1} + \frac{b}{r+b}\cdot\frac{r}{r+b-1}
+      = \frac{r(r-1) + rb}{(r+b)(r+b-1)} = \frac{r}{r+b}$. Since watching cards
+      leaves the expected red fraction where it started, every stopping rule —
+      including the forced bet on the last card — pays
+      $2\left(\frac{6}{10}\right) - 1 = \frac{1}{5} = 0.2$. The trap is
+      answering $0$ by reflex from the balanced-deck version: the game is worth
+      the deck's starting red edge, and here that edge is not zero. What no rule
+      can do is *improve* on it.
+    expects: "0.2"
+    rubric:
+      - >
+        Shows the red fraction is unchanged in expectation by one reveal, rather
+        than asserting the game is fair.
+      - >
+        Prices the bet as $2p - 1$ at the starting fraction $6/10$, and so gives
+        $0.2$ — not $0$, and not the value of some particular clever rule.
+    targets:
+      - quant-games.ev-games.next-card-red
+
+  - id: qev-next-card-red-02
+    kind: work
+    difficulty: routine
+    statement: >
+      Same ten-card deck, $6$ red and $4$ black, turned one card at a time with
+      a call allowed at any moment. This time the bet pays a dollar if the next
+      card is red and nothing at all if it is black. What is this variant worth?
+    answer: >
+      $0.6$. The payoff at a call made with $r$ reds and $b$ blacks unseen is
+      the probability $r/(r+b)$ itself, since a dollar for red and nothing for
+      black has expectation $1 \cdot \frac{r}{r+b} + 0 \cdot \frac{b}{r+b}$.
+      That is the same martingale as before, merely rescaled, so no stopping
+      rule shifts it and every rule is worth the starting fraction
+      $6/10 = 0.6$. Relabelling the payoffs cannot create an edge, because the
+      new payoff is an increasing affine function of the old one — here
+      $\frac{1}{2}(2p - 1) + \frac{1}{2}$ — and an affine map of a martingale is
+      a martingale.
+    expects: "0.6"
+    rubric:
+      - >
+        Prices the call as the conditional probability of red, not as
+        $2p - 1$.
+      - >
+        Says why changing the payoffs changes nothing about stopping: the new
+        value is an affine function of the same martingale.
+    targets:
+      - quant-games.ev-games.next-card-red
+
+  - id: qev-next-card-red-03
+    kind: justify
+    difficulty: standard
+    statement: >
+      A candidate insists there must be a profitable rule for the balanced
+      fifty-two card version of this game, because after a run of black cards
+      the remaining deck really is red-rich and the bet really does have
+      positive expectation at that moment. Explain precisely what is true and
+      what is false in that claim, and name the theorem that settles it.
+    answer: >
+      Everything about the *conditional* statement is true and the conclusion
+      does not follow. Let $p_n$ be the red fraction among the unseen cards
+      after $n$ reveals. After a black-heavy run $p_n > 1/2$ and a bet placed
+      then is worth $2p_n - 1 > 0$ — but that is a payoff conditioned on an
+      event that does not always happen, and the runs on which $p_n < 1/2$
+      arrive exactly often enough to cancel it. The process $p_n$ is a
+      martingale, bounded in $[0,1]$, and any rule for calling is a stopping
+      time bounded by $52$. The optional stopping theorem then gives
+      $\mathbb{E}[p_\tau] = p_0 = 1/2$ for *every* such rule, so the game is
+      worth $2(1/2) - 1 = 0$ however cleverly you wait. Waiting is not free
+      information here: it moves the fraction, and it moves it in both
+      directions with exactly offsetting weight. What the candidate has done is
+      price the good branch and forget to charge for the bad one.
+    rubric:
+      - >
+        Concedes the conditional claim — the bet is genuinely favourable after a
+        black run — and locates the error in conditioning on a lucky event.
+      - >
+        Names the red fraction as a bounded martingale and the call as a bounded
+        stopping time, and cites optional stopping for
+        $\mathbb{E}[p_\tau] = p_0$.
+    targets:
+      - quant-games.ev-games.next-card-red
+      - quant-processes.martingales.ost
+    connects:
+      - quant-games.ev-games.next-card-red ~ quant-processes.martingales.ost
+
+  # --- stopping on colours for the remaining surplus ---------------------------
+
+  - id: qev-red-black-stopping-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Cards are turned one at a time from a shuffled deck and you may stop
+      whenever you like, collecting a dollar for every red card still unseen and
+      paying a dollar for every black card still unseen; running the deck out
+      pays $0$. Writing $V(r,b)$ for the value with $r$ reds and $b$ blacks
+      unseen, and taking $V(3,3) = 17/20$ and $V(4,2) = 2$ as known, compute
+      $V(4,3)$ as an exact fraction.
+    answer: >
+      $47/35 \approx 1.34$. The recursion is
+      $V(r,b) = \max\left(r - b,\;\frac{r}{r+b}V(r-1,b)
+      + \frac{b}{r+b}V(r,b-1)\right)$: stop and bank the current surplus, or
+      turn one more card, which is red with probability $r/(r+b)$ and black
+      otherwise. At $(4,3)$ the surplus on offer is $4 - 3 = 1$, and the
+      continuation is
+      $\frac{4}{7}V(3,3) + \frac{3}{7}V(4,2)
+      = \frac{4}{7}\cdot\frac{17}{20} + \frac{3}{7}\cdot 2
+      = \frac{17}{35} + \frac{30}{35} = \frac{47}{35}$. Since
+      $\frac{47}{35} > 1$, the maximum is the continuation and
+      $V(4,3) = \frac{47}{35}$. Turning a red card *lowers* the state's value
+      here, from $47/35$ to $17/20$, which is the whole reason the game has
+      value: you are being paid for the option to quit while the remainder is
+      still red-rich.
+    expects: "47/35"
+    rubric:
+      - >
+        Weights the two continuation states by $r/(r+b)$ and $b/(r+b)$, the
+        probabilities of the next card's colour, not by one half each.
+      - >
+        Takes the maximum against the stop-now surplus $r - b = 1$ and states
+        which branch wins.
+    targets:
+      - quant-games.ev-games.red-black-stopping
+    exercises:
+      - quant-games.ev-games.next-card-red
+
+  - id: qev-red-black-stopping-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Same game. Five reds and three blacks are still unseen, so stopping now
+      banks $2$. You are given $V(4,3) = 47/35$ and $V(5,2) = 3$. Should you
+      stop or turn another card?
+    answer: >
+      Stop. The continuation is
+      $\frac{5}{8}V(4,3) + \frac{3}{8}V(5,2)
+      = \frac{5}{8}\cdot\frac{47}{35} + \frac{3}{8}\cdot 3
+      = \frac{47}{56} + \frac{9}{8} = \frac{47 + 63}{56} = \frac{110}{56}
+      = \frac{55}{28} \approx 1.96$, which is below the $2$ available now, so
+      $V(5,3) = \max\left(2, \frac{55}{28}\right) = 2$. The surplus is large
+      enough that the reds left to be revealed are more likely to erode it than
+      to grow it — five of the eight remaining cards are red, and every red
+      turned costs you a dollar of unseen surplus. The rule this illustrates is
+      not "always wait for a bigger edge": waiting is worth something only while
+      the deck can still become more lopsided than it already is.
+    choices:
+      - text: >
+          Stop — the continuation is worth $55/28 \approx 1.96$, below the $2$
+          on the table
+        correct: true
+        feedback: >
+          Yes. Here the maximum in the recursion selects the stopping branch, so
+          $V(5,3) = 2$.
+      - text: >
+          Turn another card — the deck is red-rich, so the surplus can only
+          grow
+        feedback: >
+          A red card *reduces* the unseen surplus by one. Red-rich means the
+          erosion is the likely move, not the unlikely one.
+      - text: >
+          Turn another card — with cards left, running the deck out pays $0$,
+          which is worse than any surplus
+        feedback: >
+          You are never forced to run it out; stopping now is available, and
+          that is the point being compared against.
+      - text: >
+          It makes no difference — the recursion gives the same value either way
+        feedback: >
+          $2 > 55/28$ strictly, so the two branches are not equal and the
+          maximum picks stopping.
+    rubric:
+      - >
+        Computes the continuation as the colour-weighted average of the two
+        successor values before comparing with $r - b$.
+      - >
+        Reads the comparison the right way: with the surplus already large, one
+        more card is more likely to shrink it than to build it.
+    targets:
+      - quant-games.ev-games.red-black-stopping
+
+  # --- drawing cards for value -------------------------------------------------
+
+  - id: qev-card-value-draw-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Score a standard deck $A = 1$ through $K = 13$. Two cards are dealt
+      without replacement and you are paid the *product* of their two values.
+      Give the fair value as an exact fraction.
+    answer: >
+      $2485/51 \approx 48.73$. A sum of card values would be immune to the
+      dependence, but a product is not, and the honest route is to compute
+      $\mathbb{E}[XY]$ directly. Sum over ordered pairs of distinct cards. The
+      full deck's values total $S = 4(1 + \cdots + 13) = 364$ and its squares
+      total $Q = 4(1^{2} + \cdots + 13^{2}) = 4(819) = 3276$. The sum of $xy$
+      over all ordered pairs of distinct cards is $S^{2} - Q$, and there are
+      $52 \cdot 51$ such pairs, so
+      $\mathbb{E}[XY] = \frac{364^{2} - 3276}{52 \cdot 51}
+      = \frac{132496 - 3276}{2652} = \frac{129220}{2652} = \frac{2485}{51}$.
+      The tempting answer is $7 \times 7 = 49$, the product of the marginal
+      means, and it is wrong by about $0.27$ because removing a card makes the
+      second card's value slightly anti-correlated with the first — drawing a
+      king leaves a slightly weaker deck behind. Linearity needs no
+      independence; multiplicativity does.
+    expects: "2485/51"
+    tolerance: 0.005
+    rubric:
+      - >
+        Recognises that $\mathbb{E}[XY] = \mathbb{E}[X]\mathbb{E}[Y]$ requires
+        uncorrelatedness, which dealing without replacement destroys — the
+        answer is not $49$.
+      - >
+        Counts ordered pairs of distinct cards, subtracting the diagonal
+        $\sum x^{2}$ from $S^{2}$ before dividing by $52 \cdot 51$.
+    targets:
+      - quant-games.ev-games.card-value-draw
+    exercises:
+      - quant-games.ev-games.pay-per-pip
+
+  - id: qev-card-value-draw-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A nine-card hand is dealt from a standard deck without replacement and you
+      collect a dollar for every spade in it. What is the fair value?
+    answer: >
+      $9/4 = 2.25$. Write the payoff as $\sum_{i=1}^{9} I_i$, where $I_i$
+      indicates that the $i$-th card dealt is a spade. Each card dealt is
+      equally likely to be any of the $52$, so $\mathbb{E}[I_i] = 13/52 = 1/4$
+      for every $i$ — including the ninth, whose marginal is untouched by the
+      eight cards that came before, since nothing has been revealed. Linearity
+      then gives $9 \times \frac{1}{4} = \frac{9}{4} = 2.25$, and no
+      hypergeometric machinery is needed. The nine indicators are certainly
+      dependent — a spade early makes a spade later slightly less likely — but
+      dependence moves the variance of the count, never its mean.
+    expects: "2.25"
+    rubric:
+      - >
+        Decomposes the count into nine indicators and uses marginal uniformity,
+        rather than summing a hypergeometric distribution.
+      - >
+        States that the dependence between draws leaves the expectation exact.
+    targets:
+      - quant-games.ev-games.card-value-draw
+
+  # --- pricing deck-position games ---------------------------------------------
+
+  - id: qev-ace-positions-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A forty-card pack contains $5$ marked cards and $35$ unmarked ones, and is
+      shuffled. On average, at what position does the first marked card appear?
+      Give the answer as an exact fraction.
+    answer: >
+      $41/6 \approx 6.83$. The $5$ marked cards cut the $35$ unmarked cards into
+      $5 + 1 = 6$ gaps — before the first marked card, between consecutive
+      marked cards, and after the last. Those six gaps are exchangeable under
+      the shuffle: any rearrangement of the gap sizes is an equally likely
+      layout, so each has the same expected size $35/6$. The first marked card
+      sits immediately after the first gap, so its expected position is
+      $\frac{35}{6} + 1 = \frac{41}{6}$. Two off-by-one traps sit either side of
+      this. The expected number of unmarked cards *before* the first marked one
+      is $35/6 \approx 5.83$, one less, and the two questions are asked in the
+      same words often enough to be worth reading twice. And the gap count is
+      $k + 1 = 6$, not $k = 5$: using $35/5 = 7$ gives $8$ and quietly forgets
+      the tail after the last marked card.
+    expects: "41/6"
+    rubric:
+      - >
+        Uses $k + 1 = 6$ gaps for $k = 5$ marked cards, so the average gap is
+        $35/6$ rather than $35/5$.
+      - >
+        Adds the $1$ for the marked card itself, distinguishing its position
+        from the count of cards before it.
+    targets:
+      - quant-games.ev-games.ace-positions
+
+  - id: qev-ace-positions-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A standard $52$-card deck is shuffled. On average, at what position does
+      the *second* ace appear?
+    answer: >
+      $21.2$. The four aces cut the $48$ non-aces into $5$ exchangeable gaps, so
+      each gap averages $48/5 = 9.6$. Ahead of the second ace lie the first two
+      gaps and the first ace, so its expected position is
+      $2(9.6) + 2 = 19.2 + 2 = 21.2$. The same template answers the whole
+      family at once: the $j$-th ace sits at $9.6j + j = 10.6j$ on average, so
+      the aces are expected at $10.6$, $21.2$, $31.8$ and $42.4$ — evenly
+      spaced, which is the exchangeability of the gaps showing through. The
+      trap is doubling the first ace's answer without thinking, which happens to
+      be right here for exactly the reason just given, and is wrong the moment
+      the question asks for anything other than a $j$-th special card among
+      equally spaced gaps.
+    expects: "21.2"
+    rubric:
+      - >
+        Counts two gaps and one earlier ace ahead of the second ace, giving
+        $2(9.6) + 2$ rather than $2(9.6) + 1$ or $9.6 + 2$.
+      - >
+        Grounds the even gap size in exchangeability of the five gaps.
+    targets:
+      - quant-games.ev-games.ace-positions
+
+  # --- expected value is not the whole answer at size --------------------------
+
+  - id: qev-risk-aversion-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      An investor with logarithmic utility $u(W) = \ln W$ and wealth $200$
+      thousand is offered a fair coin flip: win $w$ thousand or lose $100$
+      thousand. What is the smallest win amount $w$, in thousands, at which the
+      investor is willing to take the flip?
+    answer: >
+      $w = 200$. Indifference means the expected utility of playing equals the
+      utility of standing still:
+      $\frac{1}{2}\ln(200 + w) + \frac{1}{2}\ln(100) = \ln(200)$. Multiply by
+      $2$ and use $\ln a + \ln b = \ln(ab)$:
+      $\ln\left((200 + w)(100)\right) = 2\ln(200) = \ln(40000)$, so
+      $(200 + w)(100) = 40000$, $200 + w = 400$ and $w = 200$. So this investor
+      needs to be offered a $2$-to-$1$ payoff merely to break even in utility on
+      a bet risking half of the stack — the expected gain at that point is a
+      thumping $\frac{1}{2}(200) - \frac{1}{2}(100) = 50$ thousand, and it buys
+      nothing. The trap is treating the concavity as a small correction to a
+      positive-EV answer: at a stake this size relative to wealth it is not a
+      correction, it dominates, and the required edge grows without bound as the
+      possible loss approaches the whole $200$.
+    expects: "200"
+    rubric:
+      - >
+        Sets expected utility equal to $u(W)$ — the utility of not playing — and
+        not to the utility of the expected wealth.
+      - >
+        Combines the two logarithms into one before exponentiating, arriving at
+        the geometric-mean condition $(200 + w)(100) = 200^{2}$.
+    targets:
+      - quant-games.ev-games.risk-aversion
+
+  - id: qev-risk-aversion-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      An investor with utility $u(W) = \sqrt{W}$ and wealth $100$ is offered a
+      fair coin flip that wins $44$ or loses $36$. The expected gain is
+      $\frac{1}{2}(44) - \frac{1}{2}(36) = 4$, clearly positive. What does the
+      utility calculation say the investor should do?
+    answer: >
+      They are exactly indifferent, so the positive expected gain of $4$ buys
+      precisely nothing. Playing leaves wealth $144$ or $64$, each with
+      probability $\frac{1}{2}$, so expected utility is
+      $\frac{1}{2}\sqrt{144} + \frac{1}{2}\sqrt{64}
+      = \frac{1}{2}(12) + \frac{1}{2}(8) = 10$, while not playing gives
+      $\sqrt{100} = 10$. The two are equal to the last decimal. This is the
+      cleanest possible demonstration that expected value and the actual
+      objective are different functions: a bet with a $4$-dollar edge on a
+      $100$-dollar stack can be worth exactly zero to a concave agent, and a
+      slightly worse one is worth less than nothing. Concavity is doing all the
+      work — $\sqrt{\cdot}$ converts the wealth gain of $44$ into a utility gain
+      of $2$ while the loss of $36$ costs $2$ of utility as well.
+    choices:
+      - text: >
+          Nothing is gained or lost — expected utility is $10$, exactly
+          $u(100)$, so the investor is indifferent despite the positive edge
+        correct: true
+        feedback: >
+          $\frac{1}{2}(12) + \frac{1}{2}(8) = 10 = \sqrt{100}$. A positive
+          expected gain and a zero utility gain sit together here.
+      - text: >
+          Take it — a positive expected gain always raises expected utility
+        feedback: >
+          Not for concave $u$. Here the edge of $4$ is exactly consumed by the
+          curvature, and a smaller edge would leave the investor worse off.
+      - text: >
+          Refuse it — any risk lowers a concave investor's expected utility
+        feedback: >
+          Risk alone does not settle it; a large enough edge compensates. At
+          $+44/-36$ the compensation is exact, not insufficient.
+      - text: >
+          Take it — the utility of the expected wealth is $\sqrt{104} > 10$
+        feedback: >
+          That is $u(\mathbb{E}[W])$, not $\mathbb{E}[u(W)]$. Jensen puts the
+          second below the first for concave $u$, which is the whole phenomenon.
+    rubric:
+      - >
+        Evaluates $\mathbb{E}[u(W + X)]$ by averaging the two utilities, rather
+        than taking the utility of the average wealth.
+      - >
+        States the conclusion as indifference, and identifies concavity — not
+        the sign of the edge — as what produced it.
+    targets:
+      - quant-games.ev-games.risk-aversion
+
+  - id: qev-risk-aversion-03
+    kind: work
+    difficulty: standard
+    statement: >
+      A log-utility investor with wealth $1000$ is offered a bet that wins $300$
+      with probability $0.6$ and loses $300$ with probability $0.4$. Using
+      $\ln(1300) \approx 7.1701$ and $\ln(700) \approx 6.5511$, compute the
+      expected utility of taking the bet, rounded to four decimal places.
+      (Compare it against $\ln(1000) \approx 6.9078$.)
+    answer: >
+      $6.9225$. Taking the bet leaves wealth $1300$ with probability $0.6$ and
+      $700$ with probability $0.4$, so the expected utility is
+      $0.6(7.1701) + 0.4(6.5511) = 4.30206 + 2.62044 = 6.92250$. Since
+      $6.9225 > 6.9078 = \ln(1000)$, this investor takes the bet — concavity
+      penalises the risk but the edge here is large enough to pay for it. Note
+      how thin the margin is against how fat the edge is: the expected gain is
+      $0.6(300) - 0.4(300) = 60$ dollars, a $6\%$ return on the whole stack, and
+      it clears the utility hurdle by only $0.0147$ of a log unit. Risk aversion
+      does not mean refusing every gamble; it means demanding a premium, and
+      here the premium is nearly all of the edge.
+    expects: "6.9225"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Weights the two log-wealths by $0.6$ and $0.4$ — the probabilities of
+        the outcomes, not equal halves.
+      - >
+        Compares the result against $\ln(1000)$ rather than against the expected
+        wealth, and concludes the investor accepts.
+    targets:
+      - quant-games.ev-games.risk-aversion
+
+  # --- certainty equivalent and risk premium -----------------------------------
+
+  - id: qev-certainty-equivalent-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A log-utility investor has wealth $100$ and is offered a fair coin flip of
+      plus or minus $60$. What is the certainty equivalent $c$ of that flip?
+    answer: >
+      $c = -20$. Solve $\ln(100 + c) = \frac{1}{2}\ln(160)
+      + \frac{1}{2}\ln(40) = \ln\sqrt{160 \cdot 40} = \ln\sqrt{6400}
+      = \ln(80)$, so $100 + c = 80$ and $c = -20$. Under log utility the
+      certainty equivalent wealth is exactly the geometric mean of the outcomes,
+      which is what makes this one come out whole. The risk premium is
+      $\mathbb{E}[X] - c = 0 - (-20) = 20$: the investor would pay up to $20$
+      to be rid of a bet whose expected payoff is zero. Compare the Arrow–Pratt
+      approximation, $\frac{1}{2}A(W)\operatorname{Var}(X)
+      = \frac{1}{2}\cdot\frac{1}{100}\cdot 3600 = 18$. It understates by $2$,
+      about $10\%$, because the stake is $60\%$ of wealth and the local
+      quadratic picture stops being local. The sign of that gap is the useful
+      thing to remember: the approximation is optimistic for large stakes.
+    expects: "-20"
+    rubric:
+      - >
+        Solves $u(W + c) = \mathbb{E}[u(W + X)]$ for $c$ in dollars rather than
+        reporting the expected utility itself as the certainty equivalent.
+      - >
+        Reports $c$ as negative for a fair bet, and reads the risk premium as
+        $\mathbb{E}[X] - c = 20$.
+    targets:
+      - quant-games.ev-games.certainty-equivalent
+    exercises:
+      - quant-games.ev-games.risk-aversion
+
+  - id: qev-certainty-equivalent-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A trader has constant absolute risk aversion, $u(W) = -e^{-aW}$ with
+      $a = 0.01$, so that $A(W) = -u''/u' = 0.01$ at every wealth. They are
+      offered a zero-mean gamble whose variance is $400$. Using the Arrow–Pratt
+      approximation, what is the risk premium?
+    answer: >
+      $2$. The approximation is
+      $\frac{1}{2}A(W)\operatorname{Var}(X)
+      = \frac{1}{2}(0.01)(400) = 2$, so the trader would pay about $2$ to be rid
+      of a gamble with no expected payoff at all. Two features of this utility
+      are worth naming. Absolute risk aversion is constant, so the answer does
+      not depend on the trader's wealth — a millionaire and a pauper with this
+      utility charge the same premium for the same gamble, which is exactly what
+      makes constant absolute risk aversion a modelling convenience rather than
+      a description of anyone. And the premium scales with the variance, not the
+      standard deviation, so doubling the size of the gamble quadruples what the
+      trader charges for it.
+    expects: "2"
+    rubric:
+      - >
+        Uses the variance, not the standard deviation, in
+        $\frac{1}{2}A\operatorname{Var}$.
+      - >
+        Notes that the constant $A$ makes the premium independent of wealth for
+        this utility.
+    targets:
+      - quant-games.ev-games.certainty-equivalent
+
+  # --- a small edge needs enormous repetition ----------------------------------
+
+  - id: qev-repeated-edge-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A market-making strategy earns an edge of $0.004$ dollars per trade with a
+      per-trade standard deviation of $0.8$ dollars, trades being independent.
+      How many trades are needed before the expected profit is three times the
+      standard deviation of the profit?
+    answer: >
+      $360000$. Over $n$ independent trades the expected profit is
+      $0.004n$ — expectation adds — while the variance adds, so the standard
+      deviation of the profit is $0.8\sqrt{n}$. Setting the first equal to three
+      times the second, $0.004n = 3(0.8)\sqrt{n} = 2.4\sqrt{n}$, so
+      $\sqrt{n} = 2.4/0.004 = 600$ and $n = 600^{2} = 360000$. The general
+      shape is $\sqrt{n} = k\sigma/\mu$, so the required volume grows with the
+      *square* of the target confidence and with the square of the noise-to-edge
+      ratio: dropping to a two-sigma standard would need $160000$ trades, and
+      halving the edge would need four times as many. The trap is adding
+      standard deviations instead of variances, which gives $0.8n$ for the noise
+      and makes the requirement look impossible at any $n$.
+    expects: "360000"
+    rubric:
+      - >
+        Adds variances, not standard deviations, so the profit's standard
+        deviation is $0.8\sqrt{n}$.
+      - >
+        Solves for $\sqrt{n}$ and squares, giving $n$ quadratic in the target
+        confidence.
+    targets:
+      - quant-games.ev-games.repeated-edge
+
+  - id: qev-repeated-edge-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A strategy has a per-trade edge of $0.05$ dollars and a per-trade standard
+      deviation of $2$ dollars. After $10000$ independent trades, what is the
+      ratio of expected profit to the standard deviation of profit?
+    answer: >
+      $2.5$. The expected profit is $10000(0.05) = 500$ dollars and the standard
+      deviation of profit is $2\sqrt{10000} = 2(100) = 200$ dollars, so the
+      ratio is $500/200 = 2.5$. Read it as a signal-to-noise number: at $2.5$
+      sigma the year is very likely but not certain to be profitable, and a
+      losing year is still perfectly ordinary evidence of nothing. The same
+      arithmetic written once as $\frac{\mu\sqrt{n}}{\sigma}
+      = \frac{0.05 \cdot 100}{2}$ shows what actually drives it — the ratio
+      grows like $\sqrt{n}$, so a hundredfold increase in trading volume buys
+      only a tenfold increase in confidence.
+    expects: "2.5"
+    rubric:
+      - >
+        Scales the mean by $n$ and the standard deviation by $\sqrt{n}$.
+      - >
+        Expresses the result as $\mu\sqrt{n}/\sigma$ and notes the
+        $\sqrt{n}$ growth.
+    targets:
+      - quant-games.ev-games.repeated-edge
+
+  - id: qev-repeated-edge-03
+    kind: justify
+    difficulty: standard
+    statement: >
+      A trader with a genuine per-trade edge says: "My profit is a sum of
+      $n$ terms, so both my expected profit and my uncertainty about it grow
+      linearly in $n$ — the ratio never improves and repetition is pointless."
+      Explain what is wrong, and connect the correct scaling to the fact that a
+      sample mean's error shrinks like $1/\sqrt{n}$.
+    answer: >
+      The error is in "my uncertainty grows linearly". For independent trades it
+      is the *variances* that add, not the standard deviations: the profit
+      $S_n = \sum_{i=1}^{n} X_i$ has $\mathbb{E}[S_n] = n\mu$ and
+      $\operatorname{Var}(S_n) = n\sigma^{2}$, so its standard deviation is
+      $\sigma\sqrt{n}$. The signal-to-noise ratio is therefore
+      $\frac{n\mu}{\sigma\sqrt{n}} = \frac{\mu}{\sigma}\sqrt{n}$, which grows
+      without bound — slowly, but it grows, and that is exactly why a thin edge
+      is a business at volume and worthless at one trade. The estimation picture
+      is the same statement divided by $n$: the average profit per trade,
+      $S_n/n$, has standard deviation $\sigma/\sqrt{n}$, the familiar root-$n$
+      rate at which a sample mean converges to its target. Growing signal and
+      shrinking estimation error are one fact seen from two sides — a fixed
+      $\mu$ against a noise that scales as $\sqrt{n}$ rather than $n$ — and the
+      trader's argument would only hold if the trades were perfectly correlated,
+      in which case there is really just one trade.
+    rubric:
+      - >
+        Corrects the claim by adding variances rather than standard deviations,
+        giving $\sigma\sqrt{n}$ for the profit's spread.
+      - >
+        Derives the signal-to-noise ratio $(\mu/\sigma)\sqrt{n}$ and says it
+        grows without bound.
+      - >
+        Identifies $\sigma/\sqrt{n}$ for the per-trade average as the same fact,
+        and notes that the argument needs independence.
+    targets:
+      - quant-games.ev-games.repeated-edge
+      - quant-probability.limits.root-n
+    connects:
+      - quant-games.ev-games.repeated-edge ~ quant-probability.limits.root-n
