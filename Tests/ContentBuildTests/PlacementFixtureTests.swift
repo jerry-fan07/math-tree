@@ -139,6 +139,7 @@ private let placementReady: Set<NodeID> = [
     "number-theory.divisibility",
     "analysis.sequences",
     "linear-algebra.systems",
+    "algebra.groups",
 ]
 
 private let placementNow = Date(timeIntervalSince1970: 1_785_000_000)
