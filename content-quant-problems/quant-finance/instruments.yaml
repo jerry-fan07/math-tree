@@ -1,0 +1,1405 @@
+# Problems targeting quant-finance.instruments — the contracts themselves.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. Every bond, forward, option and
+# margin account here is a fresh instance: no lesson worked example or card
+# number is reused. Money is written as bare numbers with the word "dollars",
+# never with a currency sign, and every exponential or discount factor a reader
+# would need a calculator for is stated in the problem. See ../README.md.
+
+problems:
+  # --- PV, FV and continuous compounding ---------------------------------------
+
+  - id: qinst-discounting-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A contract pays 4,000 dollars two years from now and a further 6,000
+      dollars five years from now. The continuously compounded discount rate is
+      $6\%$ at every horizon. Using $e^{-0.12} \approx 0.886920$ and
+      $e^{-0.30} \approx 0.740818$, what is the present value of the contract,
+      in dollars?
+    answer: >
+      About $7{,}992.59$ dollars. Each cash flow is discounted by its own
+      factor $e^{-rT}$, with $T$ measured from today to that payment: the
+      two-year flow carries $rT = 0.06 \times 2 = 0.12$ and the five-year flow
+      $rT = 0.06 \times 5 = 0.30$. So the first is worth
+      $4000 \times 0.886920 \approx 3547.68$ dollars today and the second
+      $6000 \times 0.740818 \approx 4444.91$, and present values of separate
+      cash flows simply add, giving $3547.68 + 4444.91 \approx 7992.59$. Two
+      traps live here. The first is discounting the total, 10,000 dollars, at
+      some average horizon — the flows arrive at different times and each needs
+      its own factor. The second is treating $6\%$ as $6$: the rate enters the
+      exponent as the decimal $0.06$, and $e^{-6 \times 2}$ is off by
+      astronomical orders of magnitude. Note the sanity check that costs
+      nothing: every factor lies strictly between $0$ and $1$, so the answer
+      must sit below the undiscounted 10,000 and above zero.
+    expects: "7992.59"
+    tolerance: 0.5
+    rubric:
+      - >
+        Discounts each cash flow by its own $e^{-rT}$ with the right $T$, rather
+        than discounting the sum at one horizon.
+      - >
+        Uses the decimal rate $0.06$ in the exponent and adds the two present
+        values.
+    targets:
+      - quant-finance.instruments.discounting
+
+  - id: qinst-discounting-02
+    kind: work
+    difficulty: standard
+    statement: >
+      What is the present value, in dollars, of 2,500 dollars to be received in
+      four years, discounted continuously at $3.5\%$ per year? Use
+      $e^{-0.14} \approx 0.869358$.
+    answer: >
+      About $2{,}173.40$ dollars. Present value under continuous compounding is
+      $PV = Ce^{-rT}$, the inverse of the growth factor $e^{rT}$: here
+      $rT = 0.035 \times 4 = 0.14$, so
+      $PV = 2500 \times 0.869358 \approx 2173.40$ dollars. Read the structure
+      rather than memorising two formulas — discounting and compounding are the
+      same operation with the sign of the exponent flipped, which is exactly why
+      continuously compounded rates add across horizons: discounting four years
+      at $3.5\%$ is the same as discounting one year at $3.5\%$ four times over,
+      since $e^{-0.035}$ raised to the fourth power is $e^{-0.14}$. The common
+      slip is a sign error, multiplying by $e^{+0.14} \approx 1.150$ to get
+      about 2,875 dollars; money received later is worth *less* than money
+      today, so a present value below 2,500 is the only admissible answer.
+    expects: "2173.40"
+    tolerance: 0.05
+    rubric:
+      - >
+        Applies $PV = Ce^{-rT}$ with a negative exponent, giving a value below
+        the 2,500 face amount.
+      - >
+        Computes $rT = 0.14$ from the decimal rate and the four-year horizon.
+    targets:
+      - quant-finance.instruments.discounting
+
+  - id: qinst-discounting-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      A rate of $9\%$ is quoted continuously compounded. The rule of 72
+      estimates the doubling time of an investment as $72$ divided by the rate
+      in percent. By how many years does that estimate overstate the exact
+      continuously compounded doubling time? Use $\ln 2 \approx 0.6931$ and
+      answer in years to two decimal places.
+    answer: >
+      About $0.30$ years. Exact doubling means solving $e^{rT} = 2$, so
+      $T = \frac{\ln 2}{r} = \frac{0.6931}{0.09} \approx 7.70$ years. The rule
+      of 72 gives $72/9 = 8$ years, so it overstates by
+      $8 - 7.70 \approx 0.30$ years, about three and a half months on a
+      horizon of seven and a half. The rule is not a different model of
+      growth — it is that same equation with $\ln 2 \approx 0.693$ rounded up to
+      $0.72$, a fudge chosen because 72 divides cleanly by 2, 3, 4, 6, 8, 9 and
+      12 and because the rounding compensates for the gap between annual and
+      continuous compounding at the mid-single-digit rates it is usually used
+      at. That is why it drifts: at $9\%$ continuous it runs long by three
+      tenths of a year, and the error grows with the rate. Answering $8$ mistakes the
+      approximation for the exact value; answering $7.70$ answers a different
+      question, the exact time rather than the gap.
+    expects: "0.30"
+    tolerance: 0.005
+    connects:
+      - quant-finance.instruments.discounting ~ quant-mental.approximation.rule-72
+    rubric:
+      - >
+        Solves $e^{rT} = 2$ for $T = \ln 2 / r$ and gets about $7.70$ years at
+        $r = 0.09$.
+      - >
+        Computes the rule-of-72 estimate as $72/9 = 8$ and reports the
+        difference, not either level.
+    targets:
+      - quant-finance.instruments.discounting
+      - quant-mental.approximation.rule-72
+
+  # --- equity: shares and dividends --------------------------------------------
+
+  - id: qinst-equity-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Over one holding period a share paid 1.40 dollars in dividends, ended the
+      period at 96.60 dollars, and delivered a total return of exactly $12\%$.
+      What was the purchase price, in dollars?
+    answer: >
+      $87.50$ dollars. Total return is
+      $R = (P_1 - P_0 + D)/P_0$, which rearranges to
+      $P_0(1 + R) = P_1 + D$, so
+      $P_0 = \frac{P_1 + D}{1 + R} = \frac{96.60 + 1.40}{1.12}
+      = \frac{98}{1.12} = 87.50$ dollars. The rearrangement is the whole
+      problem: the denominator is $1 + R$, not $R$, because the purchase price
+      is recovered along with the return. Check it forwards —
+      $(96.60 - 87.50 + 1.40)/87.50 = 10.50/87.50 = 12\%$, splitting into a
+      $10.4\%$ price return and a $1.6\%$ dividend yield. The tempting wrong
+      move is to subtract $12\%$ from the ending value, $96.60/1.12 = 86.25$,
+      which quietly drops the dividend from the numerator and prices the share
+      as if it had paid nothing.
+    expects: "87.50"
+    rubric:
+      - >
+        Inverts $R = (P_1 - P_0 + D)/P_0$ correctly to $P_0 = (P_1 + D)/(1 + R)$.
+      - >
+        Keeps the dividend in the numerator, so the answer is below
+        $96.60/1.12$.
+    targets:
+      - quant-finance.instruments.equity
+
+  - id: qinst-equity-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A share is bought at 120 dollars, pays two quarterly dividends of 0.75
+      dollars each during the holding period, and is sold at 117 dollars. What
+      is the total return over the holding period, as a decimal?
+    answer: >
+      $-0.0125$, a loss of $1.25\%$. Total dividends are
+      $2 \times 0.75 = 1.50$ dollars, so
+      $R = (117 - 120 + 1.50)/120 = -1.50/120 = -0.0125$. The split is worth
+      naming: the price return is $(117 - 120)/120 = -2.5\%$ and the dividend
+      yield is $1.50/120 = 1.25\%$, and the two add to the total. Dividends
+      soften a price fall but do not reverse this one — a common error is to
+      report the $-2.5\%$ price return as the return, ignoring the cash the
+      position actually paid out, and the opposite error is to count each 0.75
+      dividend as a separate $0.75/120$ yield and then forget to add both.
+      Note also what is *not* here: the dividends are not reinvested, so no
+      compounding enters, which is the convention behind this simple
+      period-return formula.
+    expects: "-0.0125"
+    rubric:
+      - >
+        Sums both dividends into the numerator alongside the price change.
+      - >
+        Reports a negative total return, and can split it into a $-2.5\%$ price
+        return plus a $1.25\%$ dividend yield.
+    targets:
+      - quant-finance.instruments.equity
+
+  - id: qinst-equity-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      A company under cash pressure announces that it will not pay this
+      quarter's customary dividend, and separately that it will
+      not make the interest payment due on its bonds. Which characterisation is
+      correct?
+    answer: >
+      Only the missed bond interest is a default. A bond coupon is a
+      contractual promise: failing to pay it triggers the indenture's default
+      provisions and hands bondholders legal remedies, including acceleration of
+      the principal. A dividend is not promised at all — it is declared at the
+      board's discretion each period, and skipping one is a business decision,
+      not a breach. That asymmetry is the whole content of "equity is a residual
+      claim": debt is paid first and on schedule, and shareholders receive
+      whatever is left, if anything. It is also why equity carries more risk and
+      more upside than a bond from the same issuer — the shareholder is not owed
+      a fixed amount, so there is no ceiling on the claim either.
+    choices:
+      - text: >
+          Missing the bond interest is a default; skipping the dividend is not.
+        correct: true
+        feedback: >
+          Right — a coupon is contractual, a dividend is discretionary. That is
+          exactly the seniority ordering that makes equity the residual claim.
+      - text: >
+          Both are defaults, since both are payments the company failed to make.
+        feedback: >
+          A dividend is never owed. The board declares it period by period and
+          may cut or skip it with no legal breach.
+      - text: >
+          Skipping the dividend is a default; the bond interest can be deferred
+          without consequence.
+        feedback: >
+          This inverts the seniority. Debt is senior and its payments are
+          contractual; equity's are not.
+      - text: >
+          Neither is a default until the company enters bankruptcy proceedings.
+        feedback: >
+          Default is the missed contractual payment itself. Bankruptcy is one
+          possible consequence of it, not its definition.
+    rubric:
+      - >
+        Distinguishes a contractual coupon from a discretionary dividend.
+      - >
+        Connects that distinction to equity's position as the residual claim,
+        paid after debt.
+    targets:
+      - quant-finance.instruments.equity
+
+  # --- indices and ETFs ---------------------------------------------------------
+
+  - id: qinst-indices-etfs-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A market-cap-weighted index holds exactly four stocks. A has 40 million
+      shares outstanding at 25 dollars, B has 12 million at 75 dollars, C has 60
+      million at 5 dollars, and D has 8 million at 100 dollars. What is D's
+      weight in the index, as a decimal to four places?
+    answer: >
+      $0.2667$. Weight in a cap-weighted index is market capitalisation over
+      total market capitalisation, and capitalisation is shares outstanding
+      times price, not price alone. In millions of dollars: A is
+      $40 \times 25 = 1000$, B is $12 \times 75 = 900$, C is
+      $60 \times 5 = 300$, and D is $8 \times 100 = 800$, totalling $3000$. So
+      D's weight is $\frac{800}{3000} = \frac{4}{15} \approx 0.2667$. The trap
+      is priced into the setup: D has by far the highest share price, and
+      price-weighting it would give $100/205 \approx 0.4878$, nearly double the
+      truth — while A, whose 25-dollar shares are the second cheapest on the
+      list, is quietly the largest constituent of all. Only a price-weighted
+      index, like the Dow, uses share prices directly; a cap-weighted index does
+      not care what a share costs, only what the whole company is worth, which
+      is why a large move in a small constituent barely shifts it.
+    expects: "0.2667"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Computes each market capitalisation as shares times price before
+        weighting.
+      - >
+        Divides D's capitalisation by the total of all four, and does not
+        weight by share price.
+    targets:
+      - quant-finance.instruments.indices-etfs
+    exercises:
+      - quant-finance.instruments.equity
+
+  - id: qinst-indices-etfs-02
+    kind: decide
+    difficulty: routine
+    statement: >
+      An equity ETF closes the morning trading at 40.55 while the basket of
+      shares it holds is worth 40.30 per ETF share. Which action by an
+      authorized participant profits from this and pushes the two back together?
+    answer: >
+      Buy the underlying basket, deliver it to the fund in exchange for newly
+      created ETF shares, and sell those shares in the market. The AP pays 40.30
+      for the basket and receives shares it can sell at 40.55, capturing the
+      25-cent premium; doing so increases the supply of ETF shares, which pushes
+      the ETF's price down toward net asset value, and the basket buying nudges
+      the underlying prices up toward it. That is the creation half of the
+      creation/redemption mechanism, and it is what keeps an ETF honest against
+      its own NAV without anyone having to enforce anything. When the ETF trades
+      at a *discount* the machine runs backwards: buy cheap ETF shares, redeem
+      them with the fund for the basket, and sell the basket. Note that the
+      index itself cannot be bought or sold — it is only a weighting rule, so
+      every leg of this trade is in the fund or in the actual constituents.
+    choices:
+      - text: >
+          Buy the basket of underlying shares, exchange it with the fund for new
+          ETF shares, and sell those ETF shares.
+        correct: true
+        feedback: >
+          Right — creation. Buying at the 40.30 basket value and selling at
+          40.55 captures the premium and closes it by adding ETF supply.
+      - text: >
+          Buy ETF shares in the market and redeem them with the fund for the
+          underlying basket.
+        feedback: >
+          That is the redemption leg, which pays off when the ETF trades at a
+          discount. Here you would buy at 40.55 what is worth 40.30.
+      - text: >
+          Buy the index itself and sell the ETF against it.
+        feedback: >
+          An index is a rule for combining prices, not a security — there is
+          nothing to buy. Only the fund and its constituents trade.
+      - text: >
+          Wait for the fund manager to reprice the ETF's shares at net asset
+          value.
+        feedback: >
+          Nobody sets an ETF's intraday price; it is whatever the market pays.
+          Arbitrage, not administration, is what pulls it back to NAV.
+    rubric:
+      - >
+        Identifies the profitable direction: the ETF is rich, so create shares
+        and sell them.
+      - >
+        Says why the trade closes the gap — new ETF supply pushes its price down
+        toward net asset value.
+    targets:
+      - quant-finance.instruments.indices-etfs
+
+  # --- bond cash flows and price -----------------------------------------------
+
+  - id: qinst-bond-pricing-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A three-year bond has 1,000 dollars of face value and pays a $6\%$ annual
+      coupon. The market's discount factors for cash received in one, two and
+      three years are $0.9615$, $0.9151$ and $0.8638$. What is the bond's price,
+      in dollars?
+    answer: >
+      About $1{,}028.22$ dollars. The bond is a stack of three dated cash flows:
+      60 dollars at $t=1$, 60 at $t=2$, and $60 + 1000 = 1060$ at $t=3$, since
+      the final coupon arrives alongside the face value. Multiplying each by its
+      own discount factor gives $60 \times 0.9615 = 57.69$,
+      $60 \times 0.9151 = 54.91$ and $1060 \times 0.8638 = 915.63$, summing to
+      about $1028.22$ dollars. The dominant error is discounting only the face
+      value at $t=3$ and forgetting the third coupon, which costs
+      $60 \times 0.8638 \approx 51.83$ and produces 976.40. A second error is
+      applying one factor to everything. Sanity check the sign of the answer's
+      deviation from par: the factors correspond to yields between $4\%$ and
+      $5\%$, below the $6\%$ coupon, so a price above 1,000 — a premium — is exactly
+      what should appear. A bond trades at a premium when its coupon beats
+      prevailing rates and at a discount when it does not.
+    expects: "1028.22"
+    tolerance: 0.05
+    rubric:
+      - >
+        Puts $1060$, not $1000$ or $60$, at $t=3$ — the last coupon is paid with
+        the face value.
+      - >
+        Applies each dated discount factor to its own cash flow and sums, and
+        can say why the result is a premium to par.
+    targets:
+      - quant-finance.instruments.bond-pricing
+    exercises:
+      - quant-finance.instruments.discounting
+
+  - id: qinst-bond-pricing-02
+    kind: work
+    difficulty: routine
+    statement: >
+      A five-year zero-coupon bond has 2,000 dollars of face value and is priced
+      at an annually compounded yield of $4\%$. What is its price, in dollars?
+      Use $1.04^{5} \approx 1.216653$.
+    answer: >
+      About $1{,}643.85$ dollars. A zero-coupon bond is the case $c = 0$: every
+      coupon term in $P = \sum_t cF/(1+y)^t + F/(1+y)^T$ vanishes and one term
+      survives, $P = F/(1+y)^{T} = 2000/1.216653 \approx 1643.85$ dollars. It is
+      the cleanest possible bond — a single dated cash flow — and worth holding
+      as the check case behind every coupon bond, which is just a bundle of
+      zeros with different maturities. Two slips to avoid. Discounting by
+      $(1 + yT) = 1.20$ uses simple interest and gives about 1,667, too high,
+      because it skips the interest earned on interest. And a zero always trades
+      below face while any interest rate is positive, so a price above 2,000 is
+      immediately wrong; the 356 dollars of discount to face *is* the interest,
+      paid at maturity all at once rather than in coupons.
+    expects: "1643.85"
+    tolerance: 0.05
+    rubric:
+      - >
+        Uses the single-cash-flow form $P = F/(1+y)^{T}$ with $T = 5$.
+      - >
+        Compounds rather than using simple interest, and lands below the 2,000
+        face value.
+    targets:
+      - quant-finance.instruments.bond-pricing
+    exercises:
+      - quant-finance.instruments.discounting
+
+  - id: qinst-bond-pricing-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      A bond with 1,000 dollars of face value pays a $5\%$ annual coupon in two
+      semiannual instalments. It is quoted at a clean price of 98.40 per 100 of
+      face. Settlement falls 73 days into a 182-day coupon period. What does the
+      buyer actually pay per bond, in dollars?
+    answer: >
+      About $994.03$ dollars. The quoted, or clean, price excludes accrued
+      interest; the invoice, or dirty, price is what changes hands, and it is
+      clean plus accrued. Clean price first: $98.40$ per 100 of face on 1,000 of
+      face is $984.00$ dollars. Accrued next: the semiannual coupon is
+      $\frac{0.05 \times 1000}{2} = 25$ dollars, and the seller has held the
+      bond for $73$ of the $182$ days of the current period, so accrued interest
+      is $25 \times \frac{73}{182} \approx 10.03$ dollars. The buyer pays
+      $984.00 + 10.03 \approx 994.03$ dollars. The economics are simple: the
+      buyer will collect the whole 25-dollar coupon in 109 days despite having
+      owned the bond for only part of the period, so the seller is reimbursed
+      for the days already earned. The trap is answering 984.00 — the number on
+      the screen is not the number on the invoice — and the second trap is
+      accruing the full annual $50$ rather than the $25$ of the current
+      semiannual period.
+    expects: "994.03"
+    tolerance: 0.05
+    rubric:
+      - >
+        Converts the quote per 100 of face into 984.00 dollars on 1,000 of face.
+      - >
+        Accrues the semiannual coupon of 25 dollars over $73/182$ of the period
+        and adds it to the clean price.
+    targets:
+      - quant-finance.instruments.bond-pricing
+
+  # --- yield to maturity and the price-yield relation ---------------------------
+
+  - id: qinst-bond-ytm-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A two-year bond with 100 dollars of face value pays a $4\%$ annual coupon
+      and trades at 96.50. What is its yield to maturity, as a decimal to four
+      places? Use $\sqrt{40160} \approx 200.399$.
+    answer: >
+      About $0.0591$, or $5.91\%$. The YTM is the single rate $y$ that discounts
+      the promised flows back to the observed price. Writing $x = 1 + y$, the
+      pricing equation $\frac{4}{x} + \frac{104}{x^{2}} = 96.50$ clears to a
+      quadratic, $96.5x^{2} - 4x - 104 = 0$, and the positive root is
+      $x = \frac{4 + \sqrt{16 + 4(96.5)(104)}}{2(96.5)}
+      = \frac{4 + 200.399}{193} \approx 1.0591$, so
+      $y \approx 0.0591$. Check the direction before trusting the algebra: the
+      bond sells below par, so the market is discounting its flows harder than
+      the $4\%$ coupon, and the yield must come out above $4\%$ — it does. The
+      cheap wrong answers are both traps worth naming. The current yield,
+      $4/96.50 \approx 4.15\%$, ignores the 3.50 dollars of pull to par earned
+      over two years. And the coupon rate, $4\%$, is a fact about the contract,
+      not about the price: only when a bond trades exactly at par do coupon
+      rate, current yield and yield to maturity coincide.
+    expects: "0.0591"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Sets price equal to the discounted flows at a single rate and solves the
+        resulting quadratic in $1 + y$.
+      - >
+        Reports a yield above the $4\%$ coupon and says why a discount price
+        forces that.
+    targets:
+      - quant-finance.instruments.bond-ytm
+    exercises:
+      - quant-finance.instruments.bond-pricing
+
+  - id: qinst-bond-ytm-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A twenty-year bond with 100 dollars of face value pays a $6\%$ annual
+      coupon and trades at 92.00. What is its current yield — annual coupon
+      divided by price — as a decimal to four places?
+    answer: >
+      $0.0652$. Current yield is the crude income measure,
+      $\frac{6}{92} \approx 0.06522$, so about $6.52\%$. The number itself is
+      easy; the point of the problem is what it is *not*. Current yield counts
+      only the coupon stream against today's price and is blind to the 8 dollars
+      of capital gain the holder collects as the bond pulls from 92 up to its
+      100 face value over twenty years. Yield to maturity counts both, so for
+      any bond bought at a discount the ordering is
+      current yield $<$ YTM, and here the YTM is nearer $6.7\%$. For a premium
+      bond the ordering reverses, because the pull to par is a capital *loss*
+      that the current yield ignores. Only at par do the two agree, and there
+      they also equal the coupon rate. Quoting a current yield when an
+      interviewer asked for a yield to maturity is a standard tell.
+    expects: "0.0652"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Computes annual coupon over market price, not over face value.
+      - >
+        States that current yield omits the pull to par, so it sits below the
+        yield to maturity for a discount bond.
+    targets:
+      - quant-finance.instruments.bond-ytm
+
+  - id: qinst-bond-ytm-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      A trainee argues: "If yields rise, bonds pay more, so bond prices should
+      rise too." Explain precisely why price and yield must move in opposite
+      directions, and say what the trainee's sentence is actually describing.
+    answer: >
+      The trainee has confused two different things a bond can be: a contract
+      whose cash flows are already fixed, and a rate at which the market values
+      any such contract. For a bond that already exists, the coupons and face
+      value are written down and do not change — nothing about a yield move
+      makes *this* bond pay more. What changes is the denominator. Price is
+      $P = \sum_t \frac{cF}{(1+y)^{t}} + \frac{F}{(1+y)^{T}}$, and each term is
+      a fixed positive numerator over an increasing function of $y$, so each
+      term is strictly decreasing in $y$; a sum of strictly decreasing functions
+      is strictly decreasing. Hence $y$ up forces $P$ down, always, with no
+      exceptions and no dependence on the coupon or maturity. The economic
+      version of the same statement: if new bonds are issued at $6\%$ while
+      yours pays $4\%$, nobody will pay face value for yours, and the only way
+      the market clears is for its price to fall until the discount makes up the
+      shortfall — the price falls to the point where the buyer's total return
+      matches what is available elsewhere. What the trainee is describing is a
+      *newly issued* bond: at higher yields, new issues do carry higher coupons.
+      That is a statement about future contracts, not about the price of one
+      already held, and the relation is causal in the direction opposite to the
+      one assumed — yields are the input the market sets, price is the output.
+      Note the second-order refinement: the fall is not proportional to the
+      yield rise, because $P$ is convex in $y$, so the price drop from a rise is
+      smaller than the price gain from an equal-sized fall.
+    rubric:
+      - >
+        Fixes the cash flows first — an existing bond's coupons do not change
+        when yields do.
+      - >
+        Argues term by term that $P$ is strictly decreasing in $y$, so the
+        inverse relation is exact rather than empirical.
+      - >
+        Identifies the trainee's claim as a statement about newly issued bonds,
+        and mentions the convexity of the relation.
+    targets:
+      - quant-finance.instruments.bond-ytm
+
+  # --- duration as price sensitivity -------------------------------------------
+
+  - id: qinst-duration-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A three-year bond with 100 dollars of face value pays a $6\%$ annual
+      coupon and is priced at a yield of $7\%$. Its three cash flows have
+      present values 5.61, 5.24 and 86.53 dollars, so the price is 97.38
+      dollars. What is the bond's Macaulay duration, in years to two decimal
+      places?
+    answer: >
+      About $2.83$ years. Macaulay duration is the present-value-weighted
+      average time to receipt,
+      $D = \sum_t t \cdot PV_t / P$, so it is a centre of mass of the cash-flow
+      schedule along the time axis:
+      $D = \frac{1(5.61) + 2(5.24) + 3(86.53)}{97.38}
+      = \frac{5.61 + 10.48 + 259.59}{97.38} = \frac{275.68}{97.38}
+      \approx 2.83$ years. Two properties fall straight out of the arithmetic.
+      Duration is below the three-year maturity, and must be, because some money
+      arrives earlier than maturity — only a zero-coupon bond has duration equal
+      to its maturity, which is the anchor case to reason from. And the weights
+      are shockingly lopsided: the final flow is $86.53/97.38 \approx 89\%$ of
+      the present value, which is why raising the coupon or shortening the
+      maturity lowers duration. The error to avoid is weighting by the
+      undiscounted cash flows 6, 6 and 106, or by time alone: the weights are
+      present values, and they must sum to the price.
+    expects: "2.83"
+    tolerance: 0.005
+    rubric:
+      - >
+        Weights each payment time by that flow's present value, and divides by
+        the full price.
+      - >
+        Gets a duration strictly below the three-year maturity and can say why
+        a coupon bond always does.
+    targets:
+      - quant-finance.instruments.duration
+    exercises:
+      - quant-finance.instruments.bond-pricing
+
+  - id: qinst-duration-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A bond has Macaulay duration 9.4 years and is priced at a yield of $5\%$.
+      Yields fall by 40 basis points. Approximately what is the resulting
+      percentage price change, as a decimal to four places?
+    answer: >
+      About $+0.0358$, a gain of roughly $3.58\%$. Duration converts a rate move
+      into a price move through
+      $\%\Delta P \approx -D_{mod}\,\Delta y$, where the *modified* duration
+      $D_{mod} = \frac{D}{1+y} = \frac{9.4}{1.05} \approx 8.952$ is the usable
+      slope. A 40 basis point fall is $\Delta y = -0.004$, so
+      $\%\Delta P \approx -8.952 \times (-0.004) \approx +0.0358$. Three
+      separate slips are all common here. Using the Macaulay duration directly
+      gives $9.4 \times 0.004 = 0.0376$, overstating the move by about
+      eighteen basis points because it skips the $1/(1+y)$ rescaling. Dropping
+      the minus sign reports a loss when yields fell, which is backwards. And
+      reading "40 basis points" as $0.40$ rather than $0.004$ inflates the
+      answer a hundredfold — a basis point is one hundredth of a percent. The
+      estimate is a first-order one, so the true gain is slightly larger than
+      $3.58\%$: convexity works in the holder's favour on both sides.
+    expects: "0.0358"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides Macaulay duration by $1+y$ before multiplying, and converts 40
+        basis points to $0.004$.
+      - >
+        Gets a positive percentage change, because the yield fell.
+    targets:
+      - quant-finance.instruments.duration
+
+  - id: qinst-duration-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      A risk report states a bond's price change for a yield move as exactly
+      $-D_{mod}\,\Delta y$ and uses it unchanged for a 3 basis point move and
+      for a 300 basis point move. Explain what duration actually is as a
+      mathematical object, and say in which direction the approximation errs and
+      why.
+    answer: >
+      Duration is a derivative, not a formula for price. Price is a smooth
+      function $P(y)$, and expanding it about the current yield gives
+      $P(y + \Delta y) = P(y) + P'(y)\Delta y
+      + \frac{1}{2}P''(y)(\Delta y)^{2} + \dots$; modified duration is defined
+      exactly so that $D_{mod} = -P'(y)/P(y)$, which makes
+      $\%\Delta P \approx -D_{mod}\,\Delta y$ the *first-order* term of that
+      expansion and nothing more. So the report is using the tangent line to the
+      price-yield curve as if it were the curve. For a 3 basis point move that
+      is nearly exact, because the discarded term is quadratic in a very small
+      number; for a 300 basis point move the discarded term is ten thousand
+      times larger and the error is material. The direction of the error is not
+      a matter of luck. Every term of
+      $P = \sum_t CF_t/(1+y)^{t}$ is convex in $y$, so $P'' > 0$ and the true
+      price curve lies *above* its tangent everywhere. The linear estimate
+      therefore understates the price at every yield other than the current one:
+      for a large yield rise the actual loss is smaller than duration predicts,
+      and for a large yield fall the actual gain is bigger. A risk report built
+      on duration alone is thus conservative on the downside and understates the
+      upside — which sounds harmless until it is used to hedge, where the
+      residual is a real, one-signed exposure that a second-order term,
+      convexity, is introduced precisely to capture.
+    rubric:
+      - >
+        Identifies modified duration as $-P'(y)/P(y)$ and the estimate as the
+        first-order term of a Taylor expansion.
+      - >
+        Says the error grows like $(\Delta y)^{2}$, so it is negligible for
+        small moves and material for large ones.
+      - >
+        Uses convexity, $P'' > 0$, to fix the sign: the linear estimate
+        understates price on both sides.
+    targets:
+      - quant-finance.instruments.duration
+
+  # --- forwards vs futures ------------------------------------------------------
+
+  - id: qinst-forward-future-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A stock pays no dividends and trades at 84 dollars. The continuously
+      compounded interest rate is $4.5\%$. What is the no-arbitrage forward
+      price for delivery in eight months, in dollars? The forward price is
+      $F = Se^{rT}$ with $T$ in years, and $e^{0.03} \approx 1.030455$.
+    answer: >
+      About $86.56$ dollars. Eight months is
+      $T = \frac{8}{12} = \frac{2}{3}$ of a year, so
+      $rT = 0.045 \times \frac{2}{3} = 0.03$ and
+      $F = 84 \times 1.030455 \approx 86.56$ dollars. The formula is not a
+      forecast of where the stock will be — it is the cost of carrying it. A
+      dealer who must deliver the share in eight months can borrow 84 dollars
+      today, buy the share, and owe $84e^{0.03} \approx 86.56$ at delivery; any
+      forward price above that is free money for the dealer and any price below
+      it is free money for the counterparty, so 86.56 is the only quote that
+      admits no arbitrage. Three traps. Forgetting to annualise and using
+      $T = 8$ gives $84e^{0.36} \approx 120$, a wild number that should be
+      caught on sight. Using the rate as $4.5$ rather than $0.045$ explodes
+      similarly. And discounting instead of compounding, $84e^{-0.03}$, gets the
+      direction backwards: with a positive rate and no dividend the forward
+      price always exceeds the spot, because the buyer defers payment and keeps
+      the interest.
+    expects: "86.56"
+    tolerance: 0.05
+    rubric:
+      - >
+        Converts eight months to $T = 2/3$ years before computing $rT = 0.03$.
+      - >
+        Compounds the spot forward, landing above 84, and can state the
+        carry argument behind the formula.
+    targets:
+      - quant-finance.instruments.forward-future
+
+  - id: qinst-forward-future-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Two traders take the same long position in the same underlying at the same
+      price, one via a bilateral forward and one via an exchange-traded future.
+      Over the contract's life the underlying rallies hard for a month and then
+      falls all the way back, settling at expiry exactly at the original price.
+      Which statement is true?
+    answer: >
+      Both end with zero total profit, but only the futures trader had cash
+      moving in and out along the way. A future is marked to market daily: every
+      evening the exchange settles that day's change in cash, so the rally
+      credited the account and the fall debited it back out, netting to zero by
+      expiry. A forward settles once, at expiry, so its holder saw no cash at
+      all until the final date, and there the settlement is zero. The total P&L
+      is identical because both contracts fix the same obligation at the same
+      price; only the *timing* differs. That timing is not cosmetic. The
+      futures trader could have faced a margin call during the drawdown and been
+      forced to post cash or be closed out at the worst moment, and the interim
+      credits and debits earn or cost interest. The forward trader avoided all
+      of that, but carries something the futures trader does not: the risk that
+      the counterparty fails, since no clearinghouse stands between them.
+    choices:
+      - text: >
+          Both end with zero total profit, but the futures trader had daily cash
+          settlements in and out while the forward trader had none.
+        correct: true
+        feedback: >
+          Right — same total, different timing. Daily marking is the whole
+          operational difference, and it is why futures carry margin-call risk.
+      - text: >
+          The futures trader ends with a profit, because the daily gains during
+          the rally were locked in as cash.
+        feedback: >
+          The gains were paid in, then paid straight back out as the price fell.
+          Marking to market settles the position continuously, it does not ratchet.
+      - text: >
+          The forward trader ends with a profit, having avoided the trading costs
+          of daily settlement.
+        feedback: >
+          Marking to market is a cash transfer, not a fee. Both contracts oblige
+          the same trade at the same price, so both net to zero here.
+      - text: >
+          Neither had any cash flow before expiry, since both are obligations to
+          trade later.
+        feedback: >
+          True of the forward, false of the future — the exchange settles the
+          change in value in cash every single evening.
+    rubric:
+      - >
+        Recognises the total payoff as identical, since both fix the same trade
+        at the same price.
+      - >
+        Names daily marking to market as the difference, and the margin call it
+        can trigger mid-life.
+    targets:
+      - quant-finance.instruments.forward-future
+
+  - id: qinst-forward-future-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      A candidate proposes that the fair forward price on a non-dividend-paying
+      stock should be the market's expected spot price at delivery, so a stock
+      everyone expects to rally should carry a higher forward price than
+      $Se^{rT}$. Build the replication argument that refutes this, and say what
+      would have to be true of the market for the candidate to be right.
+    answer: >
+      Construct the position that reproduces the forward's payoff without any
+      view at all. Borrow $S$ dollars today at the rate $r$, buy one share, and
+      hold it to time $T$. At $T$ you own exactly one share and owe exactly
+      $Se^{rT}$ in cash, with no uncertainty about the debt — which is precisely
+      the position of someone long a forward struck at $Se^{rT}$: they receive a
+      share and pay a fixed amount. The two positions have identical payoffs in
+      every state of the world, and neither required any cash at inception, so
+      they must trade at the same price or a riskless profit exists. Suppose a
+      forward were quoted at $F > Se^{rT}$ because the market expects a rally.
+      Sell that forward, borrow $S$, buy the share: at $T$ deliver the share,
+      collect $F$, repay $Se^{rT}$, and pocket $F - Se^{rT} > 0$ with certainty,
+      whatever the stock did. The expectation of the rally never enters, because
+      the arbitrageur is never exposed to the outcome — the position is hedged
+      by construction. The deep point is that the expected spot price is already
+      embedded in $S$: if the market expects a rally, it buys the stock today
+      and $S$ rises, and the forward price rises with it through the same
+      formula. For the candidate to be right, replication would have to fail —
+      one would need short-sale bans or borrowing limits that stop the arbitrage
+      being put on, unmodelled carrying costs or dividends, or a market where
+      the arbitrageur cannot fund the position at the quoted $r$. Those are real
+      frictions, and they are exactly the cases where observed forward prices do
+      drift from $Se^{rT}$ — but they widen a no-arbitrage band, they do not
+      hand pricing back to opinion about direction.
+    rubric:
+      - >
+        Builds the replicating portfolio — borrow $S$, buy the share, hold to
+        $T$ — and shows its payoff matches a forward struck at $Se^{rT}$.
+      - >
+        Turns a mispriced quote into an explicit riskless profit, showing the
+        expected spot price never enters the argument.
+      - >
+        Names the frictions (borrow constraints, carrying costs, funding) whose
+        failure is what could break replication.
+    targets:
+      - quant-finance.instruments.forward-future
+
+  # --- futures margin and marking to market ------------------------------------
+
+  - id: qinst-futures-margin-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A trader is long three crude oil futures contracts, each for 1,000
+      barrels, entered at 68.40 per barrel. Initial margin is 6,000 dollars per
+      contract and maintenance margin is 4,500 dollars per contract. At what
+      settlement price, in dollars per barrel, does the position first trigger a
+      margin call?
+    answer: >
+      $66.90$ per barrel. Work in dollars of account, then convert once. The
+      trader posts $3 \times 6000 = 18{,}000$ dollars of initial margin, and the
+      maintenance floor for three contracts is
+      $3 \times 4500 = 13{,}500$ dollars, so the account can absorb
+      $18{,}000 - 13{,}500 = 4{,}500$ dollars of losses before the floor is
+      breached. The position is long $3 \times 1000 = 3{,}000$ barrels, so each
+      dollar the price falls costs 3,000 dollars, and the tolerable fall is
+      $\frac{4500}{3000} = 1.50$ dollars per barrel. The call level is therefore
+      $68.40 - 1.50 = 66.90$. Notice what does the work: it is the *gap* between
+      initial and maintenance margin that absorbs losses, not the initial margin
+      itself, and it is the total barrels, not the number of contracts, that
+      converts dollars into a price. Answering
+      $68.40 - 18{,}000/3{,}000 = 62.40$ treats the whole initial margin as
+      loss-absorbing and ignores the maintenance floor entirely. Should the call
+      come, topping up to the maintenance level is not enough — the deposit must
+      restore the account to the full 18,000 of initial margin.
+    expects: "66.90"
+    tolerance: 0.005
+    rubric:
+      - >
+        Uses the difference between initial and maintenance margin as the
+        loss the account can absorb.
+      - >
+        Converts that dollar cushion to a price move using all 3,000 barrels,
+        and subtracts from the entry price.
+    targets:
+      - quant-finance.instruments.futures-margin
+    exercises:
+      - quant-finance.instruments.forward-future
+
+  - id: qinst-futures-margin-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A trader is long four futures contracts, each on 100 units, entered at
+      52.00. Initial margin is 3,600 dollars and maintenance margin is 2,700
+      dollars for the whole position. The contract settles at 51.10, then 50.65,
+      then 49.80 on three successive days. What is the margin account balance,
+      in dollars, at the end of the third day?
+    answer: >
+      $2{,}720$ dollars. Marking to market settles the change in value every
+      evening, and those daily settlements telescope: the account's cumulative
+      change depends only on the final settlement price relative to entry, not
+      on the path. The position is $4 \times 100 = 400$ units long, the price
+      moved $49.80 - 52.00 = -2.20$, and the cumulative loss is
+      $400 \times 2.20 = 880$ dollars, leaving
+      $3{,}600 - 880 = 2{,}720$ dollars. Day by day it is
+      $-360$, then $-180$, then $-340$, summing to the same $-880$. Now the
+      part that matters: 2,720 dollars is above the 2,700 maintenance floor, by
+      20 dollars, so no margin call is triggered — the trader is one five-cent
+      move from one. The trap is stopping at "the account fell a lot, so there
+      is a call": the test is against maintenance margin, not against the
+      initial level, and a balance below the initial margin is entirely normal.
+      Had a call fired, the required deposit would restore the account to 3,600,
+      not to 2,700.
+    expects: "2720"
+    rubric:
+      - >
+        Computes the cumulative loss from entry to the final settlement across
+        all 400 units.
+      - >
+        Compares the resulting balance with the maintenance level, not the
+        initial level, and finds no call is triggered.
+    targets:
+      - quant-finance.instruments.futures-margin
+
+  - id: qinst-futures-margin-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      A trader posts 6,000 dollars of initial margin to open a futures position
+      on 400,000 dollars of notional value. Which description of that 6,000
+      dollars is correct?
+    answer: >
+      It is collateral against adverse daily price moves, refundable when the
+      position is closed. Initial margin is a good-faith performance bond sized
+      to cover roughly a day's plausible move on the notional, which is why it
+      is a small fraction of contract value — here $1.5\%$ — and why the
+      exchange raises it when volatility rises. It is not a down payment: a
+      future obliges the full trade at expiry, and the 6,000 dollars is not
+      credited against the 400,000 of notional. It is not a premium either; a
+      premium is paid away and gone, and this money stays the trader's, sitting
+      in the margin account earning interest at many brokers. It is not a fee.
+      The consequence is the leverage: 6,000 dollars of capital controls 400,000
+      dollars of exposure, so a $1\%$ move in the underlying is 4,000 dollars,
+      two thirds of the posted margin, settled that same evening in cash.
+    choices:
+      - text: >
+          Collateral against daily price moves, returned when the position is
+          closed.
+        correct: true
+        feedback: >
+          Right — a performance bond, sized to a day's plausible move, and still
+          the trader's money while it sits in the account.
+      - text: >
+          A down payment on the 400,000 dollars, with the remaining 394,000 owed
+          at expiry.
+        feedback: >
+          Margin is not credited against the notional. The contract still
+          obliges the full trade, and the margin is separate collateral.
+      - text: >
+          A non-refundable premium paid to the exchange for taking the position.
+        feedback: >
+          That describes an option premium. Futures margin is posted, not paid
+          away, and comes back when the position closes.
+      - text: >
+          A brokerage commission scaled to the size of the trade.
+        feedback: >
+          Commissions are charged separately and are far smaller. Margin is
+          collateral held against the position, not a cost of it.
+    rubric:
+      - >
+        Identifies margin as refundable collateral sized to daily risk, not a
+        payment.
+      - >
+        Distinguishes it from an option premium and from a down payment on the
+        notional.
+    targets:
+      - quant-finance.instruments.futures-margin
+
+  # --- option contract vocabulary ----------------------------------------------
+
+  - id: qinst-option-vocab-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A trader writes five put contracts, each on 100 shares, with a strike of
+      62 and a premium of 2.80 per share received up front. At expiry the stock
+      settles at 55.20 and the holder exercises. What is the writer's total
+      profit or loss, in dollars?
+    answer: >
+      A loss of $2{,}000$ dollars. The writer is short the option, so the
+      premium is money in and the exercise is money out. Premium received is
+      $2.80 \times 500 = 1{,}400$ dollars across the
+      $5 \times 100 = 500$ shares. At expiry the holder exercises the right to
+      sell at 62 when the market is 55.20, so the writer must buy at 62 what is
+      worth 55.20, losing $62 - 55.20 = 6.80$ per share, or
+      $6.80 \times 500 = 3{,}400$ dollars. Net:
+      $1{,}400 - 3{,}400 = -2{,}000$ dollars. The structure worth carrying away
+      is the asymmetry from the writer's side: the best possible outcome is
+      keeping the 1,400 premium and nothing more, while the loss grows one for
+      one as the stock falls, all the way to a 29,600-dollar loss if the stock
+      goes to zero. Two errors are common. Dropping the contract multiplier
+      answers $-4$ per share and understates by a factor of 500. And reading the
+      writer as long the payoff answers $+2{,}000$ — the writer's payoff is the
+      mirror image of the holder's, so the holder here nets exactly $+2{,}000$.
+    expects: "-2000"
+    rubric:
+      - >
+        Multiplies by 500 shares — five contracts of 100 — for both the premium
+        and the exercise leg.
+      - >
+        Gets the writer's sign right: premium in, intrinsic value out, for a net
+        loss.
+    targets:
+      - quant-finance.instruments.option-vocab
+
+  - id: qinst-option-vocab-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A European call has a strike of 45 and cost a premium of 2.35 per share.
+      At expiry the stock settles at 46.10. What is the holder's net profit or
+      loss per share, in dollars?
+    answer: >
+      A loss of $1.25$ dollars per share. The payoff at expiry is
+      $\max(S - K, 0) = \max(46.10 - 45, 0) = 1.10$, and the premium of 2.35 was
+      already paid, so the net is $1.10 - 2.35 = -1.25$ dollars per share. The
+      lesson is the one candidates most often get backwards: the holder still
+      exercises. Exercising recovers 1.10 dollars that letting it expire would
+      throw away — the premium is sunk the moment it was paid and is irrelevant
+      to the exercise decision, which compares $S$ with $K$ and nothing else.
+      "In the money" and "profitable" are therefore different questions: this
+      option is in the money and the trade lost money, and it does so for every
+      settlement between 45 and the breakeven at $45 + 2.35 = 47.35$. Note also
+      the floor that makes an option an option: however far the stock had fallen
+      below 45, the holder's loss would have stopped at the 2.35 premium, which
+      is exactly what that premium bought.
+    expects: "-1.25"
+    rubric:
+      - >
+        Computes the expiry payoff as $\max(S - K, 0)$ and subtracts the premium
+        paid.
+      - >
+        Says the holder exercises anyway, because the sunk premium does not
+        enter the exercise decision.
+    targets:
+      - quant-finance.instruments.option-vocab
+
+  - id: qinst-option-vocab-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      Four claims are made about a European put contract. Which one is true?
+    answer: >
+      The writer may be assigned only at expiry, and has no choice in the
+      matter. That single sentence carries the two halves of option vocabulary.
+      "European" is a statement about *when* exercise may happen — only at
+      expiry, unlike an American option, which may be exercised on any day up to
+      and including expiry. And "writer" is a statement about *who* chooses: the
+      right belongs entirely to the buyer, who pays the premium for it, while
+      the seller took that premium in exchange for an obligation to perform if
+      called upon. The seller never decides anything after the trade. That
+      asymmetry is what separates an option from a forward, where both sides are
+      obliged, and it is why the buyer's loss is capped at the premium while the
+      writer's is not.
+    choices:
+      - text: >
+          The writer can be assigned only at expiry, and cannot decline to
+          perform.
+        correct: true
+        feedback: >
+          Right — European fixes the timing, and the writer sold an obligation,
+          not a right. Only the buyer holds the choice.
+      - text: >
+          The writer may choose whether to perform, once the buyer has given
+          notice of exercise.
+        feedback: >
+          The writer has no choice at all. The premium was collected precisely
+          in exchange for the obligation to perform.
+      - text: >
+          The buyer may exercise on any day up to expiry, but the writer is
+          assigned only at expiry.
+        feedback: >
+          Anytime exercise is the American style. A European option can be
+          exercised only at expiry, by either party's reckoning.
+      - text: >
+          The buyer is obliged to sell the stock at the strike if it finishes
+          below it.
+        feedback: >
+          The buyer holds a right, never an obligation, and will simply decline
+          to exercise whenever exercising would lose money.
+    rubric:
+      - >
+        Reads "European" as a restriction on exercise timing to expiry only.
+      - >
+        Places the right with the buyer and the obligation with the writer.
+    targets:
+      - quant-finance.instruments.option-vocab
+
+  # --- short selling ------------------------------------------------------------
+
+  - id: qinst-short-selling-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A trader shorts 400 shares at 68.50. While the position is open the borrow
+      fee totals 96 dollars and the stock pays a dividend of 0.35 per share. The
+      trader buys the shares back at 74.20. What is the profit or loss on the
+      trade, in dollars?
+    answer: >
+      A loss of $2{,}516$ dollars. Take the legs in order. The price leg is
+      $(68.50 - 74.20) \times 400 = -5.70 \times 400 = -2{,}280$ dollars: the
+      short sold first and bought back higher, so the price move is against the
+      position. The borrow fee is a straight cost of 96 dollars — borrowed
+      shares are rented, and the rent is paid for as long as the position is
+      open. The dividend is the leg candidates forget: the lender of the shares
+      is entitled to every economic benefit of owning them, so the short must
+      reimburse the dividend out of pocket, $0.35 \times 400 = 140$ dollars.
+      Total: $-2{,}280 - 96 - 140 = -2{,}516$ dollars. Two sign traps. Writing
+      the price leg as $(74.20 - 68.50) \times 400$ reports a gain from a
+      position that lost money — for a short, profit is entry minus exit. And
+      treating the dividend as income inverts the direction of a cash flow the
+      short is paying, not receiving.
+    expects: "-2516"
+    rubric:
+      - >
+        Computes the price leg as sale price minus buy-back price, times share
+        count, giving a loss here.
+      - >
+        Subtracts both the borrow fee and the dividend reimbursed to the lender.
+    targets:
+      - quant-finance.instruments.short-selling
+
+  - id: qinst-short-selling-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A trader shorts 150 shares at 22.40 and later buys them back at 19.75. The
+      borrow fee over the holding period totals 30 dollars and the stock paid no
+      dividend. What is the profit, in dollars?
+    answer: >
+      $367.50$ dollars. The price fell, which is the direction a short wants:
+      $(22.40 - 19.75) \times 150 = 2.65 \times 150 = 397.50$ dollars gross,
+      less the 30-dollar borrow fee, leaves $397.50 - 30 = 367.50$ dollars. Note
+      what the trader owes at the end — shares, not money. The obligation
+      created by the short sale is to return 150 shares to the lender, and the
+      3,360 dollars of sale proceeds sat as collateral until they were closed
+      out by buying the shares back for 2,962.50; the difference, less the rent,
+      is the profit. It is worth pricing the borrow fee as what it is: 30 dollars
+      on a 3,360-dollar position is under $1\%$, ordinary for a liquid name. In
+      a hard-to-borrow stock the same fee can run to tens of percent annualised,
+      and it is charged whether or not the trade works, which is why a short
+      thesis that takes too long to play out can lose money even when it is
+      eventually right.
+    expects: "367.50"
+    rubric:
+      - >
+        Uses entry minus exit for the short's price leg, so a falling price is a
+        gain.
+      - >
+        Subtracts the borrow fee, and understands the obligation as shares owed
+        rather than cash.
+    targets:
+      - quant-finance.instruments.short-selling
+
+  - id: qinst-short-selling-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      A trader is short 1,000 shares of a stock at 30. A colleague says the
+      worst case is a 30,000-dollar loss, "the same as if you were long and it
+      went to zero." Which statement is correct?
+    answer: >
+      The short's loss has no ceiling, because there is no ceiling on the price.
+      A long position's worst case is bounded because a price cannot fall below
+      zero — the most that can be lost is the amount invested, here 30,000
+      dollars, a full $100\%$. A short position's loss is
+      $(30 - P) \times 1000$ as a function of the buy-back price $P$, and $P$
+      can be any positive number: at 90 the loss is 60,000 dollars, twice the
+      proceeds; at 300 it is 270,000. The colleague has taken the bound that
+      applies to the long side and mirrored it onto a position where the
+      mirroring does not hold, because the two sides are not symmetric — the
+      floor at zero caps one and does nothing for the other. This asymmetry is
+      the practical reason brokers demand margin against short positions and can
+      force a buy-in when collateral runs short, and it is what makes a short
+      squeeze dangerous: the losses accelerate exactly as the forced covering
+      pushes the price further up.
+    choices:
+      - text: >
+          The short's loss is unbounded, since the buy-back price has no upper
+          limit.
+        correct: true
+        feedback: >
+          Right — the price floor at zero caps a long's loss, but nothing caps a
+          price above, so the short's loss has no ceiling at all.
+      - text: >
+          The colleague is right — 30,000 dollars is the maximum, matching a long
+          position's worst case.
+        feedback: >
+          That bound comes from the price floor at zero, which caps the long's
+          loss. The short loses as the price rises, and it can rise without
+          limit.
+      - text: >
+          The maximum loss is 30,000 dollars because the broker will always close
+          the position before it exceeds the proceeds.
+        feedback: >
+          A forced buy-in limits the broker's exposure, not the trader's loss,
+          and it happens at whatever price the market is at — often the worst one.
+      - text: >
+          The loss is capped at the margin posted, since the trader can walk away
+          from the borrow.
+        feedback: >
+          The borrowed shares must be returned. The debt is in shares, and the
+          trader owes their market value however high it has gone.
+    rubric:
+      - >
+        Identifies the price floor at zero as the source of the long's bound, and
+        notes nothing plays that role above.
+      - >
+        Writes the short's loss as a function of the buy-back price and observes
+        it is unbounded.
+    targets:
+      - quant-finance.instruments.short-selling
+
+  # --- leverage and margin ------------------------------------------------------
+
+  - id: qinst-leverage-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A trader buys 800 shares at 45 dollars on $50\%$ initial margin, funding
+      half the purchase with 18,000 dollars of their own capital and borrowing
+      the rest. The broker's maintenance requirement is that account equity stay
+      at or above $30\%$ of the position's market value. At what share price
+      does the trader receive a margin call, in dollars?
+    answer: >
+      At about $32.14$ dollars. Equity is market value minus the loan, and the
+      loan is a fixed 18,000 dollars that does not shrink when the stock falls.
+      At price $P$ the position is worth $800P$ and equity is
+      $800P - 18000$, so the requirement
+      $\frac{800P - 18000}{800P} \ge 0.30$ rearranges to
+      $800P - 18000 \ge 240P$, then $560P \ge 18000$, so
+      $P \ge \frac{18000}{560} \approx 32.14$. Below that the call comes. The
+      structural point is that the numerator absorbs the entire loss while the
+      denominator only shrinks with it: a $28.6\%$ fall in the stock wipes out
+      $57\%$ of the trader's capital, which is the $2\times$ leverage working in
+      the direction nobody plans for. The common error is to compute the price at
+      which equity falls to $30\%$ of the *original* value — $0.30 \times 36000
+      = 10{,}800$, giving $P = 36$ — which holds the denominator fixed and
+      triggers the call far too early. Note what a margin call really costs: it
+      forces cash in, or a sale, at the exact moment the position is worst,
+      which is how leverage converts an ordinary drawdown into a realised loss.
+    expects: "32.14"
+    tolerance: 0.005
+    rubric:
+      - >
+        Holds the loan fixed at 18,000 and writes equity as $800P - 18000$.
+      - >
+        Requires equity to be $30\%$ of the *current* market value $800P$, and
+        solves the resulting inequality.
+    targets:
+      - quant-finance.instruments.leverage
+
+  - id: qinst-leverage-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A trader puts up 6,000 dollars of their own capital and borrows to hold an
+      18,000-dollar position — 3x leverage. Over six months the position rises
+      $5\%$, and interest on the borrowed money is charged at $6\%$ per year.
+      What is the return on the trader's own capital, as a decimal?
+    answer: >
+      $0.09$, a $9\%$ return. The gross gain on the position is
+      $18{,}000 \times 0.05 = 900$ dollars. The borrowing is
+      $18{,}000 - 6{,}000 = 12{,}000$ dollars, carried for half a year at $6\%$,
+      costing $12{,}000 \times 0.06 \times 0.5 = 360$ dollars. Net profit is
+      $900 - 360 = 540$ dollars on 6,000 of capital, so
+      $540/6000 = 0.09$. The number to compare it against is the naive leverage
+      arithmetic, $3 \times 5\% = 15\%$: that is the *before-financing* figure,
+      and financing costs ate two fifths of it here because the holding period
+      was long enough and the move small enough for carry to matter. The
+      asymmetry is worth noticing — financing subtracts from a gain and adds to
+      a loss, so a $5\%$ fall over the same six months would cost
+      $900 + 360 = 1{,}260$ dollars, a $21\%$ loss on capital against the naive
+      $-15\%$. Leverage widens the distribution and the carry shifts it left.
+    expects: "0.09"
+    rubric:
+      - >
+        Computes the gain on the full 18,000 position, not on the 6,000 of
+        capital.
+      - >
+        Charges interest on the 12,000 borrowed for half a year, and divides the
+        net by the trader's own capital.
+    targets:
+      - quant-finance.instruments.leverage
+
+  - id: qinst-leverage-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      Trader A is long 100,000 dollars of a stock funded with 25,000 dollars of
+      own capital and a broker loan. Trader B is short 100,000 dollars of the
+      same stock, with 25,000 dollars of own capital posted as margin against
+      the borrowed shares. Which statement is true of both positions?
+    answer: >
+      Both can be force-liquidated by a collateral shortfall long before the
+      trader's view is settled, but only B's loss is unbounded. The shared
+      feature is the mechanism: each trader controls 100,000 dollars of exposure
+      on 25,000 dollars of capital, and each holds that exposure at a broker's
+      discretion. A adverse move of $25\%$ against either wipes the capital out,
+      and well before that the maintenance requirement bites and the broker
+      demands cash or closes the position — that is the same forced exit in both
+      cases, whether the collateral sits against a cash loan or against borrowed
+      shares. Where they part is the tail. A's stock can fall to zero and no
+      further, so A's loss stops at 100,000 dollars; B loses as the price rises,
+      and nothing caps a price on the upside, so B's loss has no ceiling. That
+      is why the two are alike in mechanics and unlike in worst case: shorting is
+      inherently leveraged in the same sense as buying on margin, with the same
+      forced-liquidation risk bolted onto a strictly worse tail.
+    choices:
+      - text: >
+          Both can be forced out by a margin call before the thesis plays out,
+          but only B faces an unbounded loss.
+        correct: true
+        feedback: >
+          Right — identical collateral mechanics, different tails. A price floor
+          at zero caps A's loss and does nothing for B's.
+      - text: >
+          Both face an unbounded loss, since both control four times their own
+          capital.
+        feedback: >
+          Leverage multiplies the loss but does not remove A's bound: a long
+          stock cannot fall below zero.
+      - text: >
+          Only A can be forced out, since B's position is collateralised by the
+          proceeds of the short sale.
+        feedback: >
+          The proceeds are collateral, not a cushion without limits. A rising
+          price erodes B's equity and triggers a buy-in exactly as A's call fires.
+      - text: >
+          Neither faces a forced exit as long as the trader remains solvent
+          elsewhere.
+        feedback: >
+          Maintenance requirements are tested against the position's own equity.
+          Wealth elsewhere is not what keeps the broker from liquidating.
+    connects:
+      - quant-finance.instruments.leverage ~ quant-finance.instruments.short-selling
+    rubric:
+      - >
+        Names the shared mechanism: a maintenance shortfall forces an exit in
+        both structures.
+      - >
+        Separates the tails, using the price floor at zero to bound the long and
+        not the short.
+    targets:
+      - quant-finance.instruments.leverage
+      - quant-finance.instruments.short-selling
+
+  # --- linear exposure vs optionality -------------------------------------------
+
+  - id: qinst-linear-vs-optional-payoff-01
+    kind: decide
+    difficulty: demanding
+    statement: >
+      A structuring desk builds a position whose payoff at expiry, as a function
+      of the settlement price $S$, is exactly
+      $\max(S - 60, 0) - (S - 60)$. Which single instrument has the same payoff?
+    answer: >
+      A long put struck at 60. Evaluate the expression on each side of the
+      strike. For $S > 60$ the first term is $S - 60$ and the second is $S - 60$,
+      so they cancel and the payoff is $0$. For $S < 60$ the first term is $0$
+      and the payoff is $-(S - 60) = 60 - S$, which is positive and grows as $S$
+      falls. Flat above the strike, rising one for one below it: that is
+      $\max(60 - S, 0)$, the payoff of a long put struck at 60. Structurally the
+      expression is a long call minus a long forward, both struck at 60, which
+      is put-call parity written as a payoff identity — take the linear
+      instrument away from the kinked one and what remains is the kink itself,
+      pointing the other way. Reading only the leading $\max$ and answering
+      "long call" ignores the subtraction that flattens the whole upside;
+      answering "short forward" gets the direction right below the strike but
+      keeps losing above it, where this payoff is flat at zero.
+    choices:
+      - text: >
+          A long put with strike 60.
+        correct: true
+        feedback: >
+          Right — zero above 60, and $60 - S$ below it, which is exactly
+          $\max(60 - S, 0)$. A long call minus a long forward is a long put.
+      - text: >
+          A long call with strike 60.
+        feedback: >
+          That is only the first term. Subtracting $S - 60$ cancels the entire
+          upside and creates a payoff below the strike instead.
+      - text: >
+          A short forward struck at 60.
+        feedback: >
+          A short forward pays $60 - S$ everywhere, including a growing loss
+          above 60. This payoff is flat at zero above the strike.
+      - text: >
+          A short put with strike 60.
+        feedback: >
+          A short put loses as the price falls. This position gains there — check
+          $S = 50$, where the expression evaluates to $+10$.
+    rubric:
+      - >
+        Evaluates the expression separately above and below the strike, getting
+        $0$ and $60 - S$.
+      - >
+        Recognises the result as $\max(60 - S, 0)$, and can say that removing a
+        linear instrument from a kinked one leaves the opposite kink.
+    targets:
+      - quant-finance.instruments.linear-vs-optional-payoff
+    exercises:
+      - quant-finance.instruments.option-vocab
+
+  - id: qinst-linear-vs-optional-payoff-02
+    kind: work
+    difficulty: standard
+    statement: >
+      One trader is short a forward struck at 48; another has written a call
+      struck at 48. The stock settles at 41 at expiry. Ignoring any premium, by
+      how many dollars per share does the short forward's payoff exceed the
+      short call writer's payoff?
+    answer: >
+      By $7$ dollars per share. The short forward is obliged to sell at 48 what
+      is worth 41, so it pays $48 - 41 = 7$ dollars. The call writer's payoff is
+      $-\max(S - K, 0) = -\max(41 - 48, 0) = 0$: the holder simply declines to
+      buy at 48 when the market offers 41, so the option expires worthless and
+      the writer's payoff, before premium, is nothing. The difference is
+      $7 - 0 = 7$. This is the entire content of the linear-versus-optional
+      distinction, in one number. Above 48 the two positions are identical —
+      at $S = 55$ both pay $-7$ — because an option in the money behaves exactly
+      like the forward it is written on. Below the strike they separate, because
+      the option's payoff has a kink there and the forward's does not. The
+      writer of the call therefore gave up the entire profit the short forward
+      collects on a fall, which is why the writer was paid a premium and the
+      forward's counterparty was not: the premium is precisely the price of that
+      one-sided flattening, and it is where volatility enters pricing at all.
+    expects: "7"
+    rubric:
+      - >
+        Prices the short forward's obligation as $K - S$ at settlement, a gain of
+        7 here.
+      - >
+        Gets the written call's payoff as zero below the strike, and notes the
+        two positions coincide above it.
+    targets:
+      - quant-finance.instruments.linear-vs-optional-payoff
+    exercises:
+      - quant-finance.instruments.forward-future
+      - quant-finance.instruments.option-vocab

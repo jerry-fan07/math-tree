@@ -1,0 +1,2183 @@
+# Problems targeting quant-statistics.regression — OLS and what breaks it.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. No problem here reuses a lesson's
+# worked example or a card's numbers; every fit was recomputed in exact
+# fractions before the answer was written. See ../README.md.
+
+problems:
+  # --- the linear regression model --------------------------------------------
+
+  - id: qreg-linear-model-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A desk models daily PnL on a continuous signal $s$, allowing the signal's
+      effect to differ across three sectors. The specification is an intercept,
+      the signal $s$, indicators for two of the three sectors — the third is the
+      omitted baseline — and the product of $s$ with each of those two
+      indicators. How many columns does the design matrix $X$ have?
+    answer: >
+      $6$. Count the columns the fit actually estimates a coefficient for: the
+      all-ones intercept column, one column of $s$, two sector-indicator
+      columns, and two interaction columns whose entries are $s_i$ times the
+      matching indicator, so $1 + 1 + 2 + 2 = 6$. Each interaction column is a
+      column of known numbers formed from the data before the fit, so the model
+      is still linear in its parameters even though the fitted surface is three
+      different lines with three different slopes. Two neighbouring answers show
+      the traps: $7$ comes from including an indicator for all three sectors as
+      well as the intercept, which makes those four columns sum to the intercept
+      column, leaving $X'X$ singular; and $4$ comes from forgetting that
+      "different slope per sector" is exactly what the interaction columns buy —
+      without them the three sector lines are forced parallel.
+    expects: "6"
+    rubric:
+      - >
+        Counts the intercept as its own column, and stops at two sector
+        indicators rather than three.
+      - >
+        Recognises the interaction columns as ordinary known columns, so the
+        model stays linear in the parameters.
+    targets:
+      - quant-statistics.regression.linear-model
+
+  - id: qreg-linear-model-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A quant proposes four specifications for the same data. Exactly one of
+      them cannot be fitted by ordinary least squares, however the variables are
+      transformed first. Which one?
+    answer: >
+      The specification with a free parameter inside the sine. The test is never
+      the shape of the fitted curve — it is whether the model can be written as
+      a sum of unknown coefficients multiplying columns of known numbers.
+      $\beta_0 + \beta_1 x + \beta_2 \sin(\beta_3 x)$ fails that test because
+      the column $\sin(\beta_3 x)$ cannot be computed until $\beta_3$ is known,
+      so there is nothing to stack into $X$; it needs nonlinear least squares.
+      The other three all pass. A product column $x_1 x_2$, a reciprocal column
+      $1/(x+3)$ and a fixed-frequency column $\sin(2x)$ are all computed from
+      the data before any fitting happens, so each one is just another column of
+      $X$ and the coefficient in front of it enters linearly.
+    choices:
+      - text: >
+          $y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_3 x_1 x_2$
+        feedback: >
+          Linear. The interaction $x_1 x_2$ is computed from the data before the
+          fit, so it is one more known column; the fitted surface bends, the
+          parameters do not.
+      - text: >
+          $y = \beta_0 + \beta_1 x + \beta_2 \sin(\beta_3 x)$
+        correct: true
+        feedback: >
+          Correct — $\beta_3$ sits inside the sine, so the column it would
+          multiply cannot be written down until $\beta_3$ is known. No
+          transformation of $x$ rescues this; it is nonlinear least squares.
+      - text: >
+          $y = \beta_0 + \beta_1 / (x + 3)$
+        feedback: >
+          Linear. Form the column with entries $1/(x_i + 3)$ first and the model
+          is an ordinary two-column regression, curved in $x$ but linear in
+          $\beta_0$ and $\beta_1$.
+      - text: >
+          $y = \beta_0 + \beta_1 x + \beta_2 \sin(2x)$
+        feedback: >
+          Linear. The frequency $2$ is fixed and known, so $\sin(2x_i)$ is an
+          ordinary column of numbers — contrast the option where the frequency
+          itself is the unknown.
+    rubric:
+      - >
+        Applies the "sum of unknown coefficients times known columns" test to
+        each option rather than judging by the curvature of the fitted shape.
+      - >
+        Separates a fixed frequency inside the sine, which is harmless, from an
+        unknown parameter inside it, which is fatal.
+    targets:
+      - quant-statistics.regression.linear-model
+
+  # --- the least-squares objective --------------------------------------------
+
+  - id: qreg-least-squares-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Five end-of-day marks for an illiquid bond, in points of par, are $1$,
+      $2$, $4$, $4$ and $39$; the last is a stale print nobody believes. Fit a
+      single constant to the five marks, first minimizing the sum of squared
+      deviations and then minimizing the sum of absolute deviations. By how much
+      does the squared-error fit exceed the absolute-error fit?
+    answer: >
+      $6$. Minimizing $\sum_i (y_i - b)^{2}$ sets $b$ to the sample mean, since
+      the derivative $-2\sum_i (y_i - b)$ vanishes exactly at $b = \bar{y}$:
+      here $\bar{y} = (1 + 2 + 4 + 4 + 39)/5 = 50/5 = 10$. Minimizing
+      $\sum_i \lvert y_i - b \rvert$ instead is solved by any sample median, and
+      with five sorted marks that is the third, $b = 4$. The gap is
+      $10 - 4 = 6$. The point is not that one number is right: it is that the
+      single stale print at $39$ drags the squared-error fit above every mark
+      but itself, because squaring charges that residual $(39-10)^{2} = 841$
+      while absolute loss charges only $35$. Squared error buys convexity, a
+      closed form and agreement with the conditional mean, and pays for them in
+      exactly this sensitivity.
+    expects: "6"
+    rubric:
+      - >
+        Identifies the squared-error constant fit as the mean and the
+        absolute-error constant fit as the median, rather than fitting both
+        numerically.
+      - >
+        Names the outlier as the cause of the gap and ties it to the quadratic
+        penalty, not to a mistake in the data handling.
+    targets:
+      - quant-statistics.regression.least-squares
+
+  - id: qreg-least-squares-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Four observations: $(0,2)$, $(2,3)$, $(4,9)$ and $(6,8)$. A colleague
+      proposes the line $\hat{y} = 1 + 1.5x$ by eye. What is the residual sum of
+      squares $S(b) = \sum_i (y_i - \hat{y}_i)^{2}$ for that line?
+    answer: >
+      $10$. The proposed line predicts $1, 4, 7, 10$ at $x = 0, 2, 4, 6$, so the
+      residuals are $2 - 1 = 1$, $3 - 4 = -1$, $9 - 7 = 2$ and $8 - 10 = -2$;
+      squaring and summing gives $1 + 1 + 4 + 4 = 10$. Least squares does
+      strictly better, as it must: $\bar{x} = 3$, $\bar{y} = 5.5$, the centred
+      cross-products sum to $24$ and the squared $x$-deviations to $20$, so
+      $\hat{\beta}_1 = 24/20 = 1.2$ and $\hat{\beta}_0 = 5.5 - 1.2(3) = 1.9$,
+      giving fitted values $1.9, 4.3, 6.7, 9.1$ and $S = 0.01 + 1.69 + 5.29 +
+      1.21 = 8.2$. Note the eyeballed line's residuals happen to sum to zero
+      too, which is why "the residuals balance" is never on its own evidence
+      that a line is the least-squares line.
+    expects: "10"
+    rubric:
+      - >
+        Evaluates the objective at the stated line, using vertical distances
+        only, rather than reporting the least-squares value.
+      - >
+        Observes that the OLS line's $S$ is smaller, and that balanced residuals
+        alone do not identify the OLS line.
+    targets:
+      - quant-statistics.regression.least-squares
+
+  # --- OLS and the normal equations -------------------------------------------
+
+  - id: qreg-ols-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Five observations, $x = 2, 3, 5, 8, 12$ and $y = 7, 9, 10, 16, 23$. Fit
+      $y$ on $x$ with an intercept by least squares and report the intercept
+      $\hat{\beta}_0$ as an exact fraction.
+    answer: >
+      $38/11 \approx 3.4545$. Means first: $\bar{x} = 30/5 = 6$ and
+      $\bar{y} = 65/5 = 13$. Centre both, $x_i - \bar{x} = -4,-3,-1,2,6$ and
+      $y_i - \bar{y} = -6,-4,-3,3,10$. The cross-products sum to
+      $24 + 12 + 3 + 6 + 60 = 105$ and the squared $x$-deviations to
+      $16 + 9 + 1 + 4 + 36 = 66$, so the second normal equation gives
+      $\hat{\beta}_1 = 105/66 = 35/22$. The first normal equation is the one
+      that supplies the intercept: it forces the line through $(\bar{x},
+      \bar{y})$, so $\hat{\beta}_0 = \bar{y} - \hat{\beta}_1 \bar{x} =
+      13 - (35/22)(6) = 13 - 105/11 = (143 - 105)/11 = 38/11$. Check it against
+      the mean point: $38/11 + (35/22)(6) = 38/11 + 105/11 = 143/11 = 13 =
+      \bar{y}$, exactly as the first normal equation demands. Reporting
+      $\bar{y}/\bar{x} = 13/6$ instead is the standard slip — that is the slope
+      of the ray from the origin through the mean point, not the intercept.
+    expects: "38/11"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides the centred cross-product sum by the centred sum of squares for
+        the slope, not by $\sum_i x_i^{2}$ or by $n$.
+      - >
+        Gets the intercept from $\hat{\beta}_0 = \bar{y} - \hat{\beta}_1
+        \bar{x}$ and verifies the fitted line passes through $(\bar{x},
+        \bar{y})$.
+    targets:
+      - quant-statistics.regression.ols
+
+  - id: qreg-ols-02
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Starting from $S(b) = \lVert y - Xb \rVert^{2}$, derive the normal
+      equations $X'X\hat{\beta} = X'y$, explain what full column rank of $X$ is
+      needed for, and show that in the single-regressor case with an intercept
+      the derivation reduces to the recipe "centre, cross-multiply, divide".
+    answer: >
+      Expand the objective as $S(b) = y'y - 2b'X'y + b'X'Xb$. Each term is a
+      scalar, and differentiating with respect to the vector $b$ gives
+      $\nabla S(b) = -2X'y + 2X'Xb = -2X'(y - Xb)$. Setting the gradient to zero
+      gives $X'X\hat{\beta} = X'y$. That stationary point is a global minimum
+      rather than merely a critical point, because the Hessian $2X'X$ is
+      positive semidefinite — for any vector $v$, $v'X'Xv = \lVert Xv
+      \rVert^{2} \ge 0$ — so $S$ is a convex quadratic with no local traps.
+      Full column rank of $X$ enters twice, and it is worth keeping the two
+      roles apart. It makes $v'X'Xv > 0$ for every nonzero $v$, so $X'X$ is
+      invertible and $\hat{\beta} = (X'X)^{-1}X'y$ is the unique solution. It is
+      not needed for a minimizer to exist: without it the normal equations are
+      still consistent and the fitted vector $\hat{y}$ is still unique, but
+      infinitely many coefficient vectors produce it.
+      Now specialize. With $X = [\mathbf{1}, x]$ the two rows of
+      $X'(y - X\hat{\beta}) = 0$ read $\sum_i (y_i - \hat{\beta}_0 -
+      \hat{\beta}_1 x_i) = 0$ and $\sum_i x_i(y_i - \hat{\beta}_0 -
+      \hat{\beta}_1 x_i) = 0$. Divide the first by $n$: it says
+      $\bar{y} = \hat{\beta}_0 + \hat{\beta}_1 \bar{x}$, so the fitted line
+      passes through the mean point and $\hat{\beta}_0 = \bar{y} -
+      \hat{\beta}_1 \bar{x}$. Substitute that into the second equation to get
+      $\sum_i x_i(y_i - \bar{y} - \hat{\beta}_1 (x_i - \bar{x})) = 0$. Because
+      $\sum_i (y_i - \bar{y}) = 0$ and $\sum_i (x_i - \bar{x}) = 0$, replacing
+      $x_i$ by $x_i - \bar{x}$ in front of those brackets changes nothing, so
+      the equation becomes $\sum_i (x_i - \bar{x})(y_i - \bar{y}) =
+      \hat{\beta}_1 \sum_i (x_i - \bar{x})^{2}$, that is, centre both variables,
+      form the cross-products, and divide.
+    rubric:
+      - >
+        Differentiates correctly to $-2X'(y - Xb)$ and argues the stationary
+        point is the global minimum via convexity, not by assertion.
+      - >
+        Separates the two roles of full column rank — uniqueness of
+        $\hat{\beta}$ versus existence of the fit — rather than claiming the fit
+        fails to exist without it.
+      - >
+        Derives the centred recipe by substituting the first normal equation
+        into the second, using $\sum_i (x_i - \bar{x}) = 0$ to re-centre.
+    targets:
+      - quant-statistics.regression.ols
+    exercises:
+      - quant-statistics.regression.least-squares
+
+  - id: qreg-ols-03
+    kind: work
+    difficulty: standard
+    statement: >
+      Four observations, $x = 1, 2, 4, 5$ and $y = 3, 4, 9, 12$. Fit $y$ on $x$
+      with an intercept and report the fitted value $\hat{y}$ at $x = 4$.
+    answer: >
+      $9.3$. Means are $\bar{x} = 12/4 = 3$ and $\bar{y} = 28/4 = 7$. Centred,
+      $x_i - \bar{x} = -2,-1,1,2$ and $y_i - \bar{y} = -4,-3,2,5$, so the
+      cross-products sum to $8 + 3 + 2 + 10 = 23$ and the squared $x$-deviations
+      to $4 + 1 + 1 + 4 = 10$. Hence $\hat{\beta}_1 = 23/10 = 2.3$ and
+      $\hat{\beta}_0 = 7 - 2.3(3) = 7 - 6.9 = 0.1$. The fitted value at $x = 4$
+      is $0.1 + 2.3(4) = 0.1 + 9.2 = 9.3$. Note that $9.3$ is not the observed
+      $y = 9$ at that point: the difference $9 - 9.3 = -0.3$ is the residual,
+      and asking for a fitted value is asking what the line says, never what the
+      data said.
+    expects: "9.3"
+    rubric:
+      - >
+        Computes both coefficients before evaluating the line, rather than
+        reading off the observed $y$ at $x = 4$.
+      - >
+        Keeps the fitted value and the observation apart, naming their
+        difference as the residual.
+    targets:
+      - quant-statistics.regression.ols
+
+  # --- fitted values and residuals --------------------------------------------
+
+  - id: qreg-fitted-residuals-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Four observations, $x = 0, 1, 2, 3$ and $y = 1, 3, 2, 6$. Fit $y$ on $x$
+      with an intercept and report the estimated error variance
+      $\hat{\sigma}^{2}$.
+    answer: >
+      $2.1$. Means are $\bar{x} = 1.5$ and $\bar{y} = 3$. Centred,
+      $x_i - \bar{x} = -1.5,-0.5,0.5,1.5$ and $y_i - \bar{y} = -2,0,-1,3$, so
+      the cross-products sum to $3 + 0 - 0.5 + 4.5 = 7$ and the squared
+      $x$-deviations to $2.25 + 0.25 + 0.25 + 2.25 = 5$. Then
+      $\hat{\beta}_1 = 7/5 = 1.4$ and $\hat{\beta}_0 = 3 - 1.4(1.5) = 0.9$. The
+      fitted values are $0.9, 2.3, 3.7, 5.1$ and the residuals
+      $0.1, 0.7, -1.7, 0.9$, which sum to $0$ as the intercept's normal equation
+      requires — a free check before going further. Squaring and summing,
+      $\sum_i e_i^{2} = 0.01 + 0.49 + 2.89 + 0.81 = 4.2$, and with $n = 4$
+      observations and $k = 1$ regressor the divisor is $n - k - 1 = 2$, giving
+      $\hat{\sigma}^{2} = 4.2/2 = 2.1$. Dividing by $n = 4$ instead returns
+      $1.05$, which is biased downward: two of the four residual directions were
+      spent forcing $\sum_i e_i = 0$ and $\sum_i x_i e_i = 0$, so only two
+      degrees of freedom of genuine noise survive.
+    expects: "2.1"
+    rubric:
+      - >
+        Uses the residuals from the fitted line, verifying $\sum_i e_i = 0$
+        before squaring.
+      - >
+        Divides by $n - k - 1 = 2$, not by $n$ or by $n - 1$, and says which
+        constraints consumed the two lost degrees of freedom.
+    targets:
+      - quant-statistics.regression.fitted-residuals
+    exercises:
+      - quant-statistics.regression.ols
+
+  - id: qreg-fitted-residuals-02
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Show that a least-squares fit with an intercept satisfies
+      $\sum_i e_i = 0$, $\sum_i x_{ij} e_i = 0$ for every regressor $j$, and
+      $\sum_i \hat{y}_i e_i = 0$. Then explain why an analyst who reports "the
+      residuals are uncorrelated with my regressors, so exogeneity holds" has
+      reported nothing at all.
+    answer: >
+      The normal equations are $X'X\hat{\beta} = X'y$, which rearranges to
+      $X'(y - X\hat{\beta}) = 0$, that is $X'e = 0$. Read that one matrix
+      equation row by row: row $j$ of $X'$ is the $j$th column of $X$, so
+      $X'e = 0$ says exactly that every column of $X$ has zero dot product with
+      the residual vector. The intercept column is all ones, so its row gives
+      $\sum_i e_i = 0$; the column for regressor $j$ gives
+      $\sum_i x_{ij} e_i = 0$. For the third identity, $\hat{y} = X\hat{\beta}$
+      is a linear combination of the columns of $X$, so
+      $\sum_i \hat{y}_i e_i = \hat{y}'e = \hat{\beta}'X'e = \hat{\beta}'0 = 0$.
+      Note the intercept is doing real work in the first identity: drop it and
+      no column of $X$ need be constant, so nothing forces the residuals to
+      average to zero.
+      Now the interview trap. Every step above used only the normal equations,
+      which the solver satisfies by construction on any data whatsoever. Feed in
+      a badly misspecified model, an omitted confounder, a curved truth fitted
+      with a straight line — $X'e = 0$ still holds to machine precision, because
+      it is the definition of the solution rather than a property of the world.
+      So the sample correlation between $e$ and any regressor is exactly zero
+      always, and observing it tells you only that your solver worked.
+      Exogeneity is a statement about the unobservable $\varepsilon_i$, namely
+      $\mathbb{E}[\varepsilon \mid X] = 0$, and no function of the residuals can
+      test it. What can be brought to bear is outside the fit: an instrument,
+      a randomization, a natural experiment, or an argument about the mechanism
+      that generated $x$.
+    rubric:
+      - >
+        Derives all three identities from $X'e = 0$ read row by row, and names
+        the all-ones column as the source of $\sum_i e_i = 0$.
+      - >
+        States that the identities hold under arbitrary misspecification because
+        they define the solution, so they carry no information about the model.
+      - >
+        Distinguishes the observable residual $e_i$ from the unobservable error
+        $\varepsilon_i$ and says what evidence about exogeneity would have to
+        come from instead.
+    targets:
+      - quant-statistics.regression.fitted-residuals
+
+  - id: qreg-fitted-residuals-03
+    kind: work
+    difficulty: standard
+    statement: >
+      A five-observation regression of $y$ on one regressor, fitted with an
+      intercept, reports the first four residuals as $-1.4$, $0.35$, $2.1$ and
+      $-0.8$. The fifth is smudged on the printout. What is it?
+    answer: >
+      $-0.25$. No refitting is needed, because the intercept's normal equation
+      $\sum_i (y_i - \hat{\beta}_0 - \hat{\beta}_1 x_i) = 0$ says the five
+      residuals sum to zero exactly. The four legible ones total
+      $-1.4 + 0.35 + 2.1 - 0.8 = 0.25$, so the missing one is $-0.25$. This is
+      arithmetic, not an approximation and not an assumption about the data: it
+      would hold for any $y$ vector whatsoever, which is precisely why it also
+      makes a good check that a hand computation has not gone wrong. Two caveats
+      worth stating. The identity needs the intercept — a regression forced
+      through the origin has no all-ones column, so its residuals need not
+      balance. And it says nothing about the individual sizes: a residual of
+      $-0.25$ here is small only relative to the $2.1$ sitting next to it.
+    expects: "-0.25"
+    rubric:
+      - >
+        Uses $\sum_i e_i = 0$ from the intercept's normal equation rather than
+        attempting to reconstruct the fit.
+      - >
+        Notes that the identity fails without an intercept, so the shortcut is
+        conditional on the specification.
+    targets:
+      - quant-statistics.regression.fitted-residuals
+
+  # --- slope as covariance over variance --------------------------------------
+
+  - id: qreg-beta-cov-var-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      For a sample of paired observations the centred sums are
+      $\sum_i (x_i - \bar{x})^{2} = 40$, $\sum_i (y_i - \bar{y})^{2} = 90$ and
+      $\sum_i (x_i - \bar{x})(y_i - \bar{y}) = 30$. A colleague fits $y$ on $x$,
+      gets a slope of $0.75$, and now wants the slope from regressing $x$ on
+      $y$. Give that second slope as an exact fraction.
+    answer: >
+      $1/3 \approx 0.3333$. Both fits use the same covariance in the numerator
+      and differ only in which variable's spread sits in the denominator, since
+      each regression penalizes deviations in its own response. Regressing $y$
+      on $x$ gives $s_{xy}/s_x^{2} = 30/40 = 3/4$, matching the colleague's
+      number; regressing $x$ on $y$ gives $s_{xy}/s_y^{2} = 30/90 = 1/3$. The
+      trap the question is built around is answering $1/0.75 = 4/3$: the two
+      slopes are not reciprocal. Their product is
+      $(30/40)(30/90) = 900/3600 = 1/4$, which is exactly
+      $r^{2} = 30^{2}/(40 \cdot 90) = 1/4$, so here $r = 1/2$ and the two lines
+      are far apart. Reciprocal slopes would require $r^{2} = 1$, a perfect fit,
+      and that is the only case in which "the regression line" is unambiguous.
+    expects: "1/3"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Swaps the denominator to $\sum_i (y_i - \bar{y})^{2}$ rather than
+        inverting the first slope.
+      - >
+        Checks the product of the two slopes against $r^{2}$ and notes that
+        equality with $1$ would require a perfect fit.
+    targets:
+      - quant-statistics.regression.beta-cov-var
+    exercises:
+      - quant-probability.joint.covariance
+
+  - id: qreg-beta-cov-var-02
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Prove that the single-regressor least-squares slope equals
+      $\sum_i (x_i - \bar{x})(y_i - \bar{y}) / \sum_i (x_i - \bar{x})^{2}$, show
+      that this equals $r\,s_y/s_x$, and use the second form to explain why a
+      correlation of $0.9$ tells you nothing about whether the slope is large.
+    answer: >
+      Write the objective as $S(b_0, b_1) = \sum_i (y_i - b_0 - b_1 x_i)^{2}$
+      and set both partial derivatives to zero. The derivative in $b_0$ gives
+      $\sum_i (y_i - \hat{\beta}_0 - \hat{\beta}_1 x_i) = 0$, hence
+      $\hat{\beta}_0 = \bar{y} - \hat{\beta}_1 \bar{x}$. Substituting into the
+      derivative in $b_1$, which is $\sum_i x_i(y_i - \hat{\beta}_0 -
+      \hat{\beta}_1 x_i) = 0$, turns the bracket into
+      $(y_i - \bar{y}) - \hat{\beta}_1 (x_i - \bar{x})$. Since
+      $\sum_i (y_i - \bar{y}) = 0$ and $\sum_i (x_i - \bar{x}) = 0$, the leading
+      $x_i$ may be replaced by $x_i - \bar{x}$ without changing the sum, giving
+      $\sum_i (x_i - \bar{x})(y_i - \bar{y}) = \hat{\beta}_1
+      \sum_i (x_i - \bar{x})^{2}$, and dividing by the positive
+      $\sum_i (x_i - \bar{x})^{2}$ — positive unless every $x_i$ is identical,
+      which is exactly the rank failure — gives the claim. In population terms
+      the same algebra is $\beta_1 = \operatorname{Cov}(x,y)/
+      \operatorname{Var}(x)$.
+      For the second form, divide numerator and denominator by $n - 1$ to read
+      them as the sample covariance $s_{xy}$ and the sample variance $s_x^{2}$,
+      then write $s_{xy} = r\,s_x s_y$, which is the definition of the sample
+      correlation rearranged. Cancelling one factor of $s_x$ leaves
+      $\hat{\beta}_1 = r\,s_y/s_x$.
+      The last part follows from that factorization. Correlation is unitless and
+      capped at $1$ in magnitude; the slope carries units of $y$ per unit of $x$
+      and is unbounded. Fix $r = 0.9$ and the slope is still whatever
+      $s_y/s_x$ makes it: a signal with $s_y/s_x = 0.001$ gives slope $0.0009$
+      and a tightly-fitted but economically irrelevant relation, while
+      $s_y/s_x = 500$ gives slope $450$ on the same correlation. Tightness and
+      magnitude are separate facts, which is why a desk quotes a beta rather
+      than a correlation when it wants to know how much a position moves.
+    rubric:
+      - >
+        Substitutes the intercept equation into the slope equation and justifies
+        re-centring by $\sum_i (x_i - \bar{x}) = 0$, rather than asserting the
+        centred form.
+      - >
+        Derives $r\,s_y/s_x$ from $s_{xy} = r\,s_x s_y$, keeping the $n-1$
+        divisors consistent between numerator and denominator.
+      - >
+        Explains the independence of correlation and slope through the free
+        ratio $s_y/s_x$, with the units argument stated explicitly.
+    targets:
+      - quant-statistics.regression.beta-cov-var
+    exercises:
+      - quant-statistics.regression.ols
+
+  - id: qreg-beta-cov-var-03
+    kind: work
+    difficulty: standard
+    statement: >
+      Over a five-year sample a small-cap fund's monthly excess returns have
+      standard deviation $28$ percent annualized, the benchmark's have
+      $14$ percent, and the correlation between them is $0.45$. What is the
+      fund's beta against the benchmark?
+    answer: >
+      $0.9$. Beta is the OLS slope from regressing the fund's excess return on
+      the benchmark's, and that slope is $\operatorname{Cov}(\text{fund},
+      \text{benchmark})/\operatorname{Var}(\text{benchmark})$, equally
+      $r\,s_y/s_x$ with $y$ the fund and $x$ the benchmark. So
+      $\hat{\beta}_1 = 0.45 \times 28/14 = 0.45 \times 2 = 0.9$. Two readings of
+      the same number are worth holding together. The fund is twice as volatile
+      as the benchmark but only loosely tied to it, and those two facts pull the
+      beta in opposite directions until it lands slightly below $1$. And
+      answering $0.45$ — quoting the correlation as the beta — is the standard
+      confusion: correlation is unitless and capped at $1$, beta carries units
+      of fund return per unit of benchmark return and has no cap. Only when the
+      two volatilities are equal do the two numbers coincide.
+    expects: "0.9"
+    rubric:
+      - >
+        Uses $r\,s_y/s_x$ with the benchmark's spread in the denominator, not
+        the fund's.
+      - >
+        Distinguishes beta from correlation, noting the volatility ratio is what
+        separates them.
+    targets:
+      - quant-statistics.regression.beta-cov-var
+
+  - id: qreg-beta-cov-var-04
+    kind: work
+    difficulty: standard
+    statement: >
+      A regression of daily PnL, measured in dollars, on a signal measured in
+      percent returns a slope of $40$. Risk asks for the same regression with
+      PnL in thousands of dollars and the signal in basis points, where one
+      basis point is one hundredth of a percent. What is the slope of the
+      refitted regression?
+    answer: >
+      $0.0004$. A slope has units of response per unit of regressor, so
+      rescaling either variable rescales it by a known factor and no refit is
+      actually needed. Writing $y_{\text{new}} = y/1000$ and
+      $x_{\text{new}} = 100x$, the new slope is
+      $\hat{\beta}_1^{\text{new}} = (1/1000)/100 \times 40 = 40/100000 =
+      0.0004$. Sanity-check it in words: $40$ dollars per percent is $0.4$
+      dollars per basis point, which is $0.0004$ thousands of dollars per basis
+      point. Everything else about the fit is unchanged — the same points, the
+      same residuals up to the same scaling, the same $R^{2}$ and the same
+      $t$-statistic — because rescaling a variable is an invertible linear
+      change of units and least squares commutes with it. That invariance is
+      also the warning: a slope is only interpretable alongside its units, so
+      "the coefficient is tiny" is never on its own an argument that a signal is
+      weak.
+    expects: "0.0004"
+    rubric:
+      - >
+        Applies the factor (response scale) divided by (regressor scale), rather
+        than multiplying by both or applying only one.
+      - >
+        Notes that $R^{2}$ and the $t$-statistic are unchanged, so the size of a
+        coefficient is not evidence about the strength of a relation.
+    targets:
+      - quant-statistics.regression.beta-cov-var
+
+  # --- the projection view ----------------------------------------------------
+
+  - id: qreg-projection-view-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Regress the response vector $y = (5, 1, 3)$ on the single column
+      $x = (1, 2, 2)$ with no intercept, so the fit is the orthogonal projection
+      of $y$ onto the line spanned by $x$ in $\mathbb{R}^{3}$. What is the
+      fitted value at the third observation? Give an exact fraction.
+    answer: >
+      $26/9 \approx 2.8889$. With one column and no intercept the normal
+      equation $x'x\hat{\beta} = x'y$ is a single scalar equation:
+      $x'y = 5(1) + 1(2) + 3(2) = 13$ and $x'x = 1 + 4 + 4 = 9$, so
+      $\hat{\beta} = 13/9$ and $\hat{y} = (13/9)x = (13/9, 26/9, 26/9)$. The
+      third entry is $26/9$. The projection picture supplies the check for free:
+      the residual $e = y - \hat{y} = (32/9, -17/9, 1/9)$ must be perpendicular
+      to $x$, and indeed $x'e = 32/9 - 34/9 + 2/9 = 0$. Two things this small
+      case makes visible. The hat matrix here is $H = xx'/(x'x)$, so
+      $h_{33} = 2^{2}/9 = 4/9$ and the trace is $(1 + 4 + 4)/9 = 1 = k + 1$, the
+      dimension of the subspace. And because there is no intercept column, the
+      residuals do *not* sum to zero — $32/9 - 17/9 + 1/9 = 16/9$ — which is the
+      standard casualty of dropping the intercept.
+    expects: "26/9"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Solves the one-column normal equation for $\hat{\beta} = x'y/x'x$ and
+        multiplies back, rather than reading off an observation.
+      - >
+        Verifies $x'e = 0$ as the geometric statement that the residual is
+        perpendicular to the column space.
+    targets:
+      - quant-statistics.regression.projection-view
+    exercises:
+      - quant-tools.linear-algebra.projection
+
+  - id: qreg-projection-view-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A junior analyst refits a model after adding one extra regressor to it and
+      reports that the residual sum of squares went *up*, from $412$ to $455$,
+      concluding that the new regressor "hurt the fit". What is the right
+      response?
+    answer: >
+      Something is wrong with the computation, because adding a column to $X$
+      cannot raise the least-squares residual sum of squares. Geometrically the
+      old column space is a subspace of the new one, and least squares reports
+      the distance from $y$ to the closest point of that space; enlarging the
+      set you may choose from can only move the closest point nearer or leave it
+      where it was. Algebraically the same thing: the old fit is still available
+      in the new model, by setting the new coefficient to zero, so the new
+      minimum is at most the old one. The realistic causes are all mechanical —
+      the two fits were run on different samples because the new regressor has
+      missing values, an intercept was dropped, a penalty or a weighting was
+      left on, or the reported number is an out-of-sample error rather than the
+      in-sample residual sum of squares. That last one is worth separating: RSS
+      is monotone in-sample and routinely worsens out-of-sample, which is the
+      entire reason a holdout exists.
+    choices:
+      - text: >
+          The new regressor is genuinely harmful and should be dropped
+        feedback: >
+          A harmful regressor gets a coefficient near zero and leaves the
+          in-sample RSS essentially unchanged; it cannot make it rise. Whether
+          to drop it is a separate question from whether these numbers are
+          possible.
+      - text: >
+          Both fits are fine — RSS can rise or fall when a regressor is added
+        feedback: >
+          RSS is monotone non-increasing in the columns of $X$: the old fit
+          remains available by setting the new coefficient to zero, so the new
+          minimum cannot be larger.
+      - text: >
+          The two numbers cannot both be in-sample least-squares fits on the
+          same data — check for dropped rows, a missing intercept, or an
+          out-of-sample number
+        correct: true
+        feedback: >
+          Correct — projecting onto a larger subspace cannot increase the
+          distance to $y$, so a rise means the two fits are not what they claim
+          to be. Missing values silently shrinking the sample is the usual
+          culprit.
+      - text: >
+          It shows the new regressor is collinear with an existing one
+        feedback: >
+          Collinearity inflates the variance of individual coefficients and
+          leaves the fitted values, hence the RSS, alone — under exact
+          collinearity the RSS is unchanged, never larger.
+    rubric:
+      - >
+        Argues from the nesting of the two column spaces, or equivalently from
+        the old fit being feasible in the new model.
+      - >
+        Names a concrete mechanical cause rather than treating the rise as a
+        statistical finding, and separates in-sample RSS from out-of-sample
+        error.
+    targets:
+      - quant-statistics.regression.projection-view
+
+  # --- the ANOVA decomposition ------------------------------------------------
+
+  - id: qreg-anova-decomposition-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Five observations, $x = 1, 2, 3, 4, 5$ and $y = 4, 3, 7, 6, 10$. Fit $y$
+      on $x$ with an intercept and report the residual sum of squares
+      $\operatorname{SSR} = \sum_i e_i^{2}$.
+    answer: >
+      $7.5$. Means are $\bar{x} = 3$ and $\bar{y} = 6$. Centred,
+      $x_i - \bar{x} = -2,-1,0,1,2$ and $y_i - \bar{y} = -2,-3,1,0,4$, so the
+      cross-products sum to $4 + 3 + 0 + 0 + 8 = 15$ and the squared
+      $x$-deviations to $4 + 1 + 0 + 1 + 4 = 10$. Then
+      $\hat{\beta}_1 = 15/10 = 1.5$ and $\hat{\beta}_0 = 6 - 1.5(3) = 1.5$, so
+      the fitted values are $3, 4.5, 6, 7.5, 9$ and the residuals
+      $1, -1.5, 1, -1.5, 1$, summing to $0$ as required. Hence
+      $\operatorname{SSR} = 1 + 2.25 + 1 + 2.25 + 1 = 7.5$. The decomposition is
+      the cross-check: $\operatorname{SST} = 4 + 9 + 1 + 0 + 16 = 30$ and
+      $\operatorname{SSE} = \sum_i (\hat{y}_i - \bar{y})^{2} = 9 + 2.25 + 0 +
+      2.25 + 9 = 22.5$, and $22.5 + 7.5 = 30$ exactly. That the three numbers
+      close is not a property of this data set: the cross term
+      $2\sum_i (\hat{y}_i - \bar{y})e_i$ vanishes because
+      $\sum_i \hat{y}_i e_i = 0$ and $\sum_i e_i = 0$, both of which the
+      intercept's presence guarantees.
+    expects: "7.5"
+    rubric:
+      - >
+        Computes the fit and its residuals, rather than quoting
+        $\operatorname{SST}$ or a variance.
+      - >
+        Verifies $\operatorname{SST} = \operatorname{SSE} + \operatorname{SSR}$
+        and attributes the closure to the vanishing cross term, not to the
+        particular numbers.
+    targets:
+      - quant-statistics.regression.anova-decomposition
+    exercises:
+      - quant-statistics.regression.fitted-residuals
+
+  - id: qreg-anova-decomposition-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A pricing model is fitted without an intercept, because theory says the
+      relation must pass through the origin. The software reports
+      $\operatorname{SST} = 84$, $\operatorname{SSR} = 109$, and an $R^{2}$ of
+      $-0.298$ computed as $1 - \operatorname{SSR}/\operatorname{SST}$. Which
+      diagnosis is right?
+    answer: >
+      Nothing is broken; the identity that makes $R^{2}$ live in $[0,1]$ needs
+      the intercept, and it was removed. The decomposition comes from writing
+      $y_i - \bar{y} = (\hat{y}_i - \bar{y}) + e_i$ and squaring, and the cross
+      term $2\sum_i (\hat{y}_i - \bar{y})e_i$ vanishes only because
+      $\sum_i \hat{y}_i e_i = 0$ *and* $\sum_i e_i = 0$. The second of those is
+      supplied by the all-ones column, which a no-intercept fit does not have,
+      so the cross term survives, $\operatorname{SSR}$ is free to exceed
+      $\operatorname{SST}$, and $1 - \operatorname{SSR}/\operatorname{SST}$ goes
+      negative. The negative value is genuinely informative — it says the fitted
+      line predicts worse than the constant $\bar{y}$ would — but it is not the
+      variance share the symbol usually denotes. The honest reports are either
+      the uncentred $R^{2}$ that software uses for no-intercept models, which
+      compares against $\sum_i y_i^{2}$ rather than $\operatorname{SST}$, or the
+      residual sum of squares on its own.
+    choices:
+      - text: >
+          A computational bug — $R^{2}$ is a squared quantity and cannot be
+          negative
+        feedback: >
+          $R^{2}$ is a *ratio*, not a square, except in the special case of
+          simple regression with an intercept where it happens to equal
+          $r^{2}$. The formula $1 - \operatorname{SSR}/\operatorname{SST}$ has
+          no lower bound once $\operatorname{SSR}$ may exceed
+          $\operatorname{SST}$.
+      - text: >
+          Expected: without an intercept $\sum_i e_i$ need not vanish, so
+          $\operatorname{SST} = \operatorname{SSE} + \operatorname{SSR}$ fails
+          and this $R^{2}$ formula is the wrong one to apply
+        correct: true
+        feedback: >
+          Correct — the intercept is what forces $\sum_i e_i = 0$ and kills the
+          cross term. Report the uncentred $R^{2}$ or the raw residual sum of
+          squares for a no-intercept fit.
+      - text: >
+          The regressor is uncorrelated with $y$, which drives $R^{2}$ to zero
+          and below
+        feedback: >
+          A zero correlation drives $R^{2}$ *to* zero in a model with an
+          intercept, never below it — the constant fit is always available. The
+          sign here comes from the missing intercept, not from a weak
+          regressor.
+      - text: >
+          The sample is too small for $R^{2}$ to be defined
+        feedback: >
+          $R^{2}$ is defined for any sample with $\operatorname{SST} > 0$; small
+          samples make it unstable and optimistic, which is what adjusted
+          $R^{2}$ addresses, but they never make it negative.
+    rubric:
+      - >
+        Traces the failure to the surviving cross term and names $\sum_i e_i =
+        0$ as the identity the intercept supplies.
+      - >
+        Reads the negative value as "worse than predicting $\bar{y}$" rather
+        than as a bug, and proposes a report that is actually defined.
+    targets:
+      - quant-statistics.regression.anova-decomposition
+
+  # --- R-squared --------------------------------------------------------------
+
+  - id: qreg-r-squared-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A researcher fits a return model on $n = 40$ observations with $k = 3$
+      regressors and reports $R^{2} = 0.520$. She then adds five more
+      regressors, all of them randomly generated noise, and reports that
+      $R^{2}$ has risen to $0.548$. What is the adjusted $R^{2}$ of the second
+      model? Give four decimal places.
+    answer: >
+      $\approx 0.4314$. Adjusted $R^{2} = 1 - (1 - R^{2})\dfrac{n-1}{n-k-1}$.
+      The second model has $k = 8$, so the factor is $39/31 \approx 1.2581$ and
+      the adjusted value is $1 - 0.452(1.2581) = 1 - 0.5686 = 0.4314$. Compare
+      the first model, where the factor is $39/36 \approx 1.0833$ and the
+      adjusted value is $1 - 0.48(1.0833) = 0.48$. So the raw $R^{2}$ rose by
+      $0.028$ while the adjusted $R^{2}$ *fell* by nearly $0.05$, and the fall
+      is the honest reading: five pure-noise columns enlarge the subspace the
+      fit projects onto, so $\operatorname{SSR}$ is guaranteed to drop and
+      $R^{2}$ is guaranteed to rise, with or without signal. What a rising
+      $R^{2}$ from added regressors demonstrates is the geometry of projection,
+      never that the new columns matter. The only tests that can distinguish the
+      two are a penalty on the count, as here, or a holdout sample.
+    expects: "0.4314"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $k = 8$ for the second model, so the divisor is $n - k - 1 = 31$,
+        rather than reusing the first model's degrees of freedom.
+      - >
+        Reports that the adjusted value fell while the raw value rose, and
+        attributes the rise to projection onto a larger subspace.
+    targets:
+      - quant-statistics.regression.r-squared
+    exercises:
+      - quant-statistics.regression.anova-decomposition
+
+  - id: qreg-r-squared-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Two analysts each fit a straight line with an intercept to their own data.
+      Analyst A reports $R^{2} = 0.96$; analyst B reports $R^{2} = 0.02$ on
+      daily equity returns. Which conclusion is supported?
+    answer: >
+      Neither number settles anything on its own, and in particular A's high
+      $R^{2}$ is compatible with a badly wrong functional form. Fit a straight
+      line to points lying exactly on a gentle parabola over a narrow range and
+      $R^{2}$ comes out near $1$ while every residual sits on a systematic arch
+      — the fit explains most of the variance and still has the shape wrong, so
+      extrapolating it is unsafe. Meanwhile $R^{2} = 0.02$ on daily returns is
+      an ordinary number for a real signal, because daily returns are mostly
+      unforecastable noise; a strategy capturing two percent of that variance,
+      traded across many names and days, can be extremely profitable. What
+      $R^{2}$ measures is one thing: the in-sample share of the variance of $y$
+      the fit accounts for. It is silent about causality, about whether the
+      specification is right, and about out-of-sample accuracy, and it is not
+      comparable across data sets with different noise levels.
+    choices:
+      - text: >
+          A's model is well specified, since a high $R^{2}$ rules out a missing
+          nonlinear term
+        feedback: >
+          It rules out nothing. A straight line through points on a gentle curve
+          can post $R^{2}$ near $1$ with residuals in a clean arch — the
+          residual plot catches that, $R^{2}$ never does.
+      - text: >
+          B's model is worthless, since it explains only two percent of the
+          variance
+        feedback: >
+          $R^{2}$ has to be judged against its domain. Daily equity returns are
+          dominated by noise, and a genuine $R^{2}$ of $0.02$ traded widely is a
+          large edge, not a failure.
+      - text: >
+          Neither — $R^{2}$ is the in-sample variance share and says nothing
+          about specification, causality, or out-of-sample value, and it is not
+          comparable across different data
+        correct: true
+        feedback: >
+          Correct — high $R^{2}$ does not certify the form, low $R^{2}$ does not
+          condemn a signal, and the two numbers describe different populations
+          so they were never on the same scale.
+      - text: >
+          A's regressor causes $y$ and B's does not
+        feedback: >
+          $R^{2}$ carries no causal content at all. A confounded regression and
+          a randomized experiment can post identical $R^{2}$; only the design,
+          not the fit statistic, separates them.
+    rubric:
+      - >
+        Names a concrete way a high $R^{2}$ coexists with a misspecified model.
+      - >
+        Argues that $R^{2}$ must be read against the noise level of its own
+        domain, so cross-data comparison is meaningless.
+    targets:
+      - quant-statistics.regression.r-squared
+
+  # --- multiple regression and partialling out --------------------------------
+
+  - id: qreg-multiple-regression-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Four observations with two regressors: $x_1 = (1, 2, 3, 6)$,
+      $x_2 = (2, 2, 4, 4)$ and $y = (4, 5, 9, 14)$. Using Frisch–Waugh–Lovell
+      rather than the full normal equations, find the multiple-regression
+      coefficient $\hat{\beta}_1$ on $x_1$ in the fit of $y$ on an intercept,
+      $x_1$ and $x_2$.
+    answer: >
+      $1.6$. First partial $x_2$ out of $x_1$: regress $x_1$ on an intercept and
+      $x_2$. With $\bar{x}_2 = 3$ and $\bar{x}_1 = 3$, the centred
+      cross-products are $(-1)(-2) + (-1)(-1) + (1)(0) + (1)(3) = 6$ and the
+      squared $x_2$-deviations are $1 + 1 + 1 + 1 = 4$, so that slope is $1.5$
+      and the intercept is $3 - 1.5(3) = -1.5$. The fitted $x_1$ values are
+      $1.5, 1.5, 4.5, 4.5$, leaving residuals
+      $\tilde{x}_1 = (-0.5, 0.5, -1.5, 1.5)$ — the part of $x_1$ that $x_2$
+      cannot explain. Now regress $y$ on $\tilde{x}_1$ alone:
+      $\sum_i \tilde{x}_{1i}y_i = -2 + 2.5 - 13.5 + 21 = 8$ and
+      $\sum_i \tilde{x}_{1i}^{2} = 0.25 + 0.25 + 2.25 + 2.25 = 5$, so
+      $\hat{\beta}_1 = 8/5 = 1.6$. Note $\tilde{x}_1$ is already centred, so no
+      intercept is needed in the second step. Compare the simple regression of
+      $y$ on $x_1$ alone, whose slope is $\sum_i (x_1 - \bar{x}_1)
+      (y - \bar{y})/\sum_i (x_1 - \bar{x}_1)^{2} = 43/14 \approx 3.07$: more
+      than twice as large, because $x_1$ and $x_2$ move together and the simple
+      slope credits $x_1$ with $x_2$'s contribution too.
+    expects: "1.6"
+    rubric:
+      - >
+        Residualizes $x_1$ against the *other regressor plus an intercept*, then
+        regresses $y$ on that residual — not $y$ residualized, and not a
+        centred-only $x_1$.
+      - >
+        Notes that the simple slope on $x_1$ differs, and attributes the gap to
+        the shared variation partialled out.
+    targets:
+      - quant-statistics.regression.multiple-regression
+    exercises:
+      - quant-statistics.regression.ols
+
+  - id: qreg-multiple-regression-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A portfolio manager wants to know whether her stock-picking signal adds
+      anything beyond the market and sector exposures her book already carries.
+      She has daily returns for the signal portfolio, the market and each
+      sector. Which regression answers her question?
+    answer: >
+      Regress the signal portfolio's return on the market and the sector returns
+      together, and look at the intercept. That is the alpha: what is left of
+      the portfolio's average return after the part explainable by the exposures
+      is projected out, which is exactly the question "does this add anything
+      beyond what I already own". Frisch–Waugh–Lovell says the same thing in
+      coefficient form — each slope is measured on the part of its regressor the
+      others cannot explain — and here the constant column is the one being
+      partialled. Regressing the signal on the market alone would answer a
+      different question and would credit the signal with whatever sector tilt
+      it happens to carry. Running separate one-regressor regressions is worse
+      still: each ignores the others, so correlated exposures get counted more
+      than once and no combination of the outputs recovers the multiple
+      regression.
+    choices:
+      - text: >
+          Regress the signal portfolio's return on the market alone and read the
+          slope
+        feedback: >
+          That measures market beta and silently attributes every sector tilt to
+          the signal. It answers "how market-like is this", not "what does it
+          add".
+      - text: >
+          Regress the signal portfolio's return on the market and all sector
+          returns jointly, and read the intercept
+        correct: true
+        feedback: >
+          Correct — the intercept is the average return on the part of the
+          portfolio orthogonal to every exposure already held, which is what
+          "adds anything beyond" means.
+      - text: >
+          Run one simple regression per exposure and add up the slopes
+        feedback: >
+          Simple slopes double-count shared variation among correlated
+          exposures, and no sum of them equals the multiple-regression
+          coefficients. Frisch–Waugh–Lovell is precisely the statement that the
+          two differ unless the regressors are orthogonal.
+      - text: >
+          Regress the market on the signal portfolio and check whether the slope
+          is small
+        feedback: >
+          That reverses the question. The reverse regression has a different
+          slope, $s_{xy}/s_y^{2}$, and its size mixes the relation with the
+          ratio of the two volatilities.
+    rubric:
+      - >
+        Puts every already-held exposure in the same regression rather than
+        splitting them, and identifies the intercept as the quantity asked for.
+      - >
+        Explains, via partialling out, why separate simple regressions cannot be
+        combined into the joint answer.
+    targets:
+      - quant-statistics.regression.multiple-regression
+
+  # --- multicollinearity ------------------------------------------------------
+
+  - id: qreg-multicollinearity-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A model has exactly two regressors plus an intercept, and the sample
+      correlation between the two regressors is $0.96$. By what factor is the
+      standard error of each slope larger than it would be if the two regressors
+      were uncorrelated, holding the error variance and the regressors' own
+      spreads fixed? Give an exact fraction.
+    answer: >
+      $25/7 \approx 3.5714$. With only two regressors, the $R_j^{2}$ from
+      regressing one on the other is just the squared correlation between them,
+      $0.96^{2} = 0.9216$. The variance inflation factor is
+      $\operatorname{VIF} = 1/(1 - R_j^{2}) = 1/0.0784 = 625/49 \approx 12.76$,
+      and the standard error inflates by the square root of that,
+      $\sqrt{625/49} = 25/7 \approx 3.5714$. Equivalently
+      $\sqrt{1 - 0.9216} = 0.28$ and the factor is $1/0.28$. The mechanism is
+      partialling out: $\hat{\beta}_1$ is the simple slope on $\tilde{x}_1$,
+      whose sum of squares is $(1 - R_j^{2})$ times that of the centred $x_1$,
+      so the denominator of the variance shrinks by that factor. Note what does
+      *not* change: $\hat{\beta}$ stays unbiased and the fitted values, hence
+      every prediction and $R^{2}$, are untouched. Only the individual
+      coefficients become unreadable, which is why the desk symptom is huge
+      standard errors and sign-flipping coefficients sitting next to a
+      respectable overall fit.
+    expects: "25/7"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Squares the correlation to get $R_j^{2}$ before inverting, and takes the
+        square root at the end because the question asks about the standard
+        error rather than the variance.
+      - >
+        States that predictions and $R^{2}$ are unaffected, so the damage is
+        confined to the individual coefficients.
+    targets:
+      - quant-statistics.regression.multicollinearity
+    exercises:
+      - quant-statistics.regression.r-squared
+
+  - id: qreg-multicollinearity-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A model of trade cost includes an intercept and one indicator column for
+      each of the four venues an order can route to; every order routes to
+      exactly one venue. The fit fails with a singular matrix. What is the
+      specific slip, and what is the fix?
+    answer: >
+      The four indicator columns sum, entry by entry, to the all-ones intercept
+      column, so the five columns are linearly dependent and $X'X$ is singular —
+      this is perfect collinearity, not the near-collinear case that VIF
+      measures. There are infinitely many coefficient vectors giving identical
+      fitted values: add any constant to the intercept and subtract it from all
+      four venue coefficients. The fix is to drop one column so the remaining
+      ones are independent, either one venue indicator — making that venue the
+      baseline, with the other three coefficients read as differences from it —
+      or the intercept, in which case the four coefficients are read as venue
+      level means. Both give the same fitted values and the same residuals;
+      they differ only in what the numbers are named. Note the diagnosis is a
+      specification bug fixed in the design, not a numerical one: increasing the
+      sample size, regularizing, or reordering the columns does not restore
+      identification.
+    choices:
+      - text: >
+          The venues are too highly correlated with each other; report the VIFs
+          and consider dropping the worst
+        feedback: >
+          VIF is finite only under *near* collinearity. Here $R_j^{2} = 1$
+          exactly and the VIF is infinite, so there is nothing to rank — the
+          columns are exactly dependent by construction, whatever the data.
+      - text: >
+          The four indicators plus the intercept are exactly dependent; drop one
+          indicator to make it the baseline, or drop the intercept
+        correct: true
+        feedback: >
+          Correct — the indicators sum to the ones column, so one column must
+          go. Dropping an indicator reads the rest as differences from that
+          baseline; dropping the intercept reads all four as level means.
+      - text: >
+          The sample is too small relative to the number of columns; collect
+          more data
+        feedback: >
+          Dependence among the columns is exact and holds at any sample size, so
+          more rows change nothing. This is a rank problem in the design, not a
+          shortage of observations.
+      - text: >
+          Nothing is wrong — use a pseudo-inverse and report the coefficients it
+          returns
+        feedback: >
+          A pseudo-inverse returns one arbitrary member of an infinite solution
+          set. The fitted values are fine but the individual coefficients are
+          not identified, so reporting them as venue effects is meaningless.
+    rubric:
+      - >
+        Identifies the exact linear dependence between the indicator columns and
+        the intercept, rather than describing it as high correlation.
+      - >
+        Gives a fix that restores full column rank and says how the surviving
+        coefficients are then interpreted.
+    targets:
+      - quant-statistics.regression.multicollinearity
+
+  # --- Gauss–Markov, and the inference it licenses ------------------------------
+
+  - id: qreg-gauss-markov-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Three observations, $x = 1, 2, 3$, are fitted through the origin:
+      $y_i = \beta x_i + \varepsilon_i$ with the errors independent, mean zero
+      and each of variance $\sigma^{2}$. A colleague proposes the ratio
+      estimator $\tilde{\beta} = \sum_i y_i / \sum_i x_i$, which is also linear
+      in $y$ and also unbiased. By what factor is
+      $\operatorname{Var}(\tilde{\beta})$ larger than
+      $\operatorname{Var}(\hat{\beta}_{\text{OLS}})$? Give an exact fraction.
+    answer: >
+      $7/6 \approx 1.1667$. Through the origin OLS is
+      $\hat{\beta} = \sum_i x_i y_i / \sum_i x_i^{2}$, a weighted sum of the
+      $y_i$ with weights $x_i / \sum_i x_i^{2}$, so
+      $\operatorname{Var}(\hat{\beta}) = \sigma^{2} \sum_i x_i^{2} /
+      (\sum_i x_i^{2})^{2} = \sigma^{2}/\sum_i x_i^{2} = \sigma^{2}/14$. The
+      ratio estimator has equal weights $1/\sum_i x_i = 1/6$, so
+      $\operatorname{Var}(\tilde{\beta}) = 3\sigma^{2}/36 = \sigma^{2}/12$. The
+      factor is $(1/12)/(1/14) = 14/12 = 7/6$. Both are unbiased —
+      $\mathbb{E}[\tilde{\beta}] = \beta \sum_i x_i / \sum_i x_i = \beta$ — and
+      both are linear in $y$, so Gauss–Markov guarantees in advance that the
+      comparison cannot come out below $1$; the theorem is exactly the statement
+      that no reweighting of this kind beats the OLS weights. The loss here is
+      about $17$ percent of variance, the price of giving every observation the
+      same say when the observation at $x = 3$ carries three times the signal
+      about $\beta$ that the one at $x = 1$ does.
+    expects: "7/6"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Writes each estimator as a fixed linear combination of the $y_i$ and
+        squares its weights to get the variance, rather than quoting a formula.
+      - >
+        Notes both estimators are unbiased and linear, so Gauss–Markov predicts
+        the ratio is at least $1$ before any arithmetic is done.
+    targets:
+      - quant-statistics.regression.gauss-markov
+    exercises:
+      - quant-statistics.regression.ols
+
+  - id: qreg-gauss-markov-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A desk regresses each day's *next five trading days* of cumulative return
+      on a signal observed that morning, using every day in the sample, so
+      consecutive rows share four of their five days. Which Gauss–Markov
+      assumption does this design break first, and what follows for the fit?
+    answer: >
+      Overlapping windows break the no-autocorrelation assumption:
+      $\operatorname{Cov}(\varepsilon_i, \varepsilon_j \mid X) \ne 0$ for rows
+      up to four days apart, because those rows literally contain the same
+      return days. Nothing here touches strict exogeneity — the morning signal
+      is still uncorrelated with the future noise — and nothing touches
+      linearity or full column rank, so $\hat{\beta}$ stays unbiased and
+      consistent. What is lost is efficiency and, far more importantly at a
+      desk, the standard error: the textbook formula counts each of the $n$ rows
+      as an independent piece of evidence when the sample really carries roughly
+      $n/5$ of them, so it understates the true sampling variability and the
+      reported $t$-statistic is inflated. The repair is Newey–West standard
+      errors with a lag length at least the overlap, or non-overlapping windows
+      at the cost of throwing away four fifths of the sample.
+    choices:
+      - text: >
+          Strict exogeneity — the signal is correlated with the error, so
+          $\hat{\beta}$ is biased
+        feedback: >
+          The morning signal is fixed before any of the five return days
+          happen, so it stays uncorrelated with that window's noise. Overlap
+          correlates the errors *with each other*, not with $X$.
+      - text: >
+          No autocorrelation — neighbouring rows share return days, so the
+          errors are correlated and the textbook standard errors are too small
+        correct: true
+        feedback: >
+          Correct — the coefficient survives; the standard error does not.
+          Newey–West with a lag at least as long as the overlap is the fix.
+      - text: >
+          Homoskedasticity — the variance of a five-day return is larger than a
+          one-day return's
+        feedback: >
+          Every row is a five-day window, so they share the same variance; the
+          scale is common to all of them. The problem is the covariance between
+          rows, not a variance that differs across rows.
+      - text: >
+          Linearity in parameters — a cumulative return is not a linear function
+          of the signal
+        feedback: >
+          The model is still coefficients times known columns, which is all
+          linearity in parameters asks. Whatever the return is a function of,
+          the design matrix is unaffected.
+    rubric:
+      - >
+        Names autocorrelation specifically, and says the errors are correlated
+        with each other rather than with the regressor.
+      - >
+        Concludes that $\hat{\beta}$ is untouched while the standard error is
+        understated, and reaches for Newey–West.
+    targets:
+      - quant-statistics.regression.gauss-markov
+
+  - id: qreg-gauss-markov-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Prove the one-regressor case of Gauss–Markov directly. With
+      $y_i = \beta x_i + \varepsilon_i$ through the origin, errors uncorrelated
+      with common variance $\sigma^{2}$, consider any linear estimator
+      $\tilde{\beta} = \sum_i c_i y_i$. Show that unbiasedness forces
+      $\sum_i c_i x_i = 1$, and that among all weights satisfying that
+      constraint the variance is minimized by the OLS weights
+      $c_i = x_i / \sum_j x_j^{2}$.
+    answer: >
+      Unbiasedness first: $\mathbb{E}[\tilde{\beta}] = \sum_i c_i \mathbb{E}[y_i]
+      = \beta \sum_i c_i x_i$, and this equals $\beta$ for every $\beta$ exactly
+      when $\sum_i c_i x_i = 1$. That is the whole content of "unbiased" for a
+      linear estimator: one linear constraint on the weights. Variance next.
+      Because the errors are uncorrelated with common variance,
+      $\operatorname{Var}(\tilde{\beta}) = \sigma^{2}\sum_i c_i^{2}$, so the
+      problem is to minimize $\sum_i c_i^{2}$ subject to $\sum_i c_i x_i = 1$.
+      Write $a_i = x_i/\sum_j x_j^{2}$ for the OLS weights, which satisfy the
+      constraint, and put $d_i = c_i - a_i$. Then $\sum_i d_i x_i = 1 - 1 = 0$,
+      and the cross term vanishes:
+      $\sum_i a_i d_i = \sum_i d_i x_i / \sum_j x_j^{2} = 0$. Hence
+      $\sum_i c_i^{2} = \sum_i a_i^{2} + \sum_i d_i^{2} \ge \sum_i a_i^{2}$,
+      with equality only when every $d_i = 0$. So OLS has the smallest variance
+      in the class, and the minimum is
+      $\sigma^{2}\sum_i a_i^{2} = \sigma^{2}/\sum_j x_j^{2}$. Notice what the
+      argument used: mean-zero errors uncorrelated with $x$ for the first step,
+      equal variances and zero covariances for the second. Normality was never
+      needed, and the orthogonal decomposition is why the theorem reads as a
+      Pythagorean statement rather than a calculus one.
+    rubric:
+      - >
+        Derives $\sum_i c_i x_i = 1$ from unbiasedness holding for *every*
+        $\beta$, not for one particular value.
+      - >
+        Splits $c_i$ into the OLS weights plus a deviation and shows the cross
+        term is zero, so the variance is a sum of two non-negative pieces.
+      - >
+        Says which assumption did which job, and observes that normality was
+        used nowhere.
+    targets:
+      - quant-statistics.regression.gauss-markov
+    exercises:
+      - quant-statistics.regression.least-squares
+
+  - id: qreg-slope-inference-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Five observations, $x = 0, 1, 2, 3, 4$ and $y = 1, 3, 4, 8, 9$. Fit $y$ on
+      $x$ with an intercept and report the $t$-statistic of the slope, rounded
+      to four decimal places.
+    answer: >
+      $t \approx 8.3446$. Centre first: $\bar{x} = 2$, $\bar{y} = 5$, so
+      $S_{xx} = 4+1+0+1+4 = 10$ and
+      $S_{xy} = (-2)(-4)+(-1)(-2)+0(-1)+(1)(3)+(2)(4) = 21$, giving
+      $\hat{\beta}_1 = 21/10 = 2.1$ and
+      $\hat{\beta}_0 = 5 - 2.1(2) = 0.8$. Fitted values are
+      $0.8, 2.9, 5.0, 7.1, 9.2$, so the residuals are
+      $0.2, 0.1, -1.0, 0.9, -0.2$ — they sum to zero, the arithmetic check worth
+      doing before going on. Then
+      $\sum_i e_i^{2} = 0.04+0.01+1+0.81+0.04 = 1.9$ and
+      $\hat{\sigma}^{2} = 1.9/(5-2) = 19/30$, with the divisor $n - 2$ because
+      two parameters were fitted from these five points. The slope's variance is
+      $\hat{\sigma}^{2}/S_{xx} = 19/300$, so
+      $\operatorname{se}(\hat{\beta}_1) = \sqrt{19/300} \approx 0.2517$ and
+      $t = 2.1/0.2517 \approx 8.3446$ on $3$ degrees of freedom. Comfortably
+      past the rough $\lvert t \rvert > 2$ screen — but note how much of that
+      came from $S_{xx} = 10$: had the same five $y$ values been observed over
+      $x$ spanning a tenth as wide a range, the standard error would be ten
+      times larger and the slope would not clear the screen at all.
+    expects: "8.3446"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides the residual sum of squares by $n - 2$ rather than $n$, and says
+        why two degrees of freedom are gone.
+      - >
+        Divides $\hat{\sigma}^{2}$ by $S_{xx}$ before taking the square root,
+        and reports $t$ as the slope in units of that standard error.
+    targets:
+      - quant-statistics.regression.slope-inference
+    exercises:
+      - quant-statistics.regression.gauss-markov
+      - quant-statistics.regression.ols
+
+  - id: qreg-slope-inference-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A researcher fits a slope on $n = 12$ observations, gets
+      $\hat{\beta}_1 = 0.45$ with $\operatorname{se}(\hat{\beta}_1) = 0.18$, and
+      asks how this connects to the $t$-test they already know. Which statement
+      is right?
+    answer: >
+      It is the same test. The regression output $t = 0.45/0.18 = 2.5$ is the
+      $t$-statistic for the null $H_0: \beta_1 = 0$, formed exactly as a
+      $t$-test always is — an estimate minus its null value, divided by the
+      estimate's standard error — and referred to a $t$ distribution on $n - 2
+      = 10$ degrees of freedom. The only regression-specific detail is the
+      degrees of freedom: two parameters, the intercept and the slope, were
+      estimated from the same $12$ points, so $10$ remain, where a one-sample
+      $t$-test on a mean would have $n - 1$. Everything else transfers, and so
+      does the caveat: the denominator is only the right number when the
+      Gauss–Markov assumptions behind it hold, so a heteroskedastic or
+      autocorrelated fit produces a $t$-statistic that is the wrong size no
+      matter how the tail is looked up. A two-sided $p$-value here is about
+      $0.03$, so the slope clears a five percent screen but is not overwhelming.
+    choices:
+      - text: >
+          It is the same $t$-test applied to $H_0: \beta_1 = 0$, with $n - 2 =
+          10$ degrees of freedom because two parameters were estimated
+        correct: true
+        feedback: >
+          Correct — estimate over standard error, referred to $t_{10}$. The
+          intercept costs the extra degree of freedom relative to a one-sample
+          mean test.
+      - text: >
+          It is a different construction entirely; regression significance is
+          judged against a normal distribution, not a $t$ distribution
+        feedback: >
+          Only in large samples, where the two agree. With $n = 12$ the
+          $t$ reference matters — its tails are visibly fatter than the
+          normal's.
+      - text: >
+          It is the same test, on $n - 1 = 11$ degrees of freedom, as for any
+          one-sample mean
+        feedback: >
+          Right family, wrong count. Fitting an intercept *and* a slope removes
+          two degrees of freedom, so the reference is $t_{10}$.
+      - text: >
+          It is the same test, and it stays valid whatever the error structure,
+          since $\hat{\beta}_1$ is unbiased regardless
+        feedback: >
+          Unbiasedness of $\hat{\beta}_1$ is not the issue — the denominator is.
+          Under heteroskedasticity or autocorrelation the standard error is
+          wrong, so the ratio is wrong however it is referred.
+    rubric:
+      - >
+        Identifies the regression $t$ as the ordinary $t$-test of a zero null,
+        and gets $n - 2$ degrees of freedom with the reason.
+      - >
+        Notes the test inherits the standard error's assumptions, so a broken
+        error structure invalidates it.
+    targets:
+      - quant-statistics.regression.slope-inference
+      - quant-statistics.testing.ttest
+    exercises:
+      - quant-statistics.regression.gauss-markov
+    connects:
+      - "quant-statistics.regression.slope-inference ~ quant-statistics.testing.ttest"
+
+  # --- diagnostics: what the residuals show, and what they hide ----------------
+
+  - id: qreg-residual-diagnostics-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Five observations, $x = 2, 3, 4, 5, 6$ and $y = 4, 9, 16, 25, 36$ — the
+      relation is exactly $y = x^{2}$, but a straight line with an intercept is
+      fitted anyway. Compute $R^{2}$ for that straight-line fit and give it as
+      an exact fraction.
+    answer: >
+      $320/327 \approx 0.9786$. Centre: $\bar{x} = 4$, $\bar{y} = 18$, so
+      $S_{xx} = 4+1+0+1+4 = 10$ and
+      $S_{xy} = (-2)(-14)+(-1)(-9)+0(-2)+(1)(7)+(2)(18) = 80$, giving
+      $\hat{\beta}_1 = 8$ and $\hat{\beta}_0 = 18 - 32 = -14$. Fitted values are
+      $2, 10, 18, 26, 34$ and the residuals are $2, -1, -2, -1, 2$, so
+      $\text{SSE} = 4+1+4+1+4 = 14$ while
+      $\text{SST} = 196+81+4+49+324 = 654$, and
+      $R^{2} = 1 - 14/654 = 640/654 = 320/327$. That is the point of the
+      exercise. A fit explaining $97.9$ percent of the variation looks
+      unimprovable in a summary table, and yet the residuals are a textbook
+      arch: positive at both ends, negative in the middle, with no run of
+      matching signs anywhere — the exact signature of a missing curved term.
+      $R^{2}$ cannot see it, because $R^{2}$ measures only how much variation is
+      left over and not how that leftover is arranged against $\hat{y}$. Add an
+      $x^{2}$ column and every residual becomes zero, $R^{2}$ becomes $1$, and
+      the extrapolation to $x = 10$ moves from the line's $66$ to the truth's
+      $100$.
+    expects: "320/327"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Computes the residuals, notices the sign pattern is a systematic arch
+        rather than noise, and names a missing nonlinear term.
+      - >
+        Uses $R^{2} = 1 - \text{SSE}/\text{SST}$ with the *total* sum of squares
+        about $\bar{y}$, and concludes that a high $R^{2}$ does not rule out
+        curvature.
+    targets:
+      - quant-statistics.regression.residual-diagnostics
+      - quant-statistics.regression.r-squared
+    exercises:
+      - quant-statistics.regression.fitted-residuals
+      - quant-statistics.regression.anova-decomposition
+
+  - id: qreg-residual-diagnostics-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A fill-cost regression on order size looks healthy: residuals against
+      fitted values are a shapeless cloud. Out of curiosity the analyst plots
+      the same residuals against time of day, a variable *not* in the model, and
+      finds them clearly positive in the first hour and clearly negative in the
+      last. What has the second plot established?
+    answer: >
+      That time of day belongs in the model. Residual orthogonality is an
+      algebraic identity of the fit, but only against the columns actually in
+      $X$ — the shapeless first plot was guaranteed in advance and carries no
+      information. A variable left *out* of $X$ has no such guarantee, so a
+      systematic pattern against it is real evidence: the part of fill cost that
+      order size fails to explain moves with the clock, which is exactly the
+      claim that a time-of-day term would have a nonzero coefficient. Two
+      further consequences follow. If time of day also correlates with order
+      size — larger orders worked later in the session, say — then the current
+      size coefficient is carrying omitted-variable bias, and adding the column
+      changes it. And this is the general recipe for hunting omitted variables:
+      plot residuals against every candidate you did not include, since the ones
+      you did include can never tell you anything.
+    choices:
+      - text: >
+          Nothing — residuals are orthogonal to everything by construction, so
+          patterns like this are an artefact
+        feedback: >
+          Orthogonality holds only against the columns in $X$. Time of day is
+          not one of them, so nothing forces this plot to be flat, and it is not.
+      - text: >
+          That time of day carries explanatory power the model is missing, and
+          the size coefficient may be biased if the two are correlated
+        correct: true
+        feedback: >
+          Correct — an excluded variable is exactly where residual plots have
+          real power, and it is the standard way to hunt an omitted term.
+      - text: >
+          That the errors are heteroskedastic, so White standard errors are
+          needed
+        feedback: >
+          Heteroskedasticity is a changing *spread*. Here the residuals shift in
+          *level* — positive then negative — which is a missing mean effect, and
+          robust standard errors would not touch it.
+      - text: >
+          That the model's exogeneity assumption is confirmed, since the
+          first plot was clean
+        feedback: >
+          Backwards on both counts: the clean first plot proves nothing, and the
+          second plot is evidence *against* exogeneity of the current
+          specification, not for it.
+    rubric:
+      - >
+        Explains that orthogonality is guaranteed only for included columns, so
+        the informative plot is the one against an excluded variable.
+      - >
+        Distinguishes a shift in level, meaning a missing term, from a change in
+        spread, meaning non-constant variance.
+    targets:
+      - quant-statistics.regression.residual-diagnostics
+    exercises:
+      - quant-statistics.regression.fitted-residuals
+
+  - id: qreg-heteroskedasticity-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Three observations of a through-origin model $y_i = \beta x_i +
+      \varepsilon_i$: $x = 1, 2, 4$ and $y = 3, 5, 6$. The error variance is
+      known to scale with the regressor,
+      $\operatorname{Var}(\varepsilon_i) = \sigma^{2} x_i^{2}$. Compute the
+      weighted least squares estimate of $\beta$ as an exact fraction.
+    answer: >
+      $7/3 \approx 2.3333$. Weighted least squares divides every row by that
+      row's error standard deviation, here $\sigma x_i$, which turns the model
+      into $y_i/x_i = \beta + \varepsilon_i/x_i$ with errors that all have
+      variance $\sigma^{2}$ — homoskedastic by construction. The transformed
+      model is a pure intercept, so its least squares estimate is the plain
+      average of the transformed responses:
+      $\hat{\beta}_{\text{WLS}} = \tfrac{1}{3}(3/1 + 5/2 + 6/4) =
+      \tfrac{1}{3}(3 + 2.5 + 1.5) = 7/3$. Compare unweighted OLS,
+      $\sum_i x_i y_i/\sum_i x_i^{2} = (3 + 10 + 24)/(1 + 4 + 16) = 37/21
+      \approx 1.7619$: a materially different number, because OLS leans on the
+      $x = 4$ observation, which is precisely the noisiest one here. Both are
+      unbiased — each $y_i/x_i$ has mean $\beta$, so their average does too —
+      and the weighted one is efficient. Keep the two repairs separate: White or
+      Newey–West leave $\hat{\beta}$ exactly where OLS put it and fix only the
+      standard error, and are what you reach for when the variance pattern is
+      unknown; weighted least squares changes the estimate itself and buys
+      efficiency back, but only when the pattern is genuinely known, as it is
+      stipulated to be here.
+    expects: "7/3"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides each row by its own error standard deviation and notices the
+        transformed model has constant variance.
+      - >
+        Recognises the transformed problem as estimating a single mean, and
+        contrasts WLS, which moves the estimate, with robust standard errors,
+        which do not.
+    targets:
+      - quant-statistics.regression.heteroskedasticity
+    exercises:
+      - quant-statistics.regression.gauss-markov
+
+  - id: qreg-heteroskedasticity-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A junior quant reports that a signal's coefficient has a $t$-statistic of
+      $3.1$, then adds that the residual plot fans out sharply with the fitted
+      value. A senior asks what the honest reading of that $t$-statistic is.
+      Which answer is right?
+    answer: >
+      Treat $3.1$ as an upper bound worth rechecking, not a result. A funnel
+      means the error variance is not constant, and under heteroskedasticity the
+      textbook variance formula is simply the wrong estimator of
+      $\operatorname{Var}(\hat{\beta})$ — usually too small, because it averages
+      a variance that is in fact largest where the regressor is most spread out
+      and therefore most influential. So the denominator of the $t$-statistic is
+      understated and the ratio is inflated; a corrected calculation could easily
+      bring $3.1$ below $2$. What has *not* happened is any damage to
+      $\hat{\beta}$ itself: OLS remains unbiased and consistent, since
+      unbiasedness needs only linearity and exogeneity, both untouched. The fix
+      is therefore to recompute the standard error with White's
+      heteroskedasticity-consistent estimator and reread the same coefficient
+      against it — not to drop observations, not to refit something else, and
+      certainly not to report the number as it stands.
+    choices:
+      - text: >
+          It is unreliable and probably overstated; recompute the standard error
+          with White's correction and reread the same $\hat{\beta}$ against it
+        correct: true
+        feedback: >
+          Correct — the point estimate is fine, the denominator is not, and the
+          bias in the denominator usually runs toward making signals look real.
+      - text: >
+          It is unreliable because $\hat{\beta}$ is biased under
+          heteroskedasticity; refit with a different estimator
+        feedback: >
+          Unbiasedness needs only linearity and exogeneity. Non-constant
+          variance costs efficiency and wrecks the standard error, but it does
+          not bias $\hat{\beta}$.
+      - text: >
+          It is fine — heteroskedasticity affects efficiency only, and a
+          $t$-statistic above $3$ has a wide margin
+        feedback: >
+          Efficiency is not the only casualty. The reported standard error is
+          computed from a formula that assumes constant variance, so the margin
+          being quoted is itself the unreliable quantity.
+      - text: >
+          It is understated; robust standard errors are always larger, so the
+          true $t$ is bigger than $3.1$
+        feedback: >
+          Two errors: robust standard errors are usually but not always larger,
+          and a larger standard error makes $t$ *smaller*, not bigger.
+    rubric:
+      - >
+        Separates the coefficient, which survives, from its standard error,
+        which does not, and gives the usual direction of the error.
+      - >
+        Names White or Newey–West as a fix that recomputes the variance while
+        leaving $\hat{\beta}$ untouched.
+    targets:
+      - quant-statistics.regression.heteroskedasticity
+    exercises:
+      - quant-statistics.regression.residual-diagnostics
+
+  - id: qreg-outliers-leverage-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A simple regression with an intercept has five observations, at
+      $x = 2, 3, 4, 5, 16$. Compute the leverage $h_{ii}$ of the observation at
+      $x = 16$ and give it as an exact fraction.
+    answer: >
+      $63/65 \approx 0.9692$. For simple regression
+      $h_{ii} = 1/n + (x_i - \bar{x})^{2}/S_{xx}$. Here $\bar{x} = 30/5 = 6$,
+      the deviations are $-4, -3, -2, -1, 10$, and
+      $S_{xx} = 16+9+4+1+100 = 130$, so the last point has
+      $h = 1/5 + 100/130 = 1/5 + 10/13 = (13 + 50)/65 = 63/65$. Two readings
+      make this worth the arithmetic. First, average leverage is
+      $(k+1)/n = 2/5 = 0.4$, so this single point sits at nearly two and a half
+      times the average, and the other four are all crowded near $0.2$ to $0.3$
+      — one observation is doing most of the work of locating the line. Second,
+      $\operatorname{Var}(e_i) = \sigma^{2}(1 - h_{ii}) = \sigma^{2}(2/65)$,
+      about three percent of $\sigma^{2}$, so this point's residual is
+      *mechanically* tiny: the fitted line is dragged to within a whisker of it
+      whatever its $y$ value happens to be. It is simultaneously the most
+      influential point in the sample and the one that looks most innocent in a
+      residual plot, which is why leverage is checked on its own. Note that $y$
+      entered nowhere in the computation — leverage is a property of the
+      regressor cloud alone, and it becomes influence only when the point also
+      fits badly.
+    expects: "63/65"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $1/n + (x_i - \bar{x})^{2}/S_{xx}$ and computes $S_{xx}$ over all
+        five points, including the far one.
+      - >
+        Compares against the average leverage $(k+1)/n$ and explains via
+        $\operatorname{Var}(e_i) = \sigma^{2}(1 - h_{ii})$ why the residual plot
+        will not flag this point.
+    targets:
+      - quant-statistics.regression.outliers-leverage
+    exercises:
+      - quant-statistics.regression.fitted-residuals
+
+  - id: qreg-outliers-leverage-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      One printed quote in a month of tick data is off by a factor of ten, and
+      it happens to fall at an extreme of the regressor. A colleague argues that
+      least squares is fine here because the estimator is unbiased and the
+      sample has thousands of rows. What is the sound response?
+    answer: >
+      Unbiasedness and sample size are both beside the point, because the bad
+      print is not a draw from the error distribution the theory assumes — it is
+      a data error, and no theorem about well-behaved errors covers it. The
+      structural reason it does damage is the same reason the sample mean is
+      fragile: least squares minimizes *squared* deviations, so a single
+      observation's pull grows with its distance, without limit and without any
+      protection from the thousands of clean rows around it. Combine that
+      unbounded influence function with high leverage — an extreme regressor
+      value, so the fitted surface pivots about a distant point — and one row can
+      move the slope materially while showing a small residual, since
+      $\operatorname{Var}(e_i) = \sigma^{2}(1 - h_{ii})$ shrinks toward zero as
+      $h_{ii}$ approaches one. The responses are the regression versions of the
+      familiar ones for a mean: report the fit with and without the point,
+      winsorize the extremes, or minimize a loss that grows linearly rather than
+      quadratically in the tail, and in every case say which was done.
+    choices:
+      - text: >
+          Agree — with thousands of rows a single observation cannot move the
+          fit appreciably
+        feedback: >
+          Sample size does not bound a single point's influence under squared
+          loss. A high-leverage row can move the slope by an arbitrary amount
+          however many clean rows sit beside it.
+      - text: >
+          Squared loss gives one point unbounded influence, and its high
+          leverage compounds it; refit with and without, winsorize, or use a
+          robust loss
+        correct: true
+        feedback: >
+          Correct — the same fragility the mean has, with leverage as the
+          amplifier, and the same family of fixes.
+      - text: >
+          Agree, provided the residual plot shows nothing unusual at that point
+        feedback: >
+          The residual plot is exactly what cannot be trusted here:
+          $\operatorname{Var}(e_i) = \sigma^{2}(1 - h_{ii})$ makes a
+          high-leverage point's residual small by construction.
+      - text: >
+          Disagree, and fix it by adding more regressors so the model can
+          accommodate the unusual observation
+        feedback: >
+          Fitting extra columns to accommodate a known bad print builds the
+          error into the model. The problem is one corrupt row, not a missing
+          effect.
+    rubric:
+      - >
+        Traces the fragility to the unbounded influence of squared loss, the
+        same mechanism that makes the sample mean non-robust.
+      - >
+        Explains that leverage amplifies it and that the residual plot is
+        actively misleading, then names a concrete robust response.
+    targets:
+      - quant-statistics.regression.outliers-leverage
+      - quant-statistics.descriptive.robustness
+    exercises:
+      - quant-statistics.regression.residual-diagnostics
+    connects:
+      - "quant-statistics.descriptive.robustness ~ quant-statistics.regression.outliers-leverage"
+
+  # --- omitted variables -------------------------------------------------------
+
+  - id: qreg-omitted-variable-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      The true model is $y = \beta_0 + 3x - 0.5z + \varepsilon$ with
+      $\mathbb{E}[\varepsilon \mid x, z] = 0$, but $z$ is never recorded and $y$
+      is regressed on $x$ alone. In the four-observation sample the pairs
+      $(x, z)$ are $(1, 2)$, $(2, 3)$, $(3, 7)$ and $(4, 8)$. What slope on $x$
+      should the short regression be expected to report?
+    answer: >
+      $1.9$. The bias term is $\beta_2$ times the slope of the auxiliary
+      regression of the omitted variable on the included one, so the whole job
+      is to get $\operatorname{Cov}(x,z)/\operatorname{Var}(x)$ out of the
+      sample. With $\bar{x} = 2.5$ and $\bar{z} = 5$, the $x$ deviations are
+      $-1.5, -0.5, 0.5, 1.5$ and the $z$ deviations are $-3, -2, 2, 3$, giving
+      $S_{xx} = 2.25+0.25+0.25+2.25 = 5$ and
+      $S_{xz} = 4.5 + 1 + 1 + 4.5 = 11$, so the auxiliary slope is
+      $11/5 = 2.2$. Then
+      $\mathbb{E}[\hat{\beta}_1] = \beta_1 + \beta_2 \cdot 2.2 = 3 +
+      (-0.5)(2.2) = 3 - 1.1 = 1.9$. The bias is $-1.1$, downward, and the sign
+      rule confirms it without the arithmetic: $z$ lowers $y$ while moving
+      *with* $x$, one of the two mixed cases. Note how badly a naive reading
+      goes wrong — the reported $1.9$ understates the true effect of $3$ by more
+      than a third, and no amount of extra data fixes it, because the bias does
+      not shrink with $n$. Only recording $z$ and fitting the long regression
+      does.
+    expects: "1.9"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Computes the auxiliary slope $S_{xz}/S_{xx}$ from the sample rather than
+        assuming a value, and keeps the same divisor convention in both sums.
+      - >
+        Multiplies by $\beta_2$ with its sign, and checks the direction against
+        the sign rule for $\beta_2 \times \operatorname{Cov}(x,z)$.
+    targets:
+      - quant-statistics.regression.omitted-variable
+    exercises:
+      - quant-statistics.regression.beta-cov-var
+      - quant-statistics.regression.multiple-regression
+
+  - id: qreg-omitted-variable-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A referee objects that a regression of daily PnL on a signal omits the
+      day of the week, which is strongly associated with the signal's magnitude.
+      Suppose that in truth the day of the week has no effect on PnL once the
+      signal is known — its coefficient in the long regression is exactly zero.
+      What happens to the signal's coefficient in the short regression?
+    answer: >
+      Nothing: it is unbiased as it stands. The bias term is $\beta_2 \cdot
+      \operatorname{Cov}(x,z)/\operatorname{Var}(x)$, a product, and it vanishes
+      if *either* factor is zero. Here $\beta_2 = 0$ by assumption, so however
+      strong the association between the day of the week and the signal, the
+      product is zero and the short regression estimates $\beta_1$ correctly.
+      This is the half of the rule that gets forgotten: an omitted variable is
+      harmless unless it is correlated with the included regressor *and* has its
+      own effect on $y$. Correlation with $x$ alone buys nothing. The mirror
+      case is worth holding alongside it — a variable with a large effect on $y$
+      but zero covariance with $x$ is also harmless for $\hat{\beta}_1$, though
+      including it still pays, since it removes variation from the residual and
+      shrinks the standard error. So the referee's objection, as stated, is
+      about precision at best, not bias.
+    choices:
+      - text: >
+          It is biased, because the omitted variable is strongly correlated with
+          the included regressor
+        feedback: >
+          Correlation with $x$ is only one factor of the product. With
+          $\beta_2 = 0$ the bias term is zero no matter how large that
+          correlation is.
+      - text: >
+          It is unbiased — the bias is a product $\beta_2 \times
+          \operatorname{Cov}(x,z)/\operatorname{Var}(x)$, and $\beta_2 = 0$
+          kills it
+        correct: true
+        feedback: >
+          Correct — both conditions have to fail for bias to appear. Adding the
+          variable anyway could still tighten the standard error.
+      - text: >
+          It is biased upward, since day-of-week effects are positive on average
+        feedback: >
+          There is no such average to appeal to, and the premise fixes the
+          long-regression coefficient at exactly zero, so no direction survives.
+      - text: >
+          It cannot be determined without knowing $\operatorname{Var}(x)$
+        feedback: >
+          $\operatorname{Var}(x)$ only scales the bias term. A factor of zero
+          makes the product zero whatever the scaling is.
+    rubric:
+      - >
+        Treats the bias as a product of two factors and identifies which one is
+        zero here.
+      - >
+        Adds the mirror case — a strong effect on $y$ with zero covariance is
+        also harmless for the coefficient, though not for its precision.
+    targets:
+      - quant-statistics.regression.omitted-variable
+    exercises:
+      - quant-statistics.regression.beta-cov-var
+
+  - id: qreg-omitted-variable-worked-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A desk regresses PnL on latency alone and reports a slope of $-2.5$.
+      Adding queue depth as a second regressor moves the latency coefficient to
+      $-1.0$. Separately, regressing queue depth on latency gives a slope of
+      $0.75$. What coefficient did queue depth receive in the two-regressor fit?
+    answer: >
+      $-2$. Run the bias identity backwards. The short slope equals the long
+      slope plus the omitted coefficient times the auxiliary slope:
+      $\hat{\beta}_{\text{short}} = \hat{\beta}_{\text{long}} + c \cdot
+      \hat{\delta}$, where $c$ is queue depth's coefficient in the long
+      regression and $\hat{\delta} = 0.75$ is the slope of queue depth on
+      latency. So $-2.5 = -1.0 + 0.75c$, giving $0.75c = -1.5$ and $c = -2$.
+      Two things are worth noticing. First, this identity is exact in the
+      sample, not merely an expectation — the short and long fits on the same
+      data are related by the auxiliary regression algebraically, which is why
+      an interviewer can hand you any three of the four numbers and expect the
+      fourth back. Second, the signs tell a coherent story: deeper queues cost
+      PnL ($c < 0$) and come with higher latency ($\hat{\delta} > 0$), so the
+      product is negative and the short regression makes latency look two and a
+      half times as costly as it really is. The extra $-1.5$ in the reported
+      slope is queue depth's damage arriving under latency's name.
+    expects: "-2"
+    rubric:
+      - >
+        Writes the short slope as the long slope plus the omitted coefficient
+        times the auxiliary slope, and solves for the unknown factor.
+      - >
+        Reads the sign story back out — both factors negative-then-positive
+        giving a downward shift — rather than only reporting the number.
+    targets:
+      - quant-statistics.regression.omitted-variable-worked
+    exercises:
+      - quant-statistics.regression.omitted-variable
+      - quant-statistics.regression.multiple-regression
+
+  - id: qreg-omitted-variable-worked-02
+    kind: work
+    difficulty: standard
+    statement: >
+      True model: $\text{fill rate} = \beta_0 + 0.9\,\text{aggression} +
+      3\,\text{spread} + \varepsilon$, with
+      $\operatorname{Cov}(\text{aggression}, \text{spread}) = -2$ and
+      $\operatorname{Var}(\text{aggression}) = 8$. A researcher with no spread
+      data regresses fill rate on aggression alone. What slope do they report?
+    answer: >
+      $0.15$. Four steps, in order. The omitted variable's structural
+      coefficient is $\beta_2 = 3$. The covariance-to-variance ratio is
+      $\operatorname{Cov}/\operatorname{Var} = -2/8 = -0.25$, the slope you
+      would get regressing spread on aggression. Multiply:
+      the bias is $3 \times (-0.25) = -0.75$. Add it to the true effect:
+      $0.9 - 0.75 = 0.15$. The reported slope is barely a sixth of the true one,
+      and the sign check explains why without arithmetic — this is a mixed case,
+      $z$ raising $y$ while moving *against* $x$, so the bias is downward. It is
+      the direction people most often get wrong, because the eye lands on the
+      positive $\beta_2 = 3$ and stops there; the sign of the bias is the sign
+      of the product, and the negative covariance flips it. Had the covariance
+      been $+2$ instead, the same $\beta_2$ would have pushed the report up to
+      $1.65$, and the researcher would have overstated aggression's effect by
+      almost as much as they here understate it.
+    expects: "0.15"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Runs the four-step solve and keeps the negative covariance's sign
+        through the multiplication.
+      - >
+        States the bias direction as downward and attributes it to the product
+        of the two signs, not to $\beta_2$ alone.
+    targets:
+      - quant-statistics.regression.omitted-variable-worked
+    exercises:
+      - quant-statistics.regression.omitted-variable
+
+  # --- regression to the mean, and the fallacy it breeds -----------------------
+
+  - id: qreg-regression-to-mean-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A pair of scores $(X, Y)$ on successive assessments is bivariate normal
+      with $\mu_X = 100$, $\sigma_X = 20$, $\mu_Y = 60$, $\sigma_Y = 15$ and
+      $\operatorname{Cov}(X, Y) = 90$. A candidate scores $X = 140$. What is
+      $\mathbb{E}[Y \mid X = 140]$?
+    answer: >
+      $69$. Get the correlation first:
+      $\rho = \operatorname{Cov}(X,Y)/(\sigma_X \sigma_Y) = 90/(20 \times 15) =
+      90/300 = 0.3$. Standardize the observation:
+      $z_x = (140 - 100)/20 = 2$, so the candidate is two standard deviations
+      up. The standardized line gives $\hat{z}_y = \rho z_x = 0.3 \times 2 =
+      0.6$, and converting back,
+      $\mathbb{E}[Y \mid X = 140] = 60 + 0.6 \times 15 = 69$. The direct route
+      is the same computation:
+      $\mu_Y + \rho(\sigma_Y/\sigma_X)(x - \mu_X) = 60 + 0.3(15/20)(40) = 69$,
+      which is the bivariate normal's conditional mean — under joint normality
+      the regression line is not a fitted approximation but the exact
+      conditional expectation, so the shrinkage from $2$ standard deviations to
+      $0.6$ is a fact about the joint law rather than an artefact of least
+      squares. Seventy percent of an apparently exceptional score is predicted
+      to evaporate, with no cause needed beyond $\rho < 1$. The trap is
+      answering $80$, which is $60 + 20$ — carrying the raw $40$-point excess
+      across as if the two scales were the same.
+    expects: "69"
+    rubric:
+      - >
+        Divides the covariance by both standard deviations to get $\rho$, rather
+        than using the covariance as a slope directly.
+      - >
+        Converts to standard units, shrinks by $\rho$, and converts back with
+        $\sigma_Y$, arriving at the bivariate normal conditional mean.
+    targets:
+      - quant-statistics.regression.regression-to-mean
+      - quant-probability.joint.bivariate-normal
+    exercises:
+      - quant-statistics.regression.beta-cov-var
+      - quant-probability.joint.correlation
+    connects:
+      - "quant-probability.joint.bivariate-normal ~ quant-statistics.regression.regression-to-mean"
+
+  - id: qreg-regression-to-mean-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A fit of this year's desk revenue $y$ on last year's $x$ has slope $0.8$
+      in raw units. The two years have $\sigma_x = 5$ and $\sigma_y = 20$
+      million dollars. What is the correlation between them?
+    answer: >
+      $0.2$. The raw slope and the correlation differ by the ratio of the
+      spreads: since $\hat{\beta}_1 = \operatorname{Cov}(x,y)/\sigma_x^{2}$ and
+      $\rho = \operatorname{Cov}(x,y)/(\sigma_x\sigma_y)$, dividing one by the
+      other gives $\rho = \hat{\beta}_1 \sigma_x/\sigma_y = 0.8 \times 5/20 =
+      0.2$. The number to be careful with is $0.8$: read as a correlation it
+      suggests two years that track each other closely, but as a slope it is
+      just a statement in mixed units, and once both sides are put in standard
+      deviations the persistence is only $0.2$. So a desk that finished a
+      standard deviation above its peers last year is predicted at $0.2$
+      standard deviations above this year — four fifths of the gap gone. This is
+      why the standardized form is the one to quote: the raw slope can be made
+      to look like anything by rescaling either axis, while $\rho$ cannot, and
+      only $\rho$ answers the question people actually mean when they ask how
+      much of last year's performance carries over.
+    expects: "0.2"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $\rho = \hat{\beta}_1 \sigma_x/\sigma_y$, with the ratio the right
+        way up, rather than reading the slope as a correlation.
+      - >
+        Interprets the result as the fraction of a standard-deviation lead that
+        is expected to persist.
+    targets:
+      - quant-statistics.regression.regression-to-mean
+    exercises:
+      - quant-statistics.regression.beta-cov-var
+
+  - id: qreg-regression-to-mean-03
+    kind: decide
+    difficulty: demanding
+    statement: >
+      Two successive rounds of the same test have equal spread and correlation
+      $\rho = 0.6$. Everyone in the top decile of round one is predicted to
+      score closer to the mean in round two, and everyone in the bottom decile
+      is predicted to move up. Does it follow that the spread of round-two
+      scores is narrower than round one's?
+    answer: >
+      No. The shrinkage applies to *predictions*, not to realized outcomes. The
+      conditional mean of round two given round one is $\rho z_1$, which is
+      indeed pulled toward zero, but round two also carries its own fresh noise:
+      $z_2 = \rho z_1 + \sqrt{1 - \rho^{2}}\,w$ with $w$ independent, so
+      $\operatorname{Var}(z_2) = \rho^{2} + (1 - \rho^{2}) = 1$. The variance is
+      exactly restored, which it must be — the two rounds were stipulated to
+      have equal spread, and nothing about conditioning on one of them can
+      change the marginal distribution of the other. What actually happens is a
+      reshuffle: some of round one's top decile fall back, and other people, who
+      were unremarkable in round one, have the lucky round and take their
+      places. The population never contracts. The same symmetry that makes the
+      identity run in both directions makes the "shrinking spread" conclusion
+      untenable: if round two were narrower than round one, then predicting
+      round one from round two — an equally valid regression — would say round
+      one is narrower than round two, and both cannot hold.
+    choices:
+      - text: >
+          Yes — every group's prediction moves toward the mean, so the overall
+          spread must contract
+        feedback: >
+          The predictions contract; the outcomes do not. Round two adds its own
+          independent noise, restoring the variance to exactly what it was.
+      - text: >
+          No — predictions shrink but outcomes do not, since round two carries
+          fresh noise: $\rho^{2} + (1 - \rho^{2}) = 1$
+        correct: true
+        feedback: >
+          Correct — the composition of the extremes changes, but the population
+          spread is unchanged, as symmetry between the two directions requires.
+      - text: >
+          No, but only because $\rho = 0.6$ is fairly high; with a small $\rho$
+          the spread would genuinely contract
+        feedback: >
+          The decomposition holds for every $\rho$ — a smaller $\rho$ shrinks
+          the predictions more and adds correspondingly more fresh noise, and
+          the variance still comes to $1$.
+      - text: >
+          Yes, and repeated rounds would eventually collapse every score onto
+          the mean
+        feedback: >
+          That conclusion is the reductio: it would make the spread of a stable
+          test vanish over time, which it plainly does not.
+    rubric:
+      - >
+        Decomposes $z_2$ into the shrunken prediction plus independent noise and
+        checks the variance comes back to one.
+      - >
+        Distinguishes the movement of individuals from the spread of the
+        population, and uses the symmetry of the two directions as a check.
+    targets:
+      - quant-statistics.regression.regression-to-mean
+    exercises:
+      - quant-probability.joint.correlation
+
+  - id: qreg-regression-fallacy-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A firm ranks its traders each quarter. The top decile averaged $z = +1.6$
+      last quarter and the bottom decile $z = -1.6$; the bottom decile alone
+      received coaching. Quarter-to-quarter skill correlation is $\rho = 0.25$.
+      Under the null that coaching does nothing, by how much is the gap between
+      the two groups predicted to narrow, in standard deviations?
+    answer: >
+      $2.4$. Last quarter's gap is $1.6 - (-1.6) = 3.2$ standard deviations.
+      Under the null, each group's next-quarter mean is its own mean times
+      $\rho$: the top decile is predicted at $1.6 \times 0.25 = 0.4$ and the
+      bottom at $-1.6 \times 0.25 = -0.4$, so the predicted gap is $0.8$. The
+      narrowing is $3.2 - 0.8 = 2.4$, or equivalently $3.2(1 - \rho) = 3.2
+      \times 0.75$. Three quarters of the gap closes with nobody doing anything.
+      That is the whole trap: a report showing that after coaching the weak
+      group climbed most of the way toward the strong one is describing exactly
+      what the null predicts, and the coaching's effect is only whatever appears
+      *beyond* the $2.4$. The design also shows why the untreated top decile is
+      the control group the story needs — it was selected on an equally extreme
+      outcome, so it regresses by the same factor, and comparing the two
+      movements differences the regression effect out. Had only the bottom
+      decile been tracked, there would be no way to tell the two apart.
+    expects: "2.4"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Shrinks each group's mean by $\rho$ separately and differences the
+        predictions, rather than shrinking the gap by some other rule.
+      - >
+        Identifies the untreated extreme group as the control the comparison
+        needs, and says the treatment effect is only the movement beyond the
+        predicted narrowing.
+    targets:
+      - quant-statistics.regression.regression-fallacy
+    exercises:
+      - quant-statistics.regression.regression-to-mean
+
+  - id: qreg-regression-fallacy-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A city installs speed cameras at the thirty intersections with the most
+      collisions last year. Collisions at those intersections fall $22$ percent
+      the following year, against a citywide fall of $3$ percent. The report
+      concludes the cameras cut collisions by $19$ percentage points. What is
+      the flaw, and what would fix it?
+    answer: >
+      The intersections were selected on an extreme outcome, so some of the
+      fall was guaranteed before a single camera was installed. Each
+      intersection's collision count is a stable underlying rate plus year-to-
+      year noise, and the thirty highest counts over-represent intersections
+      having an unlucky year; next year that noise is redrawn and those counts
+      fall toward their own rates, whatever was done in between. The citywide
+      average is not the control the report needs, because the city as a whole
+      was not selected on an extreme — it does not regress, so subtracting its
+      $3$ percent removes a common trend but nothing of the selection effect.
+      The fix is a control group drawn by the *same* selection rule: rank all
+      intersections, take the next thirty worst, leave them untreated, and
+      compare the two groups' movement. Only the difference between them is
+      evidence about the cameras. Failing that, use the intersections' multi-year
+      histories to estimate each one's underlying rate, and measure the fall
+      against that rather than against the single extreme year.
+    choices:
+      - text: >
+          The citywide fall of $3$ percent is the right benchmark, but the
+          sample of thirty is too small to be significant
+        feedback: >
+          Sample size is not the issue, and the citywide figure is the wrong
+          benchmark: the city was not selected on an extreme year, so it does
+          not regress the way the chosen thirty do.
+      - text: >
+          The thirty were selected on an extreme year, so part of the fall is
+          regression to the mean; a control group chosen by the same rule is
+          needed
+        correct: true
+        feedback: >
+          Correct — the comparison group has to share the selection, not merely
+          the calendar. The next thirty worst, left untreated, is the natural
+          choice.
+      - text: >
+          There is no flaw — the citywide comparison already controls for
+          everything that changed between the two years
+        feedback: >
+          It controls for common trends only. Selection on an extreme outcome is
+          a separate effect that the citywide average, unselected, cannot
+          capture.
+      - text: >
+          The flaw is that collisions are counts rather than continuous
+          measurements, so percentages are inappropriate
+        feedback: >
+          Counts are fine to compare in percentage terms. The problem is which
+          intersections entered the sample and why, not the scale of the
+          outcome.
+    rubric:
+      - >
+        Names selection on an extreme outcome as the mechanism and explains why
+        the counts were expected to fall on their own.
+      - >
+        Rejects the citywide average as a control and specifies one drawn by the
+        same selection rule, or an estimate of each site's underlying rate.
+    targets:
+      - quant-statistics.regression.regression-fallacy
+    exercises:
+      - quant-statistics.regression.regression-to-mean
+
+  # --- penalized regression ----------------------------------------------------
+
+  - id: qreg-ridge-lasso-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A single centred regressor has $\sum_i x_i^{2} = 12$, the error variance
+      is $\sigma^{2} = 24$, and the true coefficient is $\beta = 1$. Ridge gives
+      $\hat{\beta}_\lambda = c\,\hat{\beta}_{\text{OLS}}$ with shrinkage factor
+      $c = \sum_i x_i^{2}/(\sum_i x_i^{2} + \lambda)$. Which $\lambda$ minimizes
+      the mean squared error of $\hat{\beta}_\lambda$?
+    answer: >
+      $\lambda = 24$. Work in the shrinkage factor and convert at the end. OLS
+      is unbiased with variance $\sigma^{2}/\sum_i x_i^{2} = 24/12 = 2$, so
+      $\hat{\beta}_\lambda = c\,\hat{\beta}_{\text{OLS}}$ has mean $c\beta$,
+      bias $(c-1)\beta$ and variance $2c^{2}$, giving
+      $\operatorname{MSE}(c) = 2c^{2} + (c-1)^{2}\beta^{2} = 2c^{2} +
+      (c-1)^{2}$. Differentiate: $4c + 2(c-1) = 0$, so $c = 1/3$. In general
+      $c^{\ast} = \beta^{2}/(\beta^{2} + \sigma^{2}/\sum_i x_i^{2})$. Convert
+      back: $12/(12 + \lambda) = 1/3$ forces $12 + \lambda = 36$, so
+      $\lambda = 24$ — which is exactly $\sigma^{2}/\beta^{2}$, the clean form
+      of the answer. Read the formula rather than the number: the optimal
+      penalty grows with the noise and shrinks with the size of the true
+      coefficient, so a noisy fit of a small effect should be shrunk hard and a
+      precise fit of a large one barely at all. Two caveats keep this honest.
+      The optimum depends on the unknown $\beta$ and $\sigma^{2}$, which is
+      precisely why $\lambda$ is chosen by out-of-sample validation in practice
+      rather than by this formula. And that a positive $\lambda$ wins at all is
+      the concrete counterexample to reading Gauss–Markov as "OLS is best" — MSE
+      here falls from $2$ to $2(1/9) + (4/9) = 2/3$, a two-thirds cut, bought by
+      dropping the unbiasedness requirement.
+    expects: "24"
+    rubric:
+      - >
+        Writes MSE as squared bias plus variance in terms of the shrinkage
+        factor and minimizes over it before converting back to $\lambda$.
+      - >
+        Notes that $\lambda^{\ast} = \sigma^{2}/\beta^{2}$ depends on unknowns,
+        so validation replaces the formula, and that a biased estimator beating
+        OLS is consistent with Gauss–Markov.
+    targets:
+      - quant-statistics.regression.ridge-lasso
+    exercises:
+      - quant-statistics.regression.multicollinearity
+      - quant-statistics.estimation.bias-mse
+
+  - id: qreg-ridge-lasso-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A researcher has $400$ candidate signals and $200$ days of data, and wants
+      a short list of signals a desk can actually monitor. Which approach fits
+      the goal, and what must be done first?
+    answer: >
+      Lasso, after standardizing the regressors. Two features of the problem
+      point at it. With $400$ columns and $200$ rows, $X$ has more columns than
+      rows, so $X'X$ is singular and OLS does not exist at all — there are
+      infinitely many coefficient vectors fitting the data perfectly. And the
+      deliverable is a *short list*, which is a request for exactly zero
+      coefficients on most signals; the kinks in the absolute-value penalty put
+      the optimum at a corner and drive coefficients exactly to zero, so lasso
+      selects, while ridge shrinks every coefficient smoothly and returns $400$
+      small nonzero numbers, monitorable by nobody. Standardizing first is not
+      optional: the penalty $\sum_j \lvert b_j \rvert$ is not scale-invariant,
+      so a signal measured in basis points and one measured in percent would be
+      penalized entirely differently for the same economic effect, and the
+      selection would partly reflect the choice of units. Leave the intercept
+      unpenalized, and pick $\lambda$ by out-of-sample validation — in-sample
+      fit is minimized at $\lambda = 0$, which selects everything and defeats
+      the purpose.
+    choices:
+      - text: >
+          Ridge, standardizing first — it stays invertible with more columns
+          than rows, which is what this problem needs
+        feedback: >
+          Ridge does stay invertible, but it never returns an exact zero, so it
+          gives $400$ small coefficients rather than a short list. The
+          deliverable here is selection.
+      - text: >
+          Lasso, standardizing first — the absolute-value penalty sets most
+          coefficients exactly to zero, producing a short list
+        correct: true
+        feedback: >
+          Correct — the kinks in the penalty are what buy sparsity, and the
+          standardization keeps the selection from depending on units.
+      - text: >
+          OLS on all $400$, then keep the signals with $\lvert t \rvert > 2$
+        feedback: >
+          With $400$ columns and $200$ rows OLS has no unique solution, so there
+          are no coefficients to test — and even if there were, screening $400$
+          $t$-statistics at that threshold would pass many by chance alone.
+      - text: >
+          Lasso, but on the raw signals — standardizing would distort the
+          economic meaning of the coefficients
+        feedback: >
+          Backwards: leaving the raw scales in place is what distorts the fit,
+          since the penalty then falls hardest on whichever signals happen to be
+          measured in small units.
+    rubric:
+      - >
+        Notes that $X'X$ is singular when the columns outnumber the rows, so
+        plain OLS is unavailable before any penalty is considered.
+      - >
+        Chooses lasso for exact zeros rather than ridge's smooth shrinkage, and
+        requires standardization because the penalty is not scale-invariant.
+    targets:
+      - quant-statistics.regression.ridge-lasso
+    exercises:
+      - quant-statistics.regression.multicollinearity

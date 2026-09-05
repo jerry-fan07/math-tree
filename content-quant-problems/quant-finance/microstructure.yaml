@@ -1,0 +1,1501 @@
+# Problems targeting quant-finance.microstructure — how prices actually form.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. Every book, quote and fill here is
+# a fresh instance: no lesson worked example or card number is reused. Prices are
+# written as bare numbers and costs in cents or dollars, never with a currency
+# sign. See ../README.md.
+
+problems:
+  # --- the limit order book ---------------------------------------------------
+
+  - id: qmicro-lob-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A book rests as follows. Bids: 300 shares at 62.40, then 1800 shares at
+      62.37. Asks: 400 shares at 62.45, then 1000 shares at 62.48. A market sell
+      order for 1500 shares arrives. What is the quoted spread, in cents, once
+      that order has been fully matched?
+    answer: >
+      $8$ cents. The sell order matches the bid queue from the front. It takes
+      all 300 shares resting at 62.40, which exhausts that level and removes it
+      from the book entirely, then takes $1500 - 300 = 1200$ of the 1800 shares
+      at 62.37, leaving 600 shares still resting there. The best bid is now
+      62.37, not a thinner 62.40 — the level did not shrink, it disappeared. The
+      ask queue was never touched, so the best ask is still 62.45, and the quoted
+      spread is $62.45 - 62.37 = 0.08$, eight cents where it had been three. The
+      trap is answering $3$ by reading the spread off the pre-trade book, or
+      answering $5$ by pricing the fill's average against the old best bid: the
+      spread is a property of the queues after the match, and a sweep that
+      removes a whole level widens it by the distance to the next one.
+    expects: "8"
+    rubric:
+      - >
+        Matches the sell against the *bid* queue from the highest price down,
+        exhausting 62.40 before touching 62.37.
+      - >
+        Reads the new best bid as 62.37 because the 62.40 level is gone, not
+        merely reduced, and subtracts from the untouched best ask 62.45.
+    targets:
+      - quant-finance.microstructure.lob
+
+  - id: qmicro-lob-02
+    kind: work
+    difficulty: standard
+    statement: >
+      You post a buy limit order at 12.30 in a name where 4200 shares are already
+      resting at that price, all of them ahead of you by time priority. Before
+      any further orders arrive at 12.30, traders cancel 1500 of those shares and
+      incoming sell orders execute against 1900 more. How many shares are still
+      ahead of you in the queue?
+    answer: >
+      $800$. Price–time priority makes a single price level a FIFO queue, and
+      only two things remove shares from in front of you: their owners cancel
+      them, or someone trades against them. Both count, and both count fully, so
+      $4200 - 1500 - 1900 = 800$ shares remain ahead. Note what does *not* help:
+      shares joining the queue after you always land behind you, so new arrivals
+      at 12.30 never change this number. Answering $2700$ counts only the
+      executions and forgets that a cancellation ahead of you promotes you just
+      as effectively as a fill does; answering $2300$ counts only the
+      cancellations.
+    expects: "800"
+    rubric:
+      - >
+        Counts both cancellations and executions ahead in the queue as removing
+        shares from in front of the order.
+      - >
+        Notes that later arrivals at the same price join behind, so they do not
+        affect the count.
+    targets:
+      - quant-finance.microstructure.lob
+
+  - id: qmicro-lob-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      Four snapshots of a single instrument's book are reported. Which one cannot
+      persist in a functioning market?
+    answer: >
+      The book with best bid 41.05 and best ask 41.03 is impossible. A crossed
+      book means someone is willing to buy at a higher price than someone else is
+      willing to sell, so a trader can lift the 41.03 offer and immediately hit
+      the 41.05 bid for two cents a share of riskless profit. The matching engine
+      does not even allow the state to form: the incoming order that would have
+      crossed the book is executed against the resting side instead. A locked
+      book, best bid equal to best ask, is a boundary case some venues permit
+      briefly across exchanges, but a strictly negative spread is arbitrage. Wide
+      spreads and deeply lopsided depth are ordinary, not pathological — a
+      one-share ask against a huge bid is just a thin offer.
+    choices:
+      - text: >
+          Best bid 41.05 for 700 shares, best ask 41.03 for 200 shares.
+        correct: true
+        feedback: >
+          Right — the bid is above the ask, so buying at 41.03 and selling at
+          41.05 is riskless. The engine matches the two instead of resting them.
+      - text: >
+          Best bid 41.00 for 5000 shares, best ask 41.60 for 100 shares.
+        feedback: >
+          A 60-cent spread is wide but perfectly legal; illiquid names look like
+          this all day.
+      - text: >
+          Best bid 41.02 for 12000 shares, best ask 41.03 for 100 shares.
+        feedback: >
+          Severe depth imbalance is ordinary and is exactly what the microprice
+          is built to read; the spread is still positive.
+      - text: >
+          Best bid 41.02 for 400 shares with 9000 more resting one cent lower.
+        feedback: >
+          Depth behind the touch is normal book structure — that is what a market
+          order walks into.
+    rubric:
+      - >
+        Identifies the crossed book, where the best bid exceeds the best ask.
+      - >
+        Explains the arbitrage: buy at the low ask, sell at the high bid, no risk
+        taken.
+    targets:
+      - quant-finance.microstructure.lob
+
+  # --- market versus limit orders ---------------------------------------------
+
+  - id: qmicro-order-types-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      The book shows best bid 118.40 and an ask queue of 200 shares at 118.55
+      followed by 500 shares at 118.62. A trader sends a buy limit order for 600
+      shares with a limit price of 118.60. Once the exchange has processed it,
+      how many shares of that order are resting in the book?
+    answer: >
+      $400$. A limit order is marketable only against prices at or better than
+      its limit, so this one sweeps the 200 shares offered at 118.55 — inside its
+      limit — and then stops, because the next offer at 118.62 is above 118.60
+      and the order is forbidden to pay it. The unfilled $600 - 200 = 400$ shares
+      do not vanish and do not chase: they rest as a new bid at 118.60, which is
+      now the best bid, narrowing the spread to $118.62 - 118.60 = 0.02$. The
+      trader who wanted 600 shares now owns 200 and is a *maker* for the rest,
+      exposed to exactly the risk a limit order carries — no guarantee of a fill.
+      Answering $0$ treats a marketable limit as a market order, which it is only
+      up to its limit price; answering $600$ forgets that the marketable portion
+      already traded.
+    expects: "400"
+    rubric:
+      - >
+        Fills only the portion available at or inside the 118.60 limit — the 200
+        shares at 118.55 — and refuses the 118.62 level.
+      - >
+        Says the residual rests rather than being cancelled, and becomes the new
+        best bid.
+    targets:
+      - quant-finance.microstructure.order-types
+
+  - id: qmicro-order-types-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A maker's bid is resting at 27.90 against a best ask of 27.96. An impatient
+      seller sends a market sell order and is filled at 27.90. In the language of
+      spread economics, who paid the spread on this trade?
+    answer: >
+      The seller who sent the market order paid it. The mid at arrival was
+      $(27.90 + 27.96)/2 = 27.93$, and the seller received 27.90, three cents
+      below the mid — a half-spread paid away for the certainty of an immediate
+      fill, plus whatever take fee the venue charges. The maker collected that
+      three cents as compensation and, symmetrically, took on the risk the
+      passive side always carries: it is now long shares it did not choose to
+      own, and it was filled precisely because someone else wanted out. Calling
+      the trade free for the maker is the standing trap. The spread is a payment,
+      not a profit; whether the maker keeps it is settled later by the realized
+      spread, and if the seller was informed the maker keeps none of it.
+    choices:
+      - text: >
+          The seller, who gave up the half-spread of three cents against the mid
+          for an immediate fill.
+        correct: true
+        feedback: >
+          Right — the taker crosses to the other side's price, so the taker pays.
+      - text: >
+          The maker, because it bought above where the price is heading.
+        feedback: >
+          That is adverse selection, a separate question settled by the realized
+          spread. On this trade the maker *received* the half-spread.
+      - text: >
+          Neither: the trade printed at a resting quote, so nobody crossed
+          anything.
+        feedback: >
+          Every trade prints at a resting quote. The cost is measured against the
+          mid, and the seller is three cents below it.
+      - text: >
+          Both equally, since a spread is shared by definition.
+        feedback: >
+          The spread is paid by the side that demands immediacy, not split. Only
+          one party chose to cross.
+    rubric:
+      - >
+        Computes the mid at 27.93 and measures the seller's fill three cents
+        below it.
+      - >
+        Attributes the payment to the party demanding immediacy, while noting the
+        maker's compensation is not risk-free.
+    targets:
+      - quant-finance.microstructure.order-types
+
+  # --- walking the book -------------------------------------------------------
+
+  - id: qmicro-walking-the-book-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      An ask queue rests as follows: 100 shares at 44.10, then 150 shares at
+      44.13, then 900 shares at 44.18. A market buy order for 500 shares arrives.
+      What is the average price paid per share?
+    answer: >
+      $44.149$. Match from the top of the ask queue down, filling each level
+      completely before touching the next. The order takes 100 shares at 44.10
+      for $4410$, then 150 shares at 44.13 for $6619.50$, then the remaining
+      $500 - 100 - 150 = 250$ shares at 44.18 for $11045$. The total consideration
+      is $4410 + 6619.50 + 11045 = 22074.50$, and the average is
+      $22074.50/500 = 44.149$. The average is a *size*-weighted mean, not the
+      mean of the three prices, so answering $(44.10 + 44.13 + 44.18)/3 = 44.1367$
+      is wrong in the direction that flatters the fill: half the order was filled
+      at the worst level, so that level must carry half the weight. Answering
+      44.10 prices the whole order at the touch and is the error the whole node
+      exists to kill.
+    expects: "44.149"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Fills the levels in price order and weights each price by the shares
+        actually taken there, not equally.
+      - >
+        Divides total consideration by the full 500 shares, giving a figure
+        strictly worse than the 44.10 touch.
+    targets:
+      - quant-finance.microstructure.walking-the-book
+
+  - id: qmicro-walking-the-book-02
+    kind: work
+    difficulty: standard
+    statement: >
+      The book shows best bid 30.06 and an ask queue of 200 shares at 30.10 then
+      300 shares at 30.20. A market buy for 500 shares executes against it. What
+      is the average price paid per share?
+    answer: >
+      $30.16$. The order takes 200 shares at 30.10 for $6020$ and 300 shares at
+      30.20 for $9060$, a total of $15080$ over 500 shares, so the average is
+      $15080/500 = 30.16$. Measure that against the pre-trade mid of
+      $(30.06 + 30.10)/2 = 30.08$ and the slippage is $30.16 - 30.08 = 0.08$,
+      eight cents a share, against a quoted half-spread of only two cents: the
+      order paid four times the advertised cost of immediacy because 300 of its
+      500 shares never touched the quote they were shown. This is why size is
+      quoted in shares *and* in levels — a book screenshot tells you the price of
+      the first 200 shares and nothing about the price of your order.
+    expects: "30.16"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Weights 30.10 by 200 shares and 30.20 by 300, then divides by 500.
+      - >
+        Compares the result to the pre-trade mid of 30.08 and identifies the
+        eight cents as slippage well beyond the two-cent half-spread.
+    targets:
+      - quant-finance.microstructure.walking-the-book
+
+  # --- mid, effective spread, realized spread ---------------------------------
+
+  - id: qmicro-mid-price-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      At order arrival the book shows best bid 61.80 and best ask 61.92. A large
+      incoming sell walks past the touch and fills a maker's deeper resting bid at
+      61.75. Ten minutes later the mid stands at 61.79. What is the price impact
+      of that fill, in dollars per share?
+    answer: >
+      $0.14$. Three quantities, all measured against mids. The arrival mid is
+      $(61.80 + 61.92)/2 = 61.86$, so the effective spread of a fill at 61.75 is
+      $2|61.75 - 61.86| = 2(0.11) = 0.22$ — nearly double the quoted spread of
+      $61.92 - 61.80 = 0.12$, because the fill was struck a level behind the
+      touch. The realized spread uses the later mid: the maker bought at 61.75
+      and the mid is now 61.79, so it is $2(61.79 - 61.75) = 0.08$, the part the
+      maker kept. Price impact is the difference,
+      $0.22 - 0.08 = 0.14$ per share — the part handed to the seller, whose trade
+      predicted the move. The doubling is the convention that makes all three
+      comparable to a quoted spread; dropping it on one term and not the others
+      is the standard slip.
+    expects: "0.14"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses the mid at *arrival* (61.86) for the effective spread and the later
+        mid (61.79) for the realized spread, not one mid for both.
+      - >
+        Doubles both spreads consistently, then subtracts realized from effective
+        to get impact.
+    targets:
+      - quant-finance.microstructure.mid-price
+
+  - id: qmicro-mid-price-02
+    kind: work
+    difficulty: standard
+    statement: >
+      The book shows best bid 5.62 and best ask 5.70. A buy order arrives and,
+      after walking the ask queue, achieves an average fill price of 5.72. What
+      is the effective spread of that fill, in dollars?
+    answer: >
+      $0.12$. The mid at arrival is $(5.62 + 5.70)/2 = 5.66$, and the effective
+      spread of a fill at price $P$ is $2|P - P_m| = 2|5.72 - 5.66| = 2(0.06) =
+      0.12$. Compare the quoted spread, $5.70 - 5.62 = 0.08$: the effective
+      spread is half again as large, and that gap is the whole reason desks
+      report effective rather than quoted. The quoted spread describes a
+      hypothetical trade of one share at the touch; the effective spread
+      describes the trade that happened. Effective exceeds quoted exactly when
+      the order walked the book, and can fall *below* quoted when a fill gets
+      price improvement inside the quote.
+    expects: "0.12"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Computes the arrival mid at 5.66 and doubles the absolute distance from
+        it to the fill.
+      - >
+        Notes the effective spread exceeds the 0.08 quoted spread because the
+        order consumed depth behind the touch.
+    targets:
+      - quant-finance.microstructure.mid-price
+
+  # --- microprice -------------------------------------------------------------
+
+  - id: qmicro-microprice-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A book rests as follows. Bids: 1500 shares at 41.30, then 4000 shares at
+      41.28. Asks: 500 shares at 41.34, then 3000 shares at 41.35. What is the
+      microprice?
+    answer: >
+      $41.33$. The microprice weights each *best* quote by the size resting on
+      the opposite side, so only the top of each queue enters:
+      $P_{\text{micro}} = \frac{Q_b P_a + Q_a P_b}{Q_b + Q_a}$ with
+      $Q_b = 1500$, $Q_a = 500$, giving
+      $(1500(41.34) + 500(41.30))/2000 = (62010 + 20650)/2000 = 82660/2000 =
+      41.33$. The mid is $41.32$, so the estimate sits three quarters of the way
+      toward the ask: the bid is a three-to-one wall that must be eaten before
+      the price falls, while the 500-share offer is cheap to lift. The trap the
+      second levels are there to set is folding depth behind the touch into the
+      weights. Those 4000 and 3000 shares are real, but they are not what the
+      next trade meets, and including them would drag the answer back below the
+      mid for no economic reason.
+    expects: "41.33"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses only the sizes at the best bid and best ask, ignoring depth behind
+        the touch.
+      - >
+        Weights the ask price by the bid size and the bid price by the ask size —
+        the cross, not the same-side pairing — and lands above the 41.32 mid.
+    targets:
+      - quant-finance.microstructure.microprice
+
+  - id: qmicro-microprice-02
+    kind: work
+    difficulty: standard
+    statement: >
+      The best bid is 7.50 for 800 shares and the best ask is 7.55 for 1200
+      shares. What is the microprice?
+    answer: >
+      $7.52$. Apply the cross-weighting:
+      $(800(7.55) + 1200(7.50))/(800 + 1200) = (6040 + 9000)/2000 = 15040/2000 =
+      7.52$. The mid is $7.525$, so the microprice sits half a tenth of a cent
+      *below* it, pulled toward the bid because the ask is the heavier side —
+      1200 shares must be bought before the price can rise, while only 800 stand
+      between the market and a fall. Pairing each price with its own size instead
+      gives $(800(7.50) + 1200(7.55))/2000 = 7.53$, which tilts the estimate the
+      wrong way and is the one arithmetic slip this formula invites. The result
+      always lies inside the quotes, so any answer outside $[7.50, 7.55]$ is
+      wrong on sight.
+    expects: "7.52"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Multiplies the ask price by the bid size and the bid price by the ask
+        size, dividing by the total.
+      - >
+        Explains the direction: the heavier ask pulls the estimate below the mid.
+    targets:
+      - quant-finance.microstructure.microprice
+
+  # --- queue imbalance --------------------------------------------------------
+
+  - id: qmicro-queue-imbalance-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A name quotes a spread of 0.04 and its microprice sits 0.006 above the mid.
+      What is the queue imbalance $I$?
+    answer: >
+      $0.3$. The tilt identity is $P_{\text{micro}} = P_m + \frac{s}{2} I$, so
+      inverting it gives $I = \frac{2(P_{\text{micro}} - P_m)}{s} =
+      \frac{2(0.006)}{0.04} = \frac{0.012}{0.04} = 0.3$. The imbalance is
+      positive, so the bid side is the heavier one — consistent with a microprice
+      above the mid — and $I = 0.3$ means $Q_b$ exceeds $Q_a$ in the ratio
+      $1.3$ to $0.7$, roughly 13 to 7. Two structural checks come free. The tilt
+      is capped by the half-spread, so a displacement of 0.006 on a 0.04 spread
+      is only $30\%$ of the way to the quote and could never have exceeded 0.02.
+      And dividing by $s$ rather than $s/2$ gives $0.15$, the common slip — the
+      half-spread, not the spread, is what multiplies $I$.
+    expects: "0.3"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Inverts $P_{\text{micro}} - P_m = (s/2)I$ using the half-spread, not the
+        full spread.
+      - >
+        Reads the positive sign as a heavier bid and checks that the displacement
+        respects the cap of $s/2 = 0.02$.
+    targets:
+      - quant-finance.microstructure.queue-imbalance
+
+  - id: qmicro-queue-imbalance-02
+    kind: work
+    difficulty: standard
+    statement: >
+      The best bid shows 1200 shares and the best ask shows 2000 shares. What is
+      the queue imbalance $I$?
+    answer: >
+      $-0.25$. By definition $I = \frac{Q_b - Q_a}{Q_b + Q_a} =
+      \frac{1200 - 2000}{1200 + 2000} = \frac{-800}{3200} = -0.25$. The sign is
+      the reading: a negative imbalance says the ask queue is heavier, so the
+      cheaper move is downward and the microprice sits below the mid by a quarter
+      of the half-spread. The measure is deliberately normalised to $[-1, 1]$ so
+      that a 1200-by-2000 book in a small name and a 120000-by-200000 book in a
+      large one report the same tilt; using the raw difference of $-800$ shares
+      instead would make the feature meaningless across names. Remember it decays
+      in seconds — this is a snapshot, not a forecast horizon.
+    expects: "-0.25"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides the size difference by the size *total*, giving a value in
+        $[-1, 1]$.
+      - >
+        Reads the negative sign as a heavier ask and a microprice below the mid.
+    targets:
+      - quant-finance.microstructure.queue-imbalance
+
+  # --- why the spread is nonzero ----------------------------------------------
+
+  - id: qmicro-spread-components-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A desk measures its passive fills in a name over a quarter. The average
+      effective spread is 7 cents and the average realized spread, marked against
+      the mid five minutes after each fill, is 2.6 cents. What is the
+      adverse-selection cost per share, in cents?
+    answer: >
+      $2.2$ cents. Effective spread is what the taker paid on a round-trip
+      convention, realized spread is what the maker kept on the same convention,
+      and the difference $7 - 2.6 = 4.4$ cents is price impact — the permanent
+      re-marking that followed the trade, which is the adverse-selection
+      component measured on that same doubled scale. Per share, halve it:
+      $4.4/2 = 2.2$ cents of every fill is paid to counterparties who knew
+      something. That is $2.2/3.5 = 63\%$ of the $3.5$-cent per-share effective
+      cost, above the rough half typical of liquid US equities, which is what a
+      volatile or news-heavy quarter looks like. Answering $4.4$ reports the
+      round-trip figure as if it were per share; the halving is the same
+      convention that turns a spread into a half-spread.
+    expects: "2.2"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Identifies effective minus realized as price impact, the adverse-selection
+        component.
+      - >
+        Halves the doubled convention to report a per-share cost, and sanity-checks
+        the fraction against the roughly-half benchmark.
+    targets:
+      - quant-finance.microstructure.spread-components
+
+  - id: qmicro-spread-components-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A dozen well-capitalized makers compete in the same liquid name. Fees fall,
+      colocation gets cheaper, and every maker hedges instantly so none carries
+      inventory overnight. Which component of the spread still cannot be competed
+      to zero?
+    answer: >
+      Adverse selection. Order processing is a cost of doing business, and
+      competition drives price toward marginal cost, so cheaper fees and hardware
+      pass straight through to a narrower quote. Inventory risk is a premium for
+      bearing variance, and a maker that hedges instantly or unwinds within
+      seconds bears very little of it. Adverse selection is different in kind: it
+      is not a cost the maker incurs and might economize on, it is a transfer to
+      a better-informed counterparty. Quote tighter and you simply lose more to
+      the same informed flow, so undercutting is self-defeating rather than
+      merely unprofitable. This is exactly why Glosten–Milgrom can produce a
+      strictly positive spread in a model with no fees, no inventory and a
+      risk-neutral maker earning zero expected profit.
+    choices:
+      - text: >
+          Adverse selection, because it is a transfer to informed traders rather
+          than a cost the maker can economize on.
+        correct: true
+        feedback: >
+          Right — quoting tighter against informed flow loses more, not less, so
+          competition cannot squeeze it out.
+      - text: >
+          Order processing, because fees and technology are contractual and
+          cannot fall below zero.
+        feedback: >
+          They can and do fall, and competition passes the savings into the quote.
+          This is the component that erodes first.
+      - text: >
+          Inventory risk, because someone must always hold the position.
+        feedback: >
+          A maker that hedges or unwinds quickly bears almost none of it, and a
+          better-capitalized rival bears it more cheaply.
+      - text: >
+          None of them: with enough makers the spread converges to one tick and
+          then to zero.
+        feedback: >
+          The tick is a floor, but even without it Glosten–Milgrom gives a
+          positive spread under zero expected profit.
+    rubric:
+      - >
+        Names adverse selection and explains that it is a transfer, not a cost
+        that competition can erode.
+      - >
+        Notes that Glosten–Milgrom produces a positive spread with no fees, no
+        inventory and zero expected profit.
+    targets:
+      - quant-finance.microstructure.spread-components
+
+  # --- Glosten–Milgrom --------------------------------------------------------
+
+  - id: qmicro-glosten-milgrom-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      An asset is worth $V = 50$ with prior probability $3/5$ and $V = 20$
+      otherwise. Each arriving trader is informed with probability $\mu = 1/4$,
+      in which case it buys if $V$ is above the ask and sells if $V$ is below the
+      bid; otherwise it buys or sells with probability $1/2$ each. Trades are one
+      unit and the risk-neutral maker earns zero expected profit. What is the
+      ask, as an exact fraction?
+    answer: >
+      $290/7$. The ask is $\mathbb{E}[V \mid \text{buy}]$, so start with the
+      likelihoods. If $V = 50$ the informed buy and half the uninformed do, so
+      $\Pr(\text{buy} \mid V = 50) = 1/4 + (3/4)(1/2) = 5/8$; if $V = 20$ the
+      informed sell, leaving $\Pr(\text{buy} \mid V = 20) = (3/4)(1/2) = 3/8$.
+      The unconditional buy probability is
+      $(3/5)(5/8) + (2/5)(3/8) = 3/8 + 3/20 = 21/40$, so Bayes gives
+      $\Pr(V = 50 \mid \text{buy}) = \frac{(3/5)(5/8)}{21/40} =
+      \frac{3/8}{21/40} = 5/7$. The ask is therefore
+      $\frac{5}{7}(50) + \frac{2}{7}(20) = \frac{250 + 40}{7} = \frac{290}{7}$,
+      about $41.43$. Sanity: the prior mean is $(3/5)(50) + (2/5)(20) = 38$, and
+      the ask sits above it, as it must — the shortcut spread equals $\mu$ times
+      the range only when the prior is symmetric, so $50 - 20$ times $1/4$ is not
+      the answer here.
+    expects: "290/7"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Builds both likelihoods as informed probability plus half the uninformed
+        probability, and weights them by the *asymmetric* prior.
+      - >
+        Reports a conditional expectation strictly above the prior mean of 38,
+        rather than applying the symmetric-prior shortcut.
+    targets:
+      - quant-finance.microstructure.glosten-milgrom
+
+  - id: qmicro-glosten-milgrom-02
+    kind: work
+    difficulty: standard
+    statement: >
+      An asset is worth $84$ or $36$ with probability $1/2$ each, and a fraction
+      $\mu = 0.4$ of arriving traders are informed. Under the Glosten–Milgrom
+      zero-profit quotes, what is the ask?
+    answer: >
+      $69.6$. With a symmetric prior the algebra collapses to a single line: the
+      spread is $\mu$ times the range, here $0.4(84 - 36) = 0.4(48) = 19.2$, and
+      the quotes sit symmetrically around the prior mean
+      $\mathbb{E}[V] = (84 + 36)/2 = 60$. So the ask is $60 + 19.2/2 = 69.6$ and
+      the bid is $60 - 9.6 = 50.4$. Checking the long way,
+      $\Pr(\text{buy} \mid V = 84) = 0.4 + 0.6(0.5) = 0.7$ and
+      $\Pr(\text{buy} \mid V = 36) = 0.3$, so $\Pr(\text{buy}) = 0.5$ and the
+      posterior on the high value is $0.7$, giving
+      $0.7(84) + 0.3(36) = 58.8 + 10.8 = 69.6$. Note the spread is positive with
+      no inventory, no fees and no risk aversion anywhere in the model.
+    expects: "69.6"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses the symmetric-prior result that the spread equals $\mu$ times the
+        range, or derives the posterior directly.
+      - >
+        Centres the quotes on the prior mean of 60 and places the ask a
+        half-spread above it.
+    targets:
+      - quant-finance.microstructure.glosten-milgrom
+
+  - id: qmicro-glosten-milgrom-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      A candidate objects: "If the maker earns zero expected profit on every
+      trade, the spread should be zero — a positive spread is precisely a profit."
+      Explain why the zero-profit condition forces $P_b < \mathbb{E}[V] < P_a$
+      rather than $P_b = P_a = \mathbb{E}[V]$, and say what the uninformed
+      traders are paying for.
+    answer: >
+      Zero profit is a condition *conditional on the trade that happened*, not an
+      average over hypothetical trades. Suppose the maker quoted
+      $P_a = \mathbb{E}[V]$. Anyone who buys at that ask is more likely to be
+      informed with good news than informed with bad news — an informed trader
+      buys only when $V$ exceeds the ask — so
+      $\mathbb{E}[V \mid \text{buy}] > \mathbb{E}[V]$ and the maker loses money
+      on the fill it just gave. The only ask that breaks even is one already
+      equal to the post-trade expectation, so
+      $P_a = \mathbb{E}[V \mid \text{buy}] > \mathbb{E}[V]$, and symmetrically
+      $P_b = \mathbb{E}[V \mid \text{sell}] < \mathbb{E}[V]$. The spread is
+      therefore the gap between two posteriors, and it is strictly positive
+      whenever a trade carries any information at all, that is whenever
+      $\mu > 0$. The maker breaks even *on average across counterparties*: it
+      loses to the informed and wins from the uninformed by exactly as much. So
+      the uninformed are not paying a fee for a service — they are funding the
+      price discovery the informed traders perform, and no amount of competition
+      among makers removes the transfer, because it is not a cost to be
+      economized but a wealth flow between the two kinds of trader.
+    rubric:
+      - >
+        Shows that quoting at $\mathbb{E}[V]$ loses money conditional on being
+        traded against, because a buy is evidence of a high $V$.
+      - >
+        States the quotes as posteriors, $P_a = \mathbb{E}[V \mid \text{buy}]$ and
+        $P_b = \mathbb{E}[V \mid \text{sell}]$, and concludes the spread is
+        positive for any $\mu > 0$.
+      - >
+        Identifies zero profit as breaking even across the two trader types — a
+        loss to the informed exactly offset by a gain from the uninformed.
+    targets:
+      - quant-finance.microstructure.glosten-milgrom
+
+  - id: qmicro-glosten-milgrom-04
+    kind: work
+    difficulty: demanding
+    statement: >
+      An asset is worth $30$ or $10$ with probability $1/2$ each and $\mu = 0.2$
+      of arriving traders are informed. The maker quotes, observes a buy, requotes
+      from its updated beliefs, and observes a second buy. What is its ask after
+      those two buys, as an exact fraction?
+    answer: >
+      $310/13$. Quotes are posteriors, so an observed trade is already priced
+      into the next pair — the interview instruction to move your market after
+      being lifted is this theorem. The likelihoods never change:
+      $\Pr(\text{buy} \mid 30) = 0.2 + 0.8(0.5) = 0.6$ and
+      $\Pr(\text{buy} \mid 10) = 0.4$. Start at prior $1/2$: the first buy has
+      unconditional probability $0.5(0.6) + 0.5(0.4) = 0.5$, so the posterior on
+      the high value is $0.5(0.6)/0.5 = 0.6$ and the requoted ask sits at
+      $0.6(30) + 0.4(10) = 22$. Now update again from prior $0.6$: the second buy
+      has probability $0.6(0.6) + 0.4(0.4) = 0.36 + 0.16 = 0.52$, so the posterior
+      is $0.36/0.52 = 9/13$ and the ask is
+      $\frac{9}{13}(30) + \frac{4}{13}(10) = \frac{270 + 40}{13} = \frac{310}{13}$,
+      about $23.85$. The move from 22 is smaller than the move to 22 — successive
+      buys walk the price toward 30 with diminishing steps, because each one
+      arrives against a prior that already expects it.
+    expects: "310/13"
+    tolerance: 0.0005
+    connects:
+      - quant-finance.microstructure.glosten-milgrom ~ quant-games.market-making-game.update-on-flow
+    rubric:
+      - >
+        Reuses the same likelihoods for the second update while carrying the
+        first posterior forward as the new prior.
+      - >
+        Reports the second ask as a conditional expectation and notes the step
+        from 22 is smaller than the step to 22.
+    targets:
+      - quant-finance.microstructure.glosten-milgrom
+      - quant-games.market-making-game.update-on-flow
+
+  # --- Glosten–Milgrom worked -------------------------------------------------
+
+  - id: qmicro-gm-worked-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      An asset is worth $12$ with prior probability $1/4$ and $4$ otherwise, and
+      $\mu = 0.5$ of arriving traders are informed. What is the Glosten–Milgrom
+      bid?
+    answer: >
+      $4.8$. The bid is $\mathbb{E}[V \mid \text{sell}]$, so condition on a sell.
+      If $V = 12$ nobody informed sells, so
+      $\Pr(\text{sell} \mid V = 12) = 0.5(0.5) = 0.25$; if $V = 4$ the informed
+      all sell and half the uninformed join them, giving
+      $\Pr(\text{sell} \mid V = 4) = 0.5 + 0.5(0.5) = 0.75$. Weighting by the
+      prior, $\Pr(\text{sell}) = 0.25(0.25) + 0.75(0.75) = 0.0625 + 0.5625 =
+      0.625$, so $\Pr(V = 12 \mid \text{sell}) = 0.0625/0.625 = 0.1$ and the bid
+      is $0.1(12) + 0.9(4) = 1.2 + 3.6 = 4.8$. Two checks. The prior mean is
+      $0.25(12) + 0.75(4) = 6$, and the bid must sit below it — it does, by a
+      wide margin, because a sell is strong evidence for a value that was already
+      the likely one. And the symmetric shortcut "spread equals $\mu$ times
+      range" would give a bid of $6 - 2 = 4$, which is simply wrong here: the
+      prior is not symmetric, so the quotes are not symmetric about the mean.
+    expects: "4.8"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Conditions on a *sell*, so the informed contribution attaches to the low
+        value.
+      - >
+        Applies Bayes with the asymmetric prior of $1/4$ and reports a bid below
+        the prior mean of 6, not the symmetric shortcut's 4.
+    targets:
+      - quant-finance.microstructure.gm-worked
+
+  - id: qmicro-gm-worked-02
+    kind: work
+    difficulty: standard
+    statement: >
+      An asset is worth $140$ or $60$ with probability $1/2$ each, and
+      $\mu = 0.15$ of arriving traders are informed. What is the bid?
+    answer: >
+      $94$. With a symmetric prior, the Glosten–Milgrom spread is exactly the
+      informed fraction times the range of values:
+      $0.15(140 - 60) = 0.15(80) = 12$. The quotes straddle the prior mean
+      $\mathbb{E}[V] = 100$, so the bid is $100 - 12/2 = 100 - 6 = 94$ and the
+      ask is $106$. The formula is worth holding onto because it says what drives
+      a spread in this model and what does not: more informed flow widens it
+      linearly, more disagreement about value widens it linearly, and the
+      quantity traded, the maker's capital and the exchange's fees appear
+      nowhere. Halving $\mu$ to $0.075$ would halve the spread to $6$; driving
+      $\mu$ to zero would close it entirely.
+    expects: "94"
+    rubric:
+      - >
+        Uses spread equals $\mu$ times range under the symmetric prior, giving 12.
+      - >
+        Places the bid a half-spread below the prior mean of 100.
+    targets:
+      - quant-finance.microstructure.gm-worked
+
+  # --- inventory risk ---------------------------------------------------------
+
+  - id: qmicro-inventory-risk-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A maker is long 8000 shares of a name whose mid is 26.50. Per-share daily
+      volatility is $\sigma = 0.15$, the remaining horizon is $\tau = 0.5$ of a
+      day, and the maker's risk aversion is $\gamma = 4 \cdot 10^{-4}$. What is
+      its reservation price?
+    answer: >
+      $26.464$. The reservation price is
+      $r = P_m - q\gamma\sigma^{2}\tau$, and every factor needs its own care.
+      The variance is $\sigma^{2} = 0.15^{2} = 0.0225$ — squaring the per-share
+      volatility is the step most often skipped. Then
+      $q\gamma\sigma^{2}\tau = 8000(4 \cdot 10^{-4})(0.0225)(0.5)$. Take it in
+      order: $8000(0.0004) = 3.2$, then $3.2(0.0225) = 0.072$, then
+      $0.072(0.5) = 0.036$. So $r = 26.50 - 0.036 = 26.464$, about three and a
+      half cents below the mid. The sign is the economics: being long makes the
+      maker willing to sell cheaper and unwilling to buy at the mid, because more
+      inventory is more variance it did not choose. A maker that used
+      $\sigma = 0.15$ unsquared would get a shift of $0.24$, nearly a quarter,
+      which no equity maker's quotes would survive.
+    expects: "26.464"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Squares the per-share volatility before multiplying, using $0.0225$ and
+        not $0.15$.
+      - >
+        Subtracts for a long position, landing *below* the mid, and reports a
+        shift of the order of a tick rather than of a quarter.
+    targets:
+      - quant-finance.microstructure.inventory-risk
+
+  - id: qmicro-inventory-risk-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A maker is short 2500 shares. Per-share daily variance is
+      $\sigma^{2} = 0.16$, the horizon is $\tau = 0.25$ of a day, and risk
+      aversion is $\gamma = 2 \cdot 10^{-4}$. By how many dollars does the
+      reservation price sit above the mid?
+    answer: >
+      $0.02$. Inventory is signed, so a short position is $q = -2500$, and
+      $q\gamma\sigma^{2}\tau = (-2500)(0.0002)(0.16)(0.25)$. Step through it:
+      $(-2500)(0.0002) = -0.5$, then $(-0.5)(0.16) = -0.08$, then
+      $(-0.08)(0.25) = -0.02$. Since $r = P_m - q\gamma\sigma^{2}\tau$,
+      subtracting a negative number lifts the reservation price:
+      $r = P_m + 0.02$, two cents above the mid. That is the right direction —
+      a short maker needs shares, so it is willing to pay more than the mid to
+      get them and unwilling to sell more at the mid. Dropping the sign on $q$
+      is the whole trap: it would push the reservation price two cents the wrong
+      way and skew the quotes into deepening the short.
+    expects: "0.02"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Carries the negative sign on a short inventory through the product.
+      - >
+        Concludes the reservation price rises above the mid, and explains why a
+        short maker wants to buy.
+    targets:
+      - quant-finance.microstructure.inventory-risk
+
+  # --- inventory skew ---------------------------------------------------------
+
+  - id: qmicro-quote-skewing-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A maker's mid is 12.80 and it is long 6000 shares. Per-share daily variance
+      is $\sigma^{2} = 0.04$, the horizon is $\tau = 0.2$ of a day, and risk
+      aversion is $\gamma = 5 \cdot 10^{-4}$. Its usual half-spread is
+      $\delta = 0.015$. Quoting symmetrically about the reservation price, what
+      is its ask?
+    answer: >
+      $12.791$. First the shift:
+      $q\gamma\sigma^{2}\tau = 6000(0.0005)(0.04)(0.2)$, which is
+      $6000(0.0005) = 3$, then $3(0.04) = 0.12$, then $0.12(0.2) = 0.024$. Being
+      long, the reservation price falls: $r = 12.80 - 0.024 = 12.776$. Now quote
+      the usual half-spread around $r$ rather than around the mid, so the bid is
+      $12.776 - 0.015 = 12.761$ and the ask is $12.776 + 0.015 = 12.791$. Both
+      quotes moved down by the same $0.024$; the spread is unchanged at $0.03$.
+      That is the point — skewing is a translation, not a widening. Against a
+      mid-centred pair of 12.785 and 12.815, this maker is now a worse bid and a
+      better offer, so the incoming flow it attracts is the flow that sells it
+      less and buys it more, and the long position bleeds off through fills the
+      maker gets paid for. Answering $12.815$ quotes around the mid and ignores
+      the position entirely.
+    expects: "12.791"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Computes the inventory shift and applies it to *both* quotes, keeping the
+        half-spread and hence the quoted spread unchanged.
+      - >
+        Skews downward for a long position so the ask becomes more attractive to
+        buyers, and says why that unwinds the inventory.
+    targets:
+      - quant-finance.microstructure.quote-skewing
+
+  - id: qmicro-quote-skewing-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A maker has accumulated a large long position. Its risk system offers two
+      ways to reduce it: skew both quotes down by the inventory shift and wait,
+      or send a market sell order and flatten now. Why is skewing usually the
+      first choice?
+    answer: >
+      Because skewing pays the shift while crossing pays the whole spread plus
+      impact. Skewing moves both quotes down by $q\gamma\sigma^{2}\tau$, so the
+      worst case is that the maker sells its inventory at prices shifted by that
+      amount — a fraction of a tick in the worked cases — and it is still
+      *earning* the half-spread on every one of those fills, because they are
+      passive. Crossing the spread to flatten gives up the full half-spread
+      immediately, adds an exchange take fee, and if the position is large enough
+      to walk the book it adds slippage on top; the position also signals to
+      everyone watching that someone needs out. Skewing has a real cost — it is
+      slower, and the inventory keeps running variance while it waits — so a
+      maker with a position that is dangerous now, or a market about to print
+      news, crosses anyway. The default, though, is to let the market unwind you
+      for free.
+    choices:
+      - text: >
+          Skewed quotes still earn the spread on the fills that flatten the
+          position, while crossing pays the spread away plus fees and impact.
+        correct: true
+        feedback: >
+          Right — the skew's cost is bounded by the shift, and the fills are
+          passive, so the maker is paid to unwind.
+      - text: >
+          Skewing eliminates the inventory risk immediately, so no variance is
+          carried.
+        feedback: >
+          The opposite: skewing is slower, and the position keeps running
+          variance while it waits. That is the cost of the patient route.
+      - text: >
+          Crossing the spread is prohibited for registered market makers.
+        feedback: >
+          It is not. Makers cross routinely when a position turns dangerous or
+          news is imminent.
+      - text: >
+          Skewing widens the quoted spread, which compensates for the risk.
+        feedback: >
+          Skewing translates both quotes by the same shift; the spread is
+          unchanged. Widening is a different tool.
+    rubric:
+      - >
+        Bounds the cost of skewing by the inventory shift and notes the resulting
+        fills are passive, so the half-spread is still earned.
+      - >
+        Prices the alternative honestly — half-spread, take fee, and slippage if
+        the order walks the book — and names the case where crossing still wins.
+    targets:
+      - quant-finance.microstructure.quote-skewing
+
+  # --- market impact ----------------------------------------------------------
+
+  - id: qmicro-market-impact-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A desk must execute 32000 shares of a name whose average daily volume is
+      20 million shares. Daily volatility is $\sigma = 2.5\%$ and the broker's
+      fitted prefactor is $Y = 0.8$. Under the square-root law, what is the
+      expected impact cost in basis points?
+    answer: >
+      $8$ basis points. The law is $\Delta p / p \approx Y \sigma \sqrt{Q/V}$,
+      and the only real work is forming the participation fraction from raw share
+      counts: $Q/V = 32000/20000000 = 0.0016$, so
+      $\sqrt{Q/V} = \sqrt{0.0016} = 0.04$. Then
+      $\Delta p / p = 0.8(0.025)(0.04) = 0.0008$, which is
+      $0.0008 \cdot 10000 = 8$ basis points. Two traps sit in that line. Feeding
+      the raw 32000 into the square root instead of the ratio produces a number
+      with no meaning at all; and forgetting the square root gives
+      $0.8(0.025)(0.0016) = 0.000032$, three basis points too small by two orders
+      of magnitude — the concavity is the entire content of the law, so it can
+      never be dropped. Note also that $\sigma$ enters linearly: the same order in
+      a name with twice the volatility costs twice as much.
+    expects: "8"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Forms $Q/V$ as a dimensionless fraction of daily volume before taking the
+        square root.
+      - >
+        Multiplies by $Y$ and $\sigma$ and converts to basis points, landing at
+        single digits rather than at the linear-law answer.
+    targets:
+      - quant-finance.microstructure.market-impact
+
+  - id: qmicro-market-impact-02
+    kind: work
+    difficulty: standard
+    statement: >
+      An order is 25 percent of a day's volume in a name with daily volatility
+      $\sigma = 4\%$, and the fitted prefactor is $Y = 0.6$. What is the expected
+      impact cost in basis points?
+    answer: >
+      $120$ basis points. Here $Q/V = 0.25$, so $\sqrt{Q/V} = 0.5$, and
+      $\Delta p/p \approx Y\sigma\sqrt{Q/V} = 0.6(0.04)(0.5) = 0.012$, that is
+      $120$ basis points, or $1.2\%$ of the price. The size of that number is the
+      lesson: a quarter of a day's volume is an enormous order, and the square
+      root does not rescue it — concavity means the cost per share grows slowly,
+      not that it stays small. Compare a hundredth of that participation,
+      $Q/V = 0.0025$, which gives $0.6(0.04)(0.05) = 0.0012$, only 12 basis
+      points. Dividing the participation by 100 divided the cost per share by
+      just 10.
+    expects: "120"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Takes the square root of the participation rate, giving 0.5 rather than
+        0.25.
+      - >
+        Converts the fractional cost to basis points correctly.
+    targets:
+      - quant-finance.microstructure.market-impact
+
+  - id: qmicro-market-impact-03
+    kind: work
+    difficulty: standard
+    statement: >
+      A desk considers tripling the size of an order in a name where the
+      square-root law holds with fixed $\sigma$ and $Y$. By what factor does the
+      *total* cost of the trade rise? Give the factor to three decimal places.
+    answer: >
+      $5.196$. Cost per share scales as $\sqrt{Q}$ when $V$, $\sigma$ and $Y$ are
+      held fixed, so total cost — per-share cost multiplied by the number of
+      shares — scales as $Q \cdot \sqrt{Q} = Q^{3/2}$. Tripling therefore
+      multiplies total cost by $3^{3/2} = 3\sqrt{3} \approx 5.196$, not by
+      $3$ and not by $\sqrt{3} \approx 1.732$. The distinction is what caps a
+      strategy's capacity: per share the trade only got $\sqrt{3} \approx 1.73$
+      times more expensive, which sounds tolerable, but the desk pays that on
+      three times as many shares. A signal whose gross alpha per share is
+      constant therefore has a size beyond which the extra shares lose money, and
+      that size is where $Q^{3/2}$ impact overtakes $Q$ revenue.
+    expects: "5.196"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Distinguishes cost per share, scaling as $\sqrt{Q}$, from total cost,
+        scaling as $Q^{3/2}$.
+      - >
+        Evaluates $3^{3/2}$ rather than $3$ or $\sqrt{3}$, and ties the exponent
+        to strategy capacity.
+    targets:
+      - quant-finance.microstructure.market-impact
+
+  # --- temporary versus permanent impact --------------------------------------
+
+  - id: qmicro-impact-decay-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      A pure index-rebalance fund trades on no information whatsoever: its orders
+      are mechanical and publicly forecastable. It nevertheless observes that some
+      of the price move accompanying its buying never comes back. Explain, using
+      the split between permanent and temporary impact, why an uninformed trader
+      can still pay a permanent cost, and what it could change to reduce which
+      part.
+    answer: >
+      Permanent impact is not a fact about the trader, it is a fact about the
+      other participants' beliefs. Every maker on the other side updates like a
+      Glosten–Milgrom maker: a sustained sequence of buys raises the posterior on
+      value, because in the population of order flow buying is evidence of good
+      news, and the maker cannot see the fund's motive. The fund is therefore
+      paying to be mistaken for an informed trader, and the re-marked price stays
+      re-marked after it stops — that component is roughly linear in signed
+      quantity and no schedule removes it. Temporary impact is different in
+      mechanism: it is the cost of consuming resting liquidity faster than the
+      book replenishes, it depends on the trading *rate* rather than the total
+      size, and it decays over seconds to hours as new limit orders arrive. So
+      the fund has exactly one lever that works and one that does not. Slowing
+      down — smaller children, a longer horizon, a lower participation rate —
+      shrinks the temporary component, at the price of more timing risk on the
+      unexecuted remainder. Making the flow less predictable, by randomising
+      timing so others cannot front-run the rebalance, reduces how much of the
+      permanent move it hands over in advance. But it cannot slow its way out of
+      the permanent component, because that component is other people's revised
+      valuation, and their revision is a response to the trades themselves.
+    rubric:
+      - >
+        Attributes permanent impact to other participants' Bayesian re-marking,
+        which does not depend on the trader actually being informed.
+      - >
+        Attributes temporary impact to liquidity consumption outrunning
+        replenishment, driven by trading rate and decaying as the book refills.
+      - >
+        Concludes that slowing down shrinks the temporary part only, and names the
+        cost of doing so — timing risk on the unexecuted remainder.
+    targets:
+      - quant-finance.microstructure.impact-decay
+
+  - id: qmicro-impact-decay-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A large parent order generates 55 basis points of total impact, and the
+      desk's fitted model attributes 40 percent of it to the permanent component.
+      How many basis points fade back out of the price after the order stops?
+    answer: >
+      $33$ basis points. The permanent share is $0.4(55) = 22$ basis points,
+      which is the market's revised valuation and stays in the price; the
+      complement, $55 - 22 = 33$ basis points, or equivalently $0.6(55) = 33$, is
+      the temporary component and decays as the book refills behind the order.
+      The measurement matters because only one of these numbers responds to the
+      schedule. If the desk halves its participation rate it can hope to shave the
+      33, at the cost of running longer and carrying more timing risk; the 22 is
+      the price of having traded at all in that direction and size, and reporting
+      it as a cost the trader can eliminate is how execution reviews end up
+      chasing a number no schedule can reach. Answering $22$ names the part that
+      stays rather than the part that fades.
+    expects: "33"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Takes the complement of the permanent fraction, not the permanent
+        fraction itself.
+      - >
+        Identifies the fading component as the one a slower schedule can reduce.
+    targets:
+      - quant-finance.microstructure.impact-decay
+
+  # --- execution schedules ----------------------------------------------------
+
+  - id: qmicro-execution-schedules-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A VWAP order finished the day in three tranches: 4000 shares at an average
+      of 22.10, 6000 shares at an average of 22.16, and 10000 shares at an average
+      of 22.24. What volume-weighted average price did the parent order achieve?
+    answer: >
+      $22.188$. A VWAP is a size-weighted mean, so weight each tranche's price by
+      the shares it executed:
+      $4000(22.10) = 88400$, $6000(22.16) = 132960$ and
+      $10000(22.24) = 222400$, totalling $443760$ over $4000 + 6000 + 10000 =
+      20000$ shares, so $443760/20000 = 22.188$. The unweighted mean of the three
+      tranche prices is $(22.10 + 22.16 + 22.24)/3 = 22.1\overline{6}$, which
+      understates the achieved price by roughly two cents a share, about 440 in
+      total on this order — because half the shares traded in the most expensive
+      tranche and an unweighted average gives that tranche a third of the weight.
+      A benchmark that is not size-weighted is not a VWAP, and this is exactly the
+      arithmetic a broker's report is checked with.
+    expects: "22.188"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Weights each tranche price by its executed share count, not equally.
+      - >
+        Divides by the total 20000 shares and notes the unweighted mean is
+        materially lower.
+    targets:
+      - quant-finance.microstructure.execution-schedules
+
+  - id: qmicro-execution-schedules-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A TWAP order for 273000 shares is spread evenly across the 390 minutes of a
+      US trading session. How many shares does it send per minute?
+    answer: >
+      $700$ shares a minute. TWAP divides by clock time and nothing else:
+      $273000/390 = 700$. That is the whole algorithm, and its weakness is
+      visible in the arithmetic — it sends the same 700 shares in the frantic
+      first minute after the open and in the dead minute before one o'clock, so
+      it takes a large share of a thin market's prints in the midday lull and a
+      small share of a busy one at the open. A VWAP schedule for the same 273000
+      shares would front-load and back-load along the U-shaped intraday volume
+      profile, perhaps 1300 or 1500 a minute near the bells and a few hundred
+      through the middle of the day, and would still sum to 273000 by the close.
+      Both leak information the moment the pattern becomes predictable.
+    expects: "700"
+    rubric:
+      - >
+        Divides total shares by the 390 minutes of the session.
+      - >
+        Contrasts the flat clock schedule with the U-shaped volume profile a VWAP
+        would follow.
+    targets:
+      - quant-finance.microstructure.execution-schedules
+
+  # --- the trader's dilemma ---------------------------------------------------
+
+  - id: qmicro-execution-tradeoff-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      At horizon $T$ a schedule's expected impact cost is 36 basis points and the
+      standard deviation of its timing risk is 10 basis points. The desk considers
+      stretching to $9T$, where impact scales as $1/\sqrt{T}$ and timing risk as
+      $\sqrt{T}$. What is the sum of expected impact and timing-risk standard
+      deviation at $9T$, in basis points?
+    answer: >
+      $42$ basis points. The two terms move in opposite directions and by the
+      same factor of $\sqrt{9} = 3$. Impact falls: $36/3 = 12$ basis points,
+      because stretching to nine times the horizon divides the participation rate
+      by nine and the square-root law turns that into a factor of three. Timing
+      risk rises: $10(3) = 30$ basis points, because the unexecuted remainder is
+      exposed to price moves whose standard deviation grows like $\sigma\sqrt{T}$.
+      The sum is $12 + 30 = 42$, against $36 + 10 = 46$ at the original horizon,
+      so this particular stretch improves the equal-weighted total — but only
+      just, and it would not survive a $\lambda$ that weights risk above one. The
+      point is that the sum is not monotone in $T$: one term falls like
+      $1/\sqrt{T}$ while the other grows like $\sqrt{T}$, so a minimum sits at an
+      interior horizon and a risk-averse desk finds it earlier than a
+      risk-neutral one.
+    expects: "42"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Applies $\sqrt{9} = 3$ as a divisor to impact and a multiplier to timing
+        risk, not the same operation to both.
+      - >
+        Adds the two and observes the optimum in $T$ is interior because the
+        terms move oppositely.
+    targets:
+      - quant-finance.microstructure.execution-tradeoff
+
+  - id: qmicro-execution-tradeoff-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A schedule at horizon $T$ carries 24 basis points of expected impact cost.
+      Stretching the execution to $16T$, impact scales as $1/\sqrt{T}$. What is
+      the expected impact cost at the longer horizon, in basis points?
+    answer: >
+      $6$ basis points. Stretching by a factor of 16 divides the participation
+      rate by 16, and under the square-root law the impact cost per share scales
+      as the square root of that rate, so it falls by $\sqrt{16} = 4$:
+      $24/4 = 6$ basis points. The saving is real and it is bought, not free —
+      the same stretch multiplies the timing-risk standard deviation by 4 as
+      well, because the unexecuted remainder now sits in the market sixteen times
+      as long. Dividing by 16 instead of 4 would claim an impact cost of 1.5
+      basis points, which is the linear-law error dressed up as patience; the
+      concavity that makes big orders survivable is the same concavity that
+      limits how much slowing down can save.
+    expects: "6"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides by $\sqrt{16} = 4$, not by 16.
+      - >
+        Notes that timing risk rises by the same factor of 4, so the saving is a
+        trade rather than a free lunch.
+    targets:
+      - quant-finance.microstructure.execution-tradeoff
+
+  # --- tick size --------------------------------------------------------------
+
+  - id: qmicro-tick-size-01
+    kind: decide
+    difficulty: demanding
+    statement: >
+      Four US equities are described. In which one is the tick most likely to be
+      binding — that is, the quoted spread pinned wider than the economically
+      fair spread?
+    answer: >
+      The six-dollar name trading 40 million shares a day with a one-cent spread
+      almost all the time. The tick binds when the fair spread is narrower than
+      the minimum increment, and the fair spread narrows with liquidity and widens
+      with volatility and price level. A low nominal price makes one cent a large
+      *relative* increment — a cent on six dollars is about 17 basis points,
+      against a cent on 900 dollars, which is barely one — and huge volume with a
+      quiet name pushes the fair spread below that. The tell is in the data given:
+      a spread that equals exactly one tick nearly always is a spread that cannot
+      go lower, not one that happens to be there. The consequences follow at once:
+      makers cannot undercut, so they stack at the same price, depth at the touch
+      swells, and queue position becomes the scarce resource.
+    choices:
+      - text: >
+          A 6-dollar stock trading 40 million shares a day whose quoted spread is
+          one cent about 98 percent of the session.
+        correct: true
+        feedback: >
+          Right — a cent is a large relative increment at 6 dollars, and a spread
+          pinned at one tick nearly always is the signature of a binding tick.
+      - text: >
+          A 900-dollar stock trading 400000 shares a day with a typical spread of
+          40 cents.
+        feedback: >
+          A 40-cent spread is 40 ticks wide. There is enormous room to undercut,
+          so the tick is nowhere near binding.
+      - text: >
+          A 45-dollar stock in a volatile sector whose spread ranges between 3 and
+          12 cents through the day.
+        feedback: >
+          A spread that moves freely across many ticks is being set by economics,
+          not by the increment.
+      - text: >
+          A 20-dollar stock trading 90000 shares a day with a spread that is
+          usually 5 to 8 cents.
+        feedback: >
+          Thin volume gives a wide fair spread; the tick is not the constraint
+          here, illiquidity is.
+    rubric:
+      - >
+        Uses the criterion that the tick binds when the economically fair spread
+        is narrower than one increment.
+      - >
+        Reads a low price plus very high volume plus a spread almost always equal
+        to one tick as the diagnostic pattern.
+    targets:
+      - quant-finance.microstructure.tick-size
+
+  - id: qmicro-tick-size-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A model puts a name's economically fair half-spread at 0.2 cents, and the
+      exchange's minimum increment is one cent. By how many cents does the pinned
+      quoted spread exceed the fair full spread?
+    answer: >
+      $0.6$ cents. The fair *full* spread is twice the fair half-spread,
+      $2(0.2) = 0.4$ cents. No maker can quote a 0.4-cent spread when prices must
+      land on whole cents, so the observed spread sits at the minimum the grid
+      allows, one cent, and the excess is $1 - 0.4 = 0.6$ cents. Answering $0.8$
+      compares the tick against the half-spread and mixes the two conventions.
+      That 0.6 cents is not free money: it is competed away in the other
+      dimension the grid still permits. Makers pile in at the single available
+      price, depth at the touch grows until the marginal queue slot earns nothing,
+      and the rent shows up as a long queue rather than as a tighter quote.
+    expects: "0.6"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Doubles the fair half-spread before comparing it to the one-cent tick.
+      - >
+        Explains that the excess is dissipated in queue depth rather than kept as
+        maker profit.
+    targets:
+      - quant-finance.microstructure.tick-size
+
+  # --- the value of queue position --------------------------------------------
+
+  - id: qmicro-queue-value-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A passive bid in a tick-constrained name captures a half-spread of 0.6 cents
+      when it fills. Over the relevant horizon its fill probability is 0.35, and
+      its expected adverse selection is 0.15 cents per share. What is the value of
+      that queue position, in cents per share?
+    answer: >
+      $0.06$ cents per share. The passive order is worth
+      $\Pr(\text{fill}) \cdot \delta - \mathbb{E}[\text{AS}] =
+      0.35(0.6) - 0.15 = 0.21 - 0.15 = 0.06$ cents. Six hundredths of a cent a
+      share is a thin edge, and that thinness is the honest picture of passive
+      trading in a pinned name: the half-spread looks generous until it is
+      discounted by a fill probability well under one half and then reduced again
+      by the fills you would rather not have had. The asymmetry is the reason both
+      haircuts bite at once. You fill fastest exactly when sellers keep arriving,
+      which is exactly when the price is about to fall, so the easy fills are the
+      adversely selected ones. Multiplying the adverse selection by the fill
+      probability too — reporting $0.35(0.6 - 0.15) = 0.1575$ — double-counts the
+      discount and is the flattering error to avoid.
+    expects: "0.06"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Discounts the half-spread by the fill probability and subtracts the
+        expected adverse selection as stated, without discounting it twice.
+      - >
+        Reads the small positive number as the real edge and names the asymmetry:
+        the fastest fills are the worst ones.
+    targets:
+      - quant-finance.microstructure.queue-value
+
+  - id: qmicro-queue-value-02
+    kind: work
+    difficulty: standard
+    statement: >
+      You join a bid queue with 21000 shares resting ahead of you at a price level
+      where executions run at about 6000 shares a minute. Roughly how many minutes
+      until the shares ahead of you have cleared?
+    answer: >
+      About $3.5$ minutes, since $21000/6000 = 3.5$. The number is a horizon, not
+      a promise, and reading it correctly is the whole exercise. It ignores
+      cancellations, which only help you — every share cancelled ahead promotes
+      you at no cost — and it ignores the far more important risk that the level
+      is wiped out before your turn: a seller who takes all 21000 shares and more
+      leaves you unfilled at a price that is no longer the market. Three and a
+      half minutes is also long compared with the seconds over which a queue
+      imbalance signal decays, so any fair-value view that justified joining this
+      queue may well be stale by the time the fill arrives. The back of a deep
+      queue is close to worthless for exactly this reason.
+    expects: "3.5"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides the shares ahead by the execution rate at that level.
+      - >
+        Qualifies the estimate: cancellations shorten it, a level being wiped out
+        means no fill at all, and the horizon may outlast the signal.
+    targets:
+      - quant-finance.microstructure.queue-value
+
+  - id: qmicro-queue-value-03
+    kind: work
+    difficulty: standard
+    statement: >
+      Model the shares resting ahead of you at one price level as leaving through
+      two competing streams: executions arriving as a Poisson process of rate 3
+      per minute and cancellations as an independent Poisson process of rate 5 per
+      minute. What is the probability that the very next event to remove shares
+      ahead of you is an execution? Give an exact fraction.
+    answer: >
+      $3/8$. Superimposing two independent Poisson processes of rates $\lambda_1$
+      and $\lambda_2$ gives a Poisson process of rate $\lambda_1 + \lambda_2$, and
+      each event of the pooled process is independently of the first type with
+      probability $\lambda_1/(\lambda_1 + \lambda_2)$. Here that is
+      $3/(3 + 5) = 3/8$. The competing-streams picture is what makes fill
+      probabilities from a given queue position computable at all: the memoryless
+      property means the answer does not depend on how long you have already
+      waited, so the same $3/8$ applies at every future event. It also carries the
+      warning. Cancellations advance you without moving the price, and at these
+      rates five eighths of the queue's decay is exactly that — so a naive
+      estimate that treats every departure ahead as a trade will badly overstate
+      how much of the level has actually been sold into.
+    expects: "3/8"
+    connects:
+      - quant-finance.microstructure.queue-value ~ quant-processes.poisson.pp
+    rubric:
+      - >
+        Superimposes the two Poisson streams and takes the rate share
+        $\lambda_1/(\lambda_1 + \lambda_2)$.
+      - >
+        Invokes memorylessness to say the answer is the same at every event, and
+        distinguishes cancellations from executions in what they imply.
+    targets:
+      - quant-finance.microstructure.queue-value
+      - quant-processes.poisson.pp
+
+  # --- the latency arms race --------------------------------------------------
+
+  - id: qmicro-latency-race-01
+    kind: decide
+    difficulty: demanding
+    statement: >
+      A firm spends heavily to cut 40 microseconds from its round trip. Which
+      description best explains why the private payoff to that spend can be
+      enormous while the social payoff is close to zero?
+    answer: >
+      Because both races are winner-take-all, so the payoff to speed is a step
+      function rather than a gradient. In the passive race to join a newly created
+      price level, first place gets the queue slot and everyone behind gets a
+      worse one; in the aggressive race to hit a stale quote, the first arrival
+      takes the whole trade and the second finds the quote pulled. Being one
+      microsecond faster than the field is therefore worth the entire trade, and
+      being one microsecond slower is worth nothing, which is why a firm will
+      rationally pay almost anything for the increment. Socially, the trade was
+      going to happen and the information was going to reach the price at
+      essentially the same moment either way — the spend redistributes who
+      captures the profit rather than improving the price. That gap is what makes
+      it a rent-dissipating arms race, and it is the argument for speed bumps and
+      frequent batch auctions, which convert a race in time into competition on
+      price.
+    choices:
+      - text: >
+          The races are winner-take-all, so the private value of one more
+          microsecond is a whole trade while the price would have adjusted at
+          essentially the same moment anyway.
+        correct: true
+        feedback: >
+          Right — a step-function payoff plus a near-unchanged outcome for price
+          discovery is exactly the rent-dissipation argument.
+      - text: >
+          Faster firms quote tighter spreads, and tighter spreads have no social
+          value.
+        feedback: >
+          Tighter spreads do have social value. The problem is that the spend goes
+          into winning a race, not into the quote.
+      - text: >
+          The spend is a fixed cost, and fixed costs are socially neutral by
+          definition.
+        feedback: >
+          Fixed costs are real resources. The point is what they buy: a transfer
+          rather than better prices.
+      - text: >
+          Regulators cap the profits from speed, so the private return is
+          artificially large.
+        feedback: >
+          No such cap exists, and it would cut the private return rather than
+          inflate it.
+    rubric:
+      - >
+        Identifies the winner-take-all structure of both the passive and
+        aggressive races, giving a step-function payoff to speed.
+      - >
+        Contrasts the private capture of the whole trade with the near-unchanged
+        speed of price discovery.
+    targets:
+      - quant-finance.microstructure.latency-race
+
+  - id: qmicro-latency-race-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A venue introduces a frequent batch auction: instead of continuous matching,
+      orders arriving within each 100-millisecond window are collected and cleared
+      together at a single uniform price. What does this change about the
+      competition among fast traders?
+    answer: >
+      It converts a race in time into competition on price. Inside a batching
+      window, arriving one microsecond earlier confers no advantage at all,
+      because every order in the window is treated as simultaneous and clears at
+      the same price — so the step function that made the last microsecond worth a
+      whole trade is flattened. What remains scarce is the price a trader is
+      willing to quote, and a firm that wants priority must bid or offer better
+      rather than merely sooner. That is the design intent: the rent that was
+      being dissipated on microwave links and custom hardware is pushed back into
+      the quote, where it benefits the other side of the trade. It does not
+      abolish the value of speed entirely — being in the *right* window still
+      matters, and firms race to the window boundary — but it removes the
+      winner-take-all structure within the window, which is where the arms race
+      lived.
+    choices:
+      - text: >
+          Speed within a window stops mattering, so priority is won by quoting a
+          better price rather than by arriving first.
+        correct: true
+        feedback: >
+          Right — uniform-price clearing within the window flattens the
+          step-function payoff and moves competition onto price.
+      - text: >
+          It eliminates adverse selection, since informed traders can no longer
+          act on their information.
+        feedback: >
+          Informed traders still trade; batching changes who wins the race, not
+          who knows what.
+      - text: >
+          It makes the quoted spread irrelevant, because all orders clear at the
+          mid.
+        feedback: >
+          The clearing price comes from the batched supply and demand, and a
+          spread still exists across windows.
+      - text: >
+          It guarantees every resting order a fill, since the batch matches
+          everything submitted.
+        feedback: >
+          A batch clears only the orders that cross at the uniform price;
+          unmatched orders remain unmatched.
+    rubric:
+      - >
+        States that uniform-price clearing within a window removes the advantage
+        of arriving microseconds earlier.
+      - >
+        Concludes competition shifts to price, and notes speed still matters at
+        the window boundary.
+    targets:
+      - quant-finance.microstructure.latency-race
