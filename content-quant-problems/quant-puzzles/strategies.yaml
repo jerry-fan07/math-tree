@@ -1,0 +1,1535 @@
+# Problems targeting quant-puzzles.strategies — the moves themselves.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens on a number the
+# lesson just handed over. A strategy node is only learned by applying it, so
+# every problem here is a *fresh* instance: different boards, jars, jugs, piles
+# and coin counts than the lesson's worked example and its cards, and every
+# number below was checked by brute force before it was written down. See
+# ../README.md.
+
+problems:
+  # --- compute the small cases first ------------------------------------------
+
+  - id: qstrat-small-cases-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A solid cake is cut by straight planar slices, no two slices parallel, no
+      three sharing a common line, and the pieces are never rearranged between
+      cuts. One slice makes $2$ pieces, two slices make $4$, three slices make
+      $8$. A candidate writes $2^{n}$ and stops; the fourth slice in fact makes
+      $15$ pieces, not $16$. How many pieces do five slices make?
+    answer: >
+      $26$. Build the table honestly instead of trusting the first three
+      entries. Slice $k$ meets the $k-1$ earlier planes in $k-1$ distinct lines
+      drawn on it, and those lines cut slice $k$ itself into
+      $1 + (k-1) + \binom{k-1}{2}$ flat regions; each of those regions splits
+      exactly one existing solid piece in two, so slice $k$ adds that many
+      pieces. The increments are $1, 2, 4, 7, 11$ — for $k = 4$ that is
+      $1 + 3 + 3 = 7$, which is why the count goes $8 \to 15$ and not
+      $8 \to 16$, and for $k = 5$ it is $1 + 4 + 6 = 11$, giving
+      $15 + 11 = 26$. In closed form the count is
+      $\binom{n}{0} + \binom{n}{1} + \binom{n}{2} + \binom{n}{3}$, which at
+      $n = 5$ is $1 + 5 + 10 + 10 = 26$; it agrees with $2^{n}$ only while
+      $n \le 3$, because that is exactly while the last two binomial terms
+      still account for everything. The trap is the one small cases are built
+      to spring: three matching terms are a coincidence budget, not a proof,
+      and the mechanism — how much the $k$-th slice can actually add — is what
+      separates the true sequence from the doubling that shadows it.
+    expects: "26"
+    rubric:
+      - >
+        Tabulates $2, 4, 8, 15$ and reads the *differences* $1, 2, 4, 7$ rather
+        than pattern-matching the raw values to $2^{n}$.
+      - >
+        Explains the mechanism — slice $k$ is cut by $k-1$ lines into
+        $1 + (k-1) + \binom{k-1}{2}$ regions, each splitting one solid piece —
+        instead of guessing the next increment.
+      - >
+        Reaches $26$ and says out loud that the doubling pattern was a
+        conjecture that the fourth case refuted.
+    targets:
+      - quant-puzzles.strategies.small-cases
+
+  - id: qstrat-small-cases-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Let $a_n$ count the subsets of $\{1, 2, \dots, n\}$ containing no two
+      consecutive integers, the empty set included. By hand,
+      $a_1 = 2$, $a_2 = 3$, $a_3 = 5$ and $a_4 = 8$. Read the recurrence off
+      that table and use it to compute $a_8$.
+    answer: >
+      $55$. The table $2, 3, 5, 8$ says each term is the sum of the two before
+      it, and the mechanism confirms it rather than merely fitting it: split
+      the subsets by whether they contain $n$. If they do not, they are exactly
+      the good subsets of $\{1, \dots, n-1\}$, of which there are $a_{n-1}$; if
+      they do, then $n-1$ is excluded and the rest is any good subset of
+      $\{1, \dots, n-2\}$, of which there are $a_{n-2}$. So
+      $a_n = a_{n-1} + a_{n-2}$, a linear recurrence with the Fibonacci
+      characteristic roots, and continuing the table gives $a_5 = 13$,
+      $a_6 = 21$, $a_7 = 34$ and $a_8 = 55$. Note what the table alone could
+      not have told you: $2, 3, 5, 8$ is equally consistent with several other
+      rules, and only the split-on-$n$ argument turns the guess into a
+      derivation. Reporting $a_8$ from the pattern with no argument is the
+      habit the technique exists to break.
+    expects: "55"
+    rubric:
+      - >
+        States the recurrence $a_n = a_{n-1} + a_{n-2}$ read off the
+        differences or ratios of the tabulated values.
+      - >
+        Proves it by conditioning on whether $n$ belongs to the subset, so the
+        pattern becomes a derivation rather than a fit.
+      - >
+        Extends the table correctly to $13, 21, 34, 55$ and reports $55$.
+    targets:
+      - quant-puzzles.strategies.small-cases
+      - quant-tools.recurrences.linear-recurrence
+    connects:
+      - "quant-puzzles.strategies.small-cases ~ quant-tools.recurrences.linear-recurrence"
+
+  # --- invariants ---------------------------------------------------------------
+
+  - id: qstrat-invariant-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      The numbers $1, 2, 3, 4$ are written on a board. A move erases two of them,
+      $a$ and $b$, and writes the single number $\frac{ab}{a+b}$ in their place.
+      After three moves one number remains. What is it? Give an exact fraction.
+    answer: >
+      $12/25$. The move looks like it should depend on the order, and the
+      arithmetic is ugly enough that trying orders by hand is a losing plan. Look
+      instead for a quantity the move fixes. The reciprocal of the new entry is
+      $\frac{a+b}{ab} = \frac{1}{a} + \frac{1}{b}$, exactly the sum of the two
+      reciprocals erased — so the sum of the reciprocals of everything on the
+      board is an invariant, unchanged by every legal move. It starts at
+      $\frac{1}{1} + \frac{1}{2} + \frac{1}{3} + \frac{1}{4} =
+      \frac{12 + 6 + 4 + 3}{12} = \frac{25}{12}$, and at the end the board holds
+      a single number $x$ with $\frac{1}{x} = \frac{25}{12}$, so
+      $x = \frac{12}{25} = 0.48$ whatever order was used. The trap is to invent
+      an invariant rather than verify one: the plain sum $a + b$ is not
+      preserved here, and neither is the product, so a candidate quantity earns
+      its name only after you evaluate it before and after one generic move.
+    expects: "12/25"
+    rubric:
+      - >
+        Tests a candidate quantity on one generic move rather than assuming it,
+        and finds that $\frac{1}{a} + \frac{1}{b}$ is what the move preserves.
+      - >
+        Evaluates the invariant at the start as $25/12$ and inverts it at the
+        end, concluding $12/25$ independently of the order of moves.
+      - >
+        Notes that the sum and the product are *not* invariant here, so the
+        answer rests on the checked quantity and not on a guessed one.
+    targets:
+      - quant-puzzles.strategies.invariant
+
+  - id: qstrat-invariant-02
+    kind: work
+    difficulty: standard
+    statement: >
+      The numbers $1$ through $7$ are written on a board. A move erases two
+      numbers $a$ and $b$ and writes $a + b - 2$ in their place. Moves continue
+      until a single number is left. What is that number?
+    answer: >
+      $16$. Each move removes two entries and writes one, so the count of
+      numbers falls by exactly $1$; each move also replaces $a + b$ by
+      $a + b - 2$, so the total falls by exactly $2$. Neither the count nor the
+      sum is invariant on its own, but the combination $S - 2C$ — the sum minus
+      twice the count — is: a move sends it to $(S - 2) - 2(C - 1) = S - 2C$.
+      At the start $S = 1 + 2 + \dots + 7 = 28$ and $C = 7$, so
+      $S - 2C = 28 - 14 = 14$. At the end $C = 1$, so the surviving number is
+      $S = 14 + 2 = 16$, no matter which pairs were chosen or in what order.
+      Equivalently, six moves each cost $2$, so the final number is
+      $28 - 12 = 16$. The trap is answering $28$, the untouched total: the sum
+      alone is not preserved by this move, and only the corrected combination
+      is.
+    expects: "16"
+    rubric:
+      - >
+        Notices that the sum drops by $2$ and the count by $1$ per move, so the
+        sum by itself is not the invariant.
+      - >
+        Forms a quantity the move actually fixes — $S - 2C$, or equivalently
+        counts the six moves at a cost of $2$ each.
+      - >
+        Reports $16$ and states that it is independent of the order of moves.
+    targets:
+      - quant-puzzles.strategies.invariant
+    exercises:
+      - quant-puzzles.strategies.small-cases
+
+  - id: qstrat-invariant-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      The numbers $1$ through $10$ are on a board. A move erases two numbers
+      $a$ and $b$ and writes $|a - b|$. Which quantity does every legal move
+      preserve, and so pins down what the last surviving number can be?
+    answer: >
+      The parity of the sum. Replacing $a$ and $b$ by $|a - b|$ changes the
+      total from $S$ to $S - a - b + |a - b|$, and since
+      $a + b - |a - b| = 2\min(a, b)$, the total drops by an even amount every
+      time. So the sum's parity never moves. It starts at
+      $1 + 2 + \dots + 10 = 55$, which is odd, so the final lone number is odd;
+      a brute-force search over orders confirms that every attainable final
+      value lies in $\{1, 3, 5, 7, 9\}$, and $1$ is attainable, for instance by
+      pairing $1$ with $2$, $3$ with $4$ and so on to leave five $1$s and then
+      cancelling four of them. The sum itself is emphatically not invariant —
+      it falls all the way from $55$ to a single digit — so a candidate who
+      names the sum has named a quantity the move destroys, and the maximum is
+      not invariant either, since $|a-b|$ is at most the larger of the two.
+    choices:
+      - text: >
+          The sum $1 + 2 + \dots + 10 = 55$ itself, so the last number is $55$.
+        feedback: >
+          The sum falls by $2\min(a, b)$ on every move — it is exactly what the
+          move destroys. Only its parity survives.
+      - text: >
+          The parity of the sum, which starts odd, so the last number is odd.
+        correct: true
+        feedback: >
+          Correct. The total drops by $2\min(a,b)$, an even amount, so odd stays
+          odd — and $55$ is odd.
+      - text: >
+          The largest number on the board, since $|a - b|$ never exceeds
+          $\max(a, b)$.
+        feedback: >
+          That is a monovariant, not an invariant: the maximum can only fall,
+          and it does. Non-increasing is not unchanged.
+      - text: >
+          The number of odd entries on the board.
+        feedback: >
+          Erasing two odds writes an even, dropping that count by $2$; erasing
+          an odd and an even writes an odd, holding it. It moves, so it is not
+          invariant.
+    rubric:
+      - >
+        Evaluates the candidate on one generic move — $S \to S - 2\min(a,b)$ —
+        rather than asserting it.
+      - >
+        Concludes that the parity of the sum is fixed and that the starting sum
+        $55$ therefore forces an odd final number.
+      - >
+        Separates the invariant from the near-misses: the sum falls, the maximum
+        only falls, and neither is preserved.
+    targets:
+      - quant-puzzles.strategies.invariant
+
+  # --- parity ------------------------------------------------------------------
+
+  - id: qstrat-parity-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Eight glasses stand upside down on a tray. A move turns over exactly three
+      of them, any three. What is the fewest moves that leaves all eight standing
+      upright?
+    answer: >
+      $4$. Count total turns. Every glass starts down and must end up, so each of
+      the eight must be turned an odd number of times, and the eight odd numbers
+      sum to something even. A run of $m$ moves performs exactly $3m$ turns, so
+      $3m$ must be even, which forces $m$ to be even. The crude bound
+      $\lceil 8/3 \rceil = 3$ is therefore not attainable — three moves is odd —
+      and the first candidate is $m = 4$. Four works: turn glasses $1,2,3$, then
+      $1,2,4$, then $1,2,5$, then $6,7,8$, which turns glasses $1$ and $2$ three
+      times each and every other glass once, all odd. A breadth-first search over
+      the $2^{8}$ states agrees that $4$ is the minimum. Two traps sit here. The
+      counting bound $\lceil 8/3 \rceil = 3$ is a bound, not an achievable
+      value; and the parity argument is about the *total number of turns*, not
+      about the number of glasses still face down, which changes by an odd amount
+      each move and so tells you nothing on its own.
+    expects: "4"
+    rubric:
+      - >
+        Requires each glass to be turned an odd number of times, so the total
+        number of turns is even.
+      - >
+        Uses $3m$ even to force $m$ even, ruling out the naive bound
+        $\lceil 8/3 \rceil = 3$.
+      - >
+        Exhibits or asserts a concrete four-move sequence, so the answer is an
+        achieved value and not only a bound.
+    targets:
+      - quant-puzzles.strategies.parity
+
+  - id: qstrat-parity-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A bishop stands on the square $(1, 1)$ of an $8 \times 8$ board, where a
+      square is named by its column and row, each from $1$ to $8$. It moves any
+      distance along a diagonal. Which of these squares can it never reach?
+    answer: >
+      $(4, 7)$. A diagonal step changes the column by $d$ and the row by $\pm d$,
+      so it changes $x + y$ by $d \pm d$, which is $0$ or $2d$ — always even.
+      The parity of $x + y$ is therefore an invariant of bishop movement, which
+      is the arithmetic behind the familiar statement that a bishop keeps its
+      colour. The start has $1 + 1 = 2$, even, so every reachable square has
+      $x + y$ even. Checking the candidates: $(8, 8)$ gives $16$, $(6, 2)$ gives
+      $8$ and $(3, 5)$ gives $8$, all even and all genuinely reachable in at most
+      two moves; $(4, 7)$ gives $11$, odd, so no sequence of diagonal moves
+      reaches it. The trap is treating unreachability as a claim about distance
+      or about the board's edges — it is neither. It is a one-line parity
+      computation, and the same $x + y \bmod 2$ test settles every such question
+      on any board size.
+    choices:
+      - text: >
+          $(8, 8)$, because it is the far corner and lies eight files away.
+        feedback: >
+          Distance is irrelevant. $8 + 8 = 16$ is even, and a bishop reaches
+          that corner in a single move along the long diagonal.
+      - text: >
+          $(4, 7)$, because $4 + 7 = 11$ is odd while $1 + 1 = 2$ is even.
+        correct: true
+        feedback: >
+          Correct. Every diagonal move changes $x + y$ by an even amount, so the
+          parity of $x + y$ is fixed forever.
+      - text: >
+          $(6, 2)$, because it is not on either diagonal through $(1, 1)$.
+        feedback: >
+          One move need not finish the journey. $6 + 2 = 8$ is even, and two
+          diagonal moves reach it.
+      - text: >
+          $(3, 5)$, because a bishop cannot change the direction of its
+          diagonal.
+        feedback: >
+          It can, at every move. $3 + 5 = 8$ is even and the square is reachable;
+          only odd $x + y$ is barred.
+    rubric:
+      - >
+        Computes the effect of one generic diagonal move on $x + y$ and finds it
+        even.
+      - >
+        Evaluates the invariant at the start and at each candidate, rather than
+        arguing from distance or geometry.
+      - >
+        Names $(4, 7)$ and says why the other three are not merely unproven but
+        actually reachable.
+    targets:
+      - quant-puzzles.strategies.parity
+    exercises:
+      - quant-puzzles.strategies.invariant
+
+  # --- invariants modulo m -------------------------------------------------------
+
+  - id: qstrat-mod-invariant-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A single sheet of paper lies on a desk. A move takes any one piece on the
+      desk and tears it into exactly five pieces. Starting from the one sheet,
+      what is the largest number of pieces not exceeding $2026$ that can ever be
+      on the desk?
+    answer: >
+      $2025$. One tear removes one piece and puts back five, so the count rises
+      by exactly $4$ every move: after $m$ moves there are $1 + 4m$ pieces. The
+      count is therefore congruent to $1$ modulo $4$ forever — the residue class
+      is the invariant, and $4$ is the modulus the move size hands you. Now
+      $2026 = 4 \cdot 506 + 2$, so $2026 \equiv 2 \pmod 4$ and is unreachable;
+      so are $2027 \equiv 3$ and $2024 \equiv 0$. The largest attainable value at
+      or below $2026$ is the largest number congruent to $1$ modulo $4$ that does
+      not exceed it, namely $2025 = 1 + 4 \cdot 506$, reached in $506$ tears.
+      Two traps. Parity alone says nothing useful here: the count is always odd,
+      which rules out $2026$ but would also, incorrectly, seem to permit
+      $2027$ — you need the finer modulus. And the invariant only ever proves
+      impossibility; $2025$ counts as the answer because $506$ tears explicitly
+      achieve it.
+    expects: "2025"
+    rubric:
+      - >
+        Identifies the move as $+4$ to the piece count and reads $m = 4$ off the
+        move size rather than defaulting to parity.
+      - >
+        States the invariant as: the number of pieces is $\equiv 1 \pmod 4$, so
+        the reachable counts are exactly $1, 5, 9, \dots$
+      - >
+        Picks the largest such value at or below $2026$, checks
+        $2025 = 1 + 4 \cdot 506$, and names the $506$ tears that achieve it.
+    targets:
+      - quant-puzzles.strategies.mod-invariant
+
+  - id: qstrat-mod-invariant-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A machine takes any single coin from a tray and returns four coins in its
+      place. Starting from one coin on the tray, you are asked whether the tray
+      can ever hold exactly $100$ coins. What does the residue argument settle?
+    answer: >
+      It settles nothing against $100$ — and that is the point. Each use of the
+      machine removes one coin and returns four, so the count rises by $3$ and
+      the count modulo $3$ is invariant. It starts at $1$, and
+      $100 = 3 \cdot 33 + 1$, so $100 \equiv 1 \pmod 3$ as well: the target sits
+      in the same residue class as the start, and the invariant raises no
+      objection. An invariant can only ever prove impossibility, so with the
+      obstruction absent you still owe a construction, and here it is
+      immediate — run the machine $33$ times and the count goes
+      $1 \to 4 \to 7 \to \dots \to 1 + 3 \cdot 33 = 100$. The trap is reading a
+      matching residue as a proof of reachability in general; here the explicit
+      $33$-move sequence is what proves it, and in a puzzle with a richer move
+      set a matching residue could easily still be unreachable for some other
+      reason.
+    choices:
+      - text: >
+          The count is fixed modulo $3$ and $100 \equiv 1$, the same class as the
+          start, so the invariant forbids nothing — and $33$ uses of the machine
+          reach exactly $100$.
+        correct: true
+        feedback: >
+          Correct on both halves: the residue check clears the obstruction, and
+          the explicit construction is what actually proves reachability.
+      - text: >
+          The count is fixed modulo $3$ and $100 \equiv 1 \ne 0$, so $100$ coins
+          is impossible.
+        feedback: >
+          The start is $1$, not $0$. The target must match the *start's* residue,
+          and $100 \equiv 1$ does exactly that.
+      - text: >
+          The count is always odd, so $100$, being even, is unreachable.
+        feedback: >
+          The count goes $1, 4, 7, 10, \dots$ — it is not always odd. Parity is
+          not preserved by a $+3$ move; residues mod $3$ are.
+      - text: >
+          Matching residues mod $3$ prove that $100$ is reachable, so no further
+          work is needed.
+        feedback: >
+          An invariant only rules things out. Clearing it leaves the possibility
+          open; the $33$ moves are what close the argument.
+    rubric:
+      - >
+        Reads the move as $+3$ to the count and so tries the modulus $3$ rather
+        than parity.
+      - >
+        Compares the target's residue with the *start's* residue, not with zero.
+      - >
+        Says explicitly that a cleared invariant is not a construction, and
+        supplies the $33$-move construction.
+    targets:
+      - quant-puzzles.strategies.mod-invariant
+    exercises:
+      - quant-puzzles.strategies.parity
+
+  # --- coloring ------------------------------------------------------------------
+
+  - id: qstrat-coloring-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Straight $1 \times 4$ tiles are laid on a $6 \times 6$ board, each covering
+      four cells in a row or four in a column, with no overlaps and no tile
+      hanging off the edge. The board has $36$ cells, so nine tiles would fit by
+      area alone. What is the largest number of tiles that can actually be
+      placed?
+    answer: >
+      $8$. Colour the cell in column $i$ and row $j$ with the residue
+      $(i + j) \bmod 4$. A horizontal tile covers cells whose $i + j$ values are
+      four consecutive integers, and so does a vertical one — so *every* tile,
+      in either orientation and anywhere on the board, covers exactly one cell of
+      each of the four colours. Counting the colours on the $6 \times 6$ board
+      gives $9$ cells of residue $0$, $8$ of residue $1$, $9$ of residue $2$ and
+      $10$ of residue $3$. Each tile consumes exactly one residue-$1$ cell, and
+      there are only $8$ of them, so at most $8$ tiles fit — nine is impossible,
+      and with it any full tiling. Eight is achieved: an exhaustive search
+      confirms that $8$ tiles can be placed, leaving four cells bare. The trap is
+      the area count, $36/4 = 9$: divisibility is necessary and never sufficient,
+      and the two-colour checkerboard is no help either, since a $1 \times 4$
+      tile covers two cells of each colour whatever it does. Four colours is the
+      first colouring fine enough to see the obstruction.
+    expects: "8"
+    rubric:
+      - >
+        Chooses a colouring matched to the piece — four colours by
+        $(i + j) \bmod 4$ — after noting that two colours say nothing about a
+        $1 \times 4$ tile.
+      - >
+        Establishes that any tile, horizontal or vertical, covers one cell of
+        each colour, then counts the classes as $9, 8, 9, 10$.
+      - >
+        Turns the scarcest colour into the bound of $8$ and states that $8$ is
+        also achieved, so the answer is not merely an upper bound.
+    targets:
+      - quant-puzzles.strategies.coloring
+
+  - id: qstrat-coloring-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      You are asked whether a $10 \times 10$ board can be tiled completely by
+      $25$ straight $1 \times 4$ tiles, each covering four cells in a row or in a
+      column. Which argument settles it?
+    answer: >
+      The four-colouring settles it, in the negative. Colour the cell in column
+      $i$ and row $j$ by $(i + j) \bmod 4$; every $1 \times 4$ tile, horizontal
+      or vertical, covers four cells whose $i + j$ values are consecutive, hence
+      exactly one cell of each colour. A full tiling by $25$ tiles would
+      therefore need exactly $25$ cells of each colour, but counting the
+      $10 \times 10$ board gives $25, 24, 25, 26$ for residues $0, 1, 2, 3$. The
+      colour with only $24$ cells caps the number of tiles at $24$, so no tiling
+      exists — and an exhaustive search agrees that $24$ is the most that fit.
+      The two rejected arguments each fail in a way worth naming. Area
+      divisibility, $100 = 4 \cdot 25$, is a necessary condition that carries no
+      information about whether the pieces fit. And the checkerboard is
+      invisible to this piece: a $1 \times 4$ tile always covers two light and
+      two dark cells, so the $50$-$50$ split it produces is consistent with every
+      tiling and rules out nothing.
+    choices:
+      - text: >
+          The area divides: $100 = 4 \cdot 25$, so a tiling exists.
+        feedback: >
+          Divisibility is necessary, never sufficient. It says a tiling is not
+          excluded by counting cells, and nothing more.
+      - text: >
+          The checkerboard two-colouring gives $50$ and $50$, and each tile
+          covers two of each, so no tiling exists.
+        feedback: >
+          Those counts match perfectly, so the two-colouring is consistent with a
+          tiling — it rules nothing out. A colouring only helps when the counts
+          disagree.
+      - text: >
+          Colouring by $(i + j) \bmod 4$ gives class sizes $25, 24, 25, 26$ while
+          every tile takes one cell of each class, so at most $24$ tiles fit and
+          no tiling exists.
+        correct: true
+        feedback: >
+          Correct. The piece defines the colouring: four cells in a line hit four
+          consecutive residues, so the classes must be equal for a full tiling.
+      - text: >
+          Since $10$ is not a multiple of $4$, no $1 \times 4$ tile fits inside a
+          row of length $10$.
+        feedback: >
+          Tiles fit fine in a row of $10$ — two of them, with two cells to spare.
+          The obstruction is global, not local.
+    rubric:
+      - >
+        Rejects area divisibility as sufficient and says why the checkerboard is
+        silent for this piece.
+      - >
+        Builds the colouring from the piece: four cells in a line hit each
+        residue of $(i + j) \bmod 4$ exactly once.
+      - >
+        Counts the four classes as $25, 24, 25, 26$ and converts the shortfall
+        into the conclusion that no tiling exists.
+    targets:
+      - quant-puzzles.strategies.coloring
+    exercises:
+      - quant-puzzles.strategies.parity
+
+  # --- monovariants and termination -----------------------------------------------
+
+  - id: qstrat-monovariant-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      On a $5 \times 5$ grid some lamps start lit. Every second, any unlit lamp
+      with at least two lit orthogonal neighbours turns on, and lit lamps never
+      turn off. What is the smallest number of initially lit lamps that can end
+      with all $25$ lamps lit?
+    answer: >
+      $5$. Track the perimeter of the lit region — the number of unit edges with
+      a lit cell on exactly one side. When a lamp switches on it has at least two
+      lit neighbours, so it contributes $4$ new boundary edges and cancels at
+      least $2$ old ones: the perimeter changes by at most $4 - 2 \cdot 2 = 0$.
+      Perimeter is thus a monovariant, never increasing. The fully lit
+      $5 \times 5$ square has perimeter $20$, and $k$ initially lit cells have
+      perimeter at most $4k$, so $4k \ge 20$ and $k \ge 5$. Five suffices: light
+      the main diagonal and the process fills the board, which a direct
+      simulation confirms, and an exhaustive check over all four-cell starts
+      confirms that none of them fills it. The trap is the direction of the
+      monovariant. It is tempting to track the number of lit lamps, which
+      certainly increases — but a quantity that moves the *helpful* way proves
+      nothing; the bound comes from the quantity that can only move against you,
+      and it is the perimeter, not the count, that is trapped.
+    expects: "5"
+    rubric:
+      - >
+        Chooses perimeter, not the count of lit lamps, and verifies it is
+        non-increasing because a newly lit cell already has two lit neighbours.
+      - >
+        Converts the monovariant into the bound $4k \ge 20$, so $k \ge 5$.
+      - >
+        Exhibits a five-cell start, such as the diagonal, so the bound is
+        attained rather than merely proved.
+    targets:
+      - quant-puzzles.strategies.monovariant
+
+  - id: qstrat-monovariant-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A jar holds $30$ black beans and $20$ white beans. A move takes out two
+      beans at random and puts one bean back: a black bean if the two removed
+      matched in colour, a white bean if they differed. There is an unlimited
+      supply of spare beans of both colours to draw the replacement from. How
+      many moves are made before exactly one bean remains in the jar?
+    answer: >
+      $49$. The count of beans in the jar is the monovariant: every move removes
+      two and returns one, so it falls by exactly $1$, never by more and never by
+      less. A nonnegative integer that strictly decreases must halt, and here the
+      arithmetic is exact rather than merely bounded — from $30 + 20 = 50$ beans
+      the process reaches one bean after exactly $50 - 1 = 49$ moves, whatever
+      the colours happen to be. The termination question and the count question
+      are the same question, which is what makes a monovariant so cheap. As an
+      aside the colours are settled by a different tool: removing two whites
+      returns a black and removing one of each returns a white, so the number of
+      white beans falls by $2$ or stays put, its parity is invariant, and since
+      $20$ is even the last bean is black. The trap is answering $50$ — the
+      number of beans, not the number of moves — or $25$, as though each move
+      disposed of a pair.
+    expects: "49"
+    rubric:
+      - >
+        Identifies the bean count as a nonnegative integer that falls by exactly
+        one per move, so the process terminates.
+      - >
+        Turns that into the exact move count $50 - 1 = 49$ rather than a bound.
+      - >
+        Does not confuse the number of moves with the number of beans removed or
+        the number of beans in the jar.
+    targets:
+      - quant-puzzles.strategies.monovariant
+    exercises:
+      - quant-puzzles.strategies.invariant
+
+  - id: qstrat-monovariant-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      A candidate argues: "The quantity $Q$ is positive and strictly decreases at
+      every move, so the process must terminate." Under what extra condition is
+      that argument sound, and what breaks without it?
+    answer: >
+      It is sound when $Q$ takes values in the nonnegative integers, and it
+      breaks without that. Well-ordering is what does the work: a strictly
+      decreasing sequence of nonnegative integers must be finite, because it can
+      fall at most $Q_0$ times before it would go negative — which also hands you
+      the bound "at most $Q_0$ moves" for free. Over the positive reals the same
+      sentence proves nothing: take $Q_n = 2^{-n}$, which is positive and strictly
+      decreasing at every step and yet never terminates, because it has infinitely
+      much room above zero to descend into. So the fix is to find an
+      integer-valued monovariant, or to bound each decrease below by a fixed
+      positive amount $\varepsilon$, which restores a finite bound of
+      $Q_0/\varepsilon$ moves. This is also why "strictly" cannot be softened to
+      "never increases": a quantity that is allowed to hold still permits a loop
+      that repeats forever without ever moving $Q$ at all.
+    choices:
+      - text: >
+          Nothing extra: positivity plus a strict decrease is already enough for
+          any quantity $Q$.
+        feedback: >
+          $Q_n = 2^{-n}$ is positive and strictly decreasing forever. Positivity
+          alone leaves infinite room above zero.
+      - text: >
+          $Q$ must take integer values, since a strictly decreasing sequence of
+          nonnegative integers is finite and bounded in length by $Q_0$.
+        correct: true
+        feedback: >
+          Correct, and the same fact hands you the move count: at most $Q_0$
+          moves before the process must stop.
+      - text: >
+          $Q$ must be bounded above, so that the process cannot escape to
+          infinity.
+        feedback: >
+          A decreasing quantity never escapes upward. The danger is at the bottom
+          — an infinite descent that never reaches it.
+      - text: >
+          It is enough that $Q$ never increases, since a non-increasing quantity
+          cannot cycle.
+        feedback: >
+          It can: a move that leaves $Q$ unchanged may be repeated forever. The
+          decrease has to be strict.
+    rubric:
+      - >
+        Names well-ordering of the nonnegative integers as the actual engine of
+        the argument.
+      - >
+        Produces a concrete counterexample over the reals, such as $2^{-n}$, and
+        notes the repair — integer values, or a decrease bounded below.
+      - >
+        Observes that the integer monovariant also bounds the number of moves by
+        its initial value.
+    targets:
+      - quant-puzzles.strategies.monovariant
+
+  # --- mirroring and pairing --------------------------------------------------------
+
+  - id: qstrat-symmetry-strategy-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A strip of $20$ cells is numbered $1$ to $20$ from the left. Two players
+      alternately place a domino covering two adjacent empty cells; a player
+      unable to move loses, so the last player to place a domino wins. The first
+      player has a winning opening move. Which cell number is the left half of
+      that domino on?
+    answer: >
+      $10$ — the domino on cells $10$ and $11$. Placing it leaves two separate
+      empty runs of nine cells each, and from that moment the first player simply
+      mirrors: whatever the opponent does in one run, play the reflected move in
+      the other. The reflected cells are empty because the two runs are identical
+      and every previous opponent move has already been answered, so the mirroring
+      player always has a legal reply and can never be the one who runs out. The
+      symmetry restored after each of your turns is the invariant doing the work.
+      The move is also unique: a Sprague–Grundy computation of this game, where a
+      placement splits the strip into two independent runs, gives the opening
+      position value $3 \ne 0$ and shows cells $10$ and $11$ is the only first
+      move sending the value to $0$. The trap is placing the domino symmetrically
+      in the sense of "in the middle of a half" or reflecting through an endpoint
+      rather than through the centre: only a split into two *equal* runs makes the
+      copying strategy legal, and any other opening leaves a position the
+      opponent can seize.
+    expects: "10"
+    rubric:
+      - >
+        Opens on the centre so the strip splits into two identical runs of nine.
+      - >
+        States the copying strategy and the reason it is always legal — the
+        mirror cell is free precisely because the position is symmetric on the
+        opponent's turn.
+      - >
+        Concludes that the mirroring player can never be the first without a
+        move, so the first player wins.
+    targets:
+      - quant-puzzles.strategies.symmetry-strategy
+
+  - id: qstrat-symmetry-strategy-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Two players alternately place identical square tiles, axis-aligned and
+      non-overlapping, anywhere on a square table; the last player able to place
+      a tile wins. A candidate says the first player wins by reflecting every
+      opponent tile through the centre of the table. What is wrong, and what is
+      the fix?
+    answer: >
+      The plan is right and the order is wrong. Reflection through the centre
+      pairs up every position on the table except one — the centre itself, which
+      is its own mirror image. If the first player starts by mirroring, he has
+      nothing to mirror yet; and if the second player ever takes the centre, the
+      first player's reply would be the centre again, which is now occupied, and
+      the strategy collapses at exactly the point the pairing fails. The fix is
+      to remove that fixed point first: player one places his opening tile
+      centred exactly on the table's centre, and only then mirrors. After that
+      every opponent tile lies off-centre, its reflection is a distinct free
+      spot — free because it would only be taken if its own mirror had been
+      taken, which the pairing forbids — so player one always has a reply and
+      player two is the first to be stuck. This is the general shape of the
+      technique: mirroring wins for whoever *ends* a turn with the position
+      symmetric, which means the second player when the start is already
+      symmetric, and the first player only once he has killed the odd fixed
+      point.
+    choices:
+      - text: >
+          Nothing is wrong; reflection through the centre is a complete winning
+          strategy for player one as stated.
+        feedback: >
+          It has a hole exactly at the centre, which is its own reflection. If
+          the opponent takes it, there is no reply to make.
+      - text: >
+          Player one must first place a tile centred on the table's centre and
+          mirror only afterwards, since the centre is the one point with no
+          distinct partner.
+        correct: true
+        feedback: >
+          Correct. Removing the fixed point is what makes the pairing complete
+          and every mirrored reply legal.
+      - text: >
+          Player one should reflect across one side of the table rather than
+          through the centre.
+        feedback: >
+          A reflection across a side maps the table onto a different square
+          entirely, so the mirrored spot is usually off the table.
+      - text: >
+          The strategy fails because a square table is not symmetric enough;
+          mirroring works only on a round table.
+        feedback: >
+          Any table with a centre of symmetry supports it — square, round or
+          otherwise. The obstacle is the fixed point, not the shape.
+    rubric:
+      - >
+        Locates the failure precisely: the centre is the unique point equal to
+        its own reflection, so the pairing is incomplete until it is used up.
+      - >
+        Gives the repair in the right order — occupy the centre first, then
+        mirror every subsequent move.
+      - >
+        States the general rule that mirroring favours whoever leaves the
+        position symmetric at the end of their turn.
+    targets:
+      - quant-puzzles.strategies.symmetry-strategy
+    exercises:
+      - quant-puzzles.strategies.invariant
+
+  # --- the extremal principle ---------------------------------------------------
+
+  - id: qstrat-extremal-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Seven distinct positive integers add up to $100$. What is the largest
+      possible value of the smallest of the seven?
+    answer: >
+      $11$. Name the extreme object and let it carry the constraint: let $m$ be
+      the smallest of the seven. Every other entry is a distinct integer strictly
+      greater than $m$, so the seven values are at least
+      $m, m+1, m+2, \dots, m+6$ and their total is at least
+      $7m + (1 + 2 + \dots + 6) = 7m + 21$. Since the total is exactly $100$,
+      $7m + 21 \le 100$, so $7m \le 79$ and $m \le 11.28\dots$, giving $m \le 11$
+      because $m$ is an integer. That is only the bound; $11$ has to be attained
+      as well, and it is: $11 + 12 + 13 + 14 + 15 + 16 = 81$, so
+      $11, 12, 13, 14, 15, 16, 19$ sums to $100$ with smallest entry $11$. An
+      exhaustive search over all seven-element sets of distinct positive integers
+      summing to $100$ confirms $11$ is the maximum. The trap is stopping at
+      $\lfloor 79/7 \rfloor = 11$ and calling it the answer: a bound on the
+      extreme element proves only that nothing larger is possible, and the
+      explicit set is what turns it into a value.
+    expects: "11"
+    rubric:
+      - >
+        Names the smallest element $m$ and uses distinctness to force the other
+        six to be at least $m+1, \dots, m+6$.
+      - >
+        Derives $7m + 21 \le 100$ and rounds down correctly to $m \le 11$.
+      - >
+        Exhibits a set achieving $11$, so the bound is shown to be attained
+        rather than merely proved.
+    targets:
+      - quant-puzzles.strategies.extremal
+
+  - id: qstrat-extremal-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A finite family of closed intervals on the real line has the property that
+      every two of them overlap. You want to show that some single point lies in
+      all of them at once. Which extremal object should you single out?
+    answer: >
+      The interval with the largest left endpoint, paired against the one with
+      the smallest right endpoint. Write $[a_i, b_i]$ for the intervals, let
+      $L = \max_i a_i$ be the largest left endpoint and $R = \min_i b_i$ the
+      smallest right endpoint, each attained by some interval because the family
+      is finite. Say $L = a_p$ and $R = b_q$. Intervals $p$ and $q$ overlap by
+      hypothesis, and their intersection is $[\max(a_p, a_q), \min(b_p, b_q)]$,
+      which is nonempty exactly when $a_p \le b_q$ — that is, $L \le R$. Now take
+      any point $x$ with $L \le x \le R$: for every $i$ we have
+      $a_i \le L \le x \le R \le b_i$, so $x$ lies in every interval. The whole
+      argument is two extremes and one pairwise hypothesis; nothing else about
+      the family is used. The trap is picking an extreme that is not constrained
+      by the hypothesis — the longest interval, or the one meeting the most
+      others — and then having no inequality to push. This is also exactly the
+      one-dimensional case of Helly's theorem, and it fails in the plane, where
+      pairwise overlap of discs does not force a common point.
+    choices:
+      - text: >
+          The longest interval, and show every other interval is contained in it.
+        feedback: >
+          Pairwise overlap does not give containment — two intervals can overlap
+          at their ends while one sticks far out of the other.
+      - text: >
+          The largest left endpoint $L$ and the smallest right endpoint $R$: the
+          two intervals realizing them overlap, so $L \le R$, and every point of
+          $[L, R]$ lies in all the intervals.
+        correct: true
+        feedback: >
+          Correct. Only the two extreme endpoints are needed, and the pairwise
+          hypothesis is applied to exactly one pair.
+      - text: >
+          The interval that overlaps the most others, and argue by induction on
+          the rest.
+        feedback: >
+          Every interval overlaps every other, so that count is the same for all
+          of them — the choice singles out nothing.
+      - text: >
+          The average of all the midpoints, and show it lies in each interval.
+        feedback: >
+          An average need not lie in any particular interval: $[0,10]$,
+          $[9,10]$ and $[9.5,10]$ overlap pairwise, but their midpoints average
+          to about $8.08$, which is in none of the last two.
+    rubric:
+      - >
+        Chooses extremes the hypothesis can act on — the largest left endpoint
+        and the smallest right endpoint — rather than the longest or the
+        most-connected interval.
+      - >
+        Applies pairwise overlap to precisely the two intervals realizing those
+        extremes, obtaining $L \le R$.
+      - >
+        Concludes that every point of $[L, R]$ lies in all the intervals, using
+        $a_i \le L$ and $R \le b_i$ for every $i$.
+    targets:
+      - quant-puzzles.strategies.extremal
+
+  # --- averaging -----------------------------------------------------------------
+
+  - id: qstrat-averaging-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Twenty-five interns each nominate exactly three titles from a shared list
+      of eight books. Some book must be nominated by at least how many interns?
+    answer: >
+      $10$. Count the nominations two ways. Each of the $25$ interns makes $3$
+      nominations, so there are $25 \times 3 = 75$ of them in total, and they are
+      distributed among $8$ books. The average number of nominations per book is
+      $75/8 = 9.375$, and something is always at least as large as the average,
+      so some book has at least $9.375$ nominations. But a nomination count is a
+      whole number, so "at least $9.375$" means "at least $10$": the honest bound
+      is $\lceil 75/8 \rceil = 10$. It is also tight — put $10$ nominations on
+      each of seven books and $5$ on the eighth, for $75$ in total, and no book
+      exceeds $10$. Two traps. Reporting $9.375$ answers a question about a
+      quantity that cannot take that value. Rounding the other way to $9$ is
+      worse: it is a claim the data does not support, since $9$ nominations on
+      every one of the eight books accounts for only $72$ of the $75$. The
+      ceiling, not the floor, is what an averaging argument produces when the
+      quantity is an integer.
+    expects: "10"
+    rubric:
+      - >
+        Counts the nominations globally as $25 \times 3 = 75$ rather than
+        reasoning about individual interns.
+      - >
+        Divides by the $8$ books and takes the ceiling, $\lceil 9.375 \rceil =
+        10$, because a count is an integer.
+      - >
+        Notes that the bound is achieved, so $10$ is the strongest claim
+        available and not merely a safe one.
+    targets:
+      - quant-puzzles.strategies.averaging
+    exercises:
+      - quant-puzzles.strategies.extremal
+
+  - id: qstrat-averaging-02
+    kind: work
+    difficulty: standard
+    statement: >
+      In a club of $23$ members there are exactly $80$ pairs of friends,
+      friendship being mutual. Some member must have at least how many friends
+      within the club?
+    answer: >
+      $7$. Each friendship contributes to exactly two members' friend counts, so
+      the sum of all $23$ counts is $2 \times 80 = 160$, not $80$ — that doubling
+      is the whole trick, and skipping it halves the answer. The average count is
+      then $160/23 \approx 6.96$, and since some value is always at least the
+      average, some member has at least $6.96$ friends; friend counts are
+      integers, so that member has at least $\lceil 160/23 \rceil = 7$. The bound
+      cannot be pushed to $8$, because a club in which twenty-two members have
+      exactly $7$ friends and the last has $6$ also totals
+      $22 \times 7 + 6 = 160$, and that list of counts is realizable as an
+      actual friendship graph — so $7$ is the strongest claim the data supports.
+      The traps are forgetting the factor of two, which would give the far too
+      small $\lceil 80/23 \rceil = 4$, and rounding $6.96$ down to $6$.
+    expects: "7"
+    rubric:
+      - >
+        Doubles the edge count to get the degree sum $160$, rather than
+        averaging $80$ over $23$.
+      - >
+        Divides by $23$ and takes the ceiling, since a friend count is an
+        integer.
+      - >
+        States the conclusion as an existence claim — some member has at least
+        $7$ friends — with no construction required.
+    targets:
+      - quant-puzzles.strategies.averaging
+
+  # --- working backwards -----------------------------------------------------------
+
+  - id: qstrat-working-backwards-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A display shows the number $1$. Each press of a button either doubles the
+      displayed number or adds $3$ to it. What is the fewest button presses that
+      make the display read $47$?
+    answer: >
+      $6$. Forward from $1$ the tree branches two ways at every level and floods
+      the range below $47$; backward from $47$ it barely branches at all, which is
+      the entire reason to invert. Undo a press: a number $y$ came from $y/2$ if
+      $y$ is even, or from $y - 3$ if $y \ge 4$. Since $47$ is odd it cannot be a
+      doubling, so its only predecessor is $44$. From $44$ the options are $22$ or
+      $41$; take $22$, whose options are $11$ or $19$; $11$ is odd so it must come
+      from $8$; $8$ gives $4$ or $5$; and $4$ gives $2$ or $1$. That reaches the
+      start in six undone presses, and reversing the chain gives
+      $1 \to 4 \to 8 \to 11 \to 22 \to 44 \to 47$, that is add, double, add,
+      double, double, add. A breadth-first search confirms no five-press sequence
+      works. The trap is greedy forward play — doubling whenever the result stays
+      under $47$ gives $1, 2, 4, 8, 16, 32, 35, 38, 41, 44, 47$, ten presses — and
+      the discipline the technique enforces is to let the tightly constrained end,
+      here the odd target with a single predecessor, drive the search.
+    expects: "6"
+    rubric:
+      - >
+        Inverts the moves explicitly — halve an even number, subtract $3$ — and
+        notices that an odd target has only one predecessor.
+      - >
+        Searches backward rather than forward, so the branching stays near one
+        and the chain is short enough to write down.
+      - >
+        Reports $6$ and gives the sequence $1, 4, 8, 11, 22, 44, 47$, confirming
+        the count is achieved.
+    targets:
+      - quant-puzzles.strategies.working-backwards
+
+  - id: qstrat-working-backwards-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A colony of bacteria doubles in size every night. Every morning a
+      technician removes exactly $200$ cells. After the third morning's removal
+      the dish is empty. How many cells were in the dish at the very start,
+      before the first night?
+    answer: >
+      $175$. Running forward means solving for an unknown start through three
+      compositions of $x \mapsto 2x - 200$; running backward means three
+      divisions, each of them forced. Invert the day: if the dish holds $y$ cells
+      after a morning's removal, it held $y + 200$ just before it, and therefore
+      $(y + 200)/2$ before that night's doubling. Starting from $0$ after the
+      third morning: before that removal, $200$; before the third night,
+      $200/2 = 100$. Before the second removal, $300$; before the second night,
+      $150$. Before the first removal, $350$; before the first night, $175$.
+      Checking forward, $175 \to 350 - 200 = 150 \to 300 - 200 = 100 \to
+      200 - 200 = 0$, exactly as stated. Two traps sit in the inversion. The
+      operations must be undone in reverse order — halve after adding back the
+      $200$, never before — and the fixed point $200$ is a genuine equilibrium,
+      so a start above it would grow without bound rather than empty the dish.
+    expects: "175"
+    rubric:
+      - >
+        Inverts the daily map as $y \mapsto (y + 200)/2$, undoing the removal
+        before the doubling.
+      - >
+        Iterates from the known final state $0$ back through exactly three days,
+        obtaining $100$, $150$ and $175$.
+      - >
+        Checks the answer forward, so the inversion is verified rather than
+        trusted.
+    targets:
+      - quant-puzzles.strategies.working-backwards
+
+  - id: qstrat-working-backwards-03
+    kind: work
+    difficulty: standard
+    statement: >
+      A pile holds $15$ counters. Two players alternately remove $1$, $3$ or $4$
+      counters, and whoever takes the last counter wins. The player to move has
+      exactly one winning first move. How many counters does the pile hold
+      immediately after that move?
+    answer: >
+      $14$. Label positions from the end, which is the only end that is known.
+      Call a pile size a loss if the player about to move from it loses under
+      best play. Then $0$ is a loss — the previous player just took the last
+      counter — and a size is a win exactly when some legal move reaches a loss.
+      Propagating upward: $1, 3, 4$ are wins (take everything); $2$ is a loss, its
+      moves reaching $1$ from a removal of $1$ only; $5, 6$ are wins by moving to
+      $2$; $7$ is a loss; $8$ is a win; $9$ is a loss; and continuing gives the
+      losing sizes $0, 2, 7, 9, 14, 16, 21, 23$ — the residues $0$ and $2$ modulo
+      $7$. From $15$ the three moves reach $14$, $12$ and $11$; only $14$ is a
+      losing size, so taking one counter is the unique winning move and the pile
+      is left holding $14$. The trap is guessing the pattern from the first few
+      sizes: the period here is $7$ and not the $\gcd$-flavoured pattern a
+      one-move-or-two game would give, so nothing short of propagating the labels
+      backward from $0$ actually finds it.
+    expects: "14"
+    rubric:
+      - >
+        Starts at the terminal position and labels outward, rather than searching
+        forward from $15$.
+      - >
+        Uses the rule that a position is a win exactly when one legal move lands
+        on a loss, and builds the losing set $0, 2, 7, 9, 14, \dots$
+      - >
+        Checks all three moves from $15$ and identifies $14$ as the only losing
+        successor.
+    targets:
+      - quant-puzzles.strategies.working-backwards
+      - quant-processes.stopping.backward-induction
+    connects:
+      - "quant-processes.stopping.backward-induction ~ quant-puzzles.strategies.working-backwards"
+
+  # --- state-space framing ------------------------------------------------------------
+
+  - id: qstrat-state-space-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Seven stones sit in a row of seven slots: three white stones on the left,
+      an empty slot in the middle, three black stones on the right. A white stone
+      may only move rightwards and a black stone only leftwards; a move either
+      slides a stone into the adjacent empty slot or jumps it over exactly one
+      stone into the empty slot just beyond. What is the fewest moves that
+      exchanges the two groups, leaving the three black stones on the left and
+      the three white on the right?
+    answer: >
+      $15$. Treat each arrangement of the seven slots as a vertex and each legal
+      slide or jump as an edge, and the puzzle becomes a shortest path between
+      two named vertices — a graph small enough to search exhaustively. Doing so
+      finds exactly $72$ reachable arrangements and a shortest path of length
+      $15$. The accounting explains that number. Every one of the
+      $3 \times 3 = 9$ mixed pairs must swap order, and only a jump over a
+      stone of the other colour swaps one, so at least $9$ such jumps are
+      needed. Displacement is fixed too: each of the $6$ stones travels exactly
+      $4$ slots, for $24$ slot-steps in all, and a jump is worth $2$ steps while
+      a slide is worth $1$ — so with $J$ jumps and $S$ slides, $2J + S = 24$ and
+      the move count is $J + S = 24 - J$. The search settles the optimum at
+      $J = 9$ jumps and $S = 6$ slides, giving $24 - 9 = 15$, and the general
+      count is $ab + a + b$ for $a$ white and $b$ black.
+      The trap is treating the state as just "which stones are where" and
+      forgetting the empty slot: the position of the gap is part of the vertex,
+      and a state-space framing that drops it makes moves look reversible when
+      they are not.
+    expects: "15"
+    rubric:
+      - >
+        Frames the puzzle as a graph — arrangements as vertices, legal slides and
+        jumps as edges — and the question as a shortest path.
+      - >
+        Includes the empty slot in the state, so the vertex set is well defined.
+      - >
+        Reaches $15$ and justifies it structurally as $9$ jumps for the $9$ mixed
+        pairs plus $6$ slides, one per stone.
+    targets:
+      - quant-puzzles.strategies.state-space
+    exercises:
+      - quant-puzzles.strategies.parity
+
+  - id: qstrat-state-space-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Two unmarked jugs hold $7$ and $4$ liters. From a tap you may fill either
+      jug to the brim, empty either jug onto the ground, or pour one jug into the
+      other until the source empties or the target is full. Starting with both
+      empty, what is the fewest such operations that leaves exactly $5$ liters in
+      one jug?
+    answer: >
+      $8$. A state is the pair $(a, b)$ of current contents with
+      $0 \le a \le 7$ and $0 \le b \le 4$, an edge is one of the six operations,
+      and "fewest operations" is a shortest path from $(0,0)$ to any state with a
+      $5$ in it — so breadth-first search over the at most $40$ vertices settles
+      it exactly, with no cleverness. One shortest route is
+      $(0,0) \to (0,4) \to (4,0) \to (4,4) \to (7,1) \to (0,1) \to (1,0) \to
+      (1,4) \to (5,0)$: fill the small jug, empty it into the large one, fill it
+      again, top up the large jug leaving $1$ liter behind, dump the large jug,
+      move the stray liter across, fill the small jug once more and pour it in.
+      That is $8$ operations, and the search confirms none shorter exists. Since
+      $\gcd(7,4) = 1$, every whole number of liters up to $7$ is reachable
+      eventually, so the interesting question here is not reachability but
+      distance — which is exactly what the graph framing turns a puzzle into. The
+      trap is counting only the pours and not the fills and emptyings, which are
+      operations too.
+    expects: "8"
+    rubric:
+      - >
+        Writes the state as the pair of contents and lists all six operations as
+        edges out of it.
+      - >
+        Treats the question as a shortest path and searches breadth-first rather
+        than hunting for a clever sequence.
+      - >
+        Reports $8$ and exhibits a route of that length, counting fills and
+        emptyings as operations.
+    targets:
+      - quant-puzzles.strategies.state-space
+
+  # --- adversary and worst case -------------------------------------------------------
+
+  - id: qstrat-adversary-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A bag holds $10$ red, $8$ green, $6$ blue and $3$ yellow marbles, all
+      identical to the touch. Drawing blind, how many marbles must you take to
+      guarantee five of the same colour?
+    answer: >
+      $16$. Hand the bag to an adversary who chooses which marble comes out next,
+      consistent with what remains, and who wants to delay a matching five for as
+      long as possible. His best play is to give you as many marbles as he can
+      without completing a colour: four red, four green, four blue — and then
+      yellow runs out, because there are only $3$ yellow marbles in the bag at
+      all, so he can give you at most $3$ of them, not $4$. That is
+      $4 + 4 + 4 + 3 = 15$ marbles with no colour reaching five. The sixteenth
+      marble must be red, green or blue, since the yellows are exhausted, and
+      whichever it is completes a fifth of that colour. So $15$ can fail and $16$
+      always works: the answer is $16$. The trap is the formula
+      $4 \times 4 + 1 = 17$, which silently assumes every colour can supply four
+      marbles; the correct count is $\sum_i \min(c_i, 4) + 1$, and a colour
+      shorter than the threshold contributes only its own size. The general
+      pattern is the same both ways: the adversary argument gives the lower bound
+      and pigeonhole on the remaining colours gives the matching upper bound.
+    expects: "16"
+    rubric:
+      - >
+        Puts the draws in an adversary's hands rather than reasoning about a
+        typical or random sequence.
+      - >
+        Caps each colour's contribution at $\min(c_i, 4)$, noticing that yellow
+        supplies only $3$.
+      - >
+        Adds one to the adversary's best total and explains why the extra marble
+        is forced to complete a colour.
+    targets:
+      - quant-puzzles.strategies.adversary
+    exercises:
+      - quant-probability.counting.pigeonhole
+
+  - id: qstrat-adversary-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      You must identify a hidden integer between $1$ and $60$ using yes/no
+      questions, and you want the worst-case number of questions. Does it matter
+      whether the number is fixed in advance or chosen by an adversary who
+      answers as you go?
+    answer: >
+      No — the two worst-case counts are identical, provided the adversary must
+      stay consistent with every answer already given. In one direction, a
+      strategy that survives every adaptively chosen adversary certainly survives
+      every fixed number, since a fixed number is one particular consistent
+      adversary. In the other, suppose some fixed number forces your strategy to
+      ask $k$ questions; then the adversary can simply commit to that number in
+      advance and force the same $k$. So the worst case over fixed values equals
+      the value against the adaptive opponent, which is why the adversary is a
+      legitimate device and not a harder problem in disguise. What the adversary
+      buys is not a different answer but a cleaner argument: he lets you construct
+      the bad case one answer at a time instead of exhibiting it up front, which
+      here means keeping the surviving candidate set as large as possible, halving
+      at best, so $\lceil \log_2 60 \rceil = 6$ questions are necessary and binary
+      search achieves them. This is the minimax framing — you choose a strategy to
+      minimize the cost that nature then maximizes over hidden states — and the
+      equality of the two orders of play is exactly what makes worst-case reasoning
+      well posed.
+    choices:
+      - text: >
+          Yes: an adaptive adversary is strictly stronger, so the worst case
+          against him is larger than the worst case over fixed numbers.
+        feedback: >
+          He cannot beat every fixed number: whatever he does, the answers he has
+          given single out at least one value he could have committed to at the
+          start.
+      - text: >
+          No: a consistent adversary can always commit in advance to a value
+          matching the answers he gave, so the two worst-case counts agree, and
+          both equal $\lceil \log_2 60 \rceil = 6$.
+        correct: true
+        feedback: >
+          Correct — consistency is what makes the two orders of play equivalent,
+          and it is why the adversary is a proof device rather than a harder game.
+      - text: >
+          Yes: with a fixed number you may get lucky, so the fixed case needs
+          fewer questions on average.
+        feedback: >
+          Average is a different question. The worst case over fixed numbers,
+          not the average, is what is being compared here.
+      - text: >
+          No, but only because $60$ is not a power of two; for $64$ the adaptive
+          adversary would win an extra question.
+        feedback: >
+          The equivalence has nothing to do with powers of two. It follows from
+          consistency alone, at every $N$.
+    rubric:
+      - >
+        Argues both directions: a fixed value is one consistent adversary, and a
+        consistent adversary can be pinned to a fixed value after the fact.
+      - >
+        Explains what the adversary actually buys — a bad case built one answer
+        at a time, rather than exhibited in advance.
+      - >
+        Connects the conclusion to the minimax framing and computes the bound
+        $\lceil \log_2 60 \rceil = 6$.
+    targets:
+      - quant-puzzles.strategies.adversary
+      - quant-games.game-theory.minimax
+    connects:
+      - "quant-games.game-theory.minimax ~ quant-puzzles.strategies.adversary"
+
+  # --- guarantees are not expectations -------------------------------------------------
+
+  - id: qstrat-guarantee-vs-expectation-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      An urn holds $3$ white and $3$ black balls. They are drawn one at a time
+      without replacement, in uniformly random order, and you stop as soon as you
+      have seen both colours. The worst case is $4$ draws. What is the *expected*
+      number of draws? Give an exact fraction.
+    answer: >
+      $5/2$. The two numbers answer different questions, so compute them
+      differently. The guarantee is an adversary calculation: he hands you all
+      three balls of one colour first, and only the fourth is forced to differ, so
+      $4$ draws always suffice and $3$ sometimes do not. The expectation is a
+      calculation over the uniform random order. Let $T$ be the stopping draw.
+      Then $T = 2$ when the second ball differs from the first, which happens with
+      probability $3/5$ since three of the five remaining balls are the other
+      colour. $T = 3$ needs the first two to match and the third to differ:
+      $\frac{2}{5} \cdot \frac{3}{4} = \frac{3}{10}$. And $T = 4$ needs the first
+      three to match, $\frac{2}{5} \cdot \frac{1}{4} = \frac{1}{10}$. These sum to
+      $1$, and
+      $\mathbb{E}[T] = 2 \cdot \frac{3}{5} + 3 \cdot \frac{3}{10} +
+      4 \cdot \frac{1}{10} = \frac{12 + 9 + 4}{10} = \frac{25}{10} =
+      \frac{5}{2} = 2.5$. Enumerating all $20$ equally likely arrangements gives
+      the same $5/2$. The trap is reporting one number for both questions: $4$ is
+      not an average and $2.5$ is not a guarantee, and the gap between them is not
+      an error but the whole content of the distinction.
+    expects: "5/2"
+    rubric:
+      - >
+        Separates the two questions explicitly — worst case against an adversary
+        versus an average over the stated uniform order.
+      - >
+        Computes the distribution of the stopping draw, checking that the three
+        probabilities $3/5$, $3/10$, $1/10$ sum to one.
+      - >
+        Reports $5/2$ as the expectation while keeping $4$ as the guarantee, and
+        does not blend the two.
+    targets:
+      - quant-puzzles.strategies.guarantee-vs-expectation
+
+  - id: qstrat-guarantee-vs-expectation-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A packet of $6$ cards contains exactly $2$ aces and is shuffled into a
+      uniformly random order. You turn cards over one at a time until the first
+      ace appears. What is the expected number of cards turned? Give an exact
+      fraction.
+    answer: >
+      $7/3$. The two aces split the four non-aces into three gaps — before the
+      first ace, between the aces, and after the second — and by symmetry the
+      four non-aces are distributed among those gaps with the same expected count
+      each, namely $4/3$. The number of cards turned is the number of non-aces in
+      the first gap plus the ace itself, so
+      $\mathbb{E}[T] = \frac{4}{3} + 1 = \frac{7}{3} \approx 2.33$. The same
+      answer falls out of the general formula $\frac{n+1}{k+1}$ for the first of
+      $k$ marked items among $n$, here $\frac{7}{3}$, and enumerating all
+      $\binom{6}{2} = 15$ equally likely ace placements and averaging the smaller
+      position confirms it. Contrast the guarantee, which is a different
+      question with a different answer: an adversary deals you all four non-aces
+      first, so $5$ cards are needed to be certain of an ace and $4$ can fail. So
+      $7/3$ and $5$ are both correct, of different questions — quote the
+      expectation to an interviewer who said "guarantee" and the answer is wrong
+      by more than a factor of two.
+    expects: "7/3"
+    tolerance: 0.005
+    rubric:
+      - >
+        Sets up the expectation over the uniform shuffle, by gaps or by summing
+        over the position of the first ace.
+      - >
+        Obtains $7/3$ and checks it against the general form $(n+1)/(k+1)$ or a
+        direct enumeration.
+      - >
+        States the guarantee, $5$, separately and does not offer either number as
+        an answer to the other question.
+    targets:
+      - quant-puzzles.strategies.guarantee-vs-expectation
+
+  - id: qstrat-guarantee-vs-expectation-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      For the shuffled packet of $6$ cards containing $2$ aces you have computed
+      both numbers: the expected wait for the first ace is $7/3$ and the
+      worst-case wait is $5$. The interviewer now asks, "How many cards must you
+      turn to be certain of seeing an ace?" Which number answers that, and what
+      makes it the right one?
+    answer: >
+      $5$, because "to be certain" is worst-case language. A guarantee is a claim
+      that holds for every arrangement of the packet, so it is settled by the
+      worst arrangement — all four non-aces first — and no probability model
+      enters at all; the answer would be $5$ even if the shuffle were badly
+      biased or chosen by an opponent. The expectation $7/3$ is a claim about an
+      average over the stated uniform order, and it is not even attainable by any
+      single deal, since the number of cards turned is always a whole number. The
+      cost of confusing them is asymmetric: answering $7/3$ to a "certain"
+      question claims a certainty that fails on one deal in five, since the
+      first three cards are all non-aces with probability
+      $\binom{4}{3}/\binom{6}{3} = 4/20$, whereas answering $5$ to an "on
+      average" question is merely too
+      conservative. The craft move is to say which question you are answering
+      before you give the number, and to name the random model out loud the
+      moment you switch to the average.
+    choices:
+      - text: >
+          $7/3$, since it is the expected number of cards and expectations are
+          the standard summary.
+        feedback: >
+          An expectation summarizes a distribution; it certifies nothing about
+          every deal, and it is not even a whole number of cards.
+      - text: >
+          $5$, since a guarantee must hold for every arrangement and the worst
+          one puts all four non-aces first.
+        correct: true
+        feedback: >
+          Correct. Certainty is a worst-case claim, so no distribution is needed
+          and none is used.
+      - text: >
+          $3$, rounding the expectation up to the next whole card.
+        feedback: >
+          Rounding an average does not make it a guarantee. Three cards can
+          easily be three non-aces.
+      - text: >
+          Either one, since with only $6$ cards the two answers are close enough
+          to be interchangeable.
+        feedback: >
+          They answer different questions, and $7/3$ against $5$ is more than a
+          factor of two apart in any case.
+    rubric:
+      - >
+        Reads "to be certain" as worst-case language and answers with the
+        guarantee.
+      - >
+        Says explicitly that the guarantee needs no distribution, while the
+        expectation is defined only relative to the stated uniform shuffle.
+      - >
+        Names the asymmetry: quoting the average to a certainty question
+        overclaims, while the reverse merely overpays.
+    targets:
+      - quant-puzzles.strategies.guarantee-vs-expectation
+    exercises:
+      - quant-puzzles.strategies.adversary
+
+  # --- information-theoretic lower bounds -----------------------------------------------
+
+  - id: qstrat-info-lower-bound-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A pile of identical-looking coins contains exactly one counterfeit, which
+      may be heavier or lighter than the rest; you have a balance and four
+      weighings, and you must name the counterfeit and say which way it differs.
+      What is the largest pile size that the outcome-counting bound does not rule
+      out?
+    answer: >
+      $40$. A weighing has three outcomes — left heavy, right heavy, balanced —
+      so four weighings produce at most $3^{4} = 81$ distinguishable outcome
+      sequences. With $n$ coins the answer must name one of $2n$ possibilities,
+      since the direction is part of it, and a procedure that always succeeds
+      needs $2n \le 81$, giving $n \le 40.5$ and so $n \le 40$. That is the whole
+      counting argument, and it is exactly what the question asks for. It is also
+      a bound and not a value, which is the point worth carrying away: with $40$
+      coins and nothing else on the table, four weighings do *not* suffice, and
+      the true maximum is $39$. Look at the first weighing, with $m$ coins on
+      each pan and $40 - 2m$ set aside. If the pans tip, the surviving
+      possibilities number $2m$, and three weighings resolve at most $27$, so
+      $m \le 13$. If they balance, the counterfeit is among the $40 - 2m$ set
+      aside, leaving $2(40 - 2m)$ possibilities, so $80 - 4m \le 27$ and
+      $m \ge 14$. The two branches contradict each other, so no first weighing
+      works and $40$ is out of reach. At $39$ the same test passes with
+      $m = 13$: $26 \le 27$ on both branches. Give the solver one extra coin
+      known to be genuine and $40$ becomes achievable. So
+      the honest report is: at most $40$ by counting, $39$ actually achievable —
+      never quote the first as though it were the second.
+    expects: "40"
+    rubric:
+      - >
+        Counts $2n$ possible answers, including the direction, rather than $n$.
+      - >
+        Uses $3^{4} = 81$ outcome sequences and solves $2n \le 81$ to get
+        $n \le 40$.
+      - >
+        States that the counting bound proves necessity only, and that the
+        achievable maximum here is $39$ without a known-genuine reference coin.
+    targets:
+      - quant-puzzles.strategies.info-lower-bound
+    exercises:
+      - quant-puzzles.strategies.adversary
+
+  - id: qstrat-info-lower-bound-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Six distinct weights are to be put in increasing order, and the only
+      permitted operation is to compare two of them and learn which is heavier.
+      What is the smallest number of comparisons that could conceivably suffice
+      in the worst case?
+    answer: >
+      $10$. The answer to be produced is one of the $6! = 720$ possible orderings,
+      and each comparison has $2$ outcomes, so $k$ comparisons distinguish at most
+      $2^{k}$ histories. A procedure that always identifies the true order needs
+      $2^{k} \ge 720$; since $2^{9} = 512 < 720 \le 1024 = 2^{10}$, nine
+      comparisons cannot work and $k \ge \lceil \log_{2} 720 \rceil = 10$. The
+      bound happens to be attained here — merge insertion sorts six items in $10$
+      comparisons in the worst case — but that is a separate fact requiring a
+      separate exhibit, and the counting says nothing about it. Two traps. The
+      count of possibilities is $720$, the number of orderings, not $6$ or
+      $\binom{6}{2} = 15$; and the bound is not always attainable, since for five
+      items $\lceil \log_{2} 120 \rceil = 7$ and $7$ is achievable, while for
+      twelve items the counting bound of $29$ is famously one short of the true
+      answer $30$.
+    expects: "10"
+    rubric:
+      - >
+        Counts the possible answers as the $6! = 720$ orderings.
+      - >
+        Uses two outcomes per comparison and computes
+        $\lceil \log_{2} 720 \rceil = 10$, checking $2^{9} = 512 < 720$.
+      - >
+        Separates necessity from achievability rather than asserting that $10$
+        comparisons suffice because the count permits them.
+    targets:
+      - quant-puzzles.strategies.info-lower-bound
+
+  - id: qstrat-info-lower-bound-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      To identify one item out of $200$ using yes/no questions you have computed
+      $\lceil \log_{2} 200 \rceil = 8$. Which claim does that computation
+      support?
+    answer: >
+      That at least $8$ questions are necessary — and nothing more, until a
+      strategy is exhibited. The argument is one-directional by construction:
+      $k$ binary questions produce at most $2^{k}$ distinct answer histories, and
+      a procedure that always identifies the item must send the $200$
+      possibilities to distinct histories, so $2^{k} \ge 200$ is forced. With
+      $2^{7} = 128 < 200 \le 256 = 2^{8}$ that means $k \ge 8$. What the counting
+      never says is that $8$ questions can actually be organized into a working
+      procedure; here they can, because "is the item in this half of the
+      surviving set?" splits $200 \to 100 \to 50 \to 25 \to 13 \to 7 \to 4 \to 2
+      \to 1$ in exactly eight questions, but that is a construction and it had to
+      be supplied. Confusing the two halves is the standard failure in both
+      directions: quoting the bound as the answer with no scheme leaves the claim
+      unproved, and exhibiting a scheme with no bound proves only that $8$
+      suffice, never that $7$ cannot.
+    choices:
+      - text: >
+          That $8$ questions suffice, since $2^{8} = 256 \ge 200$.
+        feedback: >
+          The inequality shows there is enough room for $200$ histories; it does
+          not build the questions that use that room.
+      - text: >
+          That at least $8$ questions are needed; a matching strategy, such as
+          halving the surviving set, must still be exhibited to show $8$ is
+          enough.
+        correct: true
+        feedback: >
+          Correct — the counting proves necessity, and binary search separately
+          proves sufficiency.
+      - text: >
+          That exactly $8$ questions are both necessary and sufficient, since the
+          ceiling is exact.
+        feedback: >
+          The ceiling is an exact bound, not an exact answer. Plenty of problems
+          have counting bounds that no procedure attains.
+      - text: >
+          That $100$ questions are needed, since each question can eliminate at
+          most one candidate in the worst case.
+        feedback: >
+          A well-chosen question eliminates half the survivors, not one. The
+          whole point of the counting bound is that halving is the ceiling on
+          progress.
+    rubric:
+      - >
+        States the bound as necessity — at least $8$ — and checks
+        $2^{7} = 128 < 200$.
+      - >
+        Says that sufficiency is a separate claim needing a construction, and
+        names one such as halving the surviving set.
+      - >
+        Notes that a counting bound is not always attainable, so the two halves
+        cannot be assumed to meet.
+    targets:
+      - quant-puzzles.strategies.info-lower-bound
