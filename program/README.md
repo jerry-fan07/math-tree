@@ -30,7 +30,10 @@ than listing empty chapters.
 
 ## Drafts
 
-`drafts/` holds lessons files cut off mid-write (D15.7); the loader reads
-only `lessons/`, so a draft never reaches the build. To resume one, move it
-back into `lessons/` and run `check-lesson-file.py` — its missing-lesson
-list is the remaining work.
+A lessons file cut off mid-write belongs in `drafts/`, not `lessons/`: the
+loader reads only `lessons/`, so a draft never reaches the build, while a
+partial file left in `lessons/` fails validation for the lessons it lacks.
+To resume one, move it back into `lessons/` and run `check-lesson-file.py` —
+its missing-lesson list is the remaining work. The convention was used during
+the Phase 15 campaign (D15.7); every draft has since been finished, so the
+directory is empty and untracked.
