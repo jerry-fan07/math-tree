@@ -1,0 +1,1331 @@
+# Problems targeting quant-programming.randomized — probability inside the code.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. Every instance here is fresh: no
+# problem reuses a lesson's worked example or one of its card numbers, and every
+# figure below was checked by exact computation or full enumeration.
+# See ../README.md.
+
+problems:
+  # --- Las Vegas vs Monte Carlo ------------------------------------------------
+
+  - id: qrand-las-vegas-monte-carlo-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A Las Vegas routine builds one valid configuration by drawing a candidate
+      and testing it; each independent attempt is accepted with probability
+      $3/8$, and the routine redraws until one is accepted. A latency budget
+      forces you to cap it at $5$ attempts and report failure if none passes,
+      which converts it into a Monte Carlo routine. What is the probability the
+      capped version reports failure?
+    answer: >
+      $0.0954$. Attempts are independent, so all five fail with probability
+      $(1 - 3/8)^{5} = (5/8)^{5} = 3125/32768 = 0.09537$, which rounds to
+      $0.0954$. The uncapped Las Vegas contract has no failure mode at all: the
+      number of attempts is geometric with mean $1/(3/8) = 8/3 \approx 2.67$,
+      and its only cost is that the tail is unbounded. Capping buys a hard
+      budget of five attempts and pays for it with a $9.5$ percent chance of no
+      answer — the exact trade the two contracts name. If that is too rich, do
+      not lengthen one run: three independent capped runs fail together with
+      probability $0.09537^{3} \approx 0.00087$.
+    expects: "0.0954"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Raises the per-attempt failure probability $5/8$ to the fifth power
+        rather than multiplying $5 \cdot 3/8$ or subtracting from $1$ too early.
+      - >
+        Says which contract each version satisfies: unbounded time and always
+        correct before the cap, fixed budget and a stated failure probability
+        after it.
+    targets:
+      - quant-programming.randomized.las-vegas-monte-carlo
+
+  - id: qrand-las-vegas-monte-carlo-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A pricing service values an exotic option by averaging $200{,}000$
+      simulated paths. It always returns after exactly $200{,}000$ paths, and
+      its output lands within one tick of the true price on about $99$ percent
+      of runs. Which contract is that, and what follows for the worst case?
+    answer: >
+      Monte Carlo. The running time is fixed by construction and the
+      correctness is what carries the risk: on roughly one run in a hundred the
+      coins are unlucky and the reported price is off by more than a tick. That
+      is the Monte Carlo signature, and the consequence is that "run it longer"
+      is not inside the contract — the budget is fixed, so the only lever is
+      amplification, averaging or majority-voting independent runs, which drives
+      the failure probability down like a product. Unbiasedness is not
+      correctness on a single run: an average of $200{,}000$ draws has the right
+      mean and a real spread around it. The Las Vegas alternative would be a
+      routine that keeps drawing paths until some checkable accuracy criterion
+      is met, at which point the running time becomes the random quantity.
+    choices:
+      - text: >
+          Monte Carlo — the budget is fixed and the answer is right only with
+          probability about $0.99$
+        correct: true
+        feedback: >
+          Fixed running time, a real chance of a wrong report: correctness is
+          what was spent to buy the deadline.
+      - text: >
+          Las Vegas — the Monte Carlo average is unbiased, so the output is
+          always correct
+        feedback: >
+          Unbiased means right on average across runs, not right on the run you
+          got. Las Vegas never returns a wrong answer at all.
+      - text: >
+          Las Vegas — it could always be given more paths to reach any accuracy
+        feedback: >
+          What it could do with a different budget does not change the contract
+          of the routine as written, which stops at $200{,}000$ paths and
+          reports whatever it has.
+      - text: >
+          Neither — averaging fixed simulated paths is a deterministic
+          computation
+        feedback: >
+          The paths are drawn at random, and the accuracy of the output depends
+          on that draw, so the routine is randomized.
+    rubric:
+      - >
+        Names the fixed budget and the residual error probability as the pair
+        that identifies Monte Carlo.
+      - >
+        Notes that the failure probability falls by independent reruns, not by
+        letting one run continue past its budget.
+    targets:
+      - quant-programming.randomized.las-vegas-monte-carlo
+
+  # --- uniform integers without modulo bias ------------------------------------
+
+  - id: qrand-uniform-random-integer-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A hardware source returns $r$ uniform on $\{0,1,\dots,999\}$ and you need
+      a uniform draw on $\{0,1,\dots,6\}$. You take the rejection route: discard
+      $r$ and redraw whenever $r \ge L$, where $L$ is the largest multiple of
+      $7$ at or below $1000$, then return $r \bmod 7$. What is the expected
+      number of draws from the source per accepted value?
+    answer: >
+      $1.006$. Since $1000 = 142 \cdot 7 + 6$, the largest usable prefix is
+      $L = 1000 - 6 = 994 = 142 \cdot 7$, so acceptance has probability
+      $L/M = 994/1000 = 0.994$ and the number of draws is geometric with mean
+      $M/L = 1000/994 = 1.00604$, which rounds to $1.006$. The discarded tail is
+      exactly what the naive route would have kept: under a raw $r \bmod 7$ the
+      residues $0$ through $5$ collect $143$ preimages each while residue $6$
+      collects only $142$, so the low residues come out $143/142$, about $0.7$
+      percent, too often — small, and quite enough to fail a chi-squared test on
+      a few million draws. Rejection makes each of the seven residues collect
+      exactly $994/7 = 142$ preimages, so the output is exactly uniform for the
+      price of six draws in a thousand.
+    expects: "1.006"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Computes $L = 994$ from $1000 \bmod 7 = 6$ and inverts the acceptance
+        probability, rather than reporting the acceptance probability itself.
+      - >
+        Recognises the draw count as geometric with mean $M/L$, so the expected
+        cost is $1000/994$ and not $1 + 6/1000$.
+    exercises:
+      - quant-statistics.simulation.rejection
+    targets:
+      - quant-programming.randomized.uniform-random-integer
+
+  - id: qrand-uniform-random-integer-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Six fair coin flips are packed into an integer $r$ uniform on
+      $\{0,1,\dots,63\}$, and a colleague returns $r \bmod 5$ as a uniform draw
+      on $\{0,1,2,3,4\}$. What is the exact probability that this routine
+      returns $0$?
+    answer: >
+      $13/64$. The preimages of residue $0$ are $0, 5, 10, \dots, 60$, which is
+      $13$ values, so the probability is $13/64 = 0.203125$ rather than the fair
+      $1/5 = 0.2$. The general shape is visible in $64 = 12 \cdot 5 + 4$: the
+      first $64 \bmod 5 = 4$ residues, namely $0,1,2,3$, get
+      $\lceil 64/5 \rceil = 13$ preimages and residue $4$ gets only
+      $\lfloor 64/5 \rfloor = 12$, so the low end is favoured by a factor
+      $13/12$, about $8$ percent. Rejecting $r \ge 60$ and only then reducing
+      mod $5$ restores exact uniformity at a cost of $64/60 = 1.0\overline{6}$
+      draws per output.
+    expects: "13/64"
+    rubric:
+      - >
+        Counts the multiples of $5$ in $\{0,\dots,63\}$ inclusive of $0$ — there
+        are $13$, not $12$.
+      - >
+        Compares against $1/5$ and identifies the mechanism as unequal preimage
+        counts, not as a flaw in the coin flips.
+    targets:
+      - quant-programming.randomized.uniform-random-integer
+
+  # --- Fisher-Yates -------------------------------------------------------------
+
+  - id: qrand-fisher-yates-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Six distinct chips sit in slots $0$ through $5$ and are shuffled by
+      Fisher–Yates. What is the probability that no chip finishes in the slot it
+      started in? Give an exact fraction.
+    answer: >
+      $53/144$. Fisher–Yates makes every one of the $6! = 720$ orderings equally
+      likely — the $6 \cdot 5 \cdot 4 \cdot 3 \cdot 2 = 720$ choice sequences
+      map bijectively onto the orderings — so this is a pure counting question
+      about permutations, and the count wanted is the number of derangements of
+      six items. Inclusion–exclusion on the events "chip $i$ stays put" gives
+      $D_6 = 720\left(1 - 1 + \frac{1}{2} - \frac{1}{6} + \frac{1}{24} -
+      \frac{1}{120} + \frac{1}{720}\right) = 360 - 120 + 30 - 6 + 1 = 265$.
+      Hence the probability is $265/720 = 53/144 \approx 0.3681$, which sits a
+      hair above $1/e \approx 0.3679$, the limit the alternating sum converges
+      to. The step that does the real work is the uniformity claim: divide $265$
+      by $720$ only because each ordering carries mass exactly $1/720$. Run the
+      naive full-range shuffle instead and $265/720$ is simply the wrong answer,
+      because its orderings are not equally likely.
+    expects: "53/144"
+    rubric:
+      - >
+        States that Fisher–Yates makes all $720$ orderings equally likely before
+        dividing a count by $720$.
+      - >
+        Gets $D_6 = 265$ by inclusion–exclusion (or by the recurrence
+        $D_n = (n-1)(D_{n-1} + D_{n-2})$), not by the approximation $720/e$
+        rounded.
+    connects:
+      - quant-probability.counting.permutations ~ quant-programming.randomized.fisher-yates
+    targets:
+      - quant-programming.randomized.fisher-yates
+      - quant-probability.counting.permutations
+
+  - id: qrand-fisher-yates-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Fisher–Yates runs on an array of $9$ elements, descending from $i = 8$ to
+      $i = 1$. What is the exact probability that the first two iterations are
+      both no-ops, that is, that the draw at $i = 8$ returns $j = 8$ and the
+      draw at $i = 7$ returns $j = 7$?
+    answer: >
+      $1/72$. At step $i$ the partner $j$ is drawn uniformly from
+      $\{0,\dots,i\}$, which has $i + 1$ values, so the first iteration draws
+      from $9$ values and the second from $8$. The draws are independent, giving
+      $\frac{1}{9} \cdot \frac{1}{8} = \frac{1}{72} \approx 0.0139$. Two
+      structural facts fall out of the same reading: the loop makes $n - 1 = 8$
+      draws in total, and the shrinking ranges multiply to
+      $9 \cdot 8 \cdots 2 = 9!$ equally likely choice sequences. A self-swap is
+      not a wasted iteration to be optimised away — it is exactly the outcome
+      that lets slot $i$ keep its own element, and deleting it changes the
+      distribution.
+    expects: "1/72"
+    rubric:
+      - >
+        Uses range size $i + 1$ at step $i$, so the two probabilities are $1/9$
+        and $1/8$, not $1/8$ and $1/7$.
+      - >
+        Multiplies the two independent draws rather than adding them.
+    targets:
+      - quant-programming.randomized.fisher-yates
+
+  - id: qrand-fisher-yates-03
+    kind: decide
+    difficulty: demanding
+    statement: >
+      A candidate writes the loop as: for $i = n-1$ down to $1$, draw $j$
+      uniform on $\{0,\dots,i-1\}$ and swap $a[i]$ with $a[j]$ — arguing that
+      swapping an element with itself is a wasted operation. For $n \ge 3$, what
+      does the modified loop actually produce?
+    answer: >
+      It produces a uniformly random *cyclic* permutation, one of the $(n-1)!$
+      orderings that form a single cycle, and never anything else. The choice
+      counts are now $n-1, n-2, \dots, 1$, so there are $(n-1)!$ equally likely
+      choice sequences, and the map to permutations is still injective, which
+      pins each attainable ordering at $1/(n-1)!$. Since $a[i]$ is always
+      swapped with a strictly earlier slot, no element can end where it started
+      and the result is always one $n$-cycle — this is Sattolo's algorithm, and
+      it is the right routine when a random cycle is what you want. It is not a
+      shuffle: at $n = 4$ it emits $3! = 6$ orderings at probability $1/6$
+      apiece, whereas a uniform shuffle spreads $1/24$ over all $24$. It is not
+      even a uniform derangement, since $D_4 = 9$ and the three orderings built
+      from two disjoint transpositions, such as swapping $0$ with $1$ and $2$
+      with $3$, are never produced at all.
+    choices:
+      - text: >
+          Still uniform over all $n!$ orderings — the self-swaps did nothing
+        feedback: >
+          The loop now has only $(n-1)!$ execution paths, which cannot cover
+          $n!$ orderings; the self-swap is what let a slot keep its element.
+      - text: >
+          Uniform over the $(n-1)!$ orderings that are a single cycle, so no
+          element ever finishes where it started
+        correct: true
+        feedback: >
+          Sattolo's algorithm: $n-1, n-2, \dots, 1$ choices give $(n-1)!$ equally
+          likely paths, injectively onto the $n$-cycles.
+      - text: >
+          Uniform over the $D_n$ derangements — every fixed-point-free ordering,
+          equally likely
+        feedback: >
+          Every output is fixed-point-free, but not every fixed-point-free
+          ordering is a single cycle: at $n = 4$ there are $9$ derangements and
+          only $6$ possible outputs.
+      - text: >
+          Biased, with the identity ordering coming out more often than $1/n!$
+        feedback: >
+          The identity has $n$ fixed points and is produced with probability
+          $0$, not too often.
+    rubric:
+      - >
+        Counts the modified loop's paths as $(n-1)!$ and notes the map to
+        orderings is still injective.
+      - >
+        Distinguishes "no fixed points" from "a single cycle" — the outputs are
+        the cyclic permutations, a strict subset of the derangements for
+        $n \ge 4$.
+    targets:
+      - quant-programming.randomized.fisher-yates
+
+  # --- why the naive shuffle is not uniform --------------------------------------
+
+  - id: qrand-naive-shuffle-bias-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      The naive shuffle runs $i = 0$ to $n-1$ and swaps $a[i]$ with $a[j]$ for
+      $j$ drawn uniformly from the whole array $\{0,\dots,n-1\}$. Take $n = 4$
+      starting from $[A,B,C,D]$, so there are $4^{4} = 256$ equally likely
+      execution paths. Exactly $10$ of them return the array unchanged. What is
+      the probability the naive shuffle leaves $[A,B,C,D]$ in its original
+      order, as an exact fraction?
+    answer: >
+      $5/128$. The $256$ paths are equally likely at $1/256$ each and $10$ of
+      them end in $[A,B,C,D]$, so the probability is
+      $10/256 = 5/128 \approx 0.0391$, against the fair $1/24 \approx 0.0417$ —
+      the identity is about $6$ percent scarcer than it should be. The whole
+      distribution is ragged, not just this entry: enumerating all $256$ paths
+      puts between $8$ and $15$ paths on each of the $24$ orderings, so the most
+      likely ordering, $[B,A,D,C]$ at $15/256$, is nearly twice as likely as the
+      rarest, $[D,A,B,C]$ at $8/256$. No enumeration is needed to know something
+      is wrong: $24$ does not divide $256$, since $256/24 = 32/3$, so $256$ equal
+      atoms cannot be shared out into $24$ equal piles whatever the swaps do.
+    expects: "5/128"
+    rubric:
+      - >
+        Divides by $256 = 4^{4}$ — one path per independent draw at each of the
+        four iterations — and not by $4! = 24$.
+      - >
+        Compares against $1/24$ and gives the divisibility reason the bias is
+        forced, rather than blaming the generator.
+    targets:
+      - quant-programming.randomized.naive-shuffle-bias
+
+  - id: qrand-naive-shuffle-bias-02
+    kind: work
+    difficulty: standard
+    statement: >
+      For $n = 6$, compute the number of execution paths of the naive shuffle
+      divided by the number of orderings, $6^{6}/6!$, and read off what its
+      value proves.
+    answer: >
+      $64.8$. There are $6^{6} = 46656$ equally likely paths and $6! = 720$
+      orderings, and $46656/720 = 64.8$ is not an integer. Every path carries
+      mass $1/46656$, so a uniform output would need each ordering to collect
+      the same whole number of paths — that number would have to be $64.8$,
+      which no count of paths can be. The arithmetic reason is a single prime:
+      $5$ divides $720$ but $6^{6}$ has only the primes $2$ and $3$, so $720$
+      can never divide $6^{6}$. In general any prime $p$ with $n/2 < p < n$
+      divides $n!$ and cannot divide $n^{n}$, which is why no $n \ge 3$ escapes.
+      The bias is structural, and no better random number generator repairs it.
+    expects: "64.8"
+    tolerance: 0.005
+    rubric:
+      - >
+        Computes $6^{6} = 46656$ as the path count, not $6!$ or $6 \cdot 6$.
+      - >
+        Draws the right conclusion from non-integrality: equal atoms cannot be
+        split into equal piles, so the output distribution cannot be uniform.
+    targets:
+      - quant-programming.randomized.naive-shuffle-bias
+
+  # --- sampling k distinct items from a known n ----------------------------------
+
+  - id: qrand-sample-k-of-n-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You collect $k = 3$ distinct ids out of $n = 6$ by drawing uniformly with
+      replacement into a hash set, discarding any draw that repeats an id
+      already collected. What is the expected number of *discarded* draws before
+      the third distinct id arrives?
+    answer: >
+      $0.7$. After $m-1$ distinct ids are held, a draw is new with probability
+      $(6-m+1)/6$, so the wait for the $m$-th is geometric with mean
+      $6/(6-m+1)$: the first costs $6/6 = 1$ draw, the second $6/5 = 1.2$, the
+      third $6/4 = 1.5$. Total expected draws
+      $= 1 + 1.2 + 1.5 = 3.7 = n(H_n - H_{n-k})$, of which exactly $3$ are the
+      keepers, leaving $3.7 - 3 = 0.7$ discarded. The overhead is $23$ percent
+      here because $k$ is half of $n$; it stays negligible only while
+      $k \ll n$, and blows up as $k \to n$, where the last few ids turn the loop
+      into a coupon collector. That is the crossover at which the partial
+      Fisher–Yates route, which spends exactly $k$ draws and no rejections,
+      becomes the better trade.
+    expects: "0.7"
+    tolerance: 0.005
+    rubric:
+      - >
+        Sums the geometric means $6/6 + 6/5 + 6/4$ rather than treating each
+        draw as new with a fixed probability.
+      - >
+        Subtracts the $k = 3$ successful draws to answer the question asked, and
+        does not report the total $3.7$.
+    targets:
+      - quant-programming.randomized.sample-k-of-n
+
+  - id: qrand-sample-k-of-n-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      You must return $1000$ distinct ids drawn uniformly from the integers $1$
+      through $10^{9}$. The machine cannot hold an array of $10^{9}$ entries.
+      Which routine do you write?
+    answer: >
+      Draw uniformly with replacement into a hash set and redraw on a repeat.
+      The expected number of draws is
+      $n(H_n - H_{n-k}) \approx 1000 + k^{2}/(2n) = 1000.0005$ — five extra
+      draws in every ten thousand runs — and the memory is $O(k)$, a set of a
+      thousand ids, because the space $\{1,\dots,10^{9}\}$ is never
+      materialised. Partial Fisher–Yates is the right answer in the opposite
+      regime, where $k$ is a large fraction of $n$ and the array already exists;
+      here its $10^{9}$ slots are precisely what you cannot afford. Skipping the
+      duplicate check is not safe either: the chance of at least one repeated id
+      among a thousand draws is about
+      $1 - \exp(-k^{2}/(2n)) \approx 5 \cdot 10^{-4}$, small but not zero, and a
+      routine that promises distinct ids may not fail once per two thousand
+      calls.
+    choices:
+      - text: >
+          Draw with replacement into a hash set and redraw repeats — about
+          $1000.0005$ draws and $O(k)$ memory
+        correct: true
+        feedback: >
+          With $k \ll n$ the rejection overhead is $k^{2}/(2n) = 0.0005$ draws
+          and the range is never stored.
+      - text: >
+          Allocate the $10^{9}$-element array and run the last $1000$ steps of
+          Fisher–Yates
+        feedback: >
+          Correct output, impossible memory: the partial shuffle still needs the
+          full array, which is the one thing ruled out.
+      - text: >
+          Draw $1000$ ids with replacement and skip the duplicate check, since
+          repeats are impossible when $n$ is this large
+        feedback: >
+          They are unlikely, not impossible: about $5 \cdot 10^{-4}$ per call,
+          so roughly one call in two thousand silently returns fewer than
+          $1000$ distinct ids.
+      - text: >
+          Attach a uniform random key to each of the $10^{9}$ ids and take the
+          $1000$ smallest keys
+        feedback: >
+          That is a correct sample and a full pass over $10^{9}$ ids, so it
+          costs a million times the work of the rejection loop.
+    rubric:
+      - >
+        Names the memory constraint as the thing that decides it: the hash-set
+        route is $O(k)$, the partial shuffle is $O(n)$.
+      - >
+        Quantifies the rejection overhead as roughly $k^{2}/(2n)$ draws rather
+        than waving at "small".
+    targets:
+      - quant-programming.randomized.sample-k-of-n
+
+  # --- reservoir sampling --------------------------------------------------------
+
+  - id: qrand-reservoir-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A reservoir of size $k = 2$ runs over a stream that turns out to be
+      exactly $6$ items long, numbered $1$ to $6$ in arrival order: keep the
+      first two, then admit item $i$ with probability $2/i$, evicting one of the
+      two incumbents uniformly at random. What is the exact probability that the
+      final reservoir holds precisely items $2$ and $5$?
+    answer: >
+      $1/15$. The rule does more than give each item the right marginal: after
+      $i$ arrivals the reservoir is a uniformly random $2$-subset of the first
+      $i$ items. Induction — if every one of the $\binom{i}{2}$ subsets has
+      probability $1/\binom{i}{2}$, then item $i+1$ enters with probability
+      $2/(i+1)$ and evicts a uniform incumbent, and a short count shows each of
+      the $\binom{i+1}{2}$ subsets of the enlarged prefix again has equal
+      probability. At $i = 6$ that is $1/\binom{6}{2} = 1/15 \approx 0.0667$.
+      The marginal route agrees and is the useful cross-check: item $5$ survives
+      to the end with probability $k/n = 2/6 = 1/3$, and given that, the second
+      slot is equally likely to hold any of the other five items, giving
+      $\frac{1}{3} \cdot \frac{1}{5} = \frac{1}{15}$. Answering $2/6 \cdot 2/6$
+      treats the two slots as independent draws with replacement, which they are
+      not — the reservoir never holds an item twice.
+    expects: "1/15"
+    rubric:
+      - >
+        Uses the subset-level claim (or the marginal times the conditional), not
+        a product of two independent survival probabilities.
+      - >
+        Gets $\binom{6}{2} = 15$ as the number of equally likely final
+        reservoirs.
+    targets:
+      - quant-programming.randomized.reservoir
+
+  - id: qrand-reservoir-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A $k = 1$ reservoir runs over a stream of exactly $8$ items. What is the
+      expected number of times the held item is *replaced* over the whole pass?
+    answer: >
+      $1.718$. Item $i$, for $i \ge 2$, replaces the incumbent with probability
+      $1/i$ regardless of what has happened before, so by linearity of
+      expectation the expected number of replacements is
+      $\sum_{i=2}^{8} 1/i = H_8 - 1$. With
+      $H_8 = 761/280 \approx 2.7179$ that is $1.7179$, which rounds to $1.718$.
+      Note what is being counted: $7$ items arrive after the first and every one
+      of them gets a real chance to bump the incumbent, yet fewer than two
+      actually do, because the acceptance probability decays like $1/i$. This is
+      the $k = 1$ case of $k(H_n - H_k) \approx k\ln(n/k)$, so the work grows
+      logarithmically in the stream length while the memory stays at one slot.
+    expects: "1.718"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Sums $1/i$ over $i = 2$ to $8$ by linearity, without needing the joint
+        distribution of which item is held when.
+      - >
+        Starts the sum at $i = 2$: the first item is placed, not a replacement.
+    targets:
+      - quant-programming.randomized.reservoir
+
+  - id: qrand-reservoir-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      A candidate ships a $k = 1$ reservoir with an off-by-one: item $i$
+      replaces the held item with probability $1/(i+1)$ instead of $1/i$. The
+      stream has $4$ items. What is the exact probability that the *first* item
+      is the one held at the end?
+    answer: >
+      $2/5$. The first item survives only if none of items $2$, $3$, $4$ takes
+      the slot, and those are independent events, so
+      $\left(1 - \frac{1}{3}\right)\left(1 - \frac{1}{4}\right)
+      \left(1 - \frac{1}{5}\right)
+      = \frac{2}{3} \cdot \frac{3}{4} \cdot \frac{4}{5} = \frac{2}{5}$ — the
+      product telescopes to $2/(n+1)$. The correct rule telescopes instead to
+      $\frac{1}{2} \cdot \frac{2}{3} \cdot \frac{3}{4} = \frac{1}{4} = 1/n$,
+      which is the whole point of the design. The bug leaves the later items at
+      $1/5$ apiece — item $4$ arrives and is accepted with probability $1/5$,
+      item $3$ contributes
+      $\frac{1}{4} \cdot \frac{4}{5} = \frac{1}{5}$, item $2$ contributes
+      $\frac{1}{3} \cdot \frac{3}{4} \cdot \frac{4}{5} = \frac{1}{5}$ — so the
+      distribution is $\frac{2}{5}, \frac{1}{5}, \frac{1}{5}, \frac{1}{5}$: it
+      still sums to $1$, which is exactly why the bug survives a smoke test. The
+      first item is sampled $60$ percent more often than it should be, and no
+      length of stream washes that out.
+    expects: "2/5"
+    rubric:
+      - >
+        Multiplies the survival probabilities $1 - 1/(i+1)$ for $i = 2,3,4$
+        rather than summing acceptance probabilities.
+      - >
+        Says why the bug is not caught by a sanity check: the four probabilities
+        still sum to $1$, they are simply not equal.
+    targets:
+      - quant-programming.randomized.reservoir
+
+  - id: qrand-reservoir-04
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Prove by induction on $i$ that the general-$k$ reservoir rule — keep the
+      first $k$, admit item $i > k$ with probability $k/i$ and evict a uniformly
+      chosen incumbent — leaves the reservoir a uniformly random $k$-subset of
+      the first $i$ items. Then say why that statement is strictly stronger than
+      "each item is held with probability $k/i$", and what a routine could get
+      wrong while still passing the weaker check.
+    answer: >
+      Base case $i = k$: the reservoir is the whole prefix, the only $k$-subset,
+      probability $1$. Inductive step: assume every $k$-subset $S$ of the first
+      $i$ has probability $1/\binom{i}{k}$. A subset $T$ of the first $i+1$ not
+      containing item $i+1$ survives when item $i+1$ is rejected, probability
+      $1 - k/(i+1)$, giving
+      $\frac{1}{\binom{i}{k}} \cdot \frac{i+1-k}{i+1} = \frac{1}{\binom{i+1}{k}}$
+      after using $\binom{i+1}{k} = \binom{i}{k}\frac{i+1}{i+1-k}$. A subset $T$
+      that does contain item $i+1$ can only have come from a predecessor
+      $S = (T \setminus \{i+1\}) \cup \{x\}$ with $x$ any of the $i-k+1$ items
+      of the prefix outside $T$, and that path needs item $i+1$ admitted and $x$
+      the evicted incumbent, so each predecessor contributes
+      $\frac{1}{\binom{i}{k}} \cdot \frac{k}{i+1} \cdot \frac{1}{k}$ and the sum
+      is $\frac{i-k+1}{\binom{i}{k}(i+1)} = \frac{1}{\binom{i+1}{k}}$. Both
+      cases land on $1/\binom{i+1}{k}$, completing the induction. The subset
+      statement is stronger because it constrains the *joint* law: summing it
+      recovers the marginal $k/i$ for every item, while the marginals alone do
+      not pin the joint law down. A routine that always evicts the oldest
+      incumbent rather than a uniform one keeps every marginal at $k/i$ yet
+      makes some subsets impossible, which any downstream statistic computed
+      across the sampled items — a covariance, a pair count — will feel.
+    rubric:
+      - >
+        Runs a genuine induction with the base case at $i = k$ and both cases of
+        the step (item $i+1$ admitted, item $i+1$ rejected), landing on
+        $1/\binom{i+1}{k}$ each time.
+      - >
+        Uses the identity relating $\binom{i+1}{k}$ to $\binom{i}{k}$ rather
+        than asserting the algebra.
+      - >
+        Explains that marginals are implied by the joint law and not conversely,
+        and gives a concrete rule — deterministic eviction — that keeps the
+        marginals and breaks the subset uniformity.
+    targets:
+      - quant-programming.randomized.reservoir
+
+  # --- weighted random selection -------------------------------------------------
+
+  - id: qrand-weighted-sampling-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A stream of unknown length is sampled with the weighted reservoir trick:
+      item $i$ is given the key $U_i^{1/w_i}$ for an independent uniform $U_i$
+      on $(0,1)$, and the single item with the largest key is kept. Exactly two
+      items pass, one of weight $5$ and one of weight $3$. What is the exact
+      probability that the weight-$5$ item is the one kept?
+    answer: >
+      $5/8$. The key $K = U^{1/w}$ has
+      $\Pr(K \le x) = \Pr(U \le x^{w}) = x^{w}$ on $(0,1)$, so its density is
+      $w x^{w-1}$. Conditioning on the weight-$5$ key sitting at $x$ and asking
+      the weight-$3$ key to fall below it,
+      $\Pr(K_5 > K_3) = \int_0^1 5x^{4} \cdot x^{3}\,dx = \frac{5}{5+3}
+      = \frac{5}{8} = 0.625$. The general statement is the one worth carrying:
+      the top key belongs to item $i$ with probability
+      $w_i / \sum_j w_j$, which is exactly what the prefix-sum-and-binary-search
+      routine delivers when the weights are all known in advance — the key trick
+      just reaches the same distribution in one pass without ever seeing the
+      total. Answering $5/(5+3)$ by analogy is right; answering $5^{1}/3^{1}$ or
+      a ratio of $1/w$ values is the trap, since the exponent $1/w$ inverts and
+      it is easy to convince yourself the small weight should win.
+    expects: "5/8"
+    rubric:
+      - >
+        Derives $\Pr(K \le x) = x^{w}$ from $K = U^{1/w}$, rather than treating
+        $K$ as uniform.
+      - >
+        Integrates the density of one key against the CDF of the other (or
+        quotes $w_i/\sum_j w_j$ and says why the keys realise it).
+    targets:
+      - quant-programming.randomized.weighted-sampling
+
+  - id: qrand-weighted-sampling-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Three venues carry integer weights $6$, $2$ and $7$ in that order. The
+      routine prefix-sums them to $W_1 = 6$, $W_2 = 8$, $W_3 = 15$, draws an
+      integer $r$ uniform on $\{0,1,\dots,14\}$ and returns the first $j$ with
+      $r < W_j$. What is the exact probability that venue $3$ is returned?
+    answer: >
+      $7/15$. Venue $j$ is returned exactly when $W_{j-1} \le r < W_j$, so the
+      three venues own the blocks $\{0,\dots,5\}$, $\{6,7\}$ and
+      $\{8,\dots,14\}$, of sizes $6$, $2$ and $7$ — the weights themselves.
+      Venue $3$ therefore wins on $7$ of the $15$ equally likely draws,
+      $7/15 \approx 0.4667$. Two off-by-ones destroy this and both are common:
+      drawing $r$ on $\{1,\dots,15\}$ shifts every block up by one and hands
+      venue $1$ only five values while venue $3$ gets eight, and searching with
+      $r \le W_j$ instead of $r < W_j$ gives each venue its predecessor's
+      boundary, so venue $1$ collects $r = 6$ as well. Keeping the draw and the
+      comparison in integers is what makes the shares exactly the weights, with
+      no rounded cutoff to argue about.
+    expects: "7/15"
+    rubric:
+      - >
+        Identifies venue $j$'s block as $[W_{j-1}, W_j)$, so its size is $w_j$
+        and the total is $W_3 = 15$.
+      - >
+        Uses a half-open comparison and a draw starting at $0$ — the two
+        conventions that make the block sizes come out as the weights.
+    targets:
+      - quant-programming.randomized.weighted-sampling
+
+  # --- rand7 from rand5 ----------------------------------------------------------
+
+  - id: qrand-rand7-from-rand5-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Build rand6, uniform on $\{1,\dots,6\}$, out of rand5 by the grid method:
+      two rand5 calls give $v = 5(a-1) + b$ uniform on $\{1,\dots,25\}$, accept
+      the largest usable prefix, map it onto six values by reducing mod $6$, and
+      redraw the whole pair otherwise. What is the expected number of rand5
+      calls per rand6 output?
+    answer: >
+      $25/12 \approx 2.083$. The largest multiple of $6$ at or below $25$ is
+      $24$, so accept $v \le 24$ and return $((v-1) \bmod 6) + 1$, which hits
+      each of the six values exactly four times; only $v = 25$ is rejected.
+      Acceptance is $24/25$, so the number of grid draws is geometric with mean
+      $25/24 \approx 1.042$, and each grid draw costs two rand5 calls:
+      $2 \cdot 25/24 = 50/24 = 25/12 \approx 2.083$ calls per output. Notice how
+      much cheaper this is than rand7 from rand5, where four of $25$ cells are
+      wasted rather than one — the cost is set entirely by how ragged $25$ is
+      modulo the target. The tempting shortcut of accepting all $25$ and
+      reducing mod $6$ is exactly the modulo bias again: outcome $1$ would
+      arrive $5$ times in $25$ and the other five outcomes $4$ times each.
+    expects: "25/12"
+    tolerance: 0.005
+    rubric:
+      - >
+        Truncates to the largest multiple of $6$ below $25$, so the accepted set
+        is $\{1,\dots,24\}$ and every output has exactly four preimages.
+      - >
+        Multiplies the geometric mean $25/24$ by the two rand5 calls each grid
+        draw costs, rather than reporting $25/24$ itself.
+    targets:
+      - quant-programming.randomized.rand7-from-rand5
+
+  - id: qrand-rand7-from-rand5-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A candidate writes rand7 from rand5 with the $5 \times 5$ grid but hates
+      the redraw loop, so instead of rejecting $v \in \{22,23,24,25\}$ they
+      return $((v-1) \bmod 7) + 1$ for all $25$ cells. What does the resulting
+      routine do?
+    answer: >
+      It returns $1$, $2$, $3$ and $4$ with probability $4/25$ each and $5$, $6$
+      and $7$ with probability $3/25$ each. Reducing $\{1,\dots,25\}$ mod $7$
+      gives each of the seven outputs three preimages from $\{1,\dots,21\}$, and
+      the four leftover cells $22, 23, 24, 25$ add one more preimage to outputs
+      $1, 2, 3, 4$. So the low four come out $4/25 = 0.16$ against the fair
+      $1/7 \approx 0.1429$ — about $12$ percent too often — and the high three
+      come out $3/25 = 0.12$, about $16$ percent too rarely. The routine is
+      fast, terminates in exactly two rand5 calls always, and is wrong; the
+      honest version keeps the loop, whose expected cost is only
+      $2 \cdot 25/21 \approx 2.38$ calls. Rejecting a single cell instead of the
+      whole ragged block fails the same way, just by less.
+    choices:
+      - text: >
+          Outputs $1$ through $4$ each arrive with probability $4/25$ and $5$
+          through $7$ with probability $3/25$
+        correct: true
+        feedback: >
+          The four leftover cells reduce onto $1,2,3,4$, giving those outputs a
+          fourth preimage while the rest keep three.
+      - text: >
+          It stays uniform — every output still gets three preimages from
+          $\{1,\dots,21\}$, and four extra cells cannot change that
+        feedback: >
+          The four extra cells are not discarded in this version; they land on
+          specific outputs and are counted.
+      - text: >
+          It is uniform on $\{1,\dots,7\}$ but slower, because the mod is
+          evaluated on $25$ values instead of $21$
+        feedback: >
+          The routine is faster, not slower — it never loops. Speed is exactly
+          what was traded away for uniformity.
+      - text: >
+          Output $7$ becomes impossible, since $25$ is not a multiple of $7$
+        feedback: >
+          Output $7$ still arrives from $v = 7, 14, 21$; it is merely less
+          likely than $1$ through $4$, not impossible.
+    rubric:
+      - >
+        Counts preimages: three each from $\{1,\dots,21\}$, plus one more for
+        each of $1,2,3,4$ from the leftover block.
+      - >
+        Names the trade explicitly — a fixed running time bought with a biased
+        output, against a loop whose expected cost is about $2.38$ rand5 calls.
+    targets:
+      - quant-programming.randomized.rand7-from-rand5
+
+  # --- fair bits from a biased coin ----------------------------------------------
+
+  - id: qrand-von-neumann-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A coin lands heads with probability $p = 0.25$ and you extract fair bits
+      from it by the von Neumann rule: flip in pairs, report heads on HT, tails
+      on TH, discard HH and TT and flip another pair. What is the expected total
+      number of coin flips needed to produce eight fair bits?
+    answer: >
+      $42.67$. With $q = 1 - p = 0.75$, a pair is usable with probability
+      $2pq = 2 \cdot 0.25 \cdot 0.75 = 0.375$, so the number of pairs spent on
+      one output bit is geometric with mean $1/0.375 = 2.\overline{6}$, and the
+      flips per bit are twice that: $1/(pq) = 1/0.1875 = 5.\overline{3}$. Eight
+      bits are eight independent repetitions, so by linearity the expected total
+      is $8/(pq) = 8 \cdot 5.\overline{3} = 42.\overline{6} \approx 42.67$. Two
+      things are worth saying out loud. The output is exactly fair even though
+      $p$ is never estimated, because $\Pr(HT) = \Pr(TH) = pq$ makes the
+      conditional law on a usable pair exactly even. And the cost is set by the
+      coin: a fair coin would still need $8 \cdot 4 = 32$ flips, so the skew to
+      $p = 0.25$ costs about a third more, while $p = 0.05$ would cost
+      $8/0.0475 \approx 168$.
+    expects: "42.67"
+    tolerance: 0.005
+    rubric:
+      - >
+        Gets $1/(pq)$ flips per output bit — the geometric mean $1/(2pq)$ pairs
+        multiplied by two flips a pair — and not $1/(2pq)$ flips.
+      - >
+        Scales to eight bits by linearity of expectation, without needing the
+        bits to be anything more than independent repetitions.
+    exercises:
+      - quant-probability.discrete.geometric
+    targets:
+      - quant-programming.randomized.von-neumann
+
+  - id: qrand-von-neumann-02
+    kind: work
+    difficulty: standard
+    statement: >
+      The same von Neumann extractor runs on a coin with $p = 0.8$. What is the
+      probability that a given pair of flips is discarded?
+    answer: >
+      $0.68$. A pair is discarded exactly when it is HH or TT, so the
+      probability is $p^{2} + q^{2} = 0.64 + 0.04 = 0.68$; equivalently it is
+      $1 - 2pq = 1 - 2(0.8)(0.2) = 1 - 0.32$. More than two pairs in three are
+      thrown away, and the number of pairs until one is usable is geometric with
+      mean $1/0.32 = 3.125$, or $6.25$ flips per fair bit against the $4$ flips
+      a fair coin would cost. The discard rate is what carries all the
+      inefficiency: the retained pairs are exactly even between HT and TH for
+      every $p$, so no amount of skew makes the *output* less fair, only more
+      expensive.
+    expects: "0.68"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Discards on both HH and TT, giving $p^{2} + q^{2}$ and not just
+        $p^{2}$.
+      - >
+        Notes that the discard rate changes the cost and not the fairness of the
+        bits that do come out.
+    targets:
+      - quant-programming.randomized.von-neumann
+
+  # --- a biased bit from fair flips ----------------------------------------------
+
+  - id: qrand-biased-from-fair-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You need a bit that is $1$ with probability $p = 3/7$ using only fair
+      flips, and you take the finite exact route rather than the lazy binary
+      comparison: draw a uniform integer on $\{0,\dots,6\}$ by rejection from
+      three fair flips and report $1$ when it lands below $3$. What is the
+      expected number of fair flips per output bit?
+    answer: >
+      $24/7 \approx 3.43$. Three fair flips give $r$ uniform on
+      $\{0,\dots,7\}$, eight values; the largest multiple of $7$ at or below $8$
+      is $7$, so accept $r \le 6$ and redraw on $r = 7$. Acceptance is $7/8$, so
+      the number of three-flip rounds is geometric with mean $8/7$ and the
+      expected flips are $3 \cdot 8/7 = 24/7 \approx 3.4286$. Reporting $1$ on
+      $r \in \{0,1,2\}$ then gives exactly $3/7$, with no approximation
+      anywhere. This is strictly worse than the lazy route — comparing fair bits
+      against the binary expansion $p = 0.011011011\dots$ and stopping at the
+      first mismatch costs $2$ flips in expectation for every $p$, because each
+      index halts the loop with probability $1/2$ — so the exact-integer version
+      is worth its extra flip and a half only when you want a bounded, auditable
+      routine rather than an unbounded one.
+    expects: "24/7"
+    tolerance: 0.005
+    rubric:
+      - >
+        Uses $8$ outcomes from three flips, rejects the single value $r = 7$,
+        and inverts the acceptance probability to $8/7$ rounds.
+      - >
+        Multiplies rounds by the three flips each round costs, and compares
+        against the lazy route's $2$ flips.
+    exercises:
+      - quant-programming.randomized.uniform-random-integer
+    targets:
+      - quant-programming.randomized.biased-from-fair
+
+  - id: qrand-biased-from-fair-02
+    kind: work
+    difficulty: standard
+    statement: >
+      The lazy routine emits a bit that is $1$ with probability $p$ by drawing
+      fair bits $c_1, c_2, \dots$ and stopping at the first index where $c_i$
+      differs from the $i$-th binary digit of $p$. What is the exact probability
+      that the routine is still running after four flips, that is, that it needs
+      a fifth?
+    answer: >
+      $1/16$. At each index the loop halts precisely when $c_i \ne b_i$, and
+      $c_i$ is a fair bit independent of everything before it, so each index
+      halts with probability $1/2$ whatever the digit $b_i$ happens to be. The
+      number of flips is therefore geometric with parameter $1/2$, and surviving
+      four indices means matching four prescribed digits:
+      $(1/2)^{4} = 1/16 = 0.0625$. The same structure gives the expected count,
+      $\mathbb{E}[N] = 2$, for every $p$ — irrational $p$ included, which is
+      what makes this routine exact where a fixed-precision comparison against a
+      rounded $p$ is not. The trap is reading the halting probability off $p$'s
+      digits: a run of zeros or ones in the expansion changes *which* answer a
+      stop produces, never how likely a stop is.
+    expects: "1/16"
+    rubric:
+      - >
+        Notes the halt probability at each index is $1/2$ independently of
+        $b_i$, so the flip count is geometric with parameter $1/2$.
+      - >
+        Raises to the fourth power for four survivals rather than the fifth or
+        the third.
+    targets:
+      - quant-programming.randomized.biased-from-fair
+
+  # --- coding the pi simulation, and testing randomized code ---------------------
+
+  - id: qrand-pi-simulation-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      The dartboard estimator has standard error about $1.64/\sqrt{n}$ after $n$
+      sampled points. How many points does a run need for that standard error to
+      come down to $0.001$?
+    answer: >
+      $2{,}689{,}600$. Setting $1.64/\sqrt{n} \le 0.001$ gives
+      $\sqrt{n} \ge 1640$ and so $n \ge 1640^{2} = 2689600$. The shape of that
+      answer is the lesson: the error falls like $1/\sqrt{n}$, so buying one
+      more decimal digit of accuracy costs a hundred times the samples. Getting
+      to $0.0001$ from here would need $1.64 \times 10^{8}$ squared over
+      $10^{8}$, that is $2.6896 \times 10^{8}$ points, another hundredfold. This
+      is also why a statistical test of the estimator is written at a few
+      standard errors rather than at a fixed number of decimals: at
+      $n = 2689600$ a four-standard-error band is $0.004$ wide, and asserting
+      anything tighter fails on unlucky runs rather than on bugs.
+    expects: "2689600"
+    rubric:
+      - >
+        Solves $1.64/\sqrt{n} = 0.001$ for $n$ by squaring, giving $1640^{2}$
+        rather than $1640$ or $1.64/0.001$.
+      - >
+        States the $1/\sqrt{n}$ scaling consequence: one more digit of accuracy
+        costs a hundred times the work.
+    targets:
+      - quant-programming.randomized.pi-simulation
+
+  - id: qrand-pi-simulation-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A run of the dartboard estimator draws $n = 5000$ points uniformly in the
+      unit square, counting a hit when $u^{2} + v^{2} \le 1$, and records $3940$
+      hits. What estimate of $\pi$ does it report?
+    answer: >
+      $3.152$. The hit probability is the area of the quarter disc over the area
+      of the square, $\pi/4$, so the estimator is four times the hit rate:
+      $4 \cdot 3940/5000 = 4 \cdot 0.788 = 3.152$. It sits $0.0104$ above $\pi$,
+      which is well inside one standard error at this sample size —
+      $1.64/\sqrt{5000} \approx 0.0232$ — so the run is unremarkable rather than
+      evidence of a bug. Two implementation notes travel with the number: never
+      take a square root, since comparing $u^{2} + v^{2}$ against $1$ is exact
+      and cheaper, and never store the points, since one counter is all the
+      state the estimate needs.
+    expects: "3.152"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Multiplies the hit rate by $4$, because the quarter disc has area
+        $\pi/4$ inside a unit square.
+      - >
+        Compares the gap from $\pi$ against the standard error before calling
+        anything wrong.
+    exercises:
+      - quant-statistics.simulation.estimate-pi
+    targets:
+      - quant-programming.randomized.pi-simulation
+
+  - id: qrand-pi-simulation-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      A test suite pins the generator's seed so the estimator returns the same
+      value on every run, and asserts that exact value. Months later a refactor
+      swaps the order in which $u$ and $v$ are drawn from the stream — provably
+      the same mathematics — and the test fails. What should you conclude?
+    answer: >
+      The seeded test is a change detector, not a correctness test: pinning a
+      seed pins one particular order of consumption of the random stream, so any
+      reordering of the draws changes the output while leaving the distribution
+      untouched. That is a real property worth having in CI — it catches
+      unintended changes to the sampling path cheaply and deterministically —
+      but it must be read as "the stream is consumed differently", not "the
+      estimator is wrong". The right response is to confirm the refactor is
+      distribution-preserving, re-pin the expected value deliberately with that
+      justification recorded, and keep a second, seed-independent test that
+      asserts $|\hat{\pi} - \pi| \le 4 \cdot 1.64/\sqrt{n}$, which fails with
+      probability below $10^{-4}$ and is blind to the draw order. The
+      deterministic pieces — the hit predicate, the counter — should be
+      unit-tested exactly and separately, where no seed is needed at all.
+    choices:
+      - text: >
+          The refactor is distribution-preserving; the seeded test pins a
+          consumption order, so it should be re-pinned and backed by a
+          distributional assertion
+        correct: true
+        feedback: >
+          A seeded test detects change, not incorrectness — pair it with a
+          tolerance test at a few standard errors, which the reorder cannot
+          break.
+      - text: >
+          The refactor introduced a bug, because a correct estimator returns the
+          same value for the same seed
+        feedback: >
+          The same seed only reproduces a run when the draws are consumed in the
+          same order; reordering two draws changes the output without changing
+          its distribution.
+      - text: >
+          Re-pin the seed to whichever value reproduces the old output and move
+          on
+        feedback: >
+          Fitting the seed to the answer hides any future regression the test
+          existed to catch; re-pin the expected value, not the seed, and record
+          why.
+      - text: >
+          Seeded tests have no place in CI for randomized code — only
+          distributional assertions do
+        feedback: >
+          An overcorrection: the seeded test is the only one that fails
+          deterministically on an accidental change, which is worth keeping
+          alongside the tolerance test.
+    rubric:
+      - >
+        Separates "the output changed" from "the distribution changed" — the
+        seed fixes the stream, not the mathematics.
+      - >
+        Keeps both instruments: an exact seeded regression test and a
+        distributional assertion at a few standard errors.
+    targets:
+      - quant-programming.randomized.pi-simulation
+
+  # --- randomized quicksort: expected comparisons --------------------------------
+
+  - id: qrand-quicksort-expected-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Randomized quicksort sorts $8$ distinct keys $z_1 < z_2 < \dots < z_8$
+      with a uniformly random pivot at every level. What is the expected number
+      of comparisons that involve the smallest key, $z_1$?
+    answer: >
+      $3.436$. Keys $z_i$ and $z_j$ are compared at most once, and exactly when
+      the first pivot drawn from the block $\{z_i,\dots,z_j\}$ is one of the two
+      endpoints — any interior pivot separates them into different subarrays
+      forever — so $\Pr(X_{ij} = 1) = 2/(j-i+1)$. Fixing $i = 1$ and summing the
+      indicators over $j = 2,\dots,8$ gives
+      $\mathbb{E} = \sum_{j=2}^{8} \frac{2}{j} = 2(H_8 - 1)$, and with
+      $H_8 = 761/280 \approx 2.7179$ that is
+      $2 \cdot 1.7179 = 3.4357 \approx 3.436$. The reading is that the smallest
+      key is compared against only about three and a half of its seven
+      companions on average, because distant keys are almost always split apart
+      by an early pivot: $z_1$ meets $z_2$ with probability $1$ but $z_8$ with
+      probability only $2/8$. Linearity does the work — the $X_{1j}$ are plainly
+      dependent, and never need to be independent.
+    expects: "3.436"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses block length $j - i + 1$, so the probability for the pair
+        $(z_1, z_j)$ is $2/j$ and not $2/(j-1)$.
+      - >
+        Sums indicator expectations by linearity, explicitly not claiming
+        independence.
+    exercises:
+      - quant-probability.expectation.indicator-trick
+      - quant-tools.series-calculus.harmonic-numbers
+    targets:
+      - quant-programming.randomized.quicksort-expected
+
+  - id: qrand-quicksort-expected-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Using the closed form $\mathbb{E}[C] = 2(n+1)H_n - 4n$, what is the
+      expected total number of comparisons randomized quicksort makes on $n = 8$
+      distinct keys?
+    answer: >
+      $16.92$. With $H_8 = 761/280 \approx 2.717857$,
+      $\mathbb{E}[C] = 2 \cdot 9 \cdot 2.717857 - 32 = 48.9214 - 32 = 16.9214$,
+      which rounds to $16.92$. Two checks are cheap and worth doing. Summing the
+      pairwise probabilities directly, $\sum_{i<j} 2/(j-i+1)$ over all $28$
+      pairs, returns the same $16.92$. And the information-theoretic floor for
+      sorting $8$ keys is $\log_2 8! \approx 15.30$ comparisons, so this run
+      costs about $1.11$ times the minimum — a ratio that drifts up towards
+      $2\ln 2 \approx 1.386$ as $n$ grows, which is the constant behind the
+      familiar $1.39\,n\log_2 n$.
+    expects: "16.92"
+    tolerance: 0.005
+    rubric:
+      - >
+        Uses $H_8 \approx 2.7179$, the eighth harmonic number, rather than
+        $\ln 8 \approx 2.079$.
+      - >
+        Applies the formula with $n + 1 = 9$ and $4n = 32$ in the right places.
+    targets:
+      - quant-programming.randomized.quicksort-expected
+
+  - id: qrand-quicksort-expected-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      Randomized quicksort makes $2(n+1)H_n - 4n \approx 1.39\,n\log_2 n$
+      comparisons in expectation, while every comparison-based sort needs at
+      least $\log_2 n! \approx n\log_2 n - 1.44n$ comparisons. What does
+      randomizing the pivot actually buy against that bound?
+    answer: >
+      Nothing against the bound — the lower bound applies to randomized
+      algorithms in expectation too, since a decision tree of depth $d$ has at
+      most $2^{d}$ leaves whether the branching is coin-driven or not.
+      Randomizing deletes the bad *input*: with a fixed first-element pivot the
+      $\Theta(n^{2})$ case is sorted or reverse-sorted data, which production
+      systems see constantly, and with a random pivot no input is bad, only
+      unlucky coins. The price is a constant: $2\ln 2 \approx 1.386$ times the
+      information-theoretic minimum, visible already at $n = 8$ as $16.92$
+      comparisons against a floor of $\log_2 8! \approx 15.30$. So the trade is
+      an adversary-proof guarantee bought for about $39$ percent more
+      comparisons than a perfectly balanced merge would need, not a way under
+      the floor.
+    choices:
+      - text: >
+          Nothing against the bound — it applies in expectation to randomized
+          algorithms as well; randomizing removes the bad input and pays about
+          $2\ln 2$ times the floor
+        correct: true
+        feedback: >
+          The counting argument over decision-tree leaves does not care where
+          the branching comes from, so the floor stands; what changes is that no
+          input is reliably bad.
+      - text: >
+          It beats the bound, since $\log_2 n!$ is a lower bound only for
+          deterministic algorithms
+        feedback: >
+          The bound holds in expectation for randomized comparison sorts too — a
+          randomized sort is a distribution over decision trees, and each of
+          them obeys the leaf count.
+      - text: >
+          It makes the two coincide: $2(n+1)H_n - 4n$ is asymptotically equal to
+          $\log_2 n!$
+        feedback: >
+          Their ratio tends to $2\ln 2 \approx 1.386$, not $1$; already at
+          $n = 8$ it is $16.92$ against $15.30$.
+      - text: >
+          It raises the expected comparison count above what the deterministic
+          version averages over random inputs
+        feedback: >
+          The two averages agree — the same $2(n+1)H_n - 4n$ — but only the
+          randomized one holds for every input rather than on average over
+          inputs.
+    rubric:
+      - >
+        Says the lower bound survives randomization, and why: the leaf-counting
+        argument is indifferent to how branches are chosen.
+      - >
+        Locates the benefit in the input, not the constant — the worst case
+        moves from a property of the data to a property of the coins.
+    connects:
+      - quant-programming.algorithms.sorting-lower-bound ~ quant-programming.randomized.quicksort-expected
+    targets:
+      - quant-programming.randomized.quicksort-expected
+      - quant-programming.algorithms.sorting-lower-bound
+
+  - id: qrand-quicksort-expected-04
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Prove that for $i < j$ the keys $z_i$ and $z_j$ are compared with
+      probability exactly $2/(j-i+1)$ during a run of randomized quicksort, and
+      show how that yields
+      $\mathbb{E}[C] = \sum_{i<j} 2/(j-i+1) = 2(n+1)H_n - 4n$. State where the
+      argument would break if pivots were chosen by a fixed rule instead.
+    answer: >
+      Fix $i < j$ and follow the block $B = \{z_i, z_{i+1}, \dots, z_j\}$, of
+      size $m = j - i + 1$. Until some key of $B$ is chosen as a pivot, every
+      pivot so far lies outside $B$ and therefore either exceeds all of $B$ or
+      falls below all of it, so $B$ stays inside one subarray intact. The first
+      pivot drawn from $B$ decides the pair once and for all: if it is $z_i$ or
+      $z_j$, that pivot is compared against every other member of $B$, so
+      $z_i$ and $z_j$ meet; if it is any interior key, it separates them into
+      different subarrays and they can never be compared afterwards. Because the
+      pivot is uniform on whatever subarray it is drawn from, and $B$ sits
+      whole inside that subarray, each of the $m$ members of $B$ is equally
+      likely to be the first of $B$ chosen — so
+      $\Pr(X_{ij} = 1) = 2/m = 2/(j-i+1)$. Writing $C = \sum_{i<j} X_{ij}$,
+      linearity of expectation gives $\mathbb{E}[C] = \sum_{i<j} 2/(j-i+1)$
+      with no independence required. Grouping the pairs by gap $g = j - i$,
+      there are $n - g$ pairs at gap $g$, so
+      $\mathbb{E}[C] = \sum_{g=1}^{n-1} 2(n-g)/(g+1)$, and rewriting
+      $n - g = (n+1) - (g+1)$ splits it into
+      $2(n+1)\sum_{g=1}^{n-1} 1/(g+1) - 2(n-1) = 2(n+1)(H_n - 1) - 2(n-1)
+      = 2(n+1)H_n - 4n$. With a fixed pivot rule the step that fails is the
+      uniformity: which member of $B$ is reached first is then a function of the
+      input order, so an adversary can force $z_i$ and $z_j$ to meet for almost
+      every pair and drive $C$ to $\binom{n}{2}$.
+    rubric:
+      - >
+        Argues that $B$ stays intact until a pivot is drawn from inside it, so
+        the first such pivot is uniform over the $m$ members of $B$.
+      - >
+        Splits the two cases correctly: an endpoint pivot forces the comparison,
+        an interior pivot makes it impossible — and notes a pair is compared at
+        most once.
+      - >
+        Collapses the double sum by gap length and reaches
+        $2(n+1)H_n - 4n$, using linearity without claiming the $X_{ij}$ are
+        independent.
+    exercises:
+      - quant-probability.expectation.indicator-trick
+      - quant-tools.series-calculus.harmonic-numbers
+    targets:
+      - quant-programming.randomized.quicksort-expected
+
+  # --- randomize to delete the worst case ----------------------------------------
+
+  - id: qrand-randomness-against-adversaries-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A hash table draws a fresh seed per process, so its hash spreads keys
+      uniformly and independently over $1024$ buckets as far as any outside
+      party can tell. The table already holds $200$ keys and one more is
+      inserted. What is the probability that the new key lands in a bucket
+      already occupied by at least one of the $200$?
+    answer: >
+      $0.1775$. Each stored key misses the new key's bucket with probability
+      $1023/1024$, and under the random seed those events are independent of the
+      key values an attacker chose, so the probability of no clash is
+      $(1023/1024)^{200} = 0.82250$ and the answer is
+      $1 - 0.82250 = 0.17750$. The union bound over the $200$ keys gives
+      $200/1024 = 0.1953$, an overestimate by about $0.02$ because it
+      double-counts the buckets that hold more than one key — close enough that
+      it is the number to quote in an interview, and always on the safe side.
+      The point of the seed is what happens to this figure under attack: with a
+      fixed published hash function an adversary submits $200$ keys chosen to
+      share one bucket and the probability of a clash is $1$, turning expected
+      $O(1)$ lookups into $\Theta(m)$ ones. Expected constant time is a claim
+      about a hash function drawn at random, never about a particular one.
+    expects: "0.1775"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Computes the complement $(1023/1024)^{200}$ rather than $200/1024$, and
+        says why the union bound overestimates.
+      - >
+        Ties the independence to the random seed: it is what stops the
+        adversary's chosen keys from being correlated with the bucket
+        assignment.
+    connects:
+      - quant-programming.complexity.hashing-cost ~ quant-programming.randomized.randomness-against-adversaries
+    targets:
+      - quant-programming.randomized.randomness-against-adversaries
+      - quant-programming.complexity.hashing-cost
+
+  - id: qrand-randomness-against-adversaries-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      After a hash-flooding incident, a team replaces the published hash
+      function with a new one they wrote in-house and did not publish, keeping
+      it fixed across every process. Which assessment is right?
+    answer: >
+      It is not a fix: a fixed function is a fixed worst case, and secrecy only
+      delays its discovery. An attacker who can time insertions — or who reads
+      the binary, or finds the source in a leak — can recover colliding keys
+      once and reuse them against every process on every machine forever, since
+      nothing varies between them. Drawing a seed at random per process is the
+      structural repair, because it converts "some inputs are catastrophic" into
+      "some coin flips are unlucky", and the attacker cannot aim at a function
+      that does not exist until the process starts. That is the same move as a
+      random pivot in quicksort and random tie-breaking in a queue: the
+      randomness has to be unavailable to whoever chooses the input, and the
+      guarantee then holds for every input rather than for most of them.
+    choices:
+      - text: >
+          It is not a fix — a fixed function has a fixed set of colliding keys
+          that can be found once and reused everywhere; the seed must vary per
+          process
+        correct: true
+        feedback: >
+          Secrecy of a fixed function buys time, not a guarantee. Per-process
+          randomness is what removes the fixed worst case.
+      - text: >
+          It is a fix, because an attacker cannot construct colliding keys
+          without knowing the function
+        feedback: >
+          Timing insertions, reading the binary, or a single leak recovers it
+          once — and once is enough, since every process shares it.
+      - text: >
+          It is a fix if the in-house function spreads keys more evenly than the
+          published one on typical data
+        feedback: >
+          Average-case spreading was never the problem; the attack is about a
+          deliberately chosen input, which no fixed function survives.
+      - text: >
+          It is unnecessary — expected $O(1)$ lookup already holds for any hash
+          function
+        feedback: >
+          Expected $O(1)$ is an average over the random choice of hash function.
+          With one fixed function there is no average left to take.
+    rubric:
+      - >
+        Identifies the invariant that matters: the randomness must be
+        unavailable to whoever picks the input, which secrecy of a fixed
+        function does not achieve.
+      - >
+        Connects it to the general move — random pivot, random tie-break — of
+        turning a bad input into an unlucky coin.
+    targets:
+      - quant-programming.randomized.randomness-against-adversaries
+
+  - id: qrand-randomness-against-adversaries-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      A cache stores $1000$ keys, hashing them with a per-process random seed
+      into $10^{7}$ buckets. Give a union-bound argument that the probability of
+      *any* collision among the stored keys is below $5$ percent, and explain
+      precisely which step of your argument would fail if the seed were fixed
+      and published.
+    answer: >
+      Index the $\binom{1000}{2} = 499{,}500$ unordered pairs of stored keys and
+      let $A_{ij}$ be the event that pair $(i,j)$ lands in the same bucket. For
+      any two distinct keys, the seed makes the bucket of one uniform and
+      independent of the other, so $\Pr(A_{ij}) = 1/10^{7}$ — this is the only
+      place randomness is used, and it needs nothing about the *joint* behaviour
+      of the pairs. The union bound gives
+      $\Pr\left(\bigcup_{i<j} A_{ij}\right) \le \sum_{i<j} \Pr(A_{ij})
+      = 499500/10^{7} = 0.04995$, just under $5$ percent, and the bound holds
+      whether or not the events are independent, which is what makes it usable
+      here: the $A_{ij}$ are certainly dependent, since $A_{12}$ and $A_{13}$
+      together force $A_{23}$. Two remarks keep it honest. The bound is an
+      overestimate — the exact birthday probability is
+      $1 - \prod_{t=1}^{999}(1 - t/10^{7}) \approx 0.0487$ — and it becomes
+      vacuous once the pair count exceeds the bucket count, which is why it says
+      nothing about $1000$ keys in $1000$ buckets. With a fixed published seed
+      the failing step is the very first one: $\Pr(A_{ij}) = 1/10^{7}$ is a
+      statement about a hash drawn at random, and for a fixed hash the bucket of
+      each key is a determined value an adversary may compute in advance, so
+      they simply submit $1000$ keys with $\Pr(A_{ij}) = 1$ for every pair. The
+      guarantee is over the seed, and it survives an adversary who knows the
+      code precisely because it does not depend on which keys were chosen.
+    rubric:
+      - >
+        Counts $\binom{1000}{2} = 499500$ pairs and bounds the union by the sum
+        of the pairwise probabilities, noting the bound needs no independence.
+      - >
+        Gets the per-pair probability $1/10^{7}$ from the random seed, and
+        arrives at $0.04995$.
+      - >
+        Names the step that fails under a fixed hash — the per-pair probability
+        is no longer $1/B$ for adversarially chosen keys — rather than blaming
+        the union bound itself.
+    targets:
+      - quant-programming.randomized.randomness-against-adversaries
