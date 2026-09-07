@@ -158,11 +158,15 @@ validate` remains the authority.
 
 ## Current contents
 
-32 problems over the 22 content nodes of design.md Appendix A — which *is* the
-single-variable-calculus content; the M2 authoring track never ran separately, see
-the Phase 8 decision log. `mvc-leibniz-01` is the bank's one `connects` problem,
-and the only thing in the system that can score a `relates` edge.
+706 problems over all 322 content nodes of the fifteen authored units (Phase
+15): every node carries at least two, one `demanding` and one `standard` or
+`routine`, and every `work`/`decide` problem is machine-checked. The files
+mirror `content/`: `foundations/` (nine units), `analysis/{svc,mvc,sequences}`,
+`linear-algebra/systems`, `number-theory/divisibility`, `algebra/groups`.
+`mvc-leibniz-01` and `ind-ex-sum-of-squares-01` are the `connects` problems —
+the only things in the system that can score a `relates` edge.
 
-Placement-ready: `foundations.real`, `analysis.svc`, `analysis.mvc`. Every other
-subbranch in the outline is content-only for now; the bank is the long pole of
-Phase 9's remaining work and the manifest is where it is tracked.
+Placement-ready: all fifteen authored subbranches; `PlacementFixtureTests`'
+manifest lists them and asserts it equals the fully covered set in both
+directions, so a new unit's bank must add itself there. Every other subbranch
+in the outline is content-only until it is authored.

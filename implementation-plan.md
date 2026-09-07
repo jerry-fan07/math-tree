@@ -883,43 +883,42 @@ A mastery set is hardest-first because the node was taught a minute ago (D13.6).
 **D15.6 — The content campaign: one author per unit, checked in isolation, committed per batch.**
 Phase 12's shape (D12.7) again, with two additions. `check-lesson-file.py` infers the tree from the unit id and refuses a single-check lesson; `check-problem-file.py` is new — the bank had no isolated pre-flight, so 71 problem authors would have contended on the Swift build or shipped unchecked. Both mirror the validators plus the *coverage bar* the course needs: every node with ≥2 problems, one `demanding` and one not, `work`/`decide` machine-checked. Every author is told to show the computation that produces `expects` inside `feedback`/`answer`, because a bare number is the one thing no pre-flight can verify and a shown computation is checkable at a glance. The math course's guide drops `interview` and asks for `steps` on every lesson; a mathematics course's answers are mostly not numbers, so it says so and steers authors to `choices`.
 
-**D15.7 — State at the cutoff, and how to resume.**
-The content campaign ran 60 authoring agents before the account's monthly
-spend limit terminated the last wave mid-write (HTTP 429, resets 06:00
-New York; raise the limit to resume sooner). Everything that finished passed
-its pre-flight check, then `ContentBuild validate` for its tree, then the
-rendering self-check (clean over 32,621 fields), and was committed per batch.
-Where it stands:
+**D15.7 — The content campaign, in three sittings.**
+About 150 authoring agents ran between September 4 and 7, 2026 — one per
+unit, sonnet for quant cards, opus for math lessons and every bank — and the
+run was interrupted four times: the account's monthly spend limit ended the
+first wave mid-write, a five-hour session limit ended two later waves, and the
+machine sleeping stalled a dozen agents (an agent whose API stream hangs looks
+alive to the harness for a long time; the tell is a bank file whose
+modification time stops moving). Salvage worked the same way every time: a
+file that passed its pre-flight check was validated and committed; a
+part-written file stayed in place — the loader reads it, so the tree keeps
+validating as long as each problem is well-formed — and a fresh agent resumed
+it under a "finish" prompt that keeps existing ids and runs the checker
+first. The three math lesson drafts were parked in `program/drafts/` for the
+same reason and finished the same way.
 
-- **Quant tree** — 34 of 58 units carry cards: 634 of 958 lessons, 1,883
-  checks (from 38 / 78). Banks for 8 units (413 problems over 191 nodes) meet
-  the mastery bar; `quant-probability.continuous`, `discrete` and `joint` are
-  part-written (valid, coverage short by 8 / 7 / 13 nodes). Unauthored
-  cards: quant-mental.approximation and fermi; all of quant-games except
-  ev-games; all of quant-finance, quant-puzzles and quant-programming (24
-  units). Unauthored banks: 48 units.
-- **Math tree** — the spine (82 units, 4 declared forward references) and
-  lessons with cards for all of Foundations and Single-Variable Calculus: 9
-  of the 15 authored units, 211 of 322 nodes, 625 checks. Three files were
-  cut off mid-write and are parked in `program/drafts/` (a directory the
-  loader does not read, so the tree validates): `analysis.sequences` (10 of
-  27 lessons), `linear-algebra.systems` (5 of 25), `number-theory.divisibility`
-  (5 of 27). Not started: `analysis.mvc` and `foundations.real` (2 nodes
-  each) and `algebra.groups` (28). No math bank was upgraded or added — the
-  three pre-Phase-13 banks still fail `check-problem-file.py`'s bar, which is
-  the intended state until the math problem agents run; `PlacementFixtureTests`'
-  manifest is unchanged for the same reason.
-- **The app, model, tooling, tests and docs are complete**: 335 tests pass;
-  the course renders over the real math program in both themes.
+Final state: both programs are fully interactive — the quant program's 958
+lessons carry 2,851 authored checks, the math program's 322 carry 958 — and
+both banks meet the mastery bar on every node: 2,278 quant problems over all
+958 nodes (58/58 units), 706 math problems over all 322 nodes (15/15 authored
+units, all placement-ready). The rendering self-check is clean over 62,325
+fields; 335 tests pass; the course renders over the real program in both
+themes. The exit criterion holds in every clause.
 
-To resume: move a draft back into `program/lessons/` and run its checker —
-the missing-lesson list is the remaining work; launch the remaining unit
-agents from the prompts in this session's transcript (one per unit, sonnet
-for quant cards, opus for math lessons and every bank; never `swift` or
-`git stash` inside an agent; scratch scripts uniquely named); validate and
-math-check per batch; when the math banks land, extend `placementReady` in
-`PlacementFixtureTests` to every authored subbranch. The exit criterion's
-content half is therefore *not yet met*; every other clause is.
+What the campaign taught, now encoded: (a) gate every commit on the renderer
+self-check's *exit code* — piped through `tail` it was swallowed once and
+eight `\"` escapes reached a commit before the next run caught them, so
+`check-lesson-file.py` now rejects a backslash-escaped quote; (b) the Swift
+validator is stricter than the Python checker on `exercises` (a tag must lie
+in a target's `requires` closure) and on `connects` (ends sorted, edge
+authored), so the checker gained the sorted-ends rule and every prompt names
+the closure rule; (c) a part-written file with a violation blocks *every*
+other author's commit, so authors run the checker per chunk, not per file;
+(d) the advisor tool hangs under load — later prompts forbade it and had the
+author verify numbers in Python instead; (e) the placement-probe pin is a
+function of the askable set, not only of the policy (11 → 21 when the set
+grew tenfold).
 
 **D15.8 — Known gaps.**
 Unit numbering on the course home skips where unauthored units collapse
@@ -931,8 +930,15 @@ paper has no slot for a substitution. The player has no keyboard shortcut
 for "next skill". The chapter reader is unchanged from Phase 12 except for
 its rung labels. Two content corrections were made in passing on the authors'
 findings (a reversed interval direction in the Slutsky worked example; power
-0.80 as a one-in-five miss), which suggests the older prose would repay a
-review pass with the cards' checks as the instrument.
+0.80 as a one-in-five miss; the auction formats grouped backwards; an
+effective spread below the quoted one explained as walking the book), which
+suggests the older prose would repay a review pass with the cards' checks as
+the instrument. `check-problem-file.py` does not enforce the prominence-2
+"three problems" rule; every author honoured it by hand, so a future bank
+could silently fall short. A `connects` problem can only score a `relates`
+edge whose far end it also targets, so units whose `relates` edges all leave
+the unit carry `connects: []` throughout — the edge review §4.4 promises is
+unreachable there until a cross-unit problem is written on purpose.
 
 ---
 
