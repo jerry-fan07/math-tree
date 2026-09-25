@@ -162,6 +162,7 @@ struct UnitPage: View {
                         level: scores.level(of: step.id),
                         isBookmarked: step.id == plan.resume?.id,
                         canPlay: onPlay != nil && program.lesson(for: step.id) != nil,
+                        isDialogue: program.lesson(for: step.id)?.isDialogue == true,
                         canPractice: onPractice != nil && scores.canProbe(step.id),
                         forwardTitles: step.forward.map { title(of: $0) },
                         onPlay: { onPlay?(step.id) },
@@ -237,6 +238,8 @@ private struct SkillRow: View {
     let level: MasteryLevel
     let isBookmarked: Bool
     let canPlay: Bool
+    /// §6.9: taught question-first, as a dialogue, rather than as cards.
+    let isDialogue: Bool
     let canPractice: Bool
     let forwardTitles: [String]
     let onPlay: () -> Void
@@ -315,6 +318,7 @@ private struct SkillRow: View {
 
     private var meta: String {
         var parts = [node?.kind.rawValue.uppercased() ?? ""]
+        if isDialogue { parts.append("DIALOGUE") }
         if step.isDecayed { parts.append("DECAYED · DUE") }
         if !forwardTitles.isEmpty {
             parts.append("USES " + forwardTitles.joined(separator: ", ").uppercased() + " (LATER)")

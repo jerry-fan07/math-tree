@@ -317,6 +317,15 @@ Display is the player: one full-screen column over the map, the node's title and
 
 One grading rule rides along because the course made it visible: a typed answer with no authored tolerance is compared *at the precision the reader chose* — a decimal to three or more places is right when the expected value rounds to it — so `0.4667` is a correct answer to `7/15` without every author remembering a tolerance, while `0.47` stays a guess and a fraction stays exact.
 
+### 6.9 Socratic dialogues
+
+§6.7 made the lesson answerable and §6.8 made it a course, and the lesson itself still taught the way a textbook does: a beat states the definition, the next beat proves the theorem, and then a check asks for it back. That order has the reader *recognise* an idea they were just handed; it never asks them to *reach* for one. The competitive-programming tutor this repo's owner also keeps (`competitive-programming/`) teaches the other way round — every technique is rebuilt from a concrete problem through questions: the brute force, what it costs, what it wastes, the insight, why it is correct — and its lessons are dialogues. §6.9 brings that form here:
+
+- **A dialogue is an authored lesson form, and opt-in.** A lesson may carry `dialogue:` instead of `steps:` — the same card vocabulary, plus a **reflection** (an open question the reader answers in their own words and then compares with the tutor's model answer) and **parts** (titled sections, so a dialogue reads as the outline of a conversation: *Two photographs and a fine → The flat case, already solved → A point you are promised but cannot find → Where it breaks*). The prose sections stay; the chapter reader still reads them, and the player closes on the recap.
+- **A contract, enforced.** A dialogue opens a part; has at least two parts and five questions, at least one of them a reflection; never runs more than two beats without asking something; and gives every choice row its own feedback. These are validator errors, not hints — but they bind only a lesson that opted in, so the corpus's 1,280 card lessons stay valid unchanged. The authoring contract (`program/dialogue.md`, both trees) gives the arc: concrete situation → the reader's first attempt → the obstacle → the reach (a reflection, before the idea is named) → the name → why it holds, asked → an instance by hand → where it breaks.
+- **The player is a transcript.** One card per screen hides the situation every later question leans on, so the lesson now shows everything up to the first unanswered question and unfolds the next stretch when it is answered. A wrong row stays on the page with its feedback and the reader picks again; a wrong typed value is listed with which way it missed (too high, too low, off by a factor of ten); a reflection shows the reader's words above the tutor's and asks them to rate their own version. "Show me" is on every question, so the gate is a question and never a lock. An outline rail gives each part's progress and the node's prerequisites with their rung. Card lessons and derived pagings play through the same transcript.
+- **Still formative.** Nothing in a dialogue writes evidence ([§6.7](#67-interactive-lessons)); first-try counts and self-ratings live exactly as long as the player. The mastery set at the end is where the reader is measured, now introduced as what it is — the same idea, on your own.
+
 ---
 
 ## 7. Content Pipeline
@@ -365,6 +374,7 @@ Shifu integration is a **data contract, not a code dependency**: Shifu will push
 - **M8 — The program** ([§6.6](#66-the-program)): an authored curriculum over a whole tree — spine, lessons, reader — quant tree first.
 - **M9 — Interactive lessons** ([§6.7](#67-interactive-lessons)): the course made clickable — cards, checked answers, and a mastery set per node, over a quant problem bank.
 - **M10 — The course** ([§6.8](#68-the-course)): course home, unit pages, the mastery ladder, unit tests and the next-skill loop; both trees taught whole — every node with cards, checks and problems, the math tree with its own spine.
+- **M11 — Socratic dialogues** ([§6.9](#69-socratic-dialogues)): lessons rebuilt question-first — reflections, parts, a contract the validator holds — played as an unfolding transcript; pilot units in both trees, then the corpus unit by unit.
 
 ---
 

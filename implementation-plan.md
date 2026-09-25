@@ -40,9 +40,9 @@ math-tree/
 
 ### Phase → milestone map (mapping, not renumbering — §9 stays authoritative)
 
-| Phase | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Milestone | M0 | M0 | M0 | M1 | M1 | M3 | M3 | M3 | M4 | M5 | M6 | M7 | M8 | M9 | M9 | M10 |
+| Phase | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Milestone | M0 | M0 | M0 | M1 | M1 | M3 | M3 | M3 | M4 | M5 | M6 | M7 | M8 | M9 | M9 | M10 | M11 |
 
 Two items are deliberately built one milestone early: the precomputed-layout pipeline (Phase 2, though §9 lists it under M1) and graph propagation (Phase 5, though §9 lists it under M4) — each is cheapest to build alongside its surrounding code (layout with the content compiler, propagation with the scoring fold). Their §9 milestones remain where the capability is *demonstrated*.
 
@@ -293,6 +293,19 @@ Not a numbered phase: an outside design pass over what Phases 4–8 built, impor
 
 **Deliverable**: open either tree, press Continue, and be taught skill after skill — cards, checks, a mastery set, a rung, the next skill — with a unit page that says where you stand and a unit test that proves it.
 **Exit criterion**: `validate` reports every content node of both trees lesson-covered *and* card-covered, with at least two bank problems per node; every unit's problem file passes `check-problem-file.py`; the math spine validates with exactly the declared forward references and the quant artifact is identical to Phase 14's except for its authored `title`; the ladder's Proficient count equals the frontier's met count on the fixture user; a typed `0.4667` is accepted for `7/15` and `0.47` is not; `MATHTREE_MATH_CHECK` is clean over both corpora; the course home, a unit page, the finish card, the rail and a subject path render offscreen in both themes.
+
+## Phase 16 — Socratic dialogues
+
+**Goal**: M11 — §6.9. Lessons that teach question-first. Every card lesson in both trees follows define → check, which has the reader recognise an idea rather than reach for it; the competitive-programming tutor's dialogues (a problem, the brute force, its cost, the waste, the insight, the proof, asked rather than told) are the model.
+
+**Tasks**
+- `GraphCore`: `LessonCard.reflect` / `.answer` / `.part` (hand-written Codable, absent keys encode away); `Lesson.dialogue`, played ahead of `steps` by `Lesson.cards`; `DialogueSession` — the transcript's state machine (the gate, kept wrong picks, typed misses with direction, reveal, reflections and self-ratings, parts, the seam's `answerCorrectly(through:)`); `ProgramValidator.cardFaults` for all three card kinds and the opt-in dialogue contract (`dialogue-opens-without-part`, `dialogue-lecture`, `dialogue-thin`, `dialogue-no-reflection`, `dialogue-choice-without-why`, plus `lesson-steps-and-dialogue`, `lesson-reflection-missing-answer`, `lesson-stray-answer`).
+- `ContentBuild` / scripts: the summary line counts dialogues and reflections; `check-lesson-file.py` mirrors every new rule and gains `--dialogue` (every lesson of the unit must be one) and the checker-only length bars.
+- App: `LessonPlayer` rebuilt as a transcript over `DialogueSession` — part headings, beats, question boxes (choice with retry, typed with directional misses, reflection with the tutor's answer and a self-rating), hint and "show me" everywhere, an outline/tally/builds-on rail, letter keys for choices, the finish (recap, "now on your own" mastery set, self-report, rung, next skill) at the transcript's foot; Escape routed to the owner while the player holds the keyboard, and the map reclaiming the keys when nobody holds them; the unit page marks dialogue skills; `MathTextCheck` samples `dialogue`; `PanelShot` renders the real reference dialogue in eight states plus the steps and derived fallbacks.
+- Content: `program/dialogue.md` (the contract, both trees); `analysis.svc.mvt` hand-written as the reference; pilot units `analysis.svc` and `quant-probability.foundations` converted, one opus author per unit against `check-lesson-file.py --dialogue`.
+
+**Deliverable**: open the Mean Value Theorem and be asked about a speeding fine before being told any theorem — then reach for the pace-car argument yourself, and see the tutor's version beside yours.
+**Exit criterion**: the dialogue contract's rules each fail their named case and bind only `dialogue` lessons (tests); every pilot lesson passes `check-lesson-file.py --dialogue` and `ContentBuild validate`; `MATHTREE_MATH_CHECK` is clean over both corpora; the transcript renders offscreen at its opening, a kept wrong row, a typed miss, a reflection before and after, a late part and the finish, in both themes.
 
 ---
 
@@ -941,6 +954,23 @@ the unit carry `connects: []` throughout — the edge review §4.4 promises is
 unreachable there until a cross-unit problem is written on purpose.
 
 ---
+
+### Phase 16
+
+**D16.1 — The lesson is a transcript, and a question is a gate but never a lock.**
+§6.7 chose one card per screen so a beat had to be dismissed (D13.5's rhythm). A dialogue breaks that choice on purpose: its later questions lean on a situation set up at the start ("the pace car"), and one card per screen hides it by the fifth card. So the player shows everything up to the first unanswered question and unfolds the next stretch on an answer — the competitive-programming tutor's form. That makes each question a gate, which D13.5 ruled out; the amendment is that the gate is one click wide ("show me" on every question, and a reflection accepts an empty answer), so the reader who wants the next idea still gets it, while the reader who engages is asked before being told. Considered and rejected: pinning the opening scenario above a card-per-screen player (it keeps two layouts for one lesson and still hides every intermediate result).
+
+**D16.2 — A dialogue is opt-in, and its contract is an error.**
+The contract (≤2 beats between questions, ≥5 questions across ≥2 parts, a reflection, a why on every row) is the whole difference between a dialogue and a card deck; as a hint it would decay on the next campaign. But 1,280 card lessons violate it by construction, and they are not wrong — they are the other form. So a lesson opts in by authoring `dialogue:` instead of `steps:` (never both), and the contract binds exactly those. The per-card rules (a card is one of `teach`/`ask`/`reflect`; a reflection has an `answer`; an `answer` has a reflection) hold everywhere, because they name silent failures in either form. `Lesson.cards` prefers `dialogue`, then `steps`, then the derived paging, so a unit can convert lesson by lesson.
+
+**D16.3 — A wrong answer is kept, and a reflection is not graded.**
+A §6.7 check resolved on the first commit and showed the canonical feedback; the distractor's own feedback was read once, if at all. In a dialogue the wrong rows *are* the teaching (they are the misconceptions a real reader holds), so a wrong pick stays on the page with its feedback and the reader picks again, and the verdict says "first try" or "after N tries". A typed miss says which way it missed — too high, too low, or off by a factor (≥10) — which is a hint the reader earned by committing to a number; unreadable input is a spelling problem and is not counted. A reflection has no machine check at all: matching free text against LaTeX is a rabbit hole and would make the app grade exactly the answers it cannot understand. The reader compares, rates their own version (had it / partly / missed it), and none of it is recorded (D13.2).
+
+**D16.4 — The session is a GraphCore value type.**
+The player's state — gate, outcomes, kept picks, misses, reflections, ratings, hints — lives in `DialogueSession`, not in a dozen `@State` dictionaries, because the rules that make a dialogue a dialogue (what is visible, when a question counts as first try, what "show me" resolves to) should be testable without a window, and the seam the shot harness uses (`answerCorrectly(through:)`) should be the same code the tests exercise. It records nothing and dies with the player; the bookmark is still `ProgramPlan.resume`.
+
+**D16.5 — Offscreen frames start near their gate.**
+`NSHostingView` + `cacheDisplay` draws a `ScrollView` at its top and ignores `defaultScrollAnchor`, so a frame opened deep in a transcript would show its first screen and pass. The seam therefore starts a seam-opened transcript at the gate's part (or two steps above the gate, or at the ending) with a "N earlier steps above" line. It is inert in the app: nothing there sets `startCard`.
 
 ## Risks (top three, with mitigations already embedded above)
 

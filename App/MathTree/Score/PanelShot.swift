@@ -299,61 +299,98 @@
                 ])
         }
 
-        /// §6.7's player, over the same hand-authored fixture chapter the reader
-        /// shot uses — plus `steps`, so both halves of D13.1 are visible: the
-        /// authored cards on `analysis.svc.mvt`, and the *derived* paging on
-        /// `analysis.svc.ftc-part-2`, which has no `steps` at all.
+        /// §6.9's player. The dialogue frames play the *real* reference lesson
+        /// (`analysis.svc.mvt` in `program/`) when the math program is built,
+        /// because the claim they make — the transcript unfolds, a wrong row keeps
+        /// its why, a reflection sets the reader's words beside the tutor's — is
+        /// about authored content surviving the view. The fixture chapter keeps
+        /// the two fallbacks visible: plain `steps` (no part titles) and D13.1's
+        /// derived paging (`analysis.svc.ftc-part-2`, which asks nothing).
         @MainActor
         private static func lessonPlayer(
             document: GraphDocument, scores: ScoreStore, into root: URL
         ) {
-            let program = fixtureProgram(document: document)
-            func player(_ id: NodeID, card: Int, resolved: Bool) -> AnyView {
-                guard let index = document.index(of: id), let lesson = program.lesson(for: id)
-                else { return AnyView(EmptyView()) }
+            let fixture = fixtureProgram(document: document)
+            let real = SceneStore.shared.program.isAuthored
+                ? SceneStore.shared.program.program : nil
+            func player(
+                _ lesson: Lesson, card: Int, resolved: Bool = false, miss: Bool = false,
+                writing: String = ""
+            ) -> AnyView {
+                guard let index = document.index(of: lesson.node) else { return AnyView(EmptyView()) }
                 return AnyView(
                     LessonPlayer(
                         node: document[index], lesson: lesson,
                         unitTitle: document.index(of: "analysis.svc").map { document[$0].title },
-                        // §6.8's position and next step, so the finish card
-                        // shows the loop rather than a dead end.
+                        // §6.8's position and next step, so the finish shows the
+                        // loop rather than a dead end.
                         context: LessonContext(
                             unit: "analysis.svc",
                             unitTitle: document.index(of: "analysis.svc").map { document[$0].title }
                                 ?? "Single-Variable Calculus",
-                            unitIndex: 9, unitCount: 82, skillIndex: 6, skillCount: 18,
-                            next: "analysis.svc.rolle",
-                            nextTitle: document.index(of: "analysis.svc.rolle").map { document[$0].title }),
+                            unitIndex: 9, unitCount: 82, skillIndex: 8, skillCount: 18,
+                            next: "analysis.svc.zero-deriv-const",
+                            nextTitle: document.index(of: "analysis.svc.zero-deriv-const")
+                                .map { document[$0].title }),
                         document: document, scores: scores,
-                        mastery: scores.bank.masterySet(for: id),
+                        mastery: scores.bank.masterySet(for: lesson.node),
                         onUnit: { _ in }, onNext: { _ in },
-                        onExit: {}, startCard: card, startResolved: resolved))
+                        onExit: {}, startCard: card, startResolved: resolved, startMiss: miss,
+                        startWriting: writing))
+            }
+            func shoot(_ name: String, _ view: AnyView) {
+                write(view, to: root.appendingPathComponent("\(name).png"),
+                    size: CGSize(width: 1180, height: 820))
             }
 
-            let frames: [(String, NodeID, Int, Bool)] = [
-                // An authored teaching beat, then the check that follows it —
-                // unresolved, then resolved, which is the pair the whole phase is
-                // about.
-                ("lesson-teach", "analysis.svc.mvt", 0, false),
-                ("lesson-check", "analysis.svc.mvt", 1, false),
-                ("lesson-check-resolved", "analysis.svc.mvt", 1, true),
-                ("lesson-choice-resolved", "analysis.svc.mvt", 3, true),
-                // One past the last card: the mastery set and the self-report.
-                ("lesson-mastery", "analysis.svc.mvt", 99, false),
-                ("lesson-finish", "analysis.svc.ftc-part-2", 99, false),
-                // D13.1's fallback, which is what every unauthored node shows.
-                ("lesson-derived", "analysis.svc.ftc-part-2", 0, false),
-            ]
-            for (name, id, card, resolved) in frames {
-                write(
-                    player(id, card: card, resolved: resolved),
-                    to: root.appendingPathComponent("\(name).png"),
-                    size: CGSize(width: 1100, height: 760))
+            if let dialogue = real?.lesson(for: "analysis.svc.mvt"), dialogue.isDialogue {
+                let cards = dialogue.cards
+                let questions = cards.indices.filter { cards[$0].isQuestion }
+                let firstTyped = cards.indices.first { cards[$0].check?.form == .typed }
+                let firstChoice = cards.indices.first { cards[$0].check?.form == .choice }
+                let firstReflection = cards.indices.first { cards[$0].isReflection }
+                // The opening stretch, waiting on its first question.
+                shoot("lesson-dialogue-open", player(dialogue, card: 0))
+                if let firstTyped {
+                    shoot("lesson-dialogue-typed-miss", player(dialogue, card: firstTyped, miss: true))
+                }
+                if let firstChoice {
+                    shoot("lesson-dialogue-choice-miss", player(dialogue, card: firstChoice, miss: true))
+                    shoot(
+                        "lesson-dialogue-choice-resolved",
+                        player(dialogue, card: firstChoice, resolved: true, miss: true))
+                }
+                if let firstReflection {
+                    shoot("lesson-dialogue-reflect", player(dialogue, card: firstReflection))
+                    shoot(
+                        "lesson-dialogue-reflected",
+                        player(
+                            dialogue, card: firstReflection, resolved: true,
+                            writing: "Rolle needs equal ends. The gap to the pace car is zero at "
+                                + "both ends, so its derivative is zero somewhere?"))
+                }
+                if let last = questions.last {
+                    shoot("lesson-dialogue-late", player(dialogue, card: last, miss: true))
+                }
+                // One past the last card: everything answered, the ending below.
+                shoot("lesson-mastery", player(dialogue, card: cards.count))
+            } else {
+                FileHandle.standardError.write(
+                    Data(
+                        ("panel-shot: no math program dialogue for analysis.svc.mvt — "
+                            + "dialogue frames skipped\n").utf8))
+            }
+
+            if let steps = fixture.lesson(for: "analysis.svc.mvt") {
+                shoot("lesson-steps", player(steps, card: 1, miss: true))
+            }
+            if let derived = fixture.lesson(for: "analysis.svc.ftc-part-2") {
+                shoot("lesson-derived", player(derived, card: 0))
             }
         }
 
-        /// The player over the quant tree's *authored* corpus — the pilot unit's
-        /// real cards, real checks and real mastery set.
+        /// The player over the quant tree's *authored* corpus — a unit's real
+        /// dialogue, real checks and real mastery set.
         ///
         /// Separate from `lessonPlayer` because it proves a different thing. That
         /// one asks "does the view draw every state"; this one asks "does the
@@ -378,12 +415,12 @@
             }
             let node = document[index]
             let cards = lesson.cards
-            // Every check in the lesson, resolved — plus the first card and the
-            // ending. A single frame would show whichever card happened to be
-            // first and say nothing about the rest.
+            // The opening, every question resolved in turn (a transcript shows
+            // everything above its gate, so each frame is the lesson so far),
+            // and the ending.
             var frames: [(String, Int, Bool)] = [("quant-lesson-01", 0, false)]
-            for (position, card) in cards.enumerated() where card.isCheck {
-                frames.append(("quant-lesson-check-\(position + 1)", position, true))
+            for (position, card) in cards.enumerated() where card.isQuestion {
+                frames.append(("quant-lesson-q\(String(format: "%02d", position + 1))", position, true))
             }
             frames.append(("quant-lesson-mastery", cards.count, false))
 
@@ -396,9 +433,10 @@
                                 .map { document[$0].title },
                             document: document, scores: scores,
                             mastery: scores.bank.masterySet(for: id),
-                            onExit: {}, startCard: card, startResolved: resolved)),
+                            onExit: {}, startCard: card, startResolved: resolved,
+                            startWriting: "My first guess, before reading the tutor's.")),
                     to: root.appendingPathComponent("\(name).png"),
-                    size: CGSize(width: 1100, height: 760))
+                    size: CGSize(width: 1180, height: 820))
             }
             print("panel-shot: quant lesson \(id) — \(frames.count) frames")
         }

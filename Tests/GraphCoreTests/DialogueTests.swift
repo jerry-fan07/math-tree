@@ -190,4 +190,82 @@ struct DialogueTests {
         #expect(Self.diagnose(dialogue: cards).contains(.dialogueChoiceWithoutWhy))
         #expect(!Self.diagnose(steps: [silent]).contains(.dialogueChoiceWithoutWhy))
     }
+
+    // MARK: - The session (D16.1, D16.3)
+
+    @Test("The transcript shows everything through the first unanswered question")
+    func gateIsFirstOpenQuestion() {
+        var session = DialogueSession(cards: Self.wellFormed)
+        #expect(session.gate == 1)
+        #expect(session.visibleCount == 2)
+        #expect(session.pick(0, at: 1) == .correct)
+        #expect(session.gate == 2)
+        #expect(session.submit("4", at: 2) == .correct)
+        session.reflect("  It adds twice.  ", at: 3)
+        #expect(session.written[3] == "It adds twice.")
+        // Two beats, then the next question: the stretch unfolds together.
+        #expect(session.gate == 6)
+        #expect(session.visibleCount == 7)
+        session.reveal(at: 6)
+        session.reveal(at: 7)
+        #expect(session.isFinished)
+        #expect(session.visibleCount == Self.wellFormed.count)
+        #expect(session.firstTryCount == 2)
+        #expect(session.shownCount == 2)
+    }
+
+    @Test("A wrong row is kept and ruled out, and the right one counts the tries")
+    func wrongPicksAreKept() {
+        var session = DialogueSession(cards: Self.wellFormed)
+        #expect(session.pick(1, at: 1) == .wrong)
+        #expect(session.pick(1, at: 1) == .ignored)
+        #expect(session.wrongPicks[1] == [1])
+        #expect(!session.isResolved(1))
+        #expect(session.pick(0, at: 1) == .correct)
+        #expect(session.outcomes[1] == .answered(tries: 2))
+        // A resolved question takes no more answers.
+        #expect(session.pick(1, at: 1) == .ignored)
+    }
+
+    @Test("A wrong typed value says which way it missed; unreadable input is not an attempt")
+    func typedMisses() {
+        let card = LessonCard(ask: "How many?", expects: "250", feedback: "F.")
+        var session = DialogueSession(cards: [card])
+        #expect(session.submit("seven", at: 0) == .ignored)
+        #expect(session.misses[0] == nil)
+        #expect(session.submit("300", at: 0) == .wrong)
+        #expect(session.submit("200", at: 0) == .wrong)
+        #expect(session.submit("25", at: 0) == .wrong)
+        #expect(session.misses[0]?.map(\.direction) == [.tooHigh, .tooLow, .factor(10)])
+        #expect(session.submit("250", at: 0) == .correct)
+        #expect(session.outcomes[0] == .answered(tries: 4))
+    }
+
+    @Test("A lesson with no questions has no gate and shows whole")
+    func noQuestionsNoGate() {
+        let session = DialogueSession(cards: [LessonCard(teach: "One."), LessonCard(teach: "Two.")])
+        #expect(session.gate == nil)
+        #expect(session.isFinished)
+        #expect(session.visibleCount == 2)
+    }
+
+    @Test("Parts follow the part titles, with an untitled lead-in for plain steps")
+    func partsFollowTitles() {
+        let dialogue = DialogueSession(cards: Self.wellFormed)
+        #expect(dialogue.parts.map(\.title) == ["A question", "The idea"])
+        #expect(dialogue.parts.map(\.cards) == [0..<4, 4..<8])
+        let plain = DialogueSession(cards: [LessonCard(teach: "One."), Self.question])
+        #expect(plain.parts.map(\.title) == [nil])
+        #expect(!plain.hasTitledParts)
+    }
+
+    @Test("The seam answers every question through a card, first time")
+    func seamAnswersThrough() {
+        var session = DialogueSession(cards: Self.wellFormed)
+        session.answerCorrectly(through: 6)
+        #expect(session.gate == 7)
+        #expect(session.outcomes[1] == .answered(tries: 1))
+        #expect(session.outcomes[2] == .answered(tries: 1))
+        #expect(session.outcomes[3] == .reflected)
+    }
 }

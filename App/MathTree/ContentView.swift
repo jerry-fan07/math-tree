@@ -381,7 +381,8 @@ struct ContentView: View {
                 onNext: { next in
                     withAnimation(.easeInOut(duration: 0.25)) { self.playing = next }
                 },
-                onExit: { closePlayer() }
+                onExit: { closePlayer() },
+                onEscape: { escape() }
             )
             .id(playing)
             .transition(.opacity)

@@ -195,5 +195,15 @@ struct GraphMetalView: NSViewRepresentable {
         view.onToggleSidebar = onToggleSidebar
         view.onEscape = onEscape
         view.isNavigationSuspended = isNavigationSuspended
+        // An overlay that took the keyboard (§6.9's player: its letter keys and
+        // its answer fields) leaves the window with no first responder when it
+        // closes — and then Escape reaches nothing. Take the keys back, but only
+        // from nobody: never from a field someone is typing in.
+        DispatchQueue.main.async { [weak view] in
+            guard let view, let window = view.window,
+                window.firstResponder == nil || window.firstResponder === window
+            else { return }
+            window.makeFirstResponder(view)
+        }
     }
 }

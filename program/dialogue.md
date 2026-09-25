@@ -101,7 +101,9 @@ comes before the explanation**.
 7. **An instance by hand**: the reader computes a case to the end (typed).
 8. **Where it breaks**: a dropped hypothesis, a boundary case, a
    counterexample — the reader diagnoses it (choices).
-9. **A last beat**: the one sentence to keep, and what it opens up.
+9. **A last beat** (optional): what the idea opens up — the next result it
+   feeds, the problem it now makes easy. Not the summary: the player closes
+   every lesson on its `recap`, so a last beat that restates it is read twice.
 
 ### By node kind
 
