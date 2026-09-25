@@ -257,6 +257,18 @@ public enum ProgramValidator {
 
     // MARK: - Cards
 
+    /// §6.9's dialogue contract, as numbers. Named so the Python checker's
+    /// constants have one thing to agree with.
+    public enum DialogueContract {
+        /// Beats in a row before the dialogue must ask something — the rule that
+        /// keeps a dialogue from being a textbook with a quiz stapled on.
+        public static let maxBeatsInARow = 2
+        /// Questions (checks plus reflections) a dialogue asks at least.
+        public static let minQuestions = 5
+        /// Parts a dialogue has at least: the question, and where it leads.
+        public static let minParts = 2
+    }
+
     /// §6.7's per-card rules, errors like every other per-file lesson rule: a
     /// `steps` list that exists must be playable, and the failure modes are all
     /// silent ones — a card with nothing on it renders blank, a check with no
@@ -266,6 +278,10 @@ public enum ProgramValidator {
     /// A lesson with *no* `steps` is not checked and not reported here: paging
     /// falls back to the prose (D13.1), and interactivity coverage is a lint hint
     /// plus a `validate` report, exactly as lesson coverage is (D12.4).
+    ///
+    /// §6.9's `dialogue` is held to the same per-card rules and, on top, to the
+    /// dialogue contract — which is an error rather than a hint because a lesson
+    /// only reaches it by opting in (D16.2).
     private static func cardChecks(_ lesson: Lesson, unit: NodeID) -> [Diagnostic] {
         var out: [Diagnostic] = []
         let nodes = [lesson.node, unit]
@@ -276,50 +292,133 @@ public enum ProgramValidator {
                     rule: rule, message: "lesson `\(lesson.node)` " + message, nodes: nodes))
         }
 
-        for (index, card) in lesson.steps.enumerated() {
-            let position = "card \(index + 1)"
-            let teaches = !(card.teach ?? "").trimmed.isEmpty
-            let asks = !(card.ask ?? "").trimmed.isEmpty
+        if !lesson.steps.isEmpty && !lesson.dialogue.isEmpty {
+            report(
+                .lessonStepsAndDialogue,
+                "carries both `steps` and `dialogue` — a dialogue replaces the steps; "
+                    + "delete the `steps`")
+        }
 
-            switch (teaches, asks) {
-            case (false, false):
-                report(.lessonCardEmpty, "\(position) has neither `teach` nor `ask`")
-                continue
-            case (true, true):
+        for (list, cards) in [("card", lesson.steps), ("dialogue step", lesson.dialogue)] {
+            for (index, card) in cards.enumerated() {
+                cardFaults(card, position: "\(list) \(index + 1)", report: report)
+            }
+        }
+
+        guard lesson.isDialogue else { return out }
+        let dialogue = lesson.dialogue
+
+        if dialogue.first?.partTitle == nil {
+            report(
+                .dialogueOpensWithoutPart,
+                "opens its dialogue without a `part:` — the first step names the first part")
+        }
+
+        var beats = 0
+        for (index, card) in dialogue.enumerated() {
+            beats = card.isQuestion ? 0 : beats + 1
+            if beats == DialogueContract.maxBeatsInARow + 1 {
                 report(
-                    .lessonCardAmbiguous,
-                    "\(position) has both `teach` and `ask` — a card is one beat or one question")
-            default:
-                break
+                    .dialogueLecture,
+                    "has \(beats) `teach` steps in a row ending at dialogue step \(index + 1) — "
+                        + "ask something before the third beat")
             }
+        }
 
-            if teaches && !asks {
-                // Answer fields on a teaching card are always a mistake, and
-                // always the same mistake: an author wrote a check and deleted
-                // the question instead of the card.
-                var stranded: [String] = []
-                if !card.choices.isEmpty { stranded.append("choices") }
-                if card.expects != nil { stranded.append("expects") }
-                if card.tolerance != nil { stranded.append("tolerance") }
-                if card.feedback != nil { stranded.append("feedback") }
-                if !stranded.isEmpty {
-                    report(
-                        .lessonTeachCardAnswerable,
-                        "\(position) is a `teach` card carrying "
-                            + "\(stranded.map { "`\($0)`" }.joined(separator: ", "))"
-                            + " — add an `ask`, or delete the answer fields")
-                }
-                continue
+        let questions = dialogue.count(where: \.isQuestion)
+        let parts = dialogue.count { $0.partTitle != nil }
+        if questions < DialogueContract.minQuestions || parts < DialogueContract.minParts {
+            report(
+                .dialogueThin,
+                "has \(questions) question(s) in \(parts) part(s) — a dialogue asks at least "
+                    + "\(DialogueContract.minQuestions) across at least "
+                    + "\(DialogueContract.minParts) parts")
+        }
+
+        if !dialogue.contains(where: \.isReflection) {
+            report(
+                .dialogueNoReflection,
+                "has no `reflect` step — somewhere the reader must put the idea in their own "
+                    + "words before it is named")
+        }
+
+        for (index, card) in dialogue.enumerated() where card.isCheck {
+            let silent = card.choices.indices.filter {
+                (card.choices[$0].feedback ?? "").trimmed.isEmpty
             }
-
-            for fault in AnswerCheck.faults(
-                choices: card.choices, expects: card.expects, tolerance: card.tolerance,
-                feedback: card.feedback, isRequired: true)
-            {
-                report(fault.rule, "\(position) \(fault.detail)")
+            if !silent.isEmpty {
+                report(
+                    .dialogueChoiceWithoutWhy,
+                    "dialogue step \(index + 1) has choice(s) "
+                        + silent.map { "\($0 + 1)" }.joined(separator: ", ")
+                        + " with no `feedback` — a wrong pick is where a dialogue teaches")
             }
         }
 
         return out
+    }
+
+    /// The rules one card is held to wherever it appears.
+    private static func cardFaults(
+        _ card: LessonCard, position: String, report: (DiagnosticRule, String) -> Void
+    ) {
+        let teaches = !(card.teach ?? "").trimmed.isEmpty
+        let asks = !(card.ask ?? "").trimmed.isEmpty
+        let reflects = !(card.reflect ?? "").trimmed.isEmpty
+        let hasAnswer = !(card.answer ?? "").trimmed.isEmpty
+
+        switch [teaches, asks, reflects].count(where: { $0 }) {
+        case 0:
+            report(.lessonCardEmpty, "\(position) has none of `teach`, `ask` or `reflect`")
+            return
+        case 1:
+            break
+        default:
+            report(
+                .lessonCardAmbiguous,
+                "\(position) combines "
+                    + [("teach", teaches), ("ask", asks), ("reflect", reflects)]
+                    .filter(\.1).map { "`\($0.0)`" }.joined(separator: " and ")
+                    + " — a card is one beat, one check or one reflection")
+        }
+
+        if reflects && !hasAnswer {
+            report(
+                .lessonReflectionMissingAnswer,
+                "\(position) is a `reflect` with no `answer` — the reader compares theirs "
+                    + "with the tutor's")
+        }
+        if hasAnswer && !reflects {
+            report(
+                .lessonStrayAnswer,
+                "\(position) carries an `answer` but no `reflect` — `answer` is a reflection's "
+                    + "model answer; a check's explanation is `feedback`")
+        }
+
+        if !asks {
+            // Answer fields on a beat or a reflection are always a mistake, and
+            // always the same mistake: an author wrote a check and deleted the
+            // question instead of the card.
+            var stranded: [String] = []
+            if !card.choices.isEmpty { stranded.append("choices") }
+            if card.expects != nil { stranded.append("expects") }
+            if card.tolerance != nil { stranded.append("tolerance") }
+            if card.feedback != nil { stranded.append("feedback") }
+            if !stranded.isEmpty {
+                report(
+                    .lessonTeachCardAnswerable,
+                    "\(position) is a `\(reflects ? "reflect" : "teach")` card carrying "
+                        + "\(stranded.map { "`\($0)`" }.joined(separator: ", "))"
+                        + " — add an `ask`, or delete the answer fields")
+            }
+            return
+        }
+
+        for fault in AnswerCheck.faults(
+            choices: card.choices, expects: card.expects, tolerance: card.tolerance,
+            feedback: card.feedback, isRequired: true)
+        {
+            report(fault.rule, "\(position) \(fault.detail)")
+        }
     }
 }

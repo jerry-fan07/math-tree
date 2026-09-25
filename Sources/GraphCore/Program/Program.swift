@@ -118,6 +118,12 @@ public struct Lesson: Codable, Hashable, Sendable, Identifiable {
     /// `cards` then derives a paging from the prose above (D13.1) — so this being
     /// empty changes how good the lesson is, never whether it works.
     public let steps: [LessonCard]
+    /// §6.9's Socratic dialogue: the lesson rebuilt as questions that lead the
+    /// reader to the idea before it is named. Replaces `steps` where authored —
+    /// a lesson carries one or the other, never both (`lesson-steps-and-dialogue`)
+    /// — and is held to the dialogue contract (at most two beats between
+    /// questions, parts, a reflection) that `steps` never was.
+    public let dialogue: [LessonCard]
 
     public var id: NodeID { node }
 
@@ -129,7 +135,8 @@ public struct Lesson: Codable, Hashable, Sendable, Identifiable {
         interview: String? = nil,
         pitfalls: String? = nil,
         recap: String,
-        steps: [LessonCard] = []
+        steps: [LessonCard] = [],
+        dialogue: [LessonCard] = []
     ) {
         self.node = node
         self.hook = hook
@@ -139,10 +146,11 @@ public struct Lesson: Codable, Hashable, Sendable, Identifiable {
         self.pitfalls = pitfalls
         self.recap = recap
         self.steps = steps
+        self.dialogue = dialogue
     }
 
     enum CodingKeys: String, CodingKey {
-        case node, hook, explanation, worked, interview, pitfalls, recap, steps
+        case node, hook, explanation, worked, interview, pitfalls, recap, steps, dialogue
     }
 
     // Hand-written for the same reason `Node`'s is: absent sections decode as nil
@@ -157,6 +165,7 @@ public struct Lesson: Codable, Hashable, Sendable, Identifiable {
         pitfalls = try c.decodeIfPresent(String.self, forKey: .pitfalls)
         recap = try c.decode(String.self, forKey: .recap)
         steps = try c.decodeIfPresent([LessonCard].self, forKey: .steps) ?? []
+        dialogue = try c.decodeIfPresent([LessonCard].self, forKey: .dialogue) ?? []
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -169,6 +178,7 @@ public struct Lesson: Codable, Hashable, Sendable, Identifiable {
         try c.encodeIfPresent(pitfalls, forKey: .pitfalls)
         try c.encode(recap, forKey: .recap)
         if !steps.isEmpty { try c.encode(steps, forKey: .steps) }
+        if !dialogue.isEmpty { try c.encode(dialogue, forKey: .dialogue) }
     }
 }
 
@@ -229,6 +239,11 @@ public struct Program: Sendable {
     /// split D12.4 made for lesson coverage itself, for the same reason.
     public var interactiveLessonCount: Int {
         lessonsByNode.values.count(where: \.isInteractive)
+    }
+
+    /// §6.9 coverage: lessons taught as Socratic dialogues.
+    public var dialogueLessonCount: Int {
+        lessonsByNode.values.count(where: \.isDialogue)
     }
 
     public func lesson(for node: NodeID) -> Lesson? { lessonsByNode[node] }

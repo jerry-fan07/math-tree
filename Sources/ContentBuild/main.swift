@@ -250,10 +250,14 @@ func programSummary(_ program: Program, graph: KnowledgeGraph) -> String {
     // much of the corpus is *checked*, not how much of it works.
     let interactive = program.interactiveLessonCount
     let checks = program.lessonsByNode.values.reduce(0) { $0 + $1.checkCount }
+    // §6.9: how much of the corpus is taught question-first rather than told.
+    let dialogues = program.dialogueLessonCount
+    let reflections = program.lessonsByNode.values.reduce(0) { $0 + $1.reflectionCount }
     return "program: \(units.count) units in \(program.spine.parts.count) parts, "
         + "lessons cover \(taught)/\(expected) content nodes "
         + "(\(complete)/\(units.count) units complete), "
-        + "\(interactive) with authored cards carrying \(checks) checks"
+        + "\(interactive) with authored cards carrying \(checks) checks, "
+        + "\(dialogues) taught as dialogues with \(reflections) reflections"
 }
 
 let options = parseOptions()

@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Pre-flight check for one lessons file of a program (§6.6, §6.7).
+"""Pre-flight check for one lessons file of a program (§6.6, §6.7, §6.9).
 
-Usage: Scripts/check-lesson-file.py <unit-id>
+Usage: Scripts/check-lesson-file.py [--dialogue] <unit-id>
   e.g. Scripts/check-lesson-file.py quant-probability.foundations
-       Scripts/check-lesson-file.py analysis.svc
+       Scripts/check-lesson-file.py --dialogue analysis.svc
+
+`--dialogue` additionally demands that *every* lesson of the unit is taught as a
+§6.9 Socratic dialogue — the flag a dialogue-authoring pass runs with, so a
+lesson left on its old `steps` is an error rather than a note.
 
 The tree is inferred from the unit id: a `quant-` prefix means the quant tree
 (content-quant/ + content-quant-program/), anything else the math tree
@@ -53,8 +57,21 @@ REQUIRED = ["hook", "explanation", "recap"]
 OPTIONAL = ["worked", "interview", "pitfalls"]
 # §6.7's cards. Optional at the lesson level (a lesson with no `steps` pages off
 # its prose — D13.1), but a `steps` list that exists must be playable.
-CARD_FIELDS = ["teach", "ask", "choices", "expects", "tolerance", "hint", "feedback"]
+CARD_FIELDS = [
+    "part", "teach", "ask", "reflect", "answer",
+    "choices", "expects", "tolerance", "hint", "feedback",
+]
 CHOICE_FIELDS = ["text", "correct", "feedback"]
+
+# §6.9's dialogue contract — ProgramValidator.DialogueContract's numbers, which
+# this must agree with.
+MAX_BEATS_IN_A_ROW = 2
+MIN_QUESTIONS = 5
+MIN_PARTS = 2
+# Checker-only bars (the validator has no length rules for cards): a beat in a
+# dialogue is a paragraph, not a page, and a part title is a heading.
+MAX_BEAT_CHARS = 1100
+MAX_PART_TITLE_CHARS = 70
 
 
 def tree_roots(unit):
@@ -150,9 +167,9 @@ def numeric_value(source):
     return result / 100 if percent else result
 
 
-def card_errors(node, index, card):
-    """The per-card rules of ProgramValidator.cardChecks plus AnswerCheck.faults."""
-    where = f"{node}.steps[{index}]"
+def card_errors(node, index, card, list_name="steps"):
+    """The per-card rules of ProgramValidator.cardFaults plus AnswerCheck.faults."""
+    where = f"{node}.{list_name}[{index}]"
     errors = []
     if not isinstance(card, dict):
         return [f"{where}: is not a mapping"]
@@ -163,28 +180,47 @@ def card_errors(node, index, card):
 
     teach = (card.get("teach") or "").strip()
     ask = (card.get("ask") or "").strip()
+    reflect = (card.get("reflect") or "").strip()
+    answer = (card.get("answer") or "").strip()
+    part = (card.get("part") or "").strip()
     choices = card.get("choices") or []
     expects = card.get("expects")
     expectation = "" if expects is None else str(expects).strip()
     tolerance = card.get("tolerance")
     feedback = (card.get("feedback") or "").strip()
 
-    if not teach and not ask:
-        return errors + [f"{where}: has neither `teach` nor `ask`"]
-    if teach and ask:
-        errors.append(f"{where}: has both `teach` and `ask` — one beat or one question")
+    kinds = [k for k, v in [("teach", teach), ("ask", ask), ("reflect", reflect)] if v]
+    if not kinds:
+        return errors + [f"{where}: has none of `teach`, `ask` or `reflect`"]
+    if len(kinds) > 1:
+        errors.append(
+            f"{where}: combines {' and '.join(f'`{k}`' for k in kinds)} — "
+            "one beat, one check or one reflection"
+        )
 
-    for field in ["teach", "ask", "hint"]:
+    for field in ["part", "teach", "ask", "reflect", "answer", "hint"]:
         text = (card.get(field) or "").strip()
         if text:
             errors += latex_errors(f"{where}.{field}", text)
+    if "part" in card and not part:
+        errors.append(f"{where}: `part` is present but empty — omit it instead")
 
-    if teach and not ask:
+    if reflect and not answer:
+        errors.append(
+            f"{where}: `reflect` with no `answer` — the reader compares theirs with the tutor's"
+        )
+    if answer and not reflect:
+        errors.append(
+            f"{where}: `answer` without `reflect` — `answer` is a reflection's model answer; "
+            "a check's explanation is `feedback`"
+        )
+
+    if not ask:
         stranded = [f for f in ["choices", "expects", "tolerance", "feedback"] if f in card]
         if stranded:
             errors.append(
-                f"{where}: `teach` card carrying {', '.join(stranded)} — "
-                "add an `ask`, or delete the answer fields"
+                f"{where}: `{'reflect' if reflect else 'teach'}` card carrying "
+                f"{', '.join(stranded)} — add an `ask`, or delete the answer fields"
             )
         return errors
 
@@ -246,11 +282,76 @@ def card_errors(node, index, card):
     return errors
 
 
+def dialogue_errors(node, dialogue):
+    """§6.9's contract — ProgramValidator.cardChecks's `dialogue-` rules, plus the
+    checker-only length bars."""
+    where = f"{node}.dialogue"
+    errors = []
+    cards = [c for c in dialogue if isinstance(c, dict)]
+
+    def text(card, field):
+        return (card.get(field) or "").strip()
+
+    def is_question(card):
+        return bool(text(card, "ask") or text(card, "reflect"))
+
+    if not cards or not text(cards[0], "part"):
+        errors.append(f"{where}: opens without a `part:` — the first step names the first part")
+
+    beats = 0
+    for j, card in enumerate(cards):
+        beats = 0 if is_question(card) else beats + 1
+        if beats == MAX_BEATS_IN_A_ROW + 1:
+            errors.append(
+                f"{where}[{j}]: {beats} `teach` steps in a row — ask something before the "
+                "third beat (that is the whole difference between a dialogue and a textbook)"
+            )
+        beat = text(card, "teach")
+        if len(beat) > MAX_BEAT_CHARS:
+            errors.append(
+                f"{where}[{j}]: a {len(beat)}-char beat — split it with a question "
+                f"(ceiling {MAX_BEAT_CHARS})"
+            )
+        title = text(card, "part")
+        if len(title) > MAX_PART_TITLE_CHARS:
+            errors.append(f"{where}[{j}]: part title is {len(title)} chars — it is a heading")
+
+    questions = sum(1 for c in cards if is_question(c))
+    parts = sum(1 for c in cards if text(c, "part"))
+    if questions < MIN_QUESTIONS or parts < MIN_PARTS:
+        errors.append(
+            f"{where}: {questions} question(s) in {parts} part(s) — a dialogue asks at least "
+            f"{MIN_QUESTIONS} across at least {MIN_PARTS} parts"
+        )
+    if not any(text(c, "reflect") for c in cards):
+        errors.append(
+            f"{where}: no `reflect` step — somewhere the reader must put the idea in their "
+            "own words before it is named"
+        )
+    for j, card in enumerate(cards):
+        if not text(card, "ask"):
+            continue
+        silent = [
+            str(k + 1)
+            for k, choice in enumerate(card.get("choices") or [])
+            if isinstance(choice, dict) and not (choice.get("feedback") or "").strip()
+        ]
+        if silent:
+            errors.append(
+                f"{where}[{j}]: choice(s) {', '.join(silent)} have no `feedback` — "
+                "a wrong pick is where a dialogue teaches"
+            )
+    return errors
+
+
 def main():
-    if len(sys.argv) != 2:
+    args = sys.argv[1:]
+    require_dialogue = "--dialogue" in args
+    args = [a for a in args if a != "--dialogue"]
+    if len(args) != 1:
         print(__doc__)
         sys.exit(2)
-    unit = sys.argv[1]
+    unit = args[0]
     branch, _, sub = unit.partition(".")
     content_root, program_root = tree_roots(unit)
     content_path = content_root / branch / f"{sub}.yaml"
@@ -284,14 +385,16 @@ def main():
 
     taught = []
     interactive = []
+    dialogues = []
     checks_total = 0
+    reflections_total = 0
     for i, lesson in enumerate(lessons.get("lessons") or []):
         node = lesson.get("node", f"lessons[{i}]")
         taught.append(node)
         if node not in expected:
             errors.append(f"{node}: not a content node of {unit}")
         for key in lesson:
-            if key not in ["node", "steps"] + REQUIRED + OPTIONAL:
+            if key not in ["node", "steps", "dialogue"] + REQUIRED + OPTIONAL:
                 errors.append(f"{node}: unknown field `{key}`")
         for section in REQUIRED:
             text = (lesson.get(section) or "").strip()
@@ -344,6 +447,36 @@ def main():
                     )
                 interactive.append(node)
 
+        # §6.9. A dialogue replaces `steps`, and is held to the dialogue contract.
+        dialogue = lesson.get("dialogue")
+        if dialogue is not None:
+            if steps is not None:
+                errors.append(
+                    f"{node}: carries both `steps` and `dialogue` — a dialogue replaces the "
+                    "steps; delete the `steps`"
+                )
+            if not isinstance(dialogue, list) or not dialogue:
+                errors.append(f"{node}: `dialogue` is present but empty — omit it instead")
+            else:
+                for j, card in enumerate(dialogue):
+                    errors += card_errors(node, j, card, "dialogue")
+                errors += dialogue_errors(node, dialogue)
+                checks_total += sum(
+                    1 for c in dialogue if isinstance(c, dict) and (c.get("ask") or "").strip()
+                )
+                reflections_total += sum(
+                    1
+                    for c in dialogue
+                    if isinstance(c, dict)
+                    and (c.get("reflect") or "").strip()
+                    and not (c.get("ask") or "").strip()
+                )
+                dialogues.append(node)
+                if node not in interactive:
+                    interactive.append(node)
+        elif require_dialogue:
+            errors.append(f"{node}: no `dialogue` — --dialogue wants every lesson taught as one")
+
     duplicates = {n for n in taught if taught.count(n) > 1}
     for node in sorted(duplicates):
         errors.append(f"{node}: taught more than once")
@@ -354,12 +487,13 @@ def main():
     if errors:
         fail(errors)
     cards = sum(
-        len(lesson.get("steps") or [])
+        len(lesson.get("dialogue") or lesson.get("steps") or [])
         for lesson in (lessons.get("lessons") or [])
     )
     print(
         f"ok: {unit} — opening + {len(taught)} lessons "
-        f"({len(interactive)} interactive, {cards} cards, {checks_total} checks), all checks pass"
+        f"({len(interactive)} interactive, {len(dialogues)} dialogues, {cards} cards, "
+        f"{checks_total} checks, {reflections_total} reflections), all checks pass"
     )
     if len(interactive) < len(taught):
         print(f"note: {len(taught) - len(interactive)} lesson(s) still page off their prose (no `steps`)")

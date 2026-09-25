@@ -97,6 +97,15 @@ inside `\text{...}`** (it splits the enclosing span — write digits in the
 `\text` directly). The corpus self-check renders every section of every lesson
 and CI fails on any deviation.
 
+## `dialogue` — the lesson as a Socratic dialogue (§6.9)
+
+A lesson may carry a `dialogue:` instead of `steps:` — the same card
+vocabulary plus `reflect` and `part`, held to a contract that puts the
+question before the explanation. `program/dialogue.md` is normative for
+dialogues in both trees; read it before writing one, and check with
+`python3 Scripts/check-lesson-file.py --dialogue <unit-id>`. A lesson carries
+`steps` or `dialogue`, never both.
+
 ## `steps` — the lesson as cards (§6.7)
 
 Optional, and worth authoring wherever you can. A lesson with no `steps` still

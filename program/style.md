@@ -82,6 +82,15 @@ but mandatory; for an `intuition` or `axiom` node it is often filler).
 Target 1,800–3,500 characters per lesson across the prose sections; the linter
 flags explanations under 400 and lessons over 6,000.
 
+## `dialogue` — the lesson as a Socratic dialogue (§6.9)
+
+A lesson may carry a `dialogue:` instead of `steps:` — the same card
+vocabulary plus `reflect` and `part`, held to a contract that puts the
+question before the explanation. `program/dialogue.md` is normative for
+dialogues in both trees; read it before writing one, and check with
+`python3 Scripts/check-lesson-file.py --dialogue <unit-id>`. A lesson carries
+`steps` or `dialogue`, never both.
+
 ## `steps` — the lesson as cards (§6.7), required here
 
 A lesson plays as an ordered list of cards, one per screen. This corpus ships
