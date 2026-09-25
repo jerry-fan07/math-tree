@@ -748,6 +748,11 @@ final class GraphRenderer: NSObject, MTKViewDelegate {
         }
 
         let labelCount = min(scene.labelPrefix(bandT: t), atlas.builtCount)
+        // Fragment slot 0 is the background pass's too — this rebinds it, so it
+        // has to stay immediately before the label draw.
+        let canvas = theme.canvasEdge
+        var labelBacking = SIMD3<Float>(Float(canvas.red), Float(canvas.green), Float(canvas.blue))
+        encoder.setFragmentBytes(&labelBacking, length: MemoryLayout<SIMD3<Float>>.stride, index: 0)
         draw(
             labelPipeline, labelBuffer, labelCount,
             DrawParams.nodes(

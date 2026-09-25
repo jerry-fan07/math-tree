@@ -171,8 +171,11 @@ enum ShaderSource {
 
         fragment float4 nodeFragment(NodeVaryings v [[stage_in]])
         {
+            // Antialiasing is a fixed ~1.5 px band, in pixels rather than as a
+            // share of the radius: 1.4 px either side (and a floor of 2% of the
+            // radius) left every disc with a visibly soft rim.
             float d = length(v.local);
-            float aa = max(1.4 / v.radiusPx, 0.02);
+            float aa = 0.75 / v.radiusPx;
             float a = (1.0 - smoothstep(1.0 - aa, 1.0 + aa, d)) * v.color.a;
             return float4(v.color.rgb * a, a);      // premultiplied
         }
@@ -182,7 +185,7 @@ enum ShaderSource {
         fragment float4 ringFragment(NodeVaryings v [[stage_in]])
         {
             float d = length(v.local);
-            float aa = max(1.8 / v.radiusPx, 0.03);
+            float aa = 0.9 / v.radiusPx;
             float outer = 1.0 - smoothstep(1.0 - aa, 1.0 + aa, d);
             float inner = 1.0 - smoothstep(0.70 - aa, 0.70 + aa, d);
             float a = saturate(outer - inner) * v.color.a;
@@ -301,8 +304,14 @@ enum ShaderSource {
             LabelInstance l = inst[iid + p.rangeStart];
 
             float2 anchorPx = u.originPx + l.anchor * u.scalePx;
-            float2 sizePx   = l.sizePt * u.backingScale;
-            float2 boxPx    = anchorPx + float2(-sizePx.x * 0.5, l.offsetPt * u.backingScale);
+            float2 sizePx   = rint(l.sizePt * u.backingScale);
+            // Snapped to whole pixels. The atlas is rasterised at the drawable's
+            // scale, so a label is drawn one texel per pixel — but only if the quad
+            // starts on a pixel boundary. Left fractional (as a node's projected
+            // position almost always is), every pixel centre falls between two
+            // texels and the linear sampler smears each glyph edge across two
+            // pixels: the map's type read as blurred next to the SwiftUI chrome.
+            float2 boxPx    = rint(anchorPx + float2(-sizePx.x * 0.5, l.offsetPt * u.backingScale));
 
             float2 corner = float2((vid & 1u) != 0u ? 1.0 : 0.0,
                                    (vid & 2u) != 0u ? 1.0 : 0.0);
@@ -325,21 +334,28 @@ enum ShaderSource {
 
         fragment float4 labelFragment(LabelVaryings v [[stage_in]],
                                       texture2d_array<float> atlas [[texture(0)]],
-                                      sampler smp [[sampler(0)]])
+                                      sampler smp [[sampler(0)]],
+                                      constant float3 &backing [[buffer(0)]])
         {
             float coverage = atlas.sample(smp, v.uv, v.page).r;
 
-            // A four-tap dilation gives the glyphs a dark backing so they stay
-            // legible where they cross a bright edge, without a second atlas.
+            // A four-tap dilation gives the glyphs a backing in the canvas colour,
+            // so they stay legible where they cross an edge without a second
+            // atlas. It has to be the canvas and not black: on the light
+            // direction's paper a black backing is a dark outline round every
+            // glyph, which read as smudged, bolded type.
             float2 o = v.texelSize;
             float halo = max(max(atlas.sample(smp, v.uv + float2( o.x, 0), v.page).r,
                                  atlas.sample(smp, v.uv + float2(-o.x, 0), v.page).r),
                              max(atlas.sample(smp, v.uv + float2(0,  o.y), v.page).r,
                                  atlas.sample(smp, v.uv + float2(0, -o.y), v.page).r));
 
-            float a = saturate(max(coverage, halo * 0.75)) * v.color.a;
-            float3 rgb = v.color.rgb * coverage;    // backing stays black
-            return float4(rgb * a, a);
+            // Glyph over backing, both premultiplied once. Multiplying the glyph's
+            // colour by the combined alpha as well (as this used to) squared the
+            // coverage on every antialiased edge pixel, eroding the strokes.
+            float glyph = coverage * v.color.a;
+            float under = saturate(max(coverage, halo * 0.75)) * v.color.a * (1.0 - glyph);
+            return float4(v.color.rgb * glyph + backing * under, glyph + under);
         }
         """
 }
