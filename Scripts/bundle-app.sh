@@ -25,6 +25,7 @@ swift run -c "$CONFIG" ContentBuild build \
     --out "$ROOT/build/quant"
 swift run -c "$CONFIG" ContentBuild layout \
     --content "$ROOT/content-quant" --problems "$ROOT/content-quant-problems" \
+    --program "$ROOT/content-quant-program" \
     --out "$ROOT/build/quant"
 
 APP="$ROOT/build/MathTree.app"
