@@ -76,8 +76,11 @@ them unless one is wrong.
 
 A step is exactly one of `teach`, `ask`, `reflect`. `part:` may sit on any
 step and opens a new part; the first step must carry one. Field order within a
-step: `part, teach | ask | reflect, answer, choices, expects, tolerance, hint,
-feedback`. Every string is a folded block scalar (`>`), uniformly indented.
+step, as the reference writes it: `part`, then `teach` | `ask` | `reflect`, then
+`choices`, `expects`, `tolerance`, `hint`, and last `answer` (a reflection) or
+`feedback` (a check). Every string is a folded block scalar (`>`), uniformly
+indented. A set written in prose is math — `$\{\text{even}, \text{odd}\}$` —
+because `\{` renders only inside `$...$`.
 
 ## The arc
 
