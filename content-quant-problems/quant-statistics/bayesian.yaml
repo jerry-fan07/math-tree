@@ -1,0 +1,1469 @@
+# Problems targeting quant-statistics.bayesian — priors, likelihoods, updates.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. No problem here reuses a lesson's
+# worked example or a card's numbers. See ../README.md.
+
+problems:
+  # --- the Bayesian stance ----------------------------------------------------
+
+  - id: qbayes-parameter-as-random-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Before any data arrives, your view of a venue's fill probability $\theta$
+      is this: with probability $1/3$ the venue is in a tight regime and
+      $\theta = 0.8$ exactly; otherwise it is loose and $\theta$ is uniform on
+      $[0.2, 0.6]$. Under this prior, what is $\Pr(\theta > 0.5)$? Give an exact
+      fraction.
+    answer: >
+      $1/2$. The prior is a genuine distribution over the parameter space, so a
+      sentence about $\theta$ itself is a legitimate probability statement and
+      is evaluated by conditioning on the regime. The tight regime contributes
+      $\frac{1}{3} \cdot 1$, since $0.8 > 0.5$ with certainty there. The loose
+      regime contributes $\frac{2}{3} \cdot \frac{0.6 - 0.5}{0.6 - 0.2} =
+      \frac{2}{3} \cdot \frac{1}{4} = \frac{1}{6}$. Adding, $\frac{1}{3} +
+      \frac{1}{6} = \frac{1}{2}$. Two traps sit next to each other. Answering
+      $1/3$ counts only the tight regime and forgets that a loose venue can also
+      fill better than half the time. Answering the prior mean $\frac{1}{3}(0.8)
+      + \frac{2}{3}(0.4) = 8/15 \approx 0.533$ answers a different question: a
+      centre is not a tail probability, and the whole point of the Bayesian
+      stance is that you may ask for either.
+    expects: "1/2"
+    rubric:
+      - >
+        Treats the prior as a distribution over $\theta$ and splits
+        $\Pr(\theta > 0.5)$ across the two regimes before adding.
+      - >
+        Gets the uniform piece right — $1/4$ of the loose regime's mass lies
+        above $0.5$, not all of it and not none of it.
+    targets:
+      - quant-statistics.bayesian.parameter-as-random
+    exercises:
+      - quant-probability.conditional.total-probability
+
+  - id: qbayes-parameter-as-random-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A portfolio manager says: "there is a $70\%$ chance that this strategy's
+      true long-run Sharpe ratio exceeds $1$." Which reading makes that sentence
+      coherent?
+    answer: >
+      It is a Bayesian statement. The true long-run Sharpe is a fixed unknown
+      number, and no frequentist probability may be attached to it; the Bayesian
+      move is to put a distribution on it anyway, reading probability as degree
+      of belief, after which $0.7$ is simply the posterior mass lying above $1$.
+      Everything else in the sentence is unchanged — the estimate, the data, the
+      sampling model — so the disagreement is entirely about what the word
+      "probability" is allowed to range over. The reason this matters at an
+      interview is that the follow-up is always "what is your prior?", and a
+      candidate who denies the framing has no answer to give.
+    choices:
+      - text: >
+          A frequentist statement about how often the *estimated* Sharpe exceeds
+          $1$ across resampled histories.
+        feedback: >
+          That is a statement about a statistic computed from data, but the
+          sentence's subject is the true long-run Sharpe — a fixed parameter,
+          not an estimator.
+      - text: >
+          A Bayesian statement: the true Sharpe carries a posterior
+          distribution, and $0.7$ is that distribution's mass above $1$.
+        correct: true
+      - text: >
+          Incoherent under any framework, since the true Sharpe is a fixed
+          number and fixed numbers do not have probabilities.
+        feedback: >
+          Fixedness is exactly what the Bayesian stance sets aside: probability
+          measures your uncertainty about the number, not variability in the
+          number. Once a prior is on the table the sentence is well defined.
+      - text: >
+          A forecast that the strategy will beat a Sharpe of $1$ in $70\%$ of
+          the coming months.
+        feedback: >
+          That is a claim about future data, not about the parameter — the
+          posterior predictive rather than the posterior, and a different number
+          entirely.
+    rubric:
+      - >
+        Identifies the subject of the sentence as the parameter itself, and says
+        that only the Bayesian reading assigns it a distribution.
+      - >
+        Separates a statement about $\theta$ from a statement about future
+        observations.
+    targets:
+      - quant-statistics.bayesian.parameter-as-random
+
+  # --- the likelihood function ------------------------------------------------
+
+  - id: qbayes-likelihood-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You toss a coin of unknown bias $p$ until the third head appears, and the
+      third head arrives on the eighth toss. Write the likelihood as a function
+      of $p$, and report the value of $p$ that maximises it as an exact
+      fraction.
+    answer: >
+      $3/8$. The sampling probability of "third head on toss eight" is
+      $\binom{7}{2}p^{3}(1-p)^{5}$: the last toss is a head, and the first seven
+      contain exactly two heads. The factor $\binom{7}{2} = 21$ carries no $p$,
+      so it is dropped and the likelihood kernel is $L(p) = p^{3}(1-p)^{5}$.
+      Maximise the log: $3\ln p + 5\ln(1-p)$ has derivative $3/p - 5/(1-p)$,
+      which vanishes when $3(1-p) = 5p$, that is $p = 3/8$ — the observed
+      proportion of heads. The remark that earns the point: had you instead
+      fixed eight tosses in advance and seen three heads, the constant would be
+      $\binom{8}{3}$ rather than $\binom{7}{2}$, but the kernel would be
+      identical, so the likelihood and every inference built on it are the same.
+      The stopping rule moves only the droppable constant. The trap is
+      normalising $L$ over $p$ before using it, as though it were a density in
+      $p$; it is a shape, and only ratios of its values mean anything.
+    expects: "3/8"
+    rubric:
+      - >
+        Drops the $p$-free combinatorial factor before maximising and says why
+        it cannot move the maximiser.
+      - >
+        Notes that the binomial and negative-binomial framings give the same
+        kernel, so the stopping rule does not change the answer.
+    targets:
+      - quant-statistics.bayesian.likelihood
+      - quant-statistics.estimation.mle
+    connects:
+      - "quant-statistics.bayesian.likelihood ~ quant-statistics.estimation.mle"
+
+  - id: qbayes-likelihood-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Daily fills at a venue are modelled as Poisson with unknown mean
+      $\lambda$. One day brings exactly $3$ fills. What is the likelihood ratio
+      $L(4)/L(2)$? Give four decimal places, using $e^{-2} = 0.135335$.
+    answer: >
+      $\approx 1.0827$. With the data fixed at $3$ fills, $L(\lambda) =
+      e^{-\lambda}\lambda^{3}/3!$, and the factor $1/3!$ is free of $\lambda$, so the
+      kernel is $e^{-\lambda}\lambda^{3}$. Then $L(4)/L(2) =
+      e^{-4}4^{3}/(e^{-2}2^{3}) = e^{-2} \cdot 64/8 = 8e^{-2} = 8 \times
+      0.135335 = 1.0827$. Read it out loud: three fills is only about $8\%$ more
+      consistent with a mean of $4$ than with a mean of $2$, which is almost no
+      evidence at all — one day of counts cannot separate those hypotheses. The
+      trap is treating $L(4) = e^{-4}4^{3}/6 \approx 0.195$ as "the probability
+      that $\lambda = 4$". It is not a probability over $\lambda$ at all, and
+      the individual value carries no meaning; only the ratio does, which is
+      exactly why the $1/3!$ could be discarded without consequence.
+    expects: "1.0827"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Forms the ratio of kernels rather than reading either value as a
+        probability for $\lambda$.
+      - >
+        Cancels the data-only factor $1/3!$ and simplifies to $8e^{-2}$.
+    targets:
+      - quant-statistics.bayesian.likelihood
+
+  # --- prior times likelihood -------------------------------------------------
+
+  - id: qbayes-posterior-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A drawer holds one of three coins, with heads-biases $0.3$, $0.5$ and
+      $0.8$ and prior probabilities $0.2$, $0.5$ and $0.3$ respectively. You
+      draw one coin, toss it twice, and see a head and then a tail. What is the
+      posterior probability that you hold the $0.8$ coin? Give an exact
+      fraction.
+    answer: >
+      $48/215 \approx 0.2233$. The observed sequence is head-then-tail, so for a
+      coin of bias $p$ the likelihood is $p(1-p)$ with no binomial factor —
+      the order is part of the data. That gives $0.3(0.7) = 0.21$,
+      $0.5(0.5) = 0.25$ and $0.8(0.2) = 0.16$. Multiply by the priors for the
+      unnormalised weights: $0.2(0.21) = 0.042$, $0.5(0.25) = 0.125$ and
+      $0.3(0.16) = 0.048$, summing to $0.215$ — that sum is the marginal
+      likelihood $p(x)$, computed by addition rather than by an integral because
+      the parameter space is three points. Dividing, the $0.8$ coin has
+      posterior $0.048/0.215 = 48/215 \approx 0.2233$, *down* from its prior
+      $0.3$, while the fair coin rises to $0.125/0.215 = 25/43 \approx 0.581$.
+      One head and one tail is mild evidence against the most extreme coin,
+      which is the whole lesson: the largest bias is not the best explanation of
+      a mixed sample. Reporting $0.16$ — the likelihood — as the answer is the
+      classic confusion of likelihood with posterior, and it is not even a
+      probability over coins.
+    expects: "48/215"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses the ordered likelihood $p(1-p)$ for each candidate coin and
+        multiplies by that coin's prior.
+      - >
+        Normalises by the sum of all three weights, and notes that the sum is
+        the discrete stand-in for $p(x)$.
+    targets:
+      - quant-statistics.bayesian.posterior
+    exercises:
+      - quant-probability.conditional.total-probability
+      - quant-probability.conditional.bayes
+
+  - id: qbayes-posterior-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A screening test has sensitivity $0.98$ and a false-positive rate of
+      $0.04$, and $1$ person in $250$ has the condition. A randomly chosen
+      person tests positive. What is the posterior probability that they have
+      the condition? Give an exact fraction.
+    answer: >
+      $49/547 \approx 0.0896$. Two hypotheses, so two weights. Diseased:
+      $\frac{1}{250}(0.98) = 98/25000$. Healthy: $\frac{249}{250}(0.04) =
+      996/25000$. The sum $1094/25000$ is the marginal probability of a positive
+      test, and the posterior is $98/1094 = 49/547 \approx 0.0896$. Per $25000$
+      people screened, $98$ true positives are swamped by $996$ false ones,
+      because the healthy group outnumbers the diseased one $249$ to $1$ and a
+      $4\%$ error rate on a huge group beats a $98\%$ hit rate on a tiny one.
+      The trap is base-rate neglect: answering $0.98$, or "about $96\%$", reads
+      the sensitivity $\Pr(+ \mid D)$ as the posterior $\Pr(D \mid +)$. Those
+      are different conditionals, and the prior odds of $1$ to $249$ are exactly
+      what separates them.
+    expects: "49/547"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Weights each hypothesis by its prior before comparing, so the $249$-to-1
+        base rate enters the answer.
+      - >
+        Does not report the sensitivity as the posterior — names the two
+        conditionals and keeps them apart.
+    targets:
+      - quant-statistics.bayesian.posterior
+    exercises:
+      - quant-probability.conditional.bayes
+
+  - id: qbayes-posterior-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      Updating a prior $\pi(\theta)$ on an observation $x$, you evaluate the
+      product $\pi(\theta)L(\theta)$ at $\theta = 0.2$ and get $0.36$. What is
+      that number?
+    answer: >
+      It is an unnormalised posterior weight. Bayes' theorem says
+      $\pi(\theta \mid x) = \pi(\theta)L(\theta)/p(x)$, and until the product is
+      divided by $p(x) = \int \pi(\theta)L(\theta)\,d\theta$ it is only
+      *proportional* to the posterior density — the numbers can be scaled
+      arbitrarily by rescaling the likelihood, which is precisely what dropping
+      a $\theta$-free constant does. Since the whole family of curves
+      $c\,\pi(\theta)L(\theta)$ carries the same information, no single value of
+      the product is interpretable on its own; it becomes a density only after
+      the normaliser is supplied, and only then does it integrate to $1$.
+    choices:
+      - text: >
+          The posterior density at $\theta = 0.2$.
+        feedback: >
+          Proportional to it, but missing the constant: rescale $L$ by any
+          factor and this number changes while the posterior does not.
+      - text: >
+          An unnormalised posterior weight, which becomes the posterior density
+          only after dividing by $p(x)$.
+        correct: true
+      - text: >
+          The probability that $\theta$ equals $0.2$ given the data.
+        feedback: >
+          Two slips at once: a continuous parameter puts probability $0$ on any
+          single value, and a density value is not a probability in any case.
+      - text: >
+          The marginal likelihood $p(x)$.
+        feedback: >
+          $p(x)$ is the integral of this product over *all* $\theta$ — one
+          number free of $\theta$. What you have is one point's contribution to
+          that integral.
+    rubric:
+      - >
+        Says the product is proportional to the posterior and names the missing
+        factor as $p(x)$.
+      - >
+        Notes that the value is not scale-fixed, since $\theta$-free constants
+        in $L$ were already discarded.
+    targets:
+      - quant-statistics.bayesian.posterior
+
+  # --- odds form and Bayes factors --------------------------------------------
+
+  - id: qbayes-posterior-odds-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Prior odds are $1$ to $19$ that a candidate signal is genuinely predictive
+      rather than noise. In each of three independent out-of-sample months it
+      beats its benchmark; a predictive signal does so with probability $0.75$
+      per month, a noise signal with probability $0.5$. What is the posterior
+      probability that the signal is predictive? Give an exact fraction.
+    answer: >
+      $27/179 \approx 0.1508$. Each month's Bayes factor is $0.75/0.5 = 1.5$,
+      and conditionally independent evidence multiplies its factors, so three
+      months contribute $1.5^{3} = 27/8 = 3.375$. Posterior odds are
+      $\frac{1}{19} \cdot \frac{27}{8} = \frac{27}{152}$, and converting,
+      $27/(27+152) = 27/179 \approx 0.1508$. On the log scale each month buys
+      $\ln 1.5 \approx 0.405$ against a prior deficit of $\ln 19 \approx 2.94$,
+      so three clean months close well under half the gap. Three straight wins
+      feel decisive and are not: pure noise delivers them one time in eight. Two
+      slips are worth naming. Reporting $3.375/(3.375+1) \approx 0.77$ treats
+      the Bayes factor as though the prior odds were even, which is base-rate
+      neglect in odds clothing; reporting $0.75^{3} \approx 0.42$ uses only the
+      numerator of the ratio and never asks how often noise produces the same
+      record.
+    expects: "27/179"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Multiplies three independent Bayes factors and then multiplies by the
+        prior odds, rather than dropping either.
+      - >
+        Converts odds $O$ to the probability $O/(1+O)$ at the end, not before.
+    targets:
+      - quant-statistics.bayesian.posterior-odds
+    exercises:
+      - quant-probability.conditional.bayes-odds
+      - quant-probability.foundations.odds
+
+  - id: qbayes-posterior-odds-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Prior odds are $2$ to $5$ that a trader can genuinely call the next day's
+      direction. A skilled caller is right with probability $0.8$ each day, an
+      unskilled one with probability $0.5$, independently across days. He calls
+      four days in a row correctly. What Bayes factor do those four calls
+      supply? Give four decimal places.
+    answer: >
+      $6.5536$. The Bayes factor is the likelihood ratio for the observed
+      record: $0.8^{4}/0.5^{4} = 0.4096/0.0625 = (0.8/0.5)^{4} = 1.6^{4} =
+      6.5536$. The prior odds are supplied and deliberately unused — a Bayes
+      factor is a property of the evidence alone, which is exactly why it can be
+      quoted before anyone agrees on a prior. Only afterwards do they combine:
+      posterior odds $\frac{2}{5}(6.5536) \approx 2.62$ to $1$, a probability of
+      about $0.724$. The trap is reporting $0.8^{4} = 0.4096$: that is how often
+      a skilled caller produces this record, and evidence is a *comparison*, so
+      the unskilled hypothesis's $0.5^{4} = 0.0625$ must go underneath. Folding
+      the prior odds into the answer and reporting $2.62$ answers a different
+      question.
+    expects: "6.5536"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides the two likelihoods of the same record rather than reporting one
+        of them.
+      - >
+        Keeps the prior odds out of the Bayes factor and says why the two
+        multiply only at the end.
+    targets:
+      - quant-statistics.bayesian.posterior-odds
+    exercises:
+      - quant-probability.conditional.bayes-odds
+
+  # --- sequential updating ----------------------------------------------------
+
+  - id: qbayes-sequential-updating-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A coin is fair with prior probability $0.6$, and otherwise lands heads
+      with probability $0.75$. Four tosses give head, tail, head, head. What is
+      the posterior probability that the coin is the biased one? Give an exact
+      fraction.
+    answer: >
+      $9/17 \approx 0.5294$. As one batch: the fair coin's likelihood for that
+      sequence is $(1/2)^{4} = 1/16$ and the biased coin's is $(3/4)^{3}(1/4) =
+      27/256$. Weighting by the priors, $0.6/16 = 24/640$ and $0.4(27/256) =
+      27/640$, which sum to $51/640$, so the biased posterior is
+      $27/51 = 9/17$. Now one toss at a time, feeding each posterior forward as
+      the next prior: after the head, $0.3/(0.3+0.3) = 1/2$; after the tail,
+      $\frac{(1/2)(1/4)}{(1/2)(1/4) + (1/2)(1/2)} = 1/3$; after the third toss,
+      $3/7$; after the fourth, $\frac{(3/7)(3/4)}{(3/7)(3/4) + (4/7)(1/2)} =
+      \frac{9/28}{17/28} = 9/17$ — identical, because both routes multiply the
+      same factors $\pi(\theta)\prod_i p(x_i \mid \theta)$. Order is irrelevant
+      for the same reason. The trap is re-using the *original* prior at every
+      step, which multiplies $0.6$ and $0.4$ into the product four times over
+      and grossly overweights a view you have already updated away from.
+    expects: "9/17"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses the ordered likelihood for each hypothesis and normalises across
+        the two.
+      - >
+        Shows the one-at-a-time route feeding each posterior forward as the next
+        prior, and lands on the same number.
+    targets:
+      - quant-statistics.bayesian.sequential-updating
+    exercises:
+      - quant-probability.conditional.chain-rule
+
+  - id: qbayes-sequential-updating-02
+    kind: work
+    difficulty: standard
+    statement: >
+      This morning's data left you with posterior probability $0.3$ that a venue
+      is internalising your flow. This afternoon a diagnostic fires; it fires
+      with probability $0.6$ when the venue internalises and $0.2$ when it does
+      not, conditionally independently of the morning's data given the venue's
+      type. What is your posterior now? Give an exact fraction.
+    answer: >
+      $9/16 = 0.5625$. Today's posterior is tomorrow's prior, so $0.3$ is the
+      prior for the afternoon's update: weights $0.3(0.6) = 0.18$ and
+      $0.7(0.2) = 0.14$, summing to $0.32$, giving $0.18/0.32 = 9/16$. The odds
+      form is faster and is what you would run in your head: prior odds $3$ to
+      $7$, likelihood ratio $0.6/0.2 = 3$, posterior odds $9$ to $7$, hence
+      $9/16$. Note what you never needed: the morning's raw observations. The
+      running posterior is a sufficient summary of everything seen so far, which
+      is why a market-maker can keep one number per instrument instead of a
+      tape. The trap is reaching back past $0.3$ to whatever prior you started
+      the day with — that discards the morning's evidence entirely.
+    expects: "9/16"
+    rubric:
+      - >
+        Uses $0.3$, not the original prior, as the input to the afternoon's
+        update.
+      - >
+        Normalises across both venue types, or equivalently multiplies prior
+        odds by the likelihood ratio $3$.
+    targets:
+      - quant-statistics.bayesian.sequential-updating
+
+  # --- conjugate families -----------------------------------------------------
+
+  - id: qbayes-conjugate-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Order arrivals in a session are Poisson with unknown rate $\lambda$ per
+      session, and your prior on $\lambda$ is Gamma with shape $2$ and rate $3$,
+      density proportional to $\lambda^{1}e^{-3\lambda}$. Over four sessions you
+      count $9$ orders in total. What is the posterior mean of $\lambda$? Give
+      an exact fraction.
+    answer: >
+      $11/7 \approx 1.5714$. The prior kernel is $\lambda^{a-1}e^{-b\lambda}$
+      with $a = 2$, $b = 3$. Four conditionally independent Poisson counts
+      totalling $9$ contribute $\prod_i e^{-\lambda}\lambda^{x_i}/x_i! \propto
+      \lambda^{9}e^{-4\lambda}$, since the factorials are free of $\lambda$.
+      Multiplying kernels adds exponents and adds the rates:
+      $\lambda^{1+9}e^{-(3+4)\lambda} = \lambda^{11-1}e^{-7\lambda}$, a
+      Gamma kernel with shape $2 + 9 = 11$ and rate $3 + 4 = 7$ — the shape
+      absorbs the event count, the rate absorbs the exposure, and no integral is
+      done. A Gamma with shape $a$ and rate $b$ has mean $a/b$, so the posterior
+      mean is $11/7$. It sits between the prior mean $2/3 \approx 0.667$ and the
+      raw estimate $9/4 = 2.25$, nearer the data because four sessions of
+      exposure outweigh the prior's three. The trap is the parametrisation: read
+      the $3$ as a *scale* and the prior kernel becomes $e^{-\lambda/3}$, the
+      posterior rate becomes $1/3 + 4$, and the mean comes out $33/13 \approx
+      2.54$. Say which convention you are in before writing anything down.
+    expects: "11/7"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Multiplies the prior kernel by the likelihood kernel and recognises a
+        Gamma, rather than integrating.
+      - >
+        Adds the total count to the shape and the number of sessions to the
+        rate, and states the rate convention being used.
+    targets:
+      - quant-statistics.bayesian.conjugate
+    exercises:
+      - quant-statistics.bayesian.posterior
+      - quant-statistics.bayesian.likelihood
+
+  - id: qbayes-conjugate-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      You must put a prior on the unknown mean number of trades per hour,
+      modelling the hourly counts as Poisson. Which choice keeps the posterior
+      in the same family as the prior?
+    answer: >
+      A Gamma prior on the rate. Its kernel $\lambda^{a-1}e^{-b\lambda}$ meets a
+      Poisson likelihood kernel $\lambda^{\sum x_i}e^{-n\lambda}$, and the
+      product $\lambda^{a + \sum x_i - 1}e^{-(b+n)\lambda}$ is again a Gamma
+      kernel — closure, with the update reduced to adding the observed count to
+      the shape and the exposure to the rate. The general point is that
+      conjugacy is a property of the *pair*: no family is conjugate on its own,
+      and the right question is always "conjugate to which likelihood?" A Gamma
+      prior also has the right support, the positive reals, which a Beta prior
+      on $[0,1]$ could not supply for a rate.
+    choices:
+      - text: >
+          A Beta prior, since it is the standard conjugate prior for an unknown
+          parameter.
+        feedback: >
+          Beta lives on $[0,1]$ and pairs with a Bernoulli or binomial
+          likelihood; a Poisson mean ranges over all positive reals, so the
+          prior cannot even be written down. Which prior is conjugate is fixed
+          by the likelihood, not by habit.
+      - text: >
+          A Gamma prior on the rate, since multiplying $\lambda^{a-1}e^{-b
+          \lambda}$ by $\lambda^{\sum x_i}e^{-n\lambda}$ returns a Gamma kernel.
+        correct: true
+      - text: >
+          A normal prior on the rate, since normal priors are conjugate.
+        feedback: >
+          Normal-with-normal is conjugate; normal-with-Poisson is not — the
+          product is no normal kernel, and a normal prior puts mass on negative
+          rates, which the model forbids.
+      - text: >
+          A Gamma prior on the reciprocal of the rate, since it is precisions
+          that add.
+        feedback: >
+          Precisions adding is the normal-normal update. Reparametrising to
+          $1/\lambda$ gives an inverse-Gamma prior on $\lambda$, and that
+          product is not a Gamma kernel.
+    rubric:
+      - >
+        Names conjugacy as a property of the prior-likelihood pair, not of a
+        family alone.
+      - >
+        Checks the support of the parameter as well as the algebra of the
+        kernels.
+    targets:
+      - quant-statistics.bayesian.conjugate
+
+  - id: qbayes-conjugate-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Let $p$ carry a $\operatorname{Beta}(a,b)$ prior and let $k$ successes be
+      observed in $n$ independent Bernoulli$(p)$ trials. Prove that the
+      posterior is $\operatorname{Beta}(a+k,\, b+n-k)$, and explain why the
+      argument never requires evaluating an integral.
+    answer: >
+      Write the prior density $\pi(p) = p^{a-1}(1-p)^{b-1}/B(a,b)$ on $[0,1]$
+      and the likelihood $L(p) = \binom{n}{k}p^{k}(1-p)^{n-k}$. Bayes' theorem
+      gives $\pi(p \mid k) = \pi(p)L(p)/p(k)$ with $p(k) = \int_{0}^{1}
+      \pi(p)L(p)\,dp$. Every factor free of $p$ — the $1/B(a,b)$, the
+      $\binom{n}{k}$, the $1/p(k)$ — collects into a single constant $c$, so
+      $\pi(p \mid k) = c\,p^{a+k-1}(1-p)^{b+n-k-1}$. Match the exponents against
+      the Beta form $p^{\alpha-1}(1-p)^{\beta-1}$: $\alpha = a+k$ and
+      $\beta = b+n-k$, both strictly positive because $a, b > 0$ and
+      $0 \le k \le n$, so the function is integrable on $[0,1]$ and a Beta
+      density with these parameters exists. Now the step that closes the proof:
+      a density is determined by its shape. Two integrable non-negative
+      functions on the same support that are proportional and each integrate to
+      $1$ must be equal, so $c$ is forced to be $1/B(a+k,\, b+n-k)$ and the
+      posterior *is* $\operatorname{Beta}(a+k,\, b+n-k)$. No integral was
+      evaluated: recognising the kernel supplies the normaliser from the known
+      family, which is exactly what conjugacy buys. As a bonus the same
+      identification hands back the marginal likelihood for free,
+      $p(k) = \binom{n}{k}B(a+k,\, b+n-k)/B(a,b)$, since that is the constant
+      that had to be divided out. Two remarks. The argument used only that the
+      likelihood's $p$-dependence is a power of $p$ times a power of $1-p$, so
+      the same computation covers a single Bernoulli trial and shows that only
+      $k$, not the order of the successes, ever enters the posterior. And
+      closure is a claim about the whole family: it holds for every $a, b > 0$
+      and every $k$, which is what makes repeated updating pure bookkeeping —
+      add heads to the first parameter, tails to the second.
+    rubric:
+      - >
+        Collects all $p$-free factors into one constant and matches exponents to
+        the Beta form, checking both new parameters are positive.
+      - >
+        Argues that proportionality plus normalisation forces the constant, so
+        the normalising integral is read off rather than computed.
+      - >
+        Notes that only $k$ enters, and that closure holds for every $a$, $b$ —
+        which is what makes sequential updating additive.
+    targets:
+      - quant-statistics.bayesian.conjugate
+      - quant-statistics.bayesian.beta-binomial
+
+  # --- the Beta prior ---------------------------------------------------------
+
+  - id: qbayes-beta-prior-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You want a $\operatorname{Beta}(a,b)$ prior on a conversion rate whose
+      mean is $1/4$ and whose standard deviation is $1/8$. Find $a$, as an exact
+      fraction.
+    answer: >
+      $a = 11/4 = 2.75$. Reparametrise by the mean $m = a/(a+b)$ and the
+      pseudo-count $s = a+b$. Then $ab = m(1-m)s^{2}$, so the variance
+      $ab/((a+b)^{2}(a+b+1))$ collapses to $m(1-m)/(s+1)$ — spread depends on
+      the two shape parameters only through their sum. Setting
+      $m(1-m)/(s+1) = 1/64$ with $m(1-m) = \frac{1}{4}\cdot\frac{3}{4} = 3/16$
+      gives $s+1 = 64 \cdot 3/16 = 12$, hence $s = 11$, $a = ms = 11/4$ and
+      $b = 33/4$. Check the shape: the mode $(a-1)/(a+b-2) = 1.75/9 \approx
+      0.194$ sits below the mean, as it must when $b > a$. The trap is insisting
+      that $a$ and $b$ be integers because the prior "is worth" so many tosses:
+      they are shape parameters, and only their sum plays the role of a sample
+      size. The second trap is expecting a tight prior — $11$ pseudo-observations
+      is weak, and halving the standard deviation to $1/16$ would demand
+      $s + 1 = 48$, since spread shrinks like $1/\sqrt{s}$.
+    expects: "11/4"
+    rubric:
+      - >
+        Uses the identity $\operatorname{Var} = m(1-m)/(s+1)$ rather than
+        solving the raw two-parameter variance formula.
+      - >
+        Reports a non-integer $a$ without flinching, and notes that only
+        $a+b$ acts as the prior sample size.
+    targets:
+      - quant-statistics.bayesian.beta-prior
+    exercises:
+      - quant-probability.continuous.beta
+      - quant-probability.expectation.variance
+
+  - id: qbayes-beta-prior-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A $\operatorname{Beta}(4,12)$ prior is proposed for a fill probability.
+      What is its mode? Give an exact fraction.
+    answer: >
+      $3/14 \approx 0.2143$. The mode of $\operatorname{Beta}(a,b)$ is
+      $(a-1)/(a+b-2)$ when $a, b > 1$, which holds here, so the mode is
+      $3/14$. Set it beside the mean $4/16 = 0.25$: the mode is the *lower* of
+      the two, the signature of the right skew you get whenever $b > a$, and the
+      gap between them is a reminder that "the most likely value" and "the
+      centre of belief" are different summaries of the same prior. The prior is
+      worth $a + b = 16$ pseudo-observations, and its variance is
+      $\frac{4 \cdot 12}{16^{2}\cdot 17} \approx 0.0110$, a standard deviation
+      near $0.105$. The trap is quoting the mean when asked for the mode — they
+      coincide only when $a = b$ — and the second trap is applying the formula
+      when a parameter drops to $1$ or below, where the density has no interior
+      maximum at all.
+    expects: "3/14"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Applies $(a-1)/(a+b-2)$ and checks the condition $a, b > 1$ under which
+        it is valid.
+      - >
+        Distinguishes the mode from the mean $a/(a+b)$ and explains why the mode
+        is smaller here.
+    targets:
+      - quant-statistics.bayesian.beta-prior
+    exercises:
+      - quant-probability.continuous.beta
+
+  # --- beta-binomial updating --------------------------------------------------
+
+  - id: qbayes-beta-binomial-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A market-maker's prior on a client's fill-through rate is
+      $\operatorname{Beta}(2,5)$. The first nine attempts yield $3$ fills; a
+      later batch of six attempts yields $5$. What is the posterior mean? Give
+      an exact fraction.
+    answer: >
+      $5/11 \approx 0.4545$. Fifteen attempts produced $8$ fills and $7$
+      misses, so the posterior is $\operatorname{Beta}(2+8,\, 5+7) =
+      \operatorname{Beta}(10,12)$ with mean $10/22 = 5/11$. Updating in two
+      steps gives the same thing: $\operatorname{Beta}(2,5)$ with $3$ of $9$
+      becomes $\operatorname{Beta}(5,11)$, and that prior with $5$ of $6$
+      becomes $\operatorname{Beta}(10,12)$ — the parameters add, so the batching
+      cannot matter. The number sits between the prior mean $2/7 \approx 0.286$
+      and the raw rate $8/15 \approx 0.533$, closer to the data because $15$
+      real attempts outweigh $7$ pseudo-attempts. The trap this problem is built
+      around is re-applying the original prior to the second batch — computing
+      $\operatorname{Beta}(2+3, 5+6)$ and $\operatorname{Beta}(2+5, 5+1)$ and
+      combining them somehow — which counts the prior's seven pseudo-attempts
+      twice and drags the answer back toward $0.286$.
+    expects: "5/11"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Adds all successes to the first parameter and all failures to the
+        second, counting the prior once.
+      - >
+        Shows the two-step route landing on the same posterior, or says why the
+        batching is irrelevant.
+    targets:
+      - quant-statistics.bayesian.beta-binomial
+      - quant-statistics.bayesian.sequential-updating
+
+  - id: qbayes-beta-binomial-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A $\operatorname{Beta}(2,3)$ prior on a coin's bias is updated by $9$
+      heads in $12$ tosses. What is the posterior mean? Give an exact fraction.
+    answer: >
+      $11/17 \approx 0.6471$. Add heads to the first parameter and tails to the
+      second: $\operatorname{Beta}(2+9,\, 3+3) = \operatorname{Beta}(11,6)$,
+      mean $11/17$. The weighted-average form checks it: the prior is worth
+      $5$ pseudo-tosses with mean $2/5$, the data is $12$ tosses at $3/4$, so
+      the posterior mean is $\frac{5}{17}\cdot\frac{2}{5} +
+      \frac{12}{17}\cdot\frac{3}{4} = \frac{2}{17} + \frac{9}{17} =
+      \frac{11}{17}$. The trap is feeding $n$ into the second parameter instead
+      of $n - k$: $\operatorname{Beta}(11,15)$ would have mean $11/26 \approx
+      0.42$, below the prior mean even though the data was heads-heavy, which is
+      an immediate sign the update went in the wrong direction.
+    expects: "11/17"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Sends $k$ to the first parameter and $n - k$, not $n$, to the second.
+      - >
+        Cross-checks with the weighted average of the prior mean and $k/n$.
+    targets:
+      - quant-statistics.bayesian.beta-binomial
+
+  - id: qbayes-beta-binomial-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      A $\operatorname{Beta}(4,1)$ prior is updated by $2$ successes and $7$
+      failures. What is the posterior?
+    answer: >
+      $\operatorname{Beta}(6,8)$: successes go to the first parameter,
+      $4 + 2 = 6$, and failures to the second, $1 + 7 = 8$. Nothing is scaled or
+      integrated — the update is addition. Sanity-check the direction: the prior
+      mean was $4/5 = 0.8$ and the data came in at $2/9 \approx 0.22$, so the
+      posterior mean $6/14 = 3/7 \approx 0.43$ must lie between them, and it
+      does, sitting nearer the data because nine real trials outweigh five
+      pseudo-trials. The weighted form agrees:
+      $\frac{5}{14}\cdot\frac{4}{5} + \frac{9}{14}\cdot\frac{2}{9} =
+      \frac{4}{14} + \frac{2}{14} = \frac{6}{14}$.
+    choices:
+      - text: >
+          $\operatorname{Beta}(6,8)$
+        correct: true
+      - text: >
+          $\operatorname{Beta}(8,6)$
+        feedback: >
+          The parameters are swapped. Successes raise the first parameter, and
+          here the successes are the scarce outcome, so the second parameter has
+          to end up the larger one.
+      - text: >
+          $\operatorname{Beta}(6,10)$
+        feedback: >
+          The second parameter absorbs the failure count $n - k = 7$, not the
+          trial count $n = 9$. Adding $n$ to both parameters would double-count
+          the successes.
+      - text: >
+          $\operatorname{Beta}(4,1)$ rescaled by the sample proportion $2/9$
+        feedback: >
+          Updating moves parameters, it does not scale a density — and a scaled
+          Beta density would no longer integrate to $1$.
+    rubric:
+      - >
+        Adds successes and failures to the two parameters separately.
+      - >
+        Checks the direction of the move against the prior mean and the sample
+        proportion.
+    targets:
+      - quant-statistics.bayesian.beta-binomial
+
+  # --- the posterior mean as a weighted average --------------------------------
+
+  - id: qbayes-posterior-mean-weights-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Show that the beta-binomial posterior mean is a convex combination of the
+      prior mean and the sample proportion, identify the weights, and deduce
+      what happens as $n \to \infty$ with $k/n$ held at a fixed value $q$.
+    answer: >
+      Write $s = a+b$ for the prior's pseudo-count. The posterior
+      $\operatorname{Beta}(a+k,\, b+n-k)$ has mean $(a+k)/(s+n)$. Split the
+      numerator and multiply each piece by $1$ in a convenient form:
+      $\frac{a+k}{s+n} = \frac{a}{s+n} + \frac{k}{s+n} =
+      \frac{s}{s+n}\cdot\frac{a}{s} + \frac{n}{s+n}\cdot\frac{k}{n}$. The
+      coefficients $s/(s+n)$ and $n/(s+n)$ are non-negative and sum to $1$, so
+      the posterior mean is a convex combination of the prior mean $a/s$ and the
+      sample proportion $k/n$. Three consequences follow immediately. It always
+      lies between those two numbers, so it can never be more extreme than both
+      — a fact worth quoting as a check on any arithmetic. The weights are the
+      pseudo-count against the real count, which is the operational meaning of
+      $a$ and $b$: the prior is worth $s$ tosses, no more and no less. And the
+      whole of updating is the weights sliding, since the two endpoints do not
+      move as data arrives at a fixed rate. For the limit, fix $k/n = q$ and let
+      $n \to \infty$: $s/(s+n) \to 0$ and $n/(s+n) \to 1$, so the posterior mean
+      tends to $q$, the maximum-likelihood value. The rate is the useful part:
+      the posterior mean minus $q$ equals $\frac{s}{s+n}\left(\frac{a}{s} -
+      q\right)$, which is $O(1/n)$ with constant proportional to $s$ and to how
+      wrong the prior was. So any two priors of finite pseudo-count agree in the
+      limit — two Bayesians cannot disagree forever on the same data — while for
+      $n$ of the same order as $s$ the prior still moves the answer materially,
+      which is exactly why a short track record is not evidence. The convexity
+      argument needs $s$ finite: a point-mass prior is the degenerate case
+      $s = \infty$, it never moves, and no amount of data revives a value given
+      zero prior mass.
+    rubric:
+      - >
+        Derives the split algebraically and verifies the weights are
+        non-negative and sum to $1$.
+      - >
+        Identifies the weights as pseudo-count against sample size, and
+        concludes the posterior mean lies between prior mean and MLE.
+      - >
+        Takes $n \to \infty$ with $k/n$ fixed, gets the MLE, and states the
+        $O(1/n)$ rate at which the prior washes out.
+    targets:
+      - quant-statistics.bayesian.posterior-mean-weights
+
+  - id: qbayes-posterior-mean-weights-02
+    kind: work
+    difficulty: demanding
+    statement: >
+      Your prior on a strategy's win rate is $\operatorname{Beta}(6,2)$. Trades
+      then arrive in blocks of five, and every block yields exactly one win. How
+      many blocks must arrive before the posterior mean first falls below
+      $0.4$?
+    answer: >
+      $3$ blocks, that is fifteen trades. After $m$ blocks the tally is $m$ wins
+      and $4m$ losses, so the posterior is $\operatorname{Beta}(6+m,\, 2+4m)$
+      with mean $(6+m)/(8+5m)$. Solve $(6+m)/(8+5m) < 0.4$: cross-multiplying,
+      $6+m < 3.2+2m$, so $m > 2.8$ and the first integer is $m = 3$, where the
+      mean is $9/23 \approx 0.391$. At $m = 2$ it is still $8/18 \approx 0.444$.
+      Read through the weighted-average form, the two endpoints never move — the
+      prior mean is $0.75$ and the sample proportion is $0.2$ — and all that
+      happens is the data weight $5m/(8+5m)$ climbing past the threshold where
+      the average crosses $0.4$. Fifteen trades to drag a prior worth eight
+      pseudo-trades below $0.4$ is the point: a confident prior is expensive to
+      overturn. The trap is arguing that the sample proportion is $0.2 < 0.4$ so
+      the answer is one block; the posterior mean never reaches $0.2$ at all,
+      it only approaches it from above as $m$ grows.
+    expects: "3"
+    rubric:
+      - >
+        Writes the posterior parameters as functions of $m$ and solves the
+        resulting inequality for the smallest integer.
+      - >
+        Does not confuse the sample proportion with the posterior mean — the
+        prior's weight is what delays the crossing.
+    targets:
+      - quant-statistics.bayesian.posterior-mean-weights
+    exercises:
+      - quant-statistics.bayesian.beta-binomial
+
+  - id: qbayes-posterior-mean-weights-03
+    kind: work
+    difficulty: standard
+    statement: >
+      A $\operatorname{Beta}(5,15)$ prior on a click-through rate is updated by
+      $3$ successes in $30$ trials. Compute the posterior mean, and give it as a
+      decimal.
+    answer: >
+      $0.16$. Directly: the posterior is $\operatorname{Beta}(5+3,\, 15+27) =
+      \operatorname{Beta}(8,42)$, mean $8/50 = 0.16$. As a weighted average: the
+      prior carries weight $20/50 = 0.4$ around its mean $5/20 = 0.25$, the data
+      carries weight $30/50 = 0.6$ around $3/30 = 0.1$, and
+      $0.4(0.25) + 0.6(0.1) = 0.1 + 0.06 = 0.16$ — the same number, which is
+      the check worth running whenever the parameters get large enough to
+      mistype. The trap is averaging the two means with equal weights,
+      $(0.25+0.1)/2 = 0.175$; the data is worth $30$ observations against the
+      prior's $20$, so it deserves the larger share, and equal weighting would
+      overstate a prior nobody claimed was worth $30$ trials.
+    expects: "0.16"
+    rubric:
+      - >
+        Gets $\operatorname{Beta}(8,42)$ and the mean $8/50$.
+      - >
+        Reproduces the same value as $\frac{s}{s+n}$ times the prior mean plus
+        $\frac{n}{s+n}$ times $k/n$, with weights $0.4$ and $0.6$.
+    targets:
+      - quant-statistics.bayesian.posterior-mean-weights
+
+  # --- the rule of succession -------------------------------------------------
+
+  - id: qbayes-succession-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A newly deployed execution algorithm has completed $3$ of its first $4$
+      orders without a reject. Starting from a flat prior on the per-order
+      success probability, what is the probability that *both* of the next two
+      orders complete? Give an exact fraction.
+    answer: >
+      $10/21$. The flat $\operatorname{Beta}(1,1)$ prior updated by $3$
+      successes in $4$ trials gives the posterior
+      $\operatorname{Beta}(4,2)$. The two orders are conditionally independent
+      given $p$, not unconditionally independent, so the quantity wanted is
+      $\mathbb{E}[p^{2}]$ under the posterior, which for
+      $\operatorname{Beta}(a,b)$ is $a(a+1)/((a+b)(a+b+1)) = (4 \cdot
+      5)/(6 \cdot 7) = 20/42 = 10/21 \approx 0.476$. The same number falls out
+      of the rule applied twice, which is the version to say aloud: the next
+      order completes with probability $(3+1)/(4+2) = 2/3$; conditioning on
+      that success the tally becomes $4$ of $5$, so the one after completes
+      with probability $(4+1)/(5+2) = 5/7$; and $\frac{2}{3} \cdot \frac{5}{7}
+      = \frac{10}{21}$. The trap is squaring the succession probability to get
+      $(2/3)^{2} = 4/9 \approx 0.444$. That is strictly too small, and the gap
+      is exactly the parameter uncertainty: a first success is evidence that
+      $p$ is high, which raises the chance of the second, so the two outcomes
+      are positively correlated once $p$ is unknown.
+    expects: "10/21"
+    rubric:
+      - >
+        Identifies the posterior as $\operatorname{Beta}(4,2)$ and the target
+        as $\mathbb{E}[p^{2}]$, not the square of the posterior mean.
+      - >
+        Gets $10/21$, by the moment formula or by applying the rule twice with
+        the tally updated in between.
+      - >
+        Explains why $(2/3)^{2}$ is too small: the trials are only
+        conditionally independent, so a success raises belief about $p$.
+    targets:
+      - quant-statistics.bayesian.succession
+    exercises:
+      - quant-statistics.bayesian.beta-binomial
+
+  - id: qbayes-succession-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A quality gate has passed $9$ of the last $11$ builds. Under Laplace's
+      rule of succession, what is the probability the next build passes? Give
+      an exact fraction.
+    answer: >
+      $10/13 \approx 0.769$. The rule takes the flat $\operatorname{Beta}(1,1)$
+      prior, so the posterior after $k = 9$ passes in $n = 11$ builds is
+      $\operatorname{Beta}(10,3)$ and the chance the next build passes is that
+      posterior's mean, $(k+1)/(n+2) = 10/13$. Read it against the raw rate
+      $9/11 \approx 0.818$: the two imaginary observations pull the estimate
+      down by about five points, because a record of eleven builds is not yet
+      enough to claim a pass rate that high. The size of that correction is the
+      whole content of the rule — it is largest when $n$ is small and vanishes
+      as $n$ grows, since $(k+1)/(n+2)$ and $k/n$ agree in the limit. The trap
+      is reporting the raw proportion, which is the posterior mean you would
+      get from a prior of pseudo-count $0$; nobody holds that prior, and it is
+      what produces the degenerate answers $0$ and $1$ from perfect records.
+    expects: "10/13"
+    rubric:
+      - >
+        Applies $(k+1)/(n+2)$ with $k = 9$ and $n = 11$ rather than the raw
+        proportion $9/11$.
+      - >
+        Names the flat $\operatorname{Beta}(1,1)$ prior as what the rule
+        assumes, and says the correction shrinks as $n$ grows.
+    targets:
+      - quant-statistics.bayesian.succession
+    exercises:
+      - quant-statistics.bayesian.posterior-mean-weights
+
+  # --- shrinkage --------------------------------------------------------------
+
+  - id: qbayes-shrinkage-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Screening two hundred junior traders, you find the best raw record is
+      $17$ profitable days out of $20$, a rate of $85\%$. You want a
+      $\operatorname{Beta}(s/2, s/2)$ prior — centred at $50\%$ and worth $s$
+      pseudo-days — chosen so that this record's posterior mean lands at
+      exactly $0.60$. What pseudo-count $s$ does that require?
+    answer: >
+      $s = 50$, that is a $\operatorname{Beta}(25,25)$ prior. The posterior is
+      $\operatorname{Beta}(s/2 + 17,\, s/2 + 3)$ with mean $(s/2 + 17)/(s +
+      20)$. Setting that to $0.6$ gives $s/2 + 17 = 0.6s + 12$, so $5 = 0.1s$
+      and $s = 50$; the check is $(25+17)/(50+20) = 42/70 = 3/5$. The weighted
+      form says the same thing more usefully: the data carries weight
+      $20/70 = 2/7$ and the prior $5/7$, so the raw excess of $0.35$ above the
+      prior mean survives only as $\frac{2}{7}(0.35) = 0.10$. This is
+      regression to the mean seen from the Bayesian side. Twenty days is a
+      short enough window that the best of two hundred records is mostly a
+      selection effect — with two hundred coin-flippers, someone gets $17$
+      heads in $20$ by luck alone — and the honest forecast of that trader's
+      next twenty days is far closer to the population average than to $85\%$.
+      The prior's pseudo-count is exactly the dial controlling how much of the
+      extreme record you are willing to believe, and it should be set from how
+      many days of population history you actually have, not from how much you
+      want the number to move.
+    expects: "50"
+    rubric:
+      - >
+        Writes the posterior mean as $(s/2 + 17)/(s + 20)$ and solves for $s$,
+        checking the result against $\operatorname{Beta}(25,25)$.
+      - >
+        Reads the answer through the weighted average — the raw excess is
+        multiplied by the data weight $n/(s+n)$.
+      - >
+        Ties the shrinkage to regression to the mean and the selection effect
+        of taking the best of two hundred short records.
+    targets:
+      - quant-statistics.bayesian.shrinkage
+      - quant-statistics.regression.regression-to-mean
+    connects:
+      - "quant-statistics.bayesian.shrinkage ~ quant-statistics.regression.regression-to-mean"
+
+  - id: qbayes-shrinkage-02
+    kind: work
+    difficulty: standard
+    statement: >
+      An analyst's directional calls have been right $6$ times out of $8$.
+      Against a house prior of $\operatorname{Beta}(12,12)$ on any analyst's
+      hit rate, what is the posterior mean? Give an exact fraction.
+    answer: >
+      $9/16 = 0.5625$. Add successes to $a$ and failures to $b$: the posterior
+      is $\operatorname{Beta}(12+6,\, 12+2) = \operatorname{Beta}(18,14)$, with
+      mean $18/32 = 9/16$. The weighted-average check: the prior is worth $24$
+      pseudo-calls and carries weight $24/32 = 0.75$ around $0.5$, the data
+      carries weight $8/32 = 0.25$ around $0.75$, and $0.75(0.5) + 0.25(0.75) =
+      0.375 + 0.1875 = 0.5625$. So a raw $75\%$ record shrinks to a shade over
+      $56\%$, because eight calls are worth a third of what the house's
+      twenty-four pseudo-calls are worth. The correction is not a matter of
+      taste: it is what the arithmetic of the update gives, and the same
+      calculation applied to a genuinely long record would leave the raw number
+      almost untouched, since the data weight $n/(24+n)$ climbs toward $1$.
+    expects: "9/16"
+    rubric:
+      - >
+        Gets $\operatorname{Beta}(18,14)$ and reports the mean $18/32$.
+      - >
+        Confirms it as a weighted average with weights $0.75$ and $0.25$, and
+        notes the discount would shrink for a longer record.
+    targets:
+      - quant-statistics.bayesian.shrinkage
+    exercises:
+      - quant-statistics.bayesian.posterior-mean-weights
+
+  # --- normal-normal updating -------------------------------------------------
+
+  - id: qbayes-normal-normal-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Your prior on a commodity's fair value is $N(30, 6^{2})$. Independent
+      broker marks arrive, each unbiased for the fair value with known noise
+      standard deviation $3$. How many marks are needed before the posterior
+      standard deviation first falls below $1$?
+    answer: >
+      $9$ marks. Work in precision. The prior contributes $1/6^{2} = 1/36$, and
+      $n$ marks contribute $n/3^{2} = n/9$, so the posterior precision is
+      $1/36 + n/9$ and the posterior variance is its reciprocal. A posterior
+      standard deviation below $1$ means a posterior precision above $1$:
+      $\frac{1}{36} + \frac{n}{9} > 1$, so $n/9 > 35/36$ and $n > 8.75$, giving
+      $n = 9$. The check at the boundary: $n = 8$ gives precision $11/12$,
+      variance $\approx 1.091$ and standard deviation $\approx 1.044$, still
+      too wide, while $n = 9$ gives precision $37/36$, variance $\approx 0.973$
+      and standard deviation $\approx 0.986$. Two things are worth saying out
+      loud. The sample mean of the marks never entered the calculation — in a
+      normal-normal update with known $\sigma$ the posterior spread depends on
+      $n$ alone, not on what the data said. And the prior is nearly irrelevant
+      here: without it, $9$ marks alone give a standard deviation of $3/3 = 1$,
+      so the whole of a prior worth a quarter of one mark buys the last sliver
+      below $1$. The trap is averaging standard deviations or variances instead
+      of adding precisions, which understates how fast $n$ readings tighten the
+      answer.
+    expects: "9"
+    rubric:
+      - >
+        Adds precisions, $1/\sigma_0^{2} + n/\sigma^{2}$, rather than averaging
+        variances or standard deviations.
+      - >
+        Converts "posterior standard deviation below $1$" into "precision above
+        $1$" and solves for the smallest integer $n$, checking $n = 8$.
+      - >
+        Notes that the posterior spread does not depend on the observed sample
+        mean at all.
+    targets:
+      - quant-statistics.bayesian.normal-normal
+    exercises:
+      - quant-statistics.bayesian.conjugate
+
+  - id: qbayes-normal-normal-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A prior on an unknown mean $\theta$ is $N(8, 2^{2})$. Three independent
+      observations, each $N(\theta, 2^{2})$, average $\bar{x} = 12$. What is
+      the posterior mean?
+    answer: >
+      $11$. The prior precision is $1/2^{2} = 0.25$ and the data precision is
+      $n/\sigma^{2} = 3/4 = 0.75$, so the posterior precision is $1$ and the
+      posterior variance is $1$ as well. The posterior mean is the
+      precision-weighted average $\frac{\mu_0/\sigma_0^{2} + n\bar{x}/\sigma^{2}}
+      {1/\sigma_0^{2} + n/\sigma^{2}} = \frac{8(0.25) + 12(0.75)}{1} = 2 + 9 =
+      11$. The weights $0.25$ and $0.75$ are worth reading: because prior and
+      observations happen to share the same standard deviation, the prior is
+      worth exactly one observation, so the answer sits three quarters of the
+      way from $8$ to $12$. The posterior is $N(11, 1)$, tighter than either
+      the prior or a single reading. The trap is the unweighted midpoint
+      $(8+12)/2 = 10$, which would be right only if the prior were worth all
+      three observations together.
+    expects: "11"
+    rubric:
+      - >
+        Computes prior and data precisions separately and adds them to get the
+        posterior precision.
+      - >
+        Applies the precision-weighted mean and reports $11$, noting the prior
+        is worth exactly one observation here.
+    targets:
+      - quant-statistics.bayesian.normal-normal
+    exercises:
+      - quant-probability.continuous.normal
+
+  # --- combining estimates by precision ---------------------------------------
+
+  - id: qbayes-precision-weighting-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Three independent unbiased estimates of the same fair value have standard
+      deviations $1$, $2$ and $3$. Combine all three optimally. What is the
+      standard deviation of the blend? Give an exact fraction.
+    answer: >
+      $6/7 \approx 0.857$. Precision adds across independent sources exactly as
+      it does in a normal-normal update, so the combined precision is
+      $\frac{1}{1} + \frac{1}{4} + \frac{1}{9} = \frac{36 + 9 + 4}{36} =
+      \frac{49}{36}$. The combined variance is its reciprocal, $36/49$, and the
+      standard deviation is $6/7$. The normalized weights are $36/49$, $9/49$
+      and $4/49$ — proportional to the precisions $1$, $1/4$ and $1/9$ — so the
+      sharpest estimate takes nearly three quarters of the blend and the
+      vaguest takes under a tenth. Two readings of the result matter. The blend
+      beats even the best single input, $6/7 < 1$, so a noisy third opinion is
+      never worth discarding outright as long as it is unbiased and
+      independent. And the improvement is small: adding the two weaker sources
+      to the sharpest one moves the standard deviation only from $1$ to $6/7$,
+      which is why the useful instinct in a room of forecasts is to find the
+      most precise one rather than to collect more of the vague ones. The trap
+      is equal weights, $1/3$ each, giving variance $(1 + 4 + 9)/9 = 14/9$ and
+      a standard deviation of about $1.25$ — worse than the best input alone,
+      so the naive average has actively destroyed information.
+    expects: "6/7"
+    rubric:
+      - >
+        Adds the three precisions and inverts, rather than averaging variances
+        or standard deviations.
+      - >
+        Reports the normalized weights $36/49$, $9/49$, $4/49$ and notes they
+        are proportional to $1/v_i$.
+      - >
+        Compares against the equal-weight blend and shows it is worse than the
+        single best estimate.
+    targets:
+      - quant-statistics.bayesian.precision-weighting
+    exercises:
+      - quant-statistics.bayesian.normal-normal
+
+  - id: qbayes-precision-weighting-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Your model marks a bond at $100$ with standard deviation $5$; an
+      independent dealer runs marks it at $112$ with standard deviation $10$.
+      What is the precision-weighted combination of the two?
+    answer: >
+      $102.4$. The variances are $v_1 = 25$ and $v_2 = 100$, so the precisions
+      are $1/25 = 0.04$ and $1/100 = 0.01$, summing to $0.05$. The weights are
+      $0.04/0.05 = 4/5$ and $0.01/0.05 = 1/5$, and the blend is
+      $\frac{4}{5}(100) + \frac{1}{5}(112) = 80 + 22.4 = 102.4$. The combined
+      variance is $1/0.05 = 20$, a standard deviation of $\sqrt{20} \approx
+      4.47$, tighter than your model's own $5$. Halving the standard deviation
+      quarters the variance, so your mark is worth four times the dealer's and
+      the answer sits only a fifth of the way toward $112$. The trap is the
+      midpoint $106$, which weights the two equally and would be right only if
+      both sources were equally precise; it hands a vague quote four times the
+      influence it has earned.
+    expects: "102.4"
+    rubric:
+      - >
+        Weights by $1/v_i$, getting $4/5$ and $1/5$ rather than equal weights.
+      - >
+        Reports the blend $102.4$ and the combined variance $20$, noting it is
+        tighter than either input.
+    targets:
+      - quant-statistics.bayesian.precision-weighting
+    exercises:
+      - quant-statistics.bayesian.normal-normal
+
+  # --- the posterior predictive -----------------------------------------------
+
+  - id: qbayes-posterior-predictive-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A prior on an unknown daily drift $\theta$ is $N(0, 3^{2})$. Four
+      independent daily returns, each $N(\theta, 2^{2})$, average $5$. What
+      standard deviation should you quote for tomorrow's single return? Give
+      four decimal places.
+    answer: >
+      $\approx 2.2136$. First the posterior: the prior precision is $1/9$ and
+      the data precision is $4/4 = 1$, so the posterior precision is $10/9$ and
+      the posterior variance is $9/10 = 0.9$. Tomorrow's return is not
+      $\theta$; it is $\theta$ plus fresh sampling noise of variance $4$, and
+      the two are independent given the posterior, so the predictive variance
+      is $0.9 + 4 = 4.9$ and the predictive standard deviation is $\sqrt{4.9}
+      \approx 2.2136$. The trap the question is built around is quoting the
+      posterior's own standard deviation, $\sqrt{0.9} \approx 0.949$ — that
+      is the uncertainty in the long-run drift, and a forecast interval built
+      from it would be more than twice too narrow for a single day. The second
+      trap is adding standard deviations, $0.949 + 2 = 2.949$, instead of
+      variances. Notice which term dominates: the sampling noise contributes
+      $4$ of the $4.9$, so tomorrow's return is mostly unpredictable however
+      sharp your view of $\theta$ becomes, and no amount of data drives the
+      predictive spread below $\sigma = 2$.
+    expects: "2.2136"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Computes the posterior variance $0.9$ by adding precisions.
+      - >
+        Adds sampling variance to posterior variance, not standard deviations,
+        and reports $\sqrt{4.9}$.
+      - >
+        Says why the posterior's own spread is the wrong answer, and that the
+        predictive spread can never fall below $\sigma$.
+    targets:
+      - quant-statistics.bayesian.posterior-predictive
+    exercises:
+      - quant-statistics.bayesian.normal-normal
+
+  - id: qbayes-posterior-predictive-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A prior on a venue's fill probability is $\operatorname{Beta}(3,2)$, and
+      you then get filled on $5$ of $9$ orders. What is the predictive
+      probability that the next order fills? Give an exact fraction.
+    answer: >
+      $4/7$. The posterior is $\operatorname{Beta}(3+5,\, 2+4) =
+      \operatorname{Beta}(8,6)$. The predictive probability is the integral of
+      the sampling model against the posterior, $\int_0^1 p\,\pi(p \mid x)\,dp$,
+      which is just the posterior mean $8/14 = 4/7 \approx 0.571$ — for a
+      single Bernoulli trial the defining integral collapses to a number you
+      already have, because the sampling probability is $p$ itself. That
+      collapse is special to a one-step binary forecast, and the reason it does
+      not signal that parameter uncertainty has gone away is that a Bernoulli
+      outcome's own variance $p(1-p)$ is already carried inside the same number.
+      Ask instead for two fills in a row and the uncertainty reappears:
+      $\mathbb{E}[p^{2}] = (8 \cdot 9)/(14 \cdot 15) = 12/35 \approx 0.343$,
+      strictly larger than $(4/7)^{2} \approx 0.327$. The trap is plugging a
+      point estimate into the sampling model and treating the resulting numbers
+      as exact for multi-step forecasts; only the one-step probability escapes
+      the correction.
+    expects: "4/7"
+    rubric:
+      - >
+        Gets $\operatorname{Beta}(8,6)$ and identifies the one-step predictive
+        probability as its mean.
+      - >
+        Explains that the integral collapses because the sampling probability
+        is $p$ itself, and that a two-step forecast needs $\mathbb{E}[p^{2}]$.
+    targets:
+      - quant-statistics.bayesian.posterior-predictive
+    exercises:
+      - quant-statistics.bayesian.beta-binomial
+
+  # --- choosing and stress-testing a prior ------------------------------------
+
+  - id: qbayes-prior-choice-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A signal has fired correctly $6$ times out of $8$, and the desk will
+      trade it only if the posterior mean rate exceeds $0.65$. You stress-test
+      the decision over symmetric priors $\operatorname{Beta}(c,c)$ with $c$ a
+      positive integer. What is the largest $c$ for which the desk still
+      trades?
+    answer: >
+      $c = 2$. The posterior is $\operatorname{Beta}(c+6,\, c+2)$ with mean
+      $(c+6)/(2c+8)$, which decreases in $c$ because the data proportion $0.75$
+      sits above the prior mean $0.5$ — every extra pseudo-observation drags
+      the answer down. Solve $(c+6)/(2c+8) > 0.65$: $c + 6 > 1.3c + 5.2$, so
+      $0.8 > 0.3c$ and $c < 8/3 \approx 2.67$. The largest integer is $c = 2$,
+      where the mean is $8/12 \approx 0.667$; at $c = 3$ it is $9/14 \approx
+      0.643$ and the trade is off. That the answer is $2$ rather than something
+      comfortably large is the whole point of the exercise. A
+      $\operatorname{Beta}(3,3)$ prior is worth six pseudo-trials — an
+      extremely mild scepticism, weaker than most desks would actually hold —
+      and it already flips the decision. So eight observations have not earned
+      this trade: the conclusion is an artifact of the prior, not of the data,
+      and the honest report is that more data is needed rather than a defence
+      of whichever prior happened to give the answer you liked. Note also what
+      is *not* being claimed: no prior here is uninformative.
+      $\operatorname{Beta}(1,1)$ is flat in $p$ but sharply opinionated in the
+      log-odds, so it is a choice on the same footing as the others and must be
+      defended, not adopted as a default.
+    expects: "2"
+    rubric:
+      - >
+        Writes the posterior mean as $(c+6)/(2c+8)$ and solves the inequality
+        for the largest integer $c$, checking $c = 3$ fails.
+      - >
+        Notes the mean is decreasing in $c$ because the sample proportion
+        exceeds the prior mean.
+      - >
+        Concludes that the decision is prior-driven and that
+        $\operatorname{Beta}(1,1)$ is a choice, flat only in the $p$
+        parametrization.
+    targets:
+      - quant-statistics.bayesian.prior-choice
+    exercises:
+      - quant-statistics.bayesian.beta-prior
+
+  - id: qbayes-prior-choice-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A risk model's prior on an outage rate $\theta$ puts zero density on
+      every value above $0.05$, on the grounds that the vendor's contract
+      promises better than that. The next hundred days bring outages on
+      nineteen of them. What does the posterior say?
+    answer: >
+      It still puts zero mass above $0.05$, and it will keep doing so forever.
+      Bayes' theorem multiplies: $\pi(\theta \mid x) \propto
+      \pi(\theta)L(\theta)$, and wherever $\pi(\theta) = 0$ the product is $0$
+      whatever the likelihood does. The posterior is perfectly well defined —
+      it renormalizes over $[0, 0.05]$ and piles up against the upper endpoint,
+      reporting a rate near $0.05$ with apparent confidence — but it is
+      confidently wrong, and no quantity of data can revive the excluded
+      region. This is the one prior rule that survives every
+      reparametrization: never assign zero mass to a value that is genuinely
+      possible. A vendor's promise is evidence about $\theta$ and belongs in
+      the prior as a concentration of mass below $0.05$, not as a hard wall;
+      then nineteen outages in a hundred days simply overwhelm it, which is
+      what you wanted the model to be able to do.
+    choices:
+      - text: >
+          The posterior concentrates near $0.19$, since a hundred days of data
+          swamp any prior.
+        feedback: >
+          Data swamps a prior only where the prior gave the value positive
+          mass. Here the likelihood is multiplied by zero throughout that
+          region, so nothing can move there.
+      - text: >
+          The posterior still puts zero mass above $0.05$ and piles up against
+          that endpoint, and no amount of further data can change it.
+        correct: true
+      - text: >
+          The posterior is undefined, because the prior and the likelihood are
+          incompatible.
+        feedback: >
+          It is well defined — it just renormalizes over $[0, 0.05]$. That is
+          worse than undefined: the model reports a confident answer inside a
+          region the data has ruled out.
+      - text: >
+          Nothing goes wrong, because the prior was based on a real contract
+          rather than a guess.
+        feedback: >
+          The justification for a prior does not change its mathematics. A
+          well-sourced belief still belongs in the prior as concentrated mass,
+          never as a hard zero.
+    rubric:
+      - >
+        States that the posterior is proportional to prior times likelihood, so
+        zero prior density forces zero posterior density.
+      - >
+        Draws the general rule — never assign zero mass to a possible value —
+        and says how the vendor's promise should have entered instead.
+    targets:
+      - quant-statistics.bayesian.prior-choice
+    exercises:
+      - quant-statistics.bayesian.beta-prior
+
+  # --- credible intervals -----------------------------------------------------
+
+  - id: qbayes-credible-interval-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Your prior on a security's fair value is $N(60, 5^{2})$. Four independent
+      quotes, each unbiased with known noise standard deviation $5$, average
+      $70$. Give the lower endpoint of the $95\%$ equal-tailed credible
+      interval for the fair value, to four decimal places, using $1.96$ for the
+      normal quantile.
+    answer: >
+      $\approx 63.6173$. Update first. The prior precision is $1/25 = 0.04$ and
+      the data precision is $4/25 = 0.16$, so the posterior precision is $0.2$,
+      the posterior variance is $5$ and the posterior standard deviation is
+      $\sqrt{5} \approx 2.2361$. The posterior mean is
+      $\frac{60(0.04) + 70(0.16)}{0.2} = \frac{2.4 + 11.2}{0.2} = 68$ — four
+      fifths of the way from the prior to the quotes, since four quotes carry
+      four times the prior's precision. The posterior is therefore $N(68, 5)$,
+      and because it is exactly normal the equal-tailed interval is symmetric:
+      $68 \pm 1.96\sqrt{5} = 68 \pm 4.3827$, that is $(63.6173, 72.3827)$. The
+      sentence this licenses is the intuitive one — given this prior and this
+      data, the fair value lies in that range with probability $0.95$ — because
+      here the parameter is the random object. Two traps. Using the prior or
+      the sampling standard deviation in place of the posterior's, $5$ rather
+      than $\sqrt{5}$, more than doubles the width. And quoting an interval for
+      the *next quote* rather than for the fair value needs the predictive
+      variance $5 + 25 = 30$ instead; the credible interval is about $\theta$
+      alone.
+    expects: "63.6173"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Adds precisions to get the posterior $N(68, 5)$, with the mean as a
+        precision-weighted average.
+      - >
+        Builds the equal-tailed interval from the posterior standard deviation
+        $\sqrt{5}$, not from the prior's or the sampling standard deviation.
+      - >
+        States the credible reading — probability $0.95$ that $\theta$ is
+        inside, given this prior and data — and distinguishes it from an
+        interval for the next observation.
+    targets:
+      - quant-statistics.bayesian.credible-interval
+    exercises:
+      - quant-statistics.bayesian.posterior
+
+  - id: qbayes-credible-interval-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A posterior on a rare defect rate is $\operatorname{Beta}(2,18)$, whose
+      mean is $0.1$ and whose $90\%$ equal-tailed credible interval runs from
+      about $0.020$ to about $0.238$. A colleague computes a frequentist $90\%$
+      confidence interval from the same data and gets nearly the same
+      endpoints. Which statement is correct?
+    answer: >
+      The two intervals answer different questions, and only the credible one
+      licenses a probability statement about the rate itself. In the Bayesian
+      picture $\theta$ is random and the interval is fixed once the data is in,
+      so $\Pr(0.020 \le \theta \le 0.238) = 0.90$ is a legitimate sentence,
+      conditional on this prior and this data. In the frequentist picture
+      $\theta$ is a fixed unknown and the interval is the random object: the
+      claim is that the procedure covers the truth in $90\%$ of hypothetical
+      repetitions, and once these particular endpoints are computed there is no
+      probability left to attach to them. The near-agreement of the numbers is
+      the usual accident of a weak prior — it is exactly what keeps the
+      misreading alive. Note too that this interval is not symmetric about the
+      mean: it reaches $0.080$ below and $0.138$ above, because
+      $\operatorname{Beta}(2,18)$ is skewed right, so quoting mean plus or
+      minus $1.645$ standard deviations here would be wrong in both directions.
+    choices:
+      - text: >
+          Since the endpoints agree, the two intervals mean the same thing and
+          the distinction is academic.
+        feedback: >
+          Matching numbers do not transfer a meaning. One statement is about
+          $\theta$, the other about the procedure, and they agree numerically
+          only because the prior is weak.
+      - text: >
+          The credible interval supports $\Pr(0.020 \le \theta \le 0.238) =
+          0.90$ given this prior and data; the confidence interval instead
+          claims the procedure covers the fixed $\theta$ $90\%$ of the time.
+        correct: true
+      - text: >
+          The confidence interval is the stronger statement, since it does not
+          depend on a prior.
+        feedback: >
+          It is a different statement, not a stronger one — and it buys its
+          prior-independence by declining to say anything about $\theta$ in
+          this particular sample.
+      - text: >
+          Both intervals must be symmetric about $0.1$, so the quoted endpoints
+          contain an arithmetic error.
+        feedback: >
+          $\operatorname{Beta}(2,18)$ is skewed right, so its equal-tailed
+          interval reaches further above the mean than below — $0.138$ against
+          $0.080$. Symmetry is a property of normal posteriors, not of all of
+          them.
+    rubric:
+      - >
+        Attaches the probability to $\theta$ for the credible interval and to
+        the procedure for the confidence interval.
+      - >
+        Explains the numerical near-agreement as a weak-prior coincidence
+        rather than as evidence the two mean the same thing.
+      - >
+        Notes that the $\operatorname{Beta}(2,18)$ interval is asymmetric about
+        the posterior mean.
+    targets:
+      - quant-statistics.bayesian.credible-interval
+      - quant-statistics.testing.ci
+    connects:
+      - "quant-statistics.bayesian.credible-interval ~ quant-statistics.testing.ci"

@@ -60,22 +60,40 @@ So this bank is authored mastery-first, which changes two conventions:
 - **`feedback`** is optional; the worked `answer` is used when it is absent,
   which is usually what you want here.
 
+## The bar, and the author's check
+
+Every content node of a unit carries **at least two** problems, at least one
+`demanding` (so the mastery set opens with one) and at least one `standard` or
+`routine` (so the unit test has something fair to ask). Every `work` and
+`decide` problem is machine-checked — `expects` where the answer is a number,
+`choices` otherwise; only `justify` self-grades. The worked `answer` shows the
+computation that produces `expects`, because the reveal is the teaching
+surface and the reviewer's check on the author. Landmark nodes (prominence 2)
+carry three.
+
+The author's pre-flight check mirrors `ProblemValidator`, the check faults and
+this coverage bar with nothing but python3 (D12.7):
+
+```
+python3 Scripts/check-problem-file.py <unit-id>
+```
+
+File layout mirrors the lessons: `content-quant-problems/<branch>/<subbranch>.yaml`
+holds the problems whose primary target lives in that unit. Ids are
+`<unit-tail-abbreviation>-<node-slug>-<nn>` (`qfnd-complement-01`), permanent.
+
 ## Coverage
 
-Two units, 76 problems, 2 per node — every node with a `demanding` problem, so
-every mastery set opens with one:
+Every one of the 58 units meets the bar (Phase 15): 2,278 problems over all
+958 content nodes, each node with a `demanding` problem and a fair one, every
+`work`/`decide` problem machine-checked. By part — probability 13 units,
+tools 4, processes 8, statistics 8, finance 7, games 6, mental 4, programming
+4, puzzles 4 — with a file per unit under the branch directory. `ContentBuild
+validate` prints the corpus-wide number on every run, and the per-unit
+pre-flight check is the author's gate.
 
-| Unit | Nodes | Problems |
-|---|---|---|
-| `quant-probability.foundations` | 18 | 36 |
-| `quant-probability.expectation` | 20 | 40 |
-
-The other 56 units are lesson-covered but bank-empty, and their lessons end on
-self-report alone and say so. `ContentBuild validate` prints the corpus-wide
-number on every run, so the gap stays visible rather than becoming a test
-somebody weakened.
-
-Placement readiness is *not* declared for these units. `problems/README.md`'s
-manifest and `PlacementFixtureTests` cover the math tree; the quant tree has no
-equivalent yet, and adding one is the natural next step now that the bank
-exists.
+Placement readiness is *not* declared per unit for the quant tree.
+`problems/README.md`'s manifest and `PlacementFixtureTests` cover the math
+tree; the quant tree's placement is served by the same bank without a
+manifest, because the bank is complete by construction once every unit file
+passes the pre-flight check.

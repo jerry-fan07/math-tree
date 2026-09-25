@@ -1,0 +1,1075 @@
+# Problems targeting quant-games.betting-markets — odds as prices.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with a price the lesson has just converted for the reader. Every instance here
+# is fresh: no quote, stake or bankroll repeats a lesson's worked example or a
+# node's own statement. See ../README.md.
+
+problems:
+  # --- odds formats and their conversions -------------------------------------
+
+  - id: qbet-odds-formats-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A racing board prices a short favorite at fractional odds of $4/7$. Quote
+      the same price in American odds.
+    answer: >
+      $-175$. Convert through decimal odds, the common currency. Fractional
+      $b/a$ reports profit only, so the decimal odds add the stake back:
+      $d = 4/7 + 1 = 11/7 \approx 1.5714$. Because $d < 2$ the American quote
+      lands in the negative regime, where the number reports the stake needed to
+      profit $100$: inverting $d = 1 + 100/|A|$ gives
+      $|A| = 100/(d-1) = 100/(4/7) = 700/4 = 175$, so the price is $-175$.
+      Sanity check it against the payout: risking $175$ to win $100$ returns
+      $275$ on $175$ staked, and $275/175 = 11/7$, the decimal odds we started
+      from. The two neighbouring errors both come from skipping the decimal
+      step: $+175$ picks the wrong regime for a price below $2.00$, and reading
+      $4/7$ as an American-style ratio invites $-57$, which is not even a legal
+      American quote.
+    expects: "-175"
+    rubric:
+      - >
+        Adds the stake back when leaving fractional odds — $d = b/a + 1$, not
+        $d = b/a$.
+      - >
+        Chooses the negative American regime because $d < 2$, and inverts
+        $d = 1 + 100/|A|$ rather than reusing the positive-regime formula.
+    targets:
+      - quant-games.betting-markets.odds-formats
+    exercises:
+      - quant-probability.foundations.odds
+
+  - id: qbet-odds-formats-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A US sportsbook shows a favorite at American $-160$. What are the decimal
+      odds?
+    answer: >
+      $1.625$. Negative American odds report the stake required to profit $100$,
+      so the profit per unit staked is $100/|A| = 100/160 = 0.625$ and the
+      decimal odds add the stake back: $d = 1 + 100/160 = 1.625$. Check the
+      payout directly — staking $160$ returns $260$, and $260/160 = 1.625$. The
+      standard slip is to run the positive-regime formula on a negative quote,
+      $1 + 160/100 = 2.60$; that answer fails the smell test on its own, since a
+      favorite must pay less than even money and every decimal price for a
+      favorite sits below $2.00$.
+    expects: "1.625"
+    rubric:
+      - >
+        Uses the negative-odds branch, $d = 1 + 100/|A|$, and says why the sign
+        selects it.
+      - >
+        Checks the answer against the direction of the price — a favorite prices
+        below $2.00$, so $2.60$ cannot be right.
+    targets:
+      - quant-games.betting-markets.odds-formats
+    exercises:
+      - quant-probability.foundations.odds
+
+  - id: qbet-odds-formats-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      Three books price the same runner: one at fractional $15/8$, one at
+      American $+180$, one at decimal $2.85$. Which quote returns the most per
+      unit staked?
+    answer: >
+      The fractional $15/8$. Put all three into decimal odds before comparing
+      anything: $15/8$ gives $d = 15/8 + 1 = 2.875$; $+180$ gives
+      $d = 1 + 180/100 = 2.80$; the third is already $2.85$. So the ordering is
+      $2.875 > 2.85 > 2.80$ and the fractional quote wins, by $0.025$ per unit
+      staked over the decimal book and $0.075$ over the American one. On a
+      $400$ stake that is a difference of $10$ dollars against the decimal book
+      and $30$ against the American one. The trap is comparing the raw numerals:
+      $180$ is the largest figure on the page and $15/8 = 1.875$ the smallest,
+      which inverts the true order because the three formats measure different
+      things — total return, profit per $100$, and profit per unit.
+    choices:
+      - text: >
+          The fractional $15/8$, which is decimal $2.875$ — the largest total
+          return of the three.
+        correct: true
+        feedback: >
+          Right: converting first is the whole discipline, and the winner is the
+          quote whose numeral looked smallest.
+      - text: >
+          The American $+180$, since $180$ is by far the largest number quoted.
+        feedback: >
+          $+180$ is profit per $100$ staked, so it is decimal $2.80$ — the
+          smallest of the three, not the largest.
+      - text: >
+          The decimal $2.85$, since it is the only quote already stated as a
+          total return.
+        feedback: >
+          It is the easiest to read, but $15/8 + 1 = 2.875$ beats it once the
+          fractional quote is converted.
+      - text: >
+          They are all the same price expressed three ways.
+        feedback: >
+          They convert to $2.875$, $2.80$ and $2.85$ — close, but three genuinely
+          different prices, which is exactly what makes shopping the line
+          worthwhile.
+    rubric:
+      - >
+        Converts all three quotes to decimal odds before comparing anything, rather
+        than ranking the numerals as printed.
+      - >
+        Respects each format's own convention — total return, profit per $100$,
+        profit per unit — so the smallest-looking numeral can be the largest price.
+    targets:
+      - quant-games.betting-markets.odds-formats
+
+  # --- implied probability ----------------------------------------------------
+
+  - id: qbet-implied-probability-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two books price the same horse: the first at fractional $11/8$, the second
+      at American $+145$. By how much does the first book's implied probability
+      exceed the second's? Give the gap as a decimal.
+    answer: >
+      About $0.0129$. Convert each quote to decimal odds, then flip it. The
+      first: $d = 11/8 + 1 = 2.375$, so $p = 1/2.375 = 8/19 \approx 0.4211$. The
+      second is in the positive American regime: $d = 1 + 145/100 = 2.45$, so
+      $p = 1/2.45 \approx 0.4082$. The gap is
+      $0.4211 - 0.4082 \approx 0.0129$, a little over one percentage point — the
+      first book is quoting a shorter price and therefore assigning the horse a
+      higher chance. The trap is comparing the quoted numerals directly:
+      $11/8 = 1.375$ against $145$ is a comparison of two different units, and
+      the temptation to read a smaller fraction as a smaller probability gets the
+      sign of the answer backwards, since a shorter price means a higher implied
+      probability.
+    expects: "0.0129"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Converts both quotes to decimal odds before taking any reciprocal, rather
+        than comparing a fraction against an American number.
+      - >
+        Reads the shorter price as the higher implied probability, so the gap
+        comes out positive for the $11/8$ book.
+    targets:
+      - quant-games.betting-markets.implied-probability
+    exercises:
+      - quant-games.betting-markets.odds-formats
+
+  - id: qbet-implied-probability-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A moneyline favorite is quoted at American $-140$. What probability does
+      that price imply?
+    answer: >
+      About $0.5833$. The decimal odds are $d = 1 + 100/140 = 12/7 \approx
+      1.7143$, so the implied probability is
+      $p = 1/d = 7/12 \approx 0.5833$, i.e. about $58.3\%$. The shortcut worth
+      keeping is that for a negative American quote the reciprocal collapses to
+      $p = |A|/(|A| + 100) = 140/240 = 7/12$ directly — the stake over the total
+      return, with no decimal detour. Read as a break-even threshold: a bet at
+      this price needs to win more than $58.3\%$ of the time to show a profit.
+      Note that this is the price, not a claim about the world — the other side
+      of the book will imply a probability that leaves the pair summing above
+      $100\%$.
+    expects: "0.5833"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Converts $-140$ with the negative branch and takes $p = 1/d$, or uses
+        $|A|/(|A|+100)$ and says why the two agree.
+      - >
+        Calls the number a break-even win rate — the bookmaker's price — rather
+        than the horse's or team's true chance.
+    targets:
+      - quant-games.betting-markets.implied-probability
+
+  - id: qbet-implied-probability-03
+    kind: work
+    difficulty: standard
+    statement: >
+      A board prices a runner at fractional $9/5$. What probability does that
+      price imply?
+    answer: >
+      About $0.3571$. Fractional odds quote profit per unit staked, so the
+      decimal odds are $d = 9/5 + 1 = 14/5 = 2.80$ and the implied probability is
+      $p = 1/2.80 = 5/14 \approx 0.3571$, about $35.7\%$. The general shape is
+      worth noticing: for fractional $b/a$ the implied probability is
+      $a/(a+b) = 5/14$ — the stake over the total return — which is why the
+      fractional format is sometimes described as odds against. The error to
+      avoid is flipping the fraction and answering $5/9 \approx 0.5556$, which
+      forgets to add the stake back before inverting, and inflates a
+      long-priced runner into a favorite.
+    expects: "0.3571"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Adds the stake to the fractional quote before inverting — $d = 14/5$,
+        not $d = 9/5$.
+      - >
+        Arrives at $a/(a+b)$, so the answer sits below $50\%$ for a price of
+        $9/5$ against.
+    targets:
+      - quant-games.betting-markets.implied-probability
+
+  # --- the overround ----------------------------------------------------------
+
+  - id: qbet-overround-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A three-way market is priced at decimal $1.65$, $4.00$ and $5.00$ on its
+      three outcomes. What is the overround — the amount by which the implied
+      probabilities exceed $1$? Give it as a decimal.
+    answer: >
+      About $0.0561$. Flip each price into an implied probability:
+      $1/1.65 \approx 0.6061$, $1/4.00 = 0.2500$ and $1/5.00 = 0.2000$. The three
+      sum to $S \approx 1.0561$, so the overround is
+      $S - 1 \approx 0.0561$ — about $5.6\%$ of turnover held back as margin,
+      taken whichever outcome lands. Two checks keep this honest. First, the sum
+      must exceed $1$ on any priced book, so a total below $1$ means an
+      arithmetic slip, not a bargain. Second, the overround is the excess of the
+      sum over $1$, not the excess over the largest price or the average of the
+      three: subtracting $1$ from a sum of reciprocals is the whole computation.
+      A bettor taking any single side here is laying roughly $5.6\%$ before skill
+      enters the bet.
+    expects: "0.0561"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Sums the reciprocals of all three prices, not just the two that look like
+        the main outcomes.
+      - >
+        Reports the excess over $1$ as the overround, and notes the sum must
+        exceed $1$ on a priced book.
+    targets:
+      - quant-games.betting-markets.overround
+    exercises:
+      - quant-games.betting-markets.implied-probability
+
+  - id: qbet-overround-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A point-spread market prices both sides at American $-110$. What is the
+      overround, as a decimal?
+    answer: >
+      About $0.0476$. Each side converts to decimal
+      $d = 1 + 100/110 = 21/11 \approx 1.9091$, implying
+      $p = 110/210 = 11/21 \approx 0.5238$. Both sides together give
+      $S = 22/21 \approx 1.0476$, so the overround is
+      $S - 1 = 1/21 \approx 0.0476$, about $4.8\%$ — the standard price on a
+      balanced spread, and the reason a bettor at $-110$ must win about $52.4\%$
+      of such bets simply to break even. The trap is treating the ten extra
+      points on each side as the margin and answering $0.10$: the margin lives in
+      the implied probabilities, not in the American numerals, and the two are
+      not proportional.
+    expects: "0.0476"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Converts $-110$ to an implied probability of about $0.524$ per side,
+        rather than reading the margin off the American numbers.
+      - >
+        Sums both sides and subtracts $1$, reporting about $4.8\%$ and not
+        $10\%$.
+    targets:
+      - quant-games.betting-markets.overround
+
+  - id: qbet-overround-03
+    kind: justify
+    difficulty: standard
+    statement: >
+      A reader objects that probabilities must sum to $1$, so a book whose
+      implied probabilities sum to $1.05$ must contain an arithmetic error.
+      Explain why the sum exceeds $1$ by design, what the excess buys the
+      bookmaker, and why it is not a claim that the outcomes overlap.
+    answer: >
+      Nothing is wrong with the arithmetic; the numbers are prices, not
+      probabilities. Each quoted price $d_i$ is the payout a bookmaker is willing
+      to make, and $1/d_i$ is the break-even win rate that price demands — so the
+      sum $S = \sum_i 1/d_i$ measures what the book charges to cover the whole
+      market, not the total chance of a partition of outcomes. Shorten every
+      price a little below its fair value and every reciprocal rises a little
+      above its fair probability, so $S > 1$ follows directly. The excess buys a
+      guaranteed margin: staking in proportion to $1/d_i$ across every outcome
+      costs $T$ and returns $T/S < T$ whichever outcome lands, so the bookmaker
+      keeps about $1 - 1/S$ of turnover regardless of the result — the mirror
+      image of a Dutch book, which is what a bettor gets when $S < 1$. It is
+      therefore best read as a spread: the fair probabilities are $1/d_i$ divided
+      by $S$, which do sum to $1$, and the overround is the width around them,
+      exactly as a bid-ask spread sits around a mid price. Nothing about $S > 1$
+      says the outcomes overlap or that the sample space is malformed.
+    rubric:
+      - >
+        Says the quoted numbers are prices — break-even win rates the book
+        demands — so their sum is not required to be $1$.
+      - >
+        Explains the excess as a guaranteed margin: staking proportionally across
+        the market returns $T/S < T$ whatever happens.
+      - >
+        Frames the overround as a spread around fair probabilities that do sum to
+        $1$, rather than as evidence of overlapping outcomes.
+    targets:
+      - quant-games.betting-markets.overround
+
+  # --- de-vigging -------------------------------------------------------------
+
+  - id: qbet-devigging-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A football match is priced at decimal $1.85$ on the home win, $3.50$ on the
+      draw and $4.50$ on the away win. After stripping out the margin
+      proportionally, what is the fair probability of the home win?
+    answer: >
+      About $0.5155$. Implied probabilities first: $1/1.85 \approx 0.5405$,
+      $1/3.50 \approx 0.2857$, $1/4.50 \approx 0.2222$, summing to
+      $S \approx 1.0485$ — a $4.8\%$ overround. Proportional de-vigging divides
+      every implied probability by $S$, so the home win's fair probability is
+      $0.5405/1.0485 \approx 0.5155$; the draw and away legs come out at about
+      $0.2725$ and $0.2120$, and the three now sum to $1$ as they must. Two
+      traps sit here. Subtracting the whole overround from the favorite,
+      $0.5405 - 0.0485 = 0.4920$, charges one outcome for the entire margin and
+      breaks the sum. Splitting the overround equally in three and subtracting
+      $0.0162$ from each gives $0.5243$, which does restore the sum but assumes a
+      flat margin rather than the proportional one this method specifies.
+    expects: "0.5155"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides each implied probability by the full sum $S$, rather than
+        subtracting the overround from one leg or spreading it equally.
+      - >
+        Checks that the de-vigged probabilities sum to $1$ before reporting the
+        home leg.
+    targets:
+      - quant-games.betting-markets.devigging
+    exercises:
+      - quant-games.betting-markets.overround
+
+  - id: qbet-devigging-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A two-way market is priced at decimal $1.66$ on the favorite and $2.30$ on
+      the underdog. What decimal price would a zero-margin book quote on the
+      favorite?
+    answer: >
+      About $1.7217$. The implied probabilities are $1/1.66 \approx 0.6024$ and
+      $1/2.30 \approx 0.4348$, summing to $S \approx 1.0372$. De-vigging divides
+      by $S$, giving the favorite a fair probability of
+      $0.6024/1.0372 \approx 0.5808$, and the fair price is the reciprocal of
+      that, $1/0.5808 \approx 1.7217$. The shortcut is to notice that dividing a
+      probability by $S$ is the same as multiplying its price by $S$: the fair
+      decimal odds are simply $1.66 \times 1.0372 \approx 1.7217$, so the margin
+      lengthens every quoted price by the same factor. The fair underdog price is
+      $2.30 \times 1.0372 \approx 2.3856$, and the two fair prices do have
+      reciprocals summing to $1$.
+    expects: "1.7217"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Recovers the fair probability by dividing by $S$, then inverts it — or
+        equivalently multiplies the quoted price by $S$.
+      - >
+        Reports a fair price *longer* than the quoted $1.66$, since removing
+        margin can only improve the price offered.
+    targets:
+      - quant-games.betting-markets.devigging
+
+  - id: qbet-devigging-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      On that same $1.66$ / $2.30$ market you hold your own estimate of $0.60$
+      for the favorite, and you want to know whether the market disagrees with
+      you. Which reading of the market's view is correct?
+    answer: >
+      The market's own estimate is about $0.5808$, and the raw $0.6024$ is that
+      estimate plus a share of the bookmaker's margin. With
+      $S \approx 1.0372$, proportional de-vigging gives
+      $0.6024/1.0372 \approx 0.5808$ for the favorite and
+      $0.4348/1.0372 \approx 0.4192$ for the underdog — a pair that sums to $1$
+      and can therefore be compared with a view of your own. Against $0.5808$
+      your $0.60$ is a genuine, if slim, disagreement in the favorite's direction;
+      against the raw $0.6024$ you would conclude you were *behind* the market
+      and pass on a bet you actually like. That inversion — the margin silently
+      credited to the market — is the reason de-vigging exists. Subtracting the
+      whole overround from the favorite instead, $0.6024 - 0.0372 = 0.5652$,
+      charges one side for the entire margin and leaves the two legs summing
+      below $1$.
+    choices:
+      - text: >
+          The market's estimate is about $0.5808$; the raw $0.6024$ includes the
+          bookmaker's margin, so treating it as the market's view credits the
+          margin to the market.
+        correct: true
+        feedback: >
+          Exactly — and here the difference decides the bet, since $0.60$ sits
+          above $0.5808$ but below $0.6024$.
+      - text: >
+          The market's estimate is $0.6024$; the margin changes what you are paid,
+          not what the market believes.
+        feedback: >
+          The margin is built into the price, so it is built into the reciprocal
+          too — that is why the two legs sum to more than $1$.
+      - text: >
+          The market's estimate is $0.6024 - 0.0372 = 0.5652$, the implied
+          probability less the overround.
+        feedback: >
+          That charges the favorite for the entire margin: the two legs would then
+          sum to about $0.9976$, not $1$.
+      - text: >
+          No fair probability can be recovered without knowing how the bookmaker
+          split its margin between the two sides.
+        feedback: >
+          The proportional method is an assumption about that split, not a
+          prerequisite — it is the standard first move precisely because it needs
+          nothing but the prices.
+    rubric:
+      - >
+        Divides both implied probabilities by their sum $S$ and compares the personal
+        estimate against the de-vigged number, not the raw one.
+      - >
+        Says what the raw comparison costs: the bookmaker's margin is credited to the
+        market, and a bet worth taking is passed.
+    targets:
+      - quant-games.betting-markets.devigging
+
+  # --- de-vigging a moneyline -------------------------------------------------
+
+  - id: qbet-favorite-underdog-vig-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A moneyline quotes the favorite at American $-175$ and the underdog at
+      American $+155$. What is the favorite's fair probability once the margin is
+      removed?
+    answer: >
+      About $0.6187$. Convert both legs: $-175$ is decimal
+      $1 + 100/175 \approx 1.5714$, implying $175/275 \approx 0.6364$; $+155$ is
+      decimal $2.55$, implying $1/2.55 \approx 0.3922$. The sum is
+      $S \approx 1.0285$, an overround of about $2.9\%$ — a tight book.
+      De-vigging divides each leg by $S$: the favorite's fair probability is
+      $0.6364/1.0285 \approx 0.6187$ and the underdog's is
+      $0.3922/1.0285 \approx 0.3813$, and the two now sum to $1$. Note how small
+      the correction is on a tight book — about $1.8$ percentage points off the
+      favorite — which is exactly why it is easy to skip and easy to be punished
+      for skipping when your own estimate sits inside that gap.
+    expects: "0.6187"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Converts each American quote with the right branch — $|A|/(|A|+100)$ for
+        the favorite, $100/(A+100)$ for the underdog.
+      - >
+        Divides by the sum $S$ rather than subtracting the overround, and checks
+        the two fair legs add to $1$.
+    targets:
+      - quant-games.betting-markets.favorite-underdog-vig
+    exercises:
+      - quant-games.betting-markets.devigging
+
+  - id: qbet-favorite-underdog-vig-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A moneyline quotes a heavy favorite at American $-240$ and the underdog at
+      American $+190$. What is the underdog's fair probability once the margin is
+      removed?
+    answer: >
+      About $0.3282$. The favorite's implied probability is
+      $240/340 \approx 0.7059$ and the underdog's is
+      $1/2.90 \approx 0.3448$, since $+190$ is decimal
+      $1 + 190/100 = 2.90$. Their sum is $S \approx 1.0507$, an overround of
+      about $5.1\%$ — wider than a tight moneyline, which is typical when the two
+      sides are far apart. De-vigging gives the underdog
+      $0.3448/1.0507 \approx 0.3282$ and the favorite
+      $0.7059/1.0507 \approx 0.6718$. Notice the correction moves the underdog
+      down by about $1.7$ percentage points while the favorite moves down by
+      about $3.4$: proportional de-vigging takes more from the leg carrying more
+      probability, which is what makes it proportional.
+    expects: "0.3282"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Handles the two American regimes separately and gets implied
+        probabilities of about $0.706$ and $0.345$.
+      - >
+        Divides by $S \approx 1.0507$ instead of subtracting the overround from
+        one side.
+    targets:
+      - quant-games.betting-markets.favorite-underdog-vig
+
+  # --- expected value of a bet ------------------------------------------------
+
+  - id: qbet-bet-ev-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You put a team's chance of winning at $0.62$; the book prices that team at
+      American $-130$. What is the expected profit per unit staked?
+    answer: >
+      About $0.0969$. Price first: $-130$ is decimal
+      $d = 1 + 100/130 = 23/13 \approx 1.7692$. The edge per unit staked is
+      $\text{EV} = p \cdot d - 1 = 0.62 \times 1.7692 - 1 \approx 1.0969 - 1
+      = 0.0969$, so roughly $9.7$ cents of expected profit on every unit risked.
+      Unpacking it the long way agrees: you win $d - 1 \approx 0.7692$ with
+      probability $0.62$ and lose $1$ with probability $0.38$, giving
+      $0.62 \times 0.7692 - 0.38 \approx 0.4769 - 0.38 = 0.0969$. The trap is to
+      report the probability edge instead: the price implies
+      $130/230 \approx 0.5652$, and $0.62 - 0.5652 = 0.0548$ is a difference in
+      probabilities, not money — it is neither the expected profit nor
+      proportional to it, because a probability edge is worth more at a long
+      price than at a short one.
+    expects: "0.0969"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Converts $-130$ to decimal $1.7692$ before multiplying — the payout
+        multiple, not the implied probability, is what $p$ multiplies.
+      - >
+        Reports money per unit staked, distinguishing $0.0969$ from the
+        probability gap $0.0548$.
+    targets:
+      - quant-games.betting-markets.bet-ev
+    exercises:
+      - quant-games.betting-markets.implied-probability
+
+  - id: qbet-bet-ev-02
+    kind: work
+    difficulty: standard
+    statement: >
+      You stake $250$ dollars at decimal odds of $2.60$ on an outcome you believe
+      has probability $0.44$. What is the expected profit on the bet, in dollars?
+    answer: >
+      $36$ dollars. The edge per unit staked is
+      $\text{EV} = p \cdot d - 1 = 0.44 \times 2.60 - 1 = 1.144 - 1 = 0.144$, so
+      on a stake of $250$ the expected profit is
+      $250 \times 0.144 = 36$ dollars. The direct account confirms it: with
+      probability $0.44$ you profit $250 \times 1.60 = 400$, and with probability
+      $0.56$ you lose the $250$, giving
+      $0.44 \times 400 - 0.56 \times 250 = 176 - 140 = 36$. The common error is
+      to multiply the stake by $p \cdot d$ and answer $286$, which is the
+      expected *return* including the stake back rather than the profit; the
+      other is to compare $0.44$ against the implied
+      $1/2.60 \approx 0.3846$ and call the difference the answer.
+    expects: "36"
+    rubric:
+      - >
+        Computes edge per unit as $p \cdot d - 1$ and scales by the stake, rather
+        than reporting the expected return of $286$.
+      - >
+        Cross-checks against the two-outcome account, profit $400$ against loss
+        $250$.
+    targets:
+      - quant-games.betting-markets.bet-ev
+
+  - id: qbet-bet-ev-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      Three bets are on offer, each at a book you trust. Bet A: your estimate
+      $0.28$, decimal $3.75$. Bet B: your estimate $0.56$, decimal $1.80$. Bet C:
+      your estimate $0.70$, decimal $1.40$. Which should you take?
+    answer: >
+      Bet A. Run $\text{EV} = p \cdot d - 1$ on each:
+      A gives $0.28 \times 3.75 - 1 = 1.05 - 1 = +0.05$; B gives
+      $0.56 \times 1.80 - 1 = 1.008 - 1 = +0.008$; C gives
+      $0.70 \times 1.40 - 1 = 0.98 - 1 = -0.02$. So A returns about five cents
+      per unit staked, B less than one cent, and C loses two. A is the bet, by a
+      factor of more than six over B. The instinct the question is testing is the
+      pull of the win rate: C wins seventy times in a hundred and still loses
+      money, because its price demands $1/1.40 \approx 0.7143$ and your estimate
+      falls short of that. How often a bet wins says nothing on its own — only
+      the product of your probability and the payout you are actually paid
+      decides, which is why the same $0.02$ of probability edge is worth far more
+      at $3.75$ than at $1.80$.
+    choices:
+      - text: >
+          Bet A — its edge is $0.28 \times 3.75 - 1 = 0.05$ per unit staked, the
+          largest of the three.
+        correct: true
+        feedback: >
+          Right, and note it is the least likely to win of the three: the payout
+          multiple is doing the work.
+      - text: >
+          Bet C — it wins $70\%$ of the time, the highest chance on offer.
+        feedback: >
+          Its price demands about $71.4\%$, so a $70\%$ estimate makes it a
+          losing bet at $-0.02$ per unit.
+      - text: >
+          Bet B — it is the only one where your estimate clears the price's
+          implied probability.
+        feedback: >
+          Both A and B clear their implied probabilities ($0.28 > 0.267$ and
+          $0.56 > 0.556$); B's margin is just far thinner.
+      - text: >
+          None of them — A wins less than a third of the time, so it cannot be
+          the best of a bad set.
+        feedback: >
+          Win frequency is not the criterion; A's expected profit is positive and
+          the largest available.
+    rubric:
+      - >
+        Computes $p \cdot d - 1$ for all three offers instead of ranking them by win
+        probability.
+      - >
+        Notes that C's $0.70$ falls short of the $0.7143$ its price demands, so a high
+        win rate can still be a losing bet.
+    targets:
+      - quant-games.betting-markets.bet-ev
+
+  # --- a worked positive-EV bet -----------------------------------------------
+
+  - id: qbet-ev-bet-worked-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A board offers fractional odds of $5/4$ on an outcome you give a $0.48$
+      chance. What is the expected profit per unit staked?
+    answer: >
+      $0.08$. The fractional quote must become decimal before it multiplies
+      anything: $d = 5/4 + 1 = 2.25$. Then
+      $\text{EV} = 0.48 \times 2.25 - 1 = 1.08 - 1 = 0.08$, an eight percent
+      expected profit per unit risked. The price implies
+      $1/2.25 \approx 0.4444$, so your $0.48$ clears the break-even threshold by
+      about $3.6$ percentage points and the bet is worth taking. The error the
+      fractional format invites is using $b/a = 1.25$ as the multiple:
+      $0.48 \times 1.25 - 1 = -0.40$ would reject a good bet outright, because
+      $1.25$ is the profit multiple and the formula wants the total return.
+    expects: "0.08"
+    rubric:
+      - >
+        Adds the stake back — $d = 2.25$, not $1.25$ — before computing
+        $p \cdot d - 1$.
+      - >
+        Reads the sign correctly and says the bet clears its break-even
+        probability of about $0.444$.
+    targets:
+      - quant-games.betting-markets.ev-bet-worked
+    exercises:
+      - quant-games.betting-markets.bet-ev
+
+  - id: qbet-ev-bet-worked-02
+    kind: work
+    difficulty: standard
+    statement: >
+      You give an outcome a $0.36$ chance. What is the lowest decimal price at
+      which betting it is not a losing proposition?
+    answer: >
+      About $2.7778$. Break-even is where the edge vanishes, so set
+      $\text{EV} = p \cdot d - 1 = 0$ and solve: $d = 1/p = 1/0.36 = 25/9
+      \approx 2.7778$. Any price above that is positive expected value, and any
+      price below it is negative, however attractive the outcome looks. This is
+      the same relationship as the implied-probability formula read in the other
+      direction: $p = 1/d$ says what a price demands, and $d = 1/p$ says what a
+      belief is worth. So a book quoting $2.75$ on this outcome is a fraction
+      short and should be passed, while $2.80$ is a bet — the margin between them
+      is about $0.008$ per unit staked, which is the whole business.
+    expects: "2.7778"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Sets $p \cdot d - 1 = 0$ and inverts, rather than guessing a price near
+        the estimate.
+      - >
+        States the direction — prices above $1/p$ are the bets, prices below it
+        are not.
+    targets:
+      - quant-games.betting-markets.ev-bet-worked
+
+  # --- Dutch books ------------------------------------------------------------
+
+  - id: qbet-dutch-book-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two books price the same two-outcome match. Book A offers decimal $2.75$ on
+      outcome X; book B offers decimal $1.75$ on outcome Y. You commit $1800$
+      dollars in total, split so that both outcomes pay the same. What profit do
+      you lock in, in dollars?
+    answer: >
+      $125$ dollars. The implied probabilities are
+      $1/2.75 \approx 0.3636$ and $1/1.75 \approx 0.5714$, summing to
+      $S \approx 0.9351 < 1$ — the condition for a Dutch book. Stake
+      $T \cdot p_i / S$ on each leg: on X that is
+      $1800 \times 0.3636/0.9351 = 700$ and on Y
+      $1800 \times 0.5714/0.9351 = 1100$. Check both branches: if X lands,
+      $700 \times 2.75 = 1925$; if Y lands, $1100 \times 1.75 = 1925$. Either
+      way the return is $1925$ against $1800$ committed, a guaranteed
+      $125$ dollars, or about $6.9\%$ of the outlay. Equivalently the payout is
+      $T/S = 1800/0.9351 \approx 1925$ directly. A useful shortcut: since
+      $p_i \propto 1/d_i$, the stakes are in the ratio of the *other* leg's
+      odds, $1.75 : 2.75 = 7 : 11$, which splits $1800$ into $700$ and $1100$
+      with no division at all.
+    expects: "125"
+    rubric:
+      - >
+        Checks $S < 1$ before staking anything — that inequality, not the size of
+        either price, is what makes the arbitrage exist.
+      - >
+        Splits the total in proportion to the implied probabilities and verifies
+        both branches pay $1925$.
+    targets:
+      - quant-games.betting-markets.dutch-book
+    exercises:
+      - quant-games.betting-markets.implied-probability
+
+  - id: qbet-dutch-book-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Book A offers decimal $2.40$ on outcome X and book B offers decimal $1.90$
+      on outcome Y, the only other outcome. Committing $1000$ dollars in total,
+      how much should go on X?
+    answer: >
+      About $441.86$ dollars. The implied probabilities are
+      $1/2.40 \approx 0.4167$ and $1/1.90 \approx 0.5263$, so
+      $S \approx 0.9430$ and the book is beatable. The stake on X is
+      $T \cdot p_X / S = 1000 \times 0.4167/0.9430 \approx 441.86$, leaving
+      about $558.14$ on Y. Both branches check out:
+      $441.86 \times 2.40 \approx 1060.47$ and
+      $558.14 \times 1.90 \approx 1060.47$, which is $T/S$, for a locked profit
+      of about $60.47$. Splitting the outlay evenly instead — $500$ on each —
+      would return $1200$ if X lands and $950$ if Y does: still profitable on
+      average at these prices, but no longer a guarantee, which is the entire
+      point of sizing by the implied probabilities.
+    expects: "441.86"
+    tolerance: 0.005
+    rubric:
+      - >
+        Sizes the leg as $T \cdot p_X / S$ with $S$ the sum of both implied
+        probabilities, not as $T \cdot p_X$.
+      - >
+        Confirms both branches return the same $T/S \approx 1060.47$, so the
+        profit does not depend on the outcome.
+    targets:
+      - quant-games.betting-markets.dutch-book
+
+  - id: qbet-dutch-book-03
+    kind: justify
+    difficulty: standard
+    statement: >
+      Two books price the two outcomes of an event at decimal $d_X$ and $d_Y$
+      with $p_X = 1/d_X$, $p_Y = 1/d_Y$ and $S = p_X + p_Y$. Show that staking
+      $T p_X / S$ and $T p_Y / S$ returns the same amount whichever outcome
+      occurs, and explain why $S < 1$ is exactly the condition under which that
+      amount beats $T$.
+    answer: >
+      Take the X branch. The stake is $T p_X / S$ at decimal odds $d_X$, so the
+      return is $T p_X d_X / S$; but $p_X = 1/d_X$, so $p_X d_X = 1$ and the
+      return is $T/S$. The Y branch is the identical computation with the
+      subscripts swapped, again giving $T/S$. The cancellation is the whole
+      mechanism: staking in proportion to a leg's implied probability is exactly
+      staking in inverse proportion to its payout multiple, so the two effects
+      annihilate and the return stops depending on which outcome lands. The
+      stakes are also complete — they sum to $T(p_X + p_Y)/S = T$ — so the whole
+      committed amount is working and nothing is held back. That makes the
+      profit $T/S - T = T(1-S)/S$, which is positive precisely when $S < 1$, zero
+      on a fair book, and negative when $S > 1$, where the same construction
+      turns into the bookmaker's overround: the market maker collects
+      $T(S-1)/S$ from a bettor who backs every outcome. The result is riskless
+      only in the payout sense — it assumes both bets are actually placed at the
+      quoted prices before either book moves, which is where the practical risk
+      of the strategy lives.
+    rubric:
+      - >
+        Substitutes $p_i = 1/d_i$ to show each branch returns $T/S$, naming the
+        cancellation $p_i d_i = 1$ as the reason the outcome drops out.
+      - >
+        Notes the stakes sum to $T$, so $T/S$ is compared against the full
+        outlay.
+      - >
+        Derives the profit $T(1-S)/S$ and reads $S < 1$ off it, connecting
+        $S > 1$ to the bookmaker's side of the same identity.
+    targets:
+      - quant-games.betting-markets.dutch-book
+
+  - id: qbet-dutch-book-04
+    kind: decide
+    difficulty: demanding
+    statement: >
+      You find a genuine two-book arbitrage with $S \approx 0.935$ and have a
+      bankroll far larger than the $1800$ dollars needed to take it. Kelly sizing
+      is the tool you reach for on an edge — how should it be applied here?
+    answer: >
+      It should not: the Dutch-book split already sizes the position, and Kelly
+      has nothing to work with. Kelly's fraction
+      $f^{*} = \frac{bp - q}{b}$ maximises long-run log growth by trading
+      expected return against the *variance* of a repeated, risky bet — its whole
+      job is to stop a favourable but uncertain wager from ruining a bankroll
+      that has to survive to bet again. A completed Dutch book has no variance
+      left: both branches return $T/S \approx 1.069\,T$, so the outcome does not
+      enter the result at all. Feeding a certain gain into Kelly returns the
+      degenerate answer — with no downside branch, the growth-optimal fraction is
+      the largest one available — and the real constraint becomes operational
+      rather than statistical: the capital the two books will accept, the
+      execution risk that one leg fills and the other moves, and the credit tied
+      up until settlement. Kelly on either leg alone is worse than useless, since
+      each leg *is* a risky bet and sizing them independently destroys the very
+      proportionality that made the pair riskless.
+    choices:
+      - text: >
+          Not at all — split the committed total in proportion to the two implied
+          probabilities; with both branches paying $T/S$ there is no variance for
+          Kelly to trade against growth, and the binding limits are the books'
+          accepted stakes and execution risk.
+        correct: true
+        feedback: >
+          Right: Kelly prices uncertainty, and a locked arbitrage has none. The
+          split comes from the odds, not from a growth criterion.
+      - text: >
+          Apply Kelly to the combined position, using $S \approx 0.935$ to derive
+          an edge of about $6.9\%$ and betting that fraction of the bankroll.
+        feedback: >
+          That treats a certain $6.9\%$ return as if it were a risky one; Kelly's
+          fraction exists to shrink a stake against a losing branch, and here
+          there is no losing branch.
+      - text: >
+          Apply Kelly separately to each leg, sizing each from its own price and
+          your probability for that outcome.
+        feedback: >
+          Sizing the legs independently breaks the proportionality between them,
+          which is exactly what made the payouts equal — you would be left with
+          two ordinary risky bets.
+      - text: >
+          Kelly and the Dutch book give the same stakes here, so either derivation
+          works.
+        feedback: >
+          They answer different questions: Kelly grows one repeated bet's
+          bankroll, a Dutch book splits one outlay across simultaneous exclusive
+          outcomes to remove risk entirely.
+    rubric:
+      - >
+        Says the completed arbitrage carries no variance — both branches return
+        $T/S$ — so Kelly's growth-against-risk trade-off has nothing to price.
+      - >
+        Names the binding constraints as operational — the stake each book accepts,
+        the risk that one leg fills and the other moves — and rejects Kelly applied
+        to a single leg.
+    targets:
+      - quant-games.betting-markets.dutch-book
+      - quant-games.kelly.kelly-fraction
+    connects:
+      - quant-games.betting-markets.dutch-book ~ quant-games.kelly.kelly-fraction
+
+  # --- hedging ----------------------------------------------------------------
+
+  - id: qbet-hedging-bets-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You hold a bet of $400$ dollars at decimal odds $3.50$. The opposite
+      outcome is now available at decimal $1.55$. If you hedge so that both
+      outcomes pay the same, what profit do you guarantee, in dollars?
+    answer: >
+      About $96.77$ dollars. The open bet returns
+      $400 \times 3.50 = 1400$ if it wins. The equalizing hedge stake solves
+      $H \times 1.55 = 1400$, so $H = 1400/1.55 \approx 903.23$. Now both
+      branches return $1400$: the original bet if it lands, or the hedge at
+      $903.23 \times 1.55 = 1400$ if it does not. Total committed is
+      $400 + 903.23 = 1303.23$, so the guaranteed profit is
+      $1400 - 1303.23 \approx 96.77$ dollars — about $7.4\%$ on the money at
+      risk. The mistake to avoid is treating the hedge in isolation and
+      reporting $1400 - 903.23 = 496.77$: the original $400$ is sunk in the
+      accounting sense but it is still money you staked, and a lock-in figure
+      that ignores it will overstate every hedge you ever price.
+    expects: "96.77"
+    tolerance: 0.005
+    rubric:
+      - >
+        Sets the hedge stake from $H = S_0 O_0 / O_1$ so both branches pay
+        $1400$.
+      - >
+        Subtracts *both* stakes from the common payout — the original $400$ is
+        part of the outlay, not a free position.
+    targets:
+      - quant-games.betting-markets.hedging-bets
+    exercises:
+      - quant-games.betting-markets.odds-formats
+
+  - id: qbet-hedging-bets-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A bet of $150$ dollars sits open at decimal odds $4.20$. The opposing
+      outcome is available at decimal $1.45$. What hedge stake equalizes the two
+      payouts?
+    answer: >
+      About $434.48$ dollars. The open bet pays
+      $150 \times 4.20 = 630$ if it wins, so the hedge must be sized to return
+      the same $630$ on the other side: $H = 630/1.45 \approx 434.48$, which is
+      the rule $H = S_0 O_0 / O_1$ with $S_0 = 150$, $O_0 = 4.20$ and
+      $O_1 = 1.45$. Either outcome then returns $630$ against a total outlay of
+      $150 + 434.48 = 584.48$, locking about $45.52$ dollars. The frequent slip
+      is to hedge the *stake* rather than the payout — staking $150$ on the other
+      side returns only $217.50$ there against $630$ here, which reduces the
+      spread between the branches without equalizing them, and so locks nothing.
+    expects: "434.48"
+    tolerance: 0.005
+    rubric:
+      - >
+        Sizes the hedge from the original bet's *payout* $630$, not from its
+        stake of $150$.
+      - >
+        Divides by the hedge price $1.45$, so the hedge returns the same amount
+        the open bet would.
+    targets:
+      - quant-games.betting-markets.hedging-bets
+
+  - id: qbet-hedging-bets-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      A bet of $100$ dollars sits open at decimal odds $5.00$; the opposing
+      outcome is now offered at decimal $1.20$. What does the fully equalizing
+      hedge achieve?
+    answer: >
+      It locks in a loss of about $16.67$ dollars. The open bet pays
+      $100 \times 5.00 = 500$, so the hedge is
+      $H = 500/1.20 \approx 416.67$ and both branches return $500$ against a
+      total outlay of $100 + 416.67 = 516.67$ — a guaranteed
+      $500 - 516.67 \approx -16.67$. The diagnosis is in the implied
+      probabilities: $1/5.00 = 0.20$ and $1/1.20 \approx 0.8333$ sum to about
+      $1.0333$, an overround of $3.3\%$ across the two prices, so backing both
+      sides must cost money. That is the general rule and it is worth carrying:
+      hedging locks a profit only when the two prices you actually transacted at
+      imply a sum below $1$ — the Dutch-book condition again, one leg of it
+      simply placed earlier. Hedging is still a legitimate choice here if you
+      want the variance gone, but it should be taken knowing it costs about
+      $3.2\%$ of the outlay, not mistaken for free money.
+    choices:
+      - text: >
+          It locks a loss of about $16.67$ dollars — the two prices imply a sum of
+          about $1.033$, so covering both sides costs money.
+        correct: true
+        feedback: >
+          Right: a hedge is only profitable when the transacted prices imply less
+          than $1$ in total, and $0.20 + 0.8333$ does not.
+      - text: >
+          It locks a profit of about $83.33$ dollars — the $500$ payout less the
+          $416.67$ hedge stake.
+        feedback: >
+          That drops the original $100$ from the outlay; the money at risk is
+          $516.67$, not $416.67$.
+      - text: >
+          It locks a profit of about $16.67$ dollars, the same figure with the
+          other sign.
+        feedback: >
+          The payout $500$ is *below* the total outlay $516.67$, so the sign is
+          negative — check which of the two numbers is larger.
+      - text: >
+          No hedge is possible, since a price of $1.20$ is too short to cover a
+          bet placed at $5.00$.
+        feedback: >
+          The hedge is perfectly placeable at $416.67$; it just is not profitable,
+          which is a different objection.
+    rubric:
+      - >
+        Sizes the hedge as $H = 500/1.20 \approx 416.67$ and counts the original
+        $100$ as part of the outlay.
+      - >
+        Diagnoses the loss from the implied probabilities summing to about $1.033$:
+        hedging locks a profit only when the transacted prices sum below $1$.
+    targets:
+      - quant-games.betting-markets.hedging-bets
+
+  # --- line movement ----------------------------------------------------------
+
+  - id: qbet-line-movement-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A side opens at American $+145$ and closes at American $+115$. By how much
+      did the market's implied probability for that side rise? Give the change as
+      a decimal.
+    answer: >
+      About $0.057$. Convert both quotes: $+145$ is decimal
+      $1 + 145/100 = 2.45$, implying $1/2.45 \approx 0.4082$; $+115$ is decimal
+      $2.15$, implying $1/2.15 \approx 0.4651$. The implied probability rose by
+      $0.4651 - 0.4082 \approx 0.0570$, close to six percentage points — a large
+      move, of the size that usually signals money with an opinion rather than
+      routine balancing. Two traps. Subtracting the American numerals gives
+      $30$, or $0.30$ if it is casually read as a probability; the American scale
+      is not linear in probability, so differences on it mean nothing directly.
+      And a bettor holding the $+145$ ticket should read this correctly: the
+      market now disagrees with the price they got, which makes their bet look
+      *better* in price terms, not worse — they hold a longer price than anyone
+      can now obtain.
+    expects: "0.057"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Converts each American quote to a decimal price and then to a probability
+        before differencing — never subtracts the American numbers.
+      - >
+        Reports a rise, recognising that a shortening price means a higher implied
+        probability.
+    targets:
+      - quant-games.betting-markets.line-movement
+    exercises:
+      - quant-games.betting-markets.implied-probability
+
+  - id: qbet-line-movement-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      You backed an underdog early at $+145$ on your own model. By kickoff the
+      price has shortened to $+115$, and you learn that most of the volume on
+      that side came from a handful of large, early accounts. What should you
+      conclude?
+    answer: >
+      That the move is evidence about the outcome and evidence that your price is
+      good — but it does not settle whether your model's edge is real. Lines move
+      because money moves them, and the source matters: a shortening driven by a
+      few large early accounts is the classic signature of informed money, which
+      is itself information about the true probability. Your position happens to
+      agree with it, and you hold $2.45$ where the market now pays $2.15$, so the
+      bet is better than any now available. But agreement with sharp money is
+      correlation, not confirmation: your model may have been right for the wrong
+      reason, or been the very flow that moved the line. The general discipline
+      is the one the trap violates — a move against your bet is not automatically
+      bad news, and a move in its favour is not automatically vindication;
+      reading *who* moved the line is the signal, and the move alone is not a
+      reason to trade again in either direction.
+    choices:
+      - text: >
+          The move is evidence the market's fair estimate has risen and your price
+          is now better than the market offers — but reading it as proof your
+          model is right confuses agreement with confirmation.
+        correct: true
+        feedback: >
+          Exactly: the move tells you about the outcome and about your price;
+          about your model it is only suggestive.
+      - text: >
+          The move proves your edge was real, so the right response is to bet the
+          same side again at $+115$.
+        feedback: >
+          The new price is worse, and the original edge was measured against the
+          old one — a shortened line is not a licence to add.
+      - text: >
+          The move went against your bet's price, so the market has repriced away
+          your edge and you should hedge.
+        feedback: >
+          The move went in your position's favour: you hold a longer price than
+          the market now offers, which is what betting early is for.
+      - text: >
+          The bookmaker shortened the price to balance its book, so the move
+          carries no information about the outcome at all.
+        feedback: >
+          Balancing is one reason lines move, but volume concentrated in a few
+          large early accounts is the profile of informed money, not public flow.
+    rubric:
+      - >
+        Separates what the move does settle — where the market's estimate has gone,
+        and how good the held price now is — from what it does not, whether the
+        model's edge was real.
+      - >
+        Reads a shortening price on a ticket already held as favourable, and does not
+        treat the move alone as a reason to add or to hedge.
+    targets:
+      - quant-games.betting-markets.line-movement

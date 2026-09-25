@@ -38,7 +38,10 @@ struct LoadedProgram: Sendable {
 /// authored under the same rules as content and should fail the same way.
 enum ProgramLoader {
     private struct SpineFile: Decodable {
+        var title: String?
         var parts: [ProgramSpine.Part]
+        /// Accepted forward references (D15.2); absent on almost every spine.
+        var forward: [ProgramSpine.ForwardReference]?
     }
 
     private struct UnitFile: Decodable {
@@ -63,8 +66,8 @@ enum ProgramLoader {
 
         let spine: ProgramSpine
         do {
-            spine = ProgramSpine(
-                parts: try YAMLDecoder().decode(SpineFile.self, from: spineText).parts)
+            let file = try YAMLDecoder().decode(SpineFile.self, from: spineText)
+            spine = ProgramSpine(title: file.title, parts: file.parts, forward: file.forward ?? [])
         } catch let error as DecodingError {
             throw ContentLoadError.malformed(path: spinePath, message: describe(error))
         } catch {

@@ -1,0 +1,2010 @@
+# Problems targeting quant-processes.ruin — the gambler's ruin family.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's
+# ending with something the lesson has just handed over. No problem here
+# reuses a lesson's worked example or a card's instance. See ../README.md.
+
+problems:
+  # --- the two-barrier setup ---------------------------------------------------
+
+  - id: qruin-setup-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A desk runs an inventory that moves by exactly one lot per trade. The
+      book is closed the moment inventory touches the stop at $-12$ lots, and
+      closed just as finally the moment it touches the target at $+20$ lots.
+      Inventory currently stands at $+3$. Rewritten as the standard two-barrier
+      walk with absorbing levels $0$ and $N$, what is the starting state $k$?
+    answer: >
+      $15$. The two-barrier picture insists the lower barrier sit at $0$, so
+      shift every level up by $12$: the stop $-12$ becomes $0$, the target
+      $+20$ becomes $N = 20 - (-12) = 32$, and the current inventory $+3$
+      becomes $k = 3 + 12 = 15$. The opponent's effective stack is
+      $N - k = 32 - 15 = 17$, which is also $20 - 3$ — the distance to the
+      target is shift-invariant, so it is the free check that the translation
+      was done consistently. Two answers are wrong for instructive reasons:
+      $3$ reads the raw inventory as the state, which would place the stop at
+      $-12$ rather than at $0$ and break both boundary values; and $20$ reads
+      the target level as $N$, which forgets that $N$ is the *combined*
+      bankroll, the full width of the band, not the upper level's label.
+    expects: "15"
+    rubric:
+      - >
+        Shifts both barriers and the current level by the same amount, so that
+        the lower barrier lands on $0$.
+      - >
+        Reports $N = 32$ as the width of the band, not the upper level $20$,
+        and checks $N - k = 17$ against the unshifted distance $20 - 3$.
+    targets:
+      - quant-processes.ruin.setup
+
+  - id: qruin-setup-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      $W(k)$ is the probability of reaching the target $N$ before ruin at $0$.
+      Which pair of boundary values does $W$ carry, for every $p$, $k$ and $N$?
+    answer: >
+      $W(0) = 0$ and $W(N) = 1$. These are read straight off the definition
+      rather than derived: starting at $0$ the walk is already absorbed at the
+      ruin barrier, so the target is never reached and $W(0) = 0$; starting at
+      $N$ the walk is already absorbed at the target, so $W(N) = 1$. They are
+      exactly the complements of $R(0) = 1$ and $R(N) = 0$, as
+      $W = 1 - R$ requires. The point of holding both pairs is that every
+      closed form in this subbranch must reproduce its own boundary values at
+      $k = 0$ and $k = N$, and evaluating a candidate formula at the two ends
+      is the cheapest possible check on a derivation done under time pressure.
+    choices:
+      - text: >
+          $W(0) = 0$, $W(N) = 1$
+        correct: true
+        feedback: >
+          Right — already at $0$ the target is unreachable, already at $N$ it
+          has been reached, and these complement $R(0) = 1$, $R(N) = 0$.
+      - text: >
+          $W(0) = 1$, $W(N) = 0$
+        feedback: >
+          This is $R$'s pair of boundary values attached to $W$. Deciding which
+          boundary condition belongs to which function is the whole content
+          here: $R$ tracks hitting $0$, $W$ tracks hitting $N$.
+      - text: >
+          $W(0) = 0$, $W(N) = 0$
+        feedback: >
+          Both ends set to $0$ would make $W$ vanish identically once the
+          solution is pinned down, which would say the target is never reached
+          from anywhere — including from $N$ itself.
+      - text: >
+          $W(0) = 1$, $W(N) = 1$
+        feedback: >
+          This says the target is certain from the ruin barrier, contradicting
+          absorption: once the walk touches $0$ it stops there for good.
+    rubric:
+      - >
+        Reads both values off the definition of absorption rather than from any
+        formula.
+      - >
+        Checks them against $R(0) = 1$, $R(N) = 0$ using $W = 1 - R$.
+    targets:
+      - quant-processes.ruin.setup
+
+  - id: qruin-setup-03
+    kind: work
+    difficulty: routine
+    statement: >
+      You sit down with $13$ units against a house holding $47$, one unit
+      changes hands per round, and play continues until one side is empty. In
+      the two-barrier picture, what is $N$?
+    answer: >
+      $60$. The tracked quantity is your own stack, so $k = 13$; the walk stops
+      at $0$ when you are broke and at $N$ when you hold everything on the
+      table. Since one unit only ever moves from one side to the other, the
+      combined bankroll never changes, and it is that combined total that the
+      upper barrier sits at: $N = 13 + 47 = 60$, with $N - k = 47$ recovering
+      the house's stack. Answering $47$ takes $N$ to be the opponent's holding
+      rather than the sum, which would put your own units outside the band
+      entirely and break $R(N) = 0$.
+    expects: "60"
+    rubric:
+      - >
+        Identifies $N$ as the combined bankroll $13 + 47$, not the opponent's
+        stack alone.
+      - >
+        Keeps $k = 13$ as your own stack, so that $N - k$ is the opponent's.
+    targets:
+      - quant-processes.ruin.setup
+
+  # --- absorption is certain ---------------------------------------------------
+
+  - id: qruin-absorption-certain-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Assume $0 < p < 1$ and $N \ge 2$. Prove that the walk is absorbed with
+      probability $1$, and explain in one further sentence why the same
+      argument makes $\mathbb{E}[T]$ finite, where $T$ is the absorption time.
+    answer: >
+      Group the rounds into disjoint blocks of $N$ consecutive rounds. From any
+      interior state $j$ with $0 < j < N$, the single path of $N$ straight wins
+      reaches the top barrier and the single path of $N$ straight losses
+      reaches the bottom one, so whichever is less likely still has probability
+      at least $\min(p,q)^{N}$; hence each block ends the game with probability
+      at least $c = \min(p,q)^{N} > 0$, and this bound holds no matter where
+      inside the band the block began. The blocks are disjoint, so conditioning
+      block by block, the probability of surviving $m$ of them unabsorbed is at
+      most $(1-c)^{m}$, and $(1-c)^{m} \to 0$ as $m \to \infty$ because
+      $0 < 1 - c < 1$. The event of never being absorbed is contained in every
+      one of those events, so it has probability $0$: absorption is certain and
+      $R(k) + W(k) = 1$. For the expectation, the same bound says
+      $\Pr(T > mN) \le (1-c)^{m}$, a geometric tail, and summing
+      $\mathbb{E}[T] = \sum \Pr(T > n)$ over a geometrically decaying tail
+      converges — indeed every moment does, since $\mathbb{E}[T^{j}]$ is
+      dominated by a convergent geometric series for each $j$. That finiteness
+      is precisely what later nodes spend: solving the first-step system for a
+      bounded solution, and equating expected stopped wealth with starting
+      wealth, are both illegitimate without it.
+    rubric:
+      - >
+        Uses blocks of $N$ rounds and the bound $\min(p,q)^{N}$, not $p^{N}$
+        alone, and says the bound is uniform over the starting state.
+      - >
+        Concludes from $(1-c)^{m} \to 0$ that the never-absorbed event has
+        probability $0$, rather than merely small probability.
+      - >
+        Notes the geometric tail $\Pr(T > mN) \le (1-c)^{m}$ and deduces
+        finiteness of $\mathbb{E}[T]$ from it.
+    targets:
+      - quant-processes.ruin.absorption-certain
+    exercises:
+      - quant-processes.ruin.setup
+
+  - id: qruin-absorption-certain-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Take $p = 0.7$ and $N = 4$. Using only the block bound, what upper bound
+      does the argument give for the probability that play is still running
+      after $5$ full blocks — that is, after $20$ rounds? Give four decimal
+      places.
+    answer: >
+      $\approx 0.9602$. The per-block floor is $\min(p,q)^{N}$ with
+      $\min(0.7, 0.3) = 0.3$, so $c = 0.3^{4} = 0.0081$: every block of $4$
+      rounds ends the game with probability at least $0.81\%$, wherever inside
+      the band it starts. Surviving $5$ disjoint blocks unabsorbed is therefore
+      bounded by $(1 - 0.0081)^{5} = 0.9919^{5} \approx 0.9602$. The number is
+      deliberately unimpressive, and that is the lesson: the block bound is
+      loose — the true survival probability after $20$ rounds is far smaller —
+      but it decays geometrically, so it drives the probability of never
+      stopping to $0$ even though it says almost nothing after $20$ rounds.
+      Using $p^{4} = 0.2401$ instead of $\min(p,q)^{4}$ would claim a floor the
+      argument has not earned, since the $N$ straight losses that also end a
+      block carry only probability $0.3^{4}$.
+    expects: "0.9602"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $\min(p,q) = 0.3$, not $p = 0.7$, in the per-block floor.
+      - >
+        Raises the per-block survival bound $1 - c$ to the fifth power, one
+        factor per disjoint block, rather than per round.
+    targets:
+      - quant-processes.ruin.absorption-certain
+
+  - id: qruin-absorption-certain-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      The block bound $\Pr(\text{unabsorbed after } m \text{ blocks}) \le
+      (1 - \min(p,q)^{N})^{m}$ settles several things at once. Which of these
+      does it *not* settle?
+    answer: >
+      It does not give the expected duration. The bound is an inequality with a
+      crude constant, so it delivers qualitative facts — the never-absorbed
+      event has probability $0$, hence $R(k) + W(k) = 1$; the tail of $T$ is
+      geometric, hence $\mathbb{E}[T]$ and all higher moments are finite — but
+      it never pins a number down. The actual value $D(k) = k(N-k)$ in the fair
+      case comes from solving the first-step equation for $D$, a completely
+      separate computation that the block bound merely licenses by guaranteeing
+      the quantity being solved for exists and is finite. Confusing the licence
+      with the value is the standard slip here: knowing a game ends is not
+      knowing how long it takes.
+    choices:
+      - text: >
+          The exact value of the expected duration $D(k)$
+        correct: true
+        feedback: >
+          Right — the bound is an inequality, so it can only certify that
+          $\mathbb{E}[T]$ is finite. The value comes from solving
+          $D(k) = 1 + p\,D(k+1) + q\,D(k-1)$, a separate computation.
+      - text: >
+          That $R(k) + W(k) = 1$
+        feedback: >
+          This the bound does settle: the never-absorbed event sits inside
+          every "survived $m$ blocks" event, so its probability is $0$ and no
+          mass is left over for paths that run forever.
+      - text: >
+          That every moment of the absorption time is finite
+        feedback: >
+          The bound gives a geometric tail $\Pr(T > mN) \le (1-c)^{m}$, and a
+          geometric tail makes every moment converge — so this one it does
+          settle.
+      - text: >
+          That the probability of never being absorbed is $0$
+        feedback: >
+          That is the bound's primary conclusion, obtained by letting
+          $m \to \infty$ in $(1-c)^{m}$.
+    rubric:
+      - >
+        Distinguishes an existence-and-finiteness guarantee from a computed
+        value.
+      - >
+        Names the first-step equation for $D$ as the actual source of the
+        duration.
+    targets:
+      - quant-processes.ruin.absorption-certain
+
+  # --- the first-step difference equation --------------------------------------
+
+  - id: qruin-ruin-equation-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A stack moves up one unit with probability $0.3$, down one unit with
+      probability $0.5$, and is left unchanged with probability $0.2$ — the
+      round was a draw. Play stops at $0$ or at $4$. Starting from $2$, what is
+      the ruin probability? Give it as an exact fraction.
+    answer: >
+      $25/34$. Condition on one round exactly as before, but now three things
+      can happen: $R(k) = 0.3\,R(k+1) + 0.5\,R(k-1) + 0.2\,R(k)$, because a
+      draw restarts the same problem from the same state. Collect the $R(k)$
+      terms: $0.8\,R(k) = 0.3\,R(k+1) + 0.5\,R(k-1)$, so
+      $R(k) = \frac{3}{8}R(k+1) + \frac{5}{8}R(k-1)$. That is the ordinary
+      two-outcome equation with renormalised probabilities
+      $p' = 0.3/0.8 = 3/8$ and $q' = 0.5/0.8 = 5/8$ — draws do not change who
+      wins, only how many rounds it takes. With $r = q'/p' = 5/3$ and $N = 4$,
+      $r^{2} = 25/9$ and $r^{4} = 625/81$, so
+      $R(2) = \dfrac{25/9 - 625/81}{1 - 625/81} = \dfrac{-400/81}{-544/81} =
+      \dfrac{400}{544} = \dfrac{25}{34} \approx 0.7353$. The trap is treating
+      $0.3$ and $0.5$ as $p$ and $q$ directly: they do not sum to $1$, and the
+      characteristic root would come out as $5/3$ only by accident — the honest
+      route is the draw term on the right-hand side, moved to the left.
+    expects: "25/34"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Puts the draw outcome on the right as $0.2\,R(k)$ and moves it to the
+        left, rather than ignoring draws.
+      - >
+        Renormalises to $p' = 3/8$, $q' = 5/8$ and notes that draws change the
+        duration but not the ruin probability.
+    targets:
+      - quant-processes.ruin.ruin-equation
+    exercises:
+      - quant-processes.ruin.setup
+
+  - id: qruin-ruin-equation-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Take $N = 4$ and $p = 3/5$. Write down the three interior first-step
+      equations and close the system by back-substitution — do not quote a
+      closed form. What is $R(1)$?
+    answer: >
+      $38/65 \approx 0.5846$. With $q = 2/5$ the interior equations are
+      $R(1) = \frac{3}{5}R(2) + \frac{2}{5}$ (using $R(0) = 1$),
+      $R(2) = \frac{3}{5}R(3) + \frac{2}{5}R(1)$, and
+      $R(3) = \frac{2}{5}R(2)$ (using $R(4) = 0$). Substituting the third into
+      the second gives $R(2) = \frac{6}{25}R(2) + \frac{2}{5}R(1)$, so
+      $\frac{19}{25}R(2) = \frac{2}{5}R(1)$ and $R(2) = \frac{10}{19}R(1)$.
+      Putting that into the first,
+      $R(1) = \frac{3}{5}\cdot\frac{10}{19}R(1) + \frac{2}{5} =
+      \frac{6}{19}R(1) + \frac{2}{5}$, so $\frac{13}{19}R(1) = \frac{2}{5}$ and
+      $R(1) = \frac{38}{65}$. Two structural points the back-substitution makes
+      visible: the equations at $k = 1$ and $k = 3$ each consume a boundary
+      value as a known number rather than as a fourth unknown, which is what
+      closes the system; and the answers descend, $R(2) = 4/13$ and
+      $R(3) = 8/65$, as they must when a favourable coin makes deeper stacks
+      safer.
+    expects: "38/65"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Substitutes $R(0) = 1$ and $R(4) = 0$ as known numbers into the two
+        end equations rather than carrying them as unknowns.
+      - >
+        Eliminates from one end to the other and solves, without invoking the
+        closed form.
+    targets:
+      - quant-processes.ruin.ruin-equation
+
+  - id: qruin-ruin-equation-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      The expected duration obeys $D(k) = 1 + p\,D(k+1) + q\,D(k-1)$ on the
+      interior. Which boundary values close that system?
+    answer: >
+      $D(0) = D(N) = 0$. Both barriers are absorbing, so a walk that starts on
+      one has already stopped and plays no rounds at all — the expected number
+      of remaining rounds is $0$ at each end, not $1$ and not $N$. The two
+      classic slips are visible in the alternatives: importing $R$'s asymmetric
+      pair $1$ and $0$ confuses which boundary condition belongs to which
+      quantity, and $D(0) = 1$ pays for a round that is never played. The check
+      that catches either instantly is the fair-case answer $D(k) = k(N-k)$,
+      which vanishes at both ends exactly because these are the conditions it
+      was fitted to.
+    choices:
+      - text: >
+          $D(0) = D(N) = 0$
+        correct: true
+        feedback: >
+          Right — an absorbing barrier is where play has already stopped, so no
+          further rounds are expected from either end.
+      - text: >
+          $D(0) = 1$, $D(N) = 0$
+        feedback: >
+          This borrows $R$'s boundary pair. Deciding which boundary condition
+          goes with which function matters: $R(0) = 1$ says ruin has happened,
+          but no round is played from $0$, so $D(0)$ is $0$.
+      - text: >
+          $D(0) = 0$, $D(N) = N$
+        feedback: >
+          Nothing about the top barrier costs $N$ rounds; reaching $N$ ends
+          play, so the expected remaining duration there is $0$, symmetric with
+          the bottom.
+      - text: >
+          $D(0) = D(N) = 1$
+        feedback: >
+          This pays for one round at each barrier, but a walk that starts
+          absorbed never plays the round the $+1$ is charging for.
+    rubric:
+      - >
+        Says both barriers give $0$ because play has already stopped there.
+      - >
+        Checks the choice against $D(k) = k(N-k)$ vanishing at $k = 0$ and
+        $k = N$.
+    targets:
+      - quant-processes.ruin.ruin-equation
+
+  # --- the fair game -----------------------------------------------------------
+
+  - id: qruin-fair-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Starting from $R(k) = \tfrac{1}{2}R(k+1) + \tfrac{1}{2}R(k-1)$ for
+      $0 < k < N$, prove that $R(k) = 1 - k/N$. State explicitly where you use
+      the fact that absorption is certain.
+    answer: >
+      Multiply by $2$ and rearrange: $R(k+1) - 2R(k) + R(k-1) = 0$, so the
+      second difference of $R$ vanishes at every interior state. Equivalently
+      $R(k+1) - R(k) = R(k) - R(k-1)$: the increment from one state to the next
+      is the same at every step. Call that common increment $B$. Then
+      $R(k) = R(0) + Bk$ for every $k$ from $0$ to $N$, an arithmetic
+      progression — this is the discrete analogue of a function with vanishing
+      second derivative being affine, and it needs no case analysis. The two
+      boundary values supply the two constants a line needs: $R(0) = 1$ fixes
+      the intercept, and $R(N) = 1 + BN = 0$ forces $B = -1/N$. Hence
+      $R(k) = 1 - k/N$ and $W(k) = k/N$. Absorption enters twice, and both uses
+      are easy to skip. First, $R(k)$ is only well defined as "the probability
+      of hitting $0$ first" once hitting *something* is certain; without it the
+      first-step relation would still hold but $R$ and $W$ would be two
+      unrelated functions rather than complements. Second, and decisively,
+      $W(k) = 1 - R(k)$ — the reading of the answer as a share of the pot — is
+      exactly the statement that no probability leaks into paths that never
+      stop. The unbounded solutions of the difference equation are ruled out by
+      the boundary conditions, but the *interpretation* of the bounded one as a
+      probability pair is what certain absorption buys.
+    rubric:
+      - >
+        Derives the constant-increment property from the vanishing second
+        difference and concludes $R$ is affine in $k$ before touching the
+        boundaries.
+      - >
+        Fits both boundary values to pin the intercept and slope, obtaining
+        $B = -1/N$.
+      - >
+        Names where certain absorption is used — that $R$ and $W$ are
+        complements, so no mass belongs to paths that never stop.
+    targets:
+      - quant-processes.ruin.fair
+    exercises:
+      - quant-processes.ruin.ruin-equation
+      - quant-processes.ruin.absorption-certain
+
+  - id: qruin-fair-02
+    kind: work
+    difficulty: demanding
+    statement: >
+      You hold $24$ units against an opponent holding $56$, fair coin, one unit
+      a round, play to the finish. You may buy in for more before the first
+      round; the opponent's stack stays at $56$. How many extra units must you
+      bring to make the match an even-money proposition for you?
+    answer: >
+      $32$. As it stands $N = 24 + 56 = 80$ and $W = 24/80 = 0.3$. The
+      temptation is to solve $k/80 = 0.5$ and answer $40 - 24 = 16$, but that
+      is wrong: buying in raises $N$ too, since $N$ is the combined bankroll.
+      Write the new stack as $k$; the opponent is unchanged, so $N = k + 56$
+      and the condition is $\dfrac{k}{k + 56} = \dfrac{1}{2}$, giving
+      $2k = k + 56$ and $k = 56$. You must arrive with $56$, so the buy-in is
+      $56 - 24 = 32$ extra units. Stated plainly, an even-money fair match is
+      exactly a match of equal stacks, which is the whole content of
+      $W = k/N$ read as a pot share — and the check is immediate,
+      $56/(56+56) = 1/2$. Note how much the buy-in costs relative to the
+      gain: $32$ units of capital to move the win probability from $0.30$ to
+      $0.50$, because the denominator moves with the numerator.
+    expects: "32"
+    rubric:
+      - >
+        Lets $N$ grow with the buy-in, solving $k/(k+56) = 1/2$ rather than
+        $k/80 = 1/2$.
+      - >
+        Reports the *extra* units $56 - 24 = 32$, not the final stack $56$.
+    targets:
+      - quant-processes.ruin.fair
+
+  - id: qruin-fair-03
+    kind: work
+    difficulty: standard
+    statement: >
+      A fair coin, one unit a round, absorbing barriers at $0$ and $56$,
+      starting stack $21$. What is the probability of going broke? Give an
+      exact fraction.
+    answer: >
+      $5/8$. In the fair game $W(k) = k/N$, so the chance of taking the whole
+      pot is $W(21) = 21/56 = 3/8$, and the chance of going broke is the
+      complement $R(21) = 1 - 3/8 = 5/8 = 0.625$. Equivalently and more
+      directly, $R(k) = (N-k)/N = 35/56 = 5/8$: your ruin probability is the
+      opponent's share of the combined bankroll, just as your success
+      probability is yours. The one slip worth naming is reporting $3/8$
+      because $k/N$ is the formula that comes to mind first — the question
+      asked which barrier is hit, and $k/N$ answers the other one. Reading the
+      requested outcome off the pot share directly, $35$ of the $56$ units
+      belong to the opponent, sidesteps the swap entirely.
+    expects: "5/8"
+    rubric:
+      - >
+        Computes $W = 21/56 = 3/8$ and reports the complement, or reads
+        $R = (N-k)/N$ directly.
+      - >
+        Answers the question actually asked — ruin, not success.
+    targets:
+      - quant-processes.ruin.fair
+
+  - id: qruin-fair-04
+    kind: decide
+    difficulty: routine
+    statement: >
+      A fair game, stacks $k$ and $N - k$. Which expression is the probability
+      that *you* end up broke?
+    answer: >
+      $\dfrac{N-k}{N}$, equivalently $1 - k/N$. The fair result says your
+      chance of taking the whole pot equals your share of it, $W(k) = k/N$, so
+      the chance of the other outcome is the opponent's share,
+      $R(k) = (N-k)/N$. The two are constantly swapped under time pressure
+      because $k/N$ is the memorable half of the pair; the discipline that
+      prevents it is checking a boundary value, since a candidate expression
+      for ruin must equal $1$ at $k = 0$. Only $(N-k)/N$ does: $k/N$ gives $0$
+      there, and $k/(N-k)$ is not even a probability, exceeding $1$ whenever
+      you hold more than half the pot.
+    choices:
+      - text: >
+          $\dfrac{N-k}{N}$
+        correct: true
+        feedback: >
+          Right — and it passes the boundary check, equalling $1$ at $k = 0$
+          and $0$ at $k = N$.
+      - text: >
+          $\dfrac{k}{N}$
+        feedback: >
+          This is $W(k)$, the probability of taking the pot. Swapping $R$ and
+          $W$ is the standard slip; at $k = 0$ it reports a ruin probability of
+          $0$ for a player who is already broke.
+      - text: >
+          $\dfrac{k}{N-k}$
+        feedback: >
+          This is the ratio of the two stacks, not a probability at all — it
+          exceeds $1$ whenever $k > N/2$ and is undefined at $k = N$.
+      - text: >
+          $\dfrac{1}{2}$, since the coin is fair
+        feedback: >
+          Fairness of the coin and fairness of the bankroll split are different
+          questions: the coin sets the expected profit to $0$, while $k$ and
+          $N$ alone set how often each side busts.
+    rubric:
+      - >
+        Names $R(k) = (N-k)/N$ and explains it as the opponent's pot share.
+      - >
+        Uses the boundary value at $k = 0$ to rule out the swapped expression.
+    targets:
+      - quant-processes.ruin.fair
+
+  # --- conservation of expectation ---------------------------------------------
+
+  - id: qruin-expectation-check-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Derive $W(k) = k/N$ for the fair game without solving any difference
+      equation, and state precisely which two facts license the argument.
+      Explain how the same identity, applied one round at a time rather than
+      once at the stopping time, is the tower property.
+    answer: >
+      Let $S_n$ be the fortune after $n$ rounds and $T$ the absorption time. In
+      one fair round the expected fortune does not move:
+      $\mathbb{E}[S_{n+1} \mid S_n] = S_n$, since the walk gains and loses one
+      unit with equal probability. Averaging that over the distribution of
+      $S_n$ — which is exactly the tower property,
+      $\mathbb{E}[\mathbb{E}[S_{n+1} \mid S_n]] = \mathbb{E}[S_{n+1}]$ — gives
+      $\mathbb{E}[S_{n+1}] = \mathbb{E}[S_n]$, so the expected fortune is
+      constant in $n$ and equals $k$ at every fixed time. Carrying the same
+      statement all the way to the random time $T$ gives
+      $\mathbb{E}[S_T] = k$. The stopped fortune takes only two values, so
+      $\mathbb{E}[S_T] = 0 \cdot R(k) + N \cdot W(k) = N\,W(k)$, and therefore
+      $W(k) = k/N$ with no recursion solved. The two licences are exactly the
+      content of the absorption node: first, $T$ is finite with probability
+      $1$, so $S_T$ is defined on almost every path; second, $\mathbb{E}[T]$ is
+      finite, which — together with the walk's bounded increments — is what
+      lets the identity survive the passage from a fixed $n$ to the random $T$.
+      Without the second, the interchange is not automatic: the classic
+      counterexample is the same walk with only the barrier at $0$ removed, a
+      martingale whose stopped value can have a different mean. So the fair
+      first-step equation and this argument are two readings of one identity —
+      the tower property applied to a single round, and the same property
+      carried to the absorption time.
+    rubric:
+      - >
+        Establishes $\mathbb{E}[S_{n}] = k$ from the one-round conditional
+        expectation and names that averaging step as the tower property.
+      - >
+        Evaluates $\mathbb{E}[S_T]$ using that the stopped fortune takes only
+        the values $0$ and $N$.
+      - >
+        States both licences — absorption with probability $1$, and finite
+        $\mathbb{E}[T]$ — and says why the second is needed for the passage to
+        a random time.
+    targets:
+      - quant-processes.ruin.expectation-check
+      - quant-probability.conditioning.tower
+    exercises:
+      - quant-processes.ruin.absorption-certain
+    connects:
+      - "quant-probability.conditioning.tower ~ quant-processes.ruin.expectation-check"
+
+  - id: qruin-expectation-check-02
+    kind: work
+    difficulty: demanding
+    statement: >
+      A game runs at $p = 0.45$ from $k = 6$ with a combined pot of $N = 15$. A
+      colleague has already established that the expected duration is
+      $D(6) = 41.8533$ rounds. Use the drift identity to recover $W(6)$, to
+      four decimal places.
+    answer: >
+      $\approx 0.1210$. The drift identity says the expected net displacement
+      of the fortune equals the average drift per round times the expected
+      number of rounds: $N\,W(k) - k = (p - q)\,D(k)$. Here $p - q = 0.45 -
+      0.55 = -0.10$, so $15\,W(6) - 6 = (-0.10)(41.8533) = -4.18533$, giving
+      $15\,W(6) = 1.81467$ and $W(6) = 0.120978 \approx 0.1210$. Two checks
+      make the answer safe. The sign: the drift is negative, so the expected
+      stopping fortune $15\,W = 1.815$ must sit *below* the starting $6$, and
+      it does — dropping the minus sign gives $W = 0.679$, wildly above the
+      fair benchmark $6/15 = 0.4$ for a game you are losing. The magnitude:
+      $0.121$ against that same fair benchmark of $0.4$ is the expected
+      collapse from a five-point disadvantage over a nine-unit climb. The
+      identity is worth running in this direction precisely because it is
+      symmetric — whichever of $W$ and $D$ you already have, the other costs
+      one line.
+    expects: "0.1210"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $p - q = -0.10$ with its sign rather than $|p - q|$.
+      - >
+        Solves $N\,W(k) - k = (p-q)D(k)$ for $W$ and sanity-checks the result
+        against the fair benchmark $k/N = 0.4$.
+    targets:
+      - quant-processes.ruin.expectation-check
+
+  - id: qruin-expectation-check-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      What has to be true before "expected fortune in equals expected fortune
+      out" may be applied at the absorption time?
+    answer: >
+      Absorption must be certain and the expected duration finite. The
+      conservation statement is easy at a fixed round — a fair coin does not
+      move the average — but the quantity being equated to $k$ is the fortune
+      at a *random* time, and that move is not free. If the walk could run
+      forever with positive probability, $S_T$ would be undefined on those
+      paths; if $\mathbb{E}[T]$ were infinite, the identity could fail even
+      when $T$ is finite almost surely. Both are supplied by the block
+      argument, which is why that node comes first. What is *not* required is
+      $p = 1/2$: with an edge the same bookkeeping holds in the corrected form
+      $N\,W(k) - k = (p-q)D(k)$, and only the uncorrected version
+      $N\,W(k) = k$ needs a fair coin.
+    choices:
+      - text: >
+          Absorption happens with probability $1$ and $\mathbb{E}[T]$ is finite
+        correct: true
+        feedback: >
+          Right — the first makes $S_T$ defined, the second licenses carrying
+          an identity from a fixed round to a random stopping time.
+      - text: >
+          The coin must be fair, $p = 1/2$
+        feedback: >
+          Fairness is needed only for the *uncorrected* form $N\,W(k) = k$.
+          With an edge the same accounting holds as
+          $N\,W(k) - k = (p-q)D(k)$, so this is not the licensing condition.
+      - text: >
+          $N$ must be finite, which is enough on its own
+        feedback: >
+          A finite band is what makes the block argument work, but it is that
+          argument — certain absorption and finite mean duration — that is
+          being invoked, not the finiteness of $N$ by itself.
+      - text: >
+          Nothing — expectations always pass to limits
+        feedback: >
+          They do not. Interchanging an expectation with a random stopping time
+          needs a condition; a martingale stopped at a badly behaved time can
+          have a different mean, which is exactly what finite $\mathbb{E}[T]$
+          with bounded increments rules out.
+    rubric:
+      - >
+        Names both conditions and attaches each to what it fixes.
+      - >
+        Says that $p = 1/2$ is needed only for the uncorrected form of the
+        identity.
+    targets:
+      - quant-processes.ruin.expectation-check
+
+  # --- the fair game, read as bankroll asymmetry -------------------------------
+
+  - id: qruin-fair-example-01
+    kind: decide
+    difficulty: demanding
+    statement: >
+      You hold $12$ against an opponent holding $36$, fair coin. Two offers are
+      on the table: double your own stack to $24$, or halve the opponent's to
+      $18$. Which raises your probability of taking the whole pot more?
+    answer: >
+      Neither — they are exactly equal, both giving $W = 0.4$. Doubling your
+      stack gives $W = 24/(24+36) = 24/60 = 2/5$; halving the opponent's gives
+      $W = 12/(12+18) = 12/30 = 2/5$. This is not a coincidence of the numbers.
+      With your stack $k$ and the opponent's $m$, $W = k/(k+m)$, so doubling
+      $k$ gives $2k/(2k+m)$ and halving $m$ gives
+      $\dfrac{k}{k + m/2} = \dfrac{2k}{2k+m}$ — the same expression, because
+      only the *ratio* $m/k$ enters. Writing $W = 1/(1 + m/k)$ makes it
+      obvious: any change that halves $m/k$ has the same effect on $W$,
+      whichever side of the ratio it acts on. The starting position had
+      $m/k = 3$ and $W = 1/4$; both offers take $m/k$ to $1.5$ and $W$ to
+      $0.4$. The practical reading is the one the fair-game node keeps
+      insisting on: capital and the opponent's capital are the only two levers,
+      and they are the same lever seen from two ends.
+    choices:
+      - text: >
+          They are exactly equal — both give $W = 0.4$
+        correct: true
+        feedback: >
+          Right — $W = 1/(1 + m/k)$ depends only on the ratio, and both offers
+          halve it from $3$ to $1.5$.
+      - text: >
+          Doubling your stack, because $12$ extra units is more than the $18$
+          the opponent gives up
+        feedback: >
+          The counts differ but the effect does not: $W$ sees only $m/k$, and
+          both moves take it from $3$ to $1.5$. Comparing raw unit changes
+          instead of the ratio is the trap.
+      - text: >
+          Halving the opponent's stack, because it shrinks the pot you must
+          win
+        feedback: >
+          It does shrink $N$, from $48$ to $30$ — but it shrinks your share's
+          denominator and numerator in exactly the compensating way, landing on
+          the same $2/5$.
+      - text: >
+          It depends on $p$, so the question cannot be answered
+        feedback: >
+          The coin is fair by hypothesis, and in the fair game $W$ depends on
+          nothing but the two stacks — that is the whole content of $W = k/N$.
+    rubric:
+      - >
+        Computes both, $24/60$ and $12/30$, and finds them equal.
+      - >
+        Explains the equality structurally via $W = 1/(1 + m/k)$ rather than
+        treating it as a numerical accident.
+    targets:
+      - quant-processes.ruin.fair-example
+    exercises:
+      - quant-processes.ruin.fair
+
+  - id: qruin-fair-example-02
+    kind: work
+    difficulty: standard
+    statement: >
+      You hold $16$ of a $64$-unit combined pot and play a fair coin one unit a
+      round. The opponent will not hand over the full $48$ on a loss, however:
+      the agreement pays you only $40$ if you clear the table, and you still
+      lose your whole $16$ if you bust. What is your expected profit?
+    answer: >
+      $-2$ units. The coin is fair, so the ruin analysis is untouched:
+      $W = 16/64 = 0.25$ and $R = 0.75$. What has changed is the payoff
+      attached to the winning outcome. Expected profit is
+      $W \cdot (\text{paid on a win}) + R \cdot (\text{lost on a bust}) =
+      0.25 \times 40 + 0.75 \times (-16) = 10 - 12 = -2$. Under the honest
+      terms the same computation gives $0.25 \times 48 - 0.75 \times 16 =
+      12 - 12 = 0$, which is what makes the plain match fair despite the $75\%$
+      bust rate. So the shortfall is small in the payout — $8$ units withheld,
+      one sixth of the prize — but it converts an exactly fair proposition into
+      a losing one, and the mechanism is worth naming: a lopsided $W$ means the
+      win branch carries all the compensation, so trimming it is far more
+      expensive than the headline discount suggests. Answering $-8$ confuses
+      the shortfall in the prize with the shortfall in expectation; the
+      shortfall in expectation is $W$ times that, $0.25 \times 8 = 2$.
+    expects: "-2"
+    rubric:
+      - >
+        Keeps $W = 0.25$ from the fair formula — the altered payout does not
+        change the coin or the barriers.
+      - >
+        Weights the reduced prize by $W$ and the full loss by $R$, and notes
+        that the honest terms give exactly $0$.
+    targets:
+      - quant-processes.ruin.fair-example
+    exercises:
+      - quant-processes.ruin.fair
+
+  - id: qruin-fair-example-03
+    kind: work
+    difficulty: routine
+    statement: >
+      A fair coin, one unit a round, you hold $7$ of a combined pot of $56$.
+      What is the probability you go broke? Give an exact fraction.
+    answer: >
+      $7/8$. Your share of the pot is $W = 7/56 = 1/8$, so ruin is the
+      complement $R = 1 - 1/8 = 7/8 = 0.875$ — read equally directly as the
+      opponent's share, $(56-7)/56 = 49/56 = 7/8$. Nothing about the coin is
+      unfavourable here: expected profit is
+      $\frac{1}{8}(49) + \frac{7}{8}(-7) = 6.125 - 6.125 = 0$ exactly, so the
+      $87.5\%$ bust rate is a statement about bankroll, not about odds. That
+      distinction is the whole point of the node: a short stack in a fair game
+      loses often and loses nothing in expectation, and the two facts are
+      perfectly compatible.
+    expects: "7/8"
+    rubric:
+      - >
+        Uses $R = (N-k)/N$ or the complement of $k/N$, answering the ruin
+        question rather than the success one.
+      - >
+        Notes that the expected profit is still exactly $0$, so the lopsided
+        rate is bankroll asymmetry rather than an edge.
+    targets:
+      - quant-processes.ruin.fair-example
+
+  # --- the biased game ---------------------------------------------------------
+
+  - id: qruin-biased-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      For $p \ne q$, derive $R(k) = \dfrac{r^{k} - r^{N}}{1 - r^{N}}$ with
+      $r = q/p$ from the first-step equation. Say where $p \ne q$ is used, and
+      show that the formula reproduces both boundary values.
+    answer: >
+      Rearrange $R(k) = p\,R(k+1) + q\,R(k-1)$ using $p + q = 1$ as
+      $p\,(R(k+1) - R(k)) = q\,(R(k) - R(k-1))$, so the successive increments
+      $d_k = R(k) - R(k-1)$ satisfy $d_{k+1} = r\,d_k$ with $r = q/p$: they
+      form a geometric progression, $d_k = d_1 r^{k-1}$. Summing,
+      $R(k) = R(0) + d_1(1 + r + \dots + r^{k-1}) = 1 + d_1\,
+      \dfrac{1 - r^{k}}{1 - r}$, where the closed form of the partial sum needs
+      $r \ne 1$ — that is the first and essential use of $p \ne q$. Imposing
+      $R(N) = 0$ gives $d_1 = -\dfrac{1-r}{1-r^{N}}$, and substituting back,
+      $R(k) = 1 - \dfrac{1-r^{k}}{1-r^{N}} = \dfrac{r^{k}-r^{N}}{1-r^{N}}$.
+      The equivalent route is the characteristic polynomial $px^{2} - x + q$,
+      whose roots are $1$ and $r$ — the root $1$ is automatic since
+      $p - 1 + q = 0$ — giving $R(k) = A + Br^{k}$; the roots are distinct
+      exactly when $p \ne q$, which is what makes that two-parameter family the
+      general solution and lets two boundary conditions determine it. Both
+      boundary values are reproduced by inspection: at $k = 0$ the numerator is
+      $1 - r^{N}$, matching the denominator, so $R(0) = 1$; at $k = N$ the
+      numerator vanishes, so $R(N) = 0$. Dropping the constant $A$ and writing
+      $R(k) = Br^{k}$ leaves one free constant for two conditions and cannot
+      satisfy both; using $r = p/q$ inverts the ratio and returns the ruin
+      probability of the opponent instead of yours.
+    rubric:
+      - >
+        Derives the geometric increment relation $d_{k+1} = r\,d_k$, or names
+        the characteristic roots $1$ and $r$, and keeps both terms of the
+        general solution.
+      - >
+        Identifies $p \ne q$ as what makes $r \ne 1$, so that the geometric sum
+        closes and the two roots are distinct.
+      - >
+        Verifies $R(0) = 1$ and $R(N) = 0$ directly from the closed form.
+    targets:
+      - quant-processes.ruin.biased
+    exercises:
+      - quant-processes.ruin.ruin-equation
+      - quant-tools.recurrences.linear-recurrence
+
+  - id: qruin-biased-02
+    kind: work
+    difficulty: demanding
+    statement: >
+      A round is won with probability $p = 2/3$ and lost otherwise. Barriers
+      sit at $0$ and $6$ and the walk starts at $2$. What is the ruin
+      probability? Give an exact fraction.
+    answer: >
+      $5/21$. The odds ratio is $r = q/p = (1/3)/(2/3) = 1/2$, so
+      $r^{k} = r^{2} = 1/4$ and $r^{N} = r^{6} = 1/64$, and
+      $R(2) = \dfrac{1/4 - 1/64}{1 - 1/64} = \dfrac{15/64}{63/64} =
+      \dfrac{15}{63} = \dfrac{5}{21} \approx 0.2381$. Two comparisons place the
+      number. The fair benchmark for the same stacks is $R = 1 - 2/6 = 2/3
+      \approx 0.667$, so a two-to-one coin cuts the bust probability by nearly
+      a factor of three even from a short stack. And inverting the ratio —
+      taking $r = p/q = 2$ — would give
+      $(4 - 64)/(1 - 64) = 60/63 = 20/21$, which is the *opponent's* ruin
+      probability read from your seat, and is the single most common way this
+      formula is misapplied. The sanity check that catches it costs nothing:
+      with a favourable coin, $R$ must come out below the fair value, and
+      $20/21$ plainly does not.
+    expects: "5/21"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Takes $r = q/p = 1/2$, the losing-to-winning ratio, and not its
+        inverse.
+      - >
+        Evaluates $(r^{k} - r^{N})/(1 - r^{N})$ and checks the answer lies
+        below the fair benchmark $1 - k/N$.
+    targets:
+      - quant-processes.ruin.biased
+
+  - id: qruin-biased-03
+    kind: work
+    difficulty: standard
+    statement: >
+      A round is won with probability $p = 2/5$. Barriers sit at $0$ and $5$,
+      and the walk starts at $3$. What is the ruin probability? Give an exact
+      fraction.
+    answer: >
+      $135/211 \approx 0.6398$. Here $r = q/p = (3/5)/(2/5) = 3/2 > 1$, since
+      the coin is against you. Then $r^{3} = 27/8$ and $r^{5} = 243/32$, so
+      $R(3) = \dfrac{27/8 - 243/32}{1 - 243/32} = \dfrac{-135/32}{-211/32} =
+      \dfrac{135}{211}$. The negative numerator and denominator are expected
+      whenever $r > 1$ and cancel, which is worth noticing rather than reading
+      as an error. Against the fair benchmark $R = 1 - 3/5 = 0.4$, the
+      disadvantage has pushed the bust probability from $40\%$ to $64\%$ over a
+      band only five units wide — and the corresponding success probability is
+      $W = 76/211 \approx 0.3602$, the complement, since absorption is certain.
+    expects: "135/211"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $r = 3/2$ and carries the resulting negative numerator and
+        denominator through to a positive quotient.
+      - >
+        Compares against the fair benchmark $1 - k/N = 0.4$ to confirm the
+        direction of the shift.
+    targets:
+      - quant-processes.ruin.biased
+
+  - id: qruin-biased-04
+    kind: decide
+    difficulty: routine
+    statement: >
+      In $R(k) = (r^{k} - r^{N})/(1 - r^{N})$, what is $r$?
+    answer: >
+      $r = q/p$, the probability of a losing round divided by the probability
+      of a winning one. It arrives as the non-trivial root of the
+      characteristic polynomial $px^{2} - x + q$, whose roots are $1$ and
+      $q/p$. The orientation is worth fixing by a case rather than by memory:
+      when the coin favours you, $q < p$, so $r < 1$ and $r^{k}$ decays — deep
+      stacks are safe, which is the behaviour a favourable game must have. Take
+      $r = p/q$ instead and the same formula returns the opponent's ruin
+      probability, a number that rises when your coin improves. That inversion
+      is the most common error in this whole subbranch, and the cheap defence
+      is to test any candidate $r$ against a favourable coin and check that $R$
+      comes out small.
+    choices:
+      - text: >
+          $r = q/p$, the losing-to-winning odds ratio
+        correct: true
+        feedback: >
+          Right — it is the second characteristic root, and with a favourable
+          coin $r < 1$ so that $r^{k}$ decays and deep stacks are safe.
+      - text: >
+          $r = p/q$, the winning-to-losing odds ratio
+        feedback: >
+          The ratio is inverted. Substituted into the same formula it returns
+          the opponent's ruin probability: with $p > q$ it makes $R$ rise as
+          your coin improves, which is the tell.
+      - text: >
+          $r = q$, the probability of losing a round
+        feedback: >
+          A bare probability, not a ratio. It fails the fair case immediately —
+          at $p = q = 1/2$ the formula must degenerate, and $r = 1/2$ leaves it
+          perfectly well defined.
+      - text: >
+          $r = 1 - p/q$
+        feedback: >
+          This can be negative whenever $p > q$, so $r^{k}$ would oscillate in
+          sign; the characteristic polynomial $px^{2} - x + q$ has roots $1$
+          and $q/p$, and no third root to draw on.
+    rubric:
+      - >
+        Names $q/p$ and connects it to the second root of $px^{2} - x + q$.
+      - >
+        Gives an orientation check — a favourable coin must make $r < 1$ and
+        $R$ small.
+    targets:
+      - quant-processes.ruin.biased
+
+  # --- sensitivity to the edge -------------------------------------------------
+
+  - id: qruin-edge-sensitivity-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Hold $k = 7$ against a combined pot of $N = 35$ and set $p = 0.52$. What
+      is the probability of taking the whole pot? Give four decimal places.
+    answer: >
+      $\approx 0.4567$. With $q = 0.48$ the odds ratio is
+      $r = 0.48/0.52 = 12/13 \approx 0.92308$, below $1$ because the coin
+      favours you. Then $r^{7} \approx 0.57104$ and
+      $r^{35} \approx 0.06072$, so
+      $W = \dfrac{1 - r^{7}}{1 - r^{35}} \approx \dfrac{0.42896}{0.93928}
+      \approx 0.4567$. The fair benchmark for the same stacks is
+      $7/35 = 0.2$, so two percentage points of edge have more than doubled a
+      one-in-five shot. Run the same computation at $p = 0.48$ — the mirror
+      disadvantage, $r = 13/12$ — and $W \approx 0.0486$: a four-point swing in
+      $p$ moves $W$ by a factor of $0.4567/0.0486 \approx 9.40$. That factor is
+      the node's whole content, and its source is visible in the algebra:
+      $r \approx 1 - 4\varepsilon$ for $p = 1/2 + \varepsilon$, so $r^{35}$
+      behaves like $e^{-140\varepsilon}$ and the edge is multiplied by the
+      distance to the barrier before it is exponentiated. Treating the
+      sensitivity as roughly linear — "two points of edge, a couple of points
+      of $W$" — understates it by an order of magnitude.
+    expects: "0.4567"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Computes $r = 12/13 < 1$ and evaluates $(1 - r^{k})/(1 - r^{N})$ rather
+        than reaching for the fair formula.
+      - >
+        Compares against the fair benchmark $k/N = 0.2$ and reports the swing
+        as a multiplicative factor, not an additive one.
+    targets:
+      - quant-processes.ruin.edge-sensitivity
+    exercises:
+      - quant-processes.ruin.biased
+
+  - id: qruin-edge-sensitivity-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Keep the same one-to-five stake ratio but make the game shallow: $k = 2$
+      against a combined pot of $N = 10$, at $p = 0.52$. What is the
+      probability of taking the whole pot? Give four decimal places.
+    answer: >
+      $\approx 0.2685$. Again $r = 12/13$, and now $r^{2} \approx 0.85207$,
+      $r^{10} \approx 0.44914$, so
+      $W = \dfrac{1 - 0.85207}{1 - 0.44914} \approx \dfrac{0.14793}{0.55086}
+      \approx 0.2685$. The fair benchmark is the same $2/10 = 0.2$ as for the
+      seven-against-thirty-five match, and the edge is the same two points —
+      yet the lift is from $0.2$ to $0.27$ here against $0.2$ to $0.46$ there.
+      Running the mirror case $p = 0.48$ gives $W \approx 0.1416$, so the
+      four-point swing moves $W$ by a factor of only about $1.90$, against
+      $9.40$ in the deep game. Same ratio of stacks, same edge, five times less
+      sensitivity — because the exponent is $\varepsilon N$, and $N$ went from
+      $35$ to $10$. The generalisation to avoid is quoting a deep-stack
+      sensitivity as though it were a property of the edge alone.
+    expects: "0.2685"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Applies the biased formula with the same $r$ but the shallow $k$ and
+        $N$.
+      - >
+        Attributes the far smaller swing to the smaller exponent $N$, not to
+        any change in the edge or the stake ratio.
+    targets:
+      - quant-processes.ruin.edge-sensitivity
+    exercises:
+      - quant-processes.ruin.biased
+
+  - id: qruin-edge-sensitivity-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      Two players face the same two-point edge in their favour and the same
+      one-to-five stake ratio; one plays a deep game ($k = 7$, $N = 35$), the
+      other a shallow one ($k = 2$, $N = 10$). Whose success probability is
+      lifted further above the fair value $0.2$, and why?
+    answer: >
+      The deep player's, by far — $0.4567$ against $0.2685$ — because the edge
+      enters the formula multiplied by the distance to the barrier. Writing
+      $p = 1/2 + \varepsilon$ gives $r \approx 1 - 4\varepsilon$, so
+      $r^{N} \approx e^{-4\varepsilon N}$: what governs $W$ is not
+      $\varepsilon$ but the product $\varepsilon N$, which is $0.7$ in the deep
+      game and $0.2$ in the shallow one. The stake ratio $k/N$ fixes only the
+      fair baseline; the departure from that baseline is exponential in
+      $\varepsilon N$. Both wrong answers here have a plausible story attached
+      — a shallow game "has less time to go wrong", a deep game "gives the edge
+      more chances to bite" — and both are the same misreading, treating the
+      number of rounds as noise rather than as the exponent the edge is raised
+      to.
+    choices:
+      - text: >
+          The deep player, because $W$ depends on the edge through
+          $\varepsilon N$, and $N$ is larger
+        correct: true
+        feedback: >
+          Right — $r^{N} \approx e^{-4\varepsilon N}$, so the same edge over a
+          longer distance compounds; $0.4567$ against $0.2685$.
+      - text: >
+          The shallow player, because fewer rounds means less can go wrong
+        feedback: >
+          Fewer rounds means less room for the edge to compound in *either*
+          direction. With the edge in your favour, a short game keeps $W$ near
+          the fair baseline rather than protecting it.
+      - text: >
+          Both equally, since the stake ratio $k/N$ is the same
+        feedback: >
+          The stake ratio sets only the fair benchmark $0.2$. The departure
+          from it is governed by $\varepsilon N$, which differs by a factor of
+          $3.5$ between the two games.
+      - text: >
+          Neither — a two-point edge is too small to matter at these stakes
+        feedback: >
+          Two points more than doubles $W$ in the deep game, from $0.2$ to
+          $0.4567$. Ruin probabilities are exponential in the edge, which is
+          exactly why small edges are worth paying for.
+    rubric:
+      - >
+        Identifies $\varepsilon N$, not $\varepsilon$ alone, as what governs
+        the departure from the fair baseline.
+      - >
+        Separates the role of the stake ratio (sets the baseline) from the role
+        of the depth (sets the sensitivity).
+    targets:
+      - quant-processes.ruin.edge-sensitivity
+
+  # --- doubling your stack -----------------------------------------------------
+
+  - id: qruin-doubling-your-money-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A desk will play one-unit rounds until it has either doubled a $12$-unit
+      stack or lost it. For which single-round win probability $p$ is doubling
+      exactly a one-in-four proposition? Give four decimal places.
+    answer: >
+      $p \approx 0.4771$. For a target of exactly $N = 2k$ the general formula
+      collapses to $W = \dfrac{1}{1 + r^{k}}$ with $r = q/p$, since
+      $1 - r^{2k} = (1-r^{k})(1+r^{k})$ cancels the numerator's factor. Setting
+      $\dfrac{1}{1 + r^{12}} = \dfrac{1}{4}$ gives $1 + r^{12} = 4$, so
+      $r^{12} = 3$ and $r = 3^{1/12} \approx 1.09587$. Converting back,
+      $r = q/p = (1-p)/p$ means $p = \dfrac{1}{1+r} \approx
+      \dfrac{1}{2.09587} \approx 0.4771$. So a disadvantage of barely more than
+      two-tenths of a percentage point per round turns doubling from a coin
+      flip into a one-in-four shot, once twelve units have to be won. The
+      inversion step is where this goes wrong most often: solving for $r$ and
+      reporting $1.0959$ answers a question about odds ratios, not about $p$,
+      and forgetting that $r > 1$ must correspond to $p < 1/2$ would put the
+      answer on the wrong side of a half.
+    expects: "0.4771"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses the collapsed form $1/(1 + r^{k})$ with exponent $k = 12$, not
+        $N$.
+      - >
+        Inverts $r = (1-p)/p$ to recover $p = 1/(1+r)$ and checks that
+        $r > 1$ gives $p < 1/2$.
+    targets:
+      - quant-processes.ruin.doubling-your-money
+    exercises:
+      - quant-processes.ruin.biased
+
+  - id: qruin-doubling-your-money-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A round is won with probability $p = 5/9$. Starting from $3$ units, what
+      is the probability of reaching $6$ before going broke? Give an exact
+      fraction.
+    answer: >
+      $125/189 \approx 0.6614$. The target is exactly double the stack, so the
+      collapsed form applies: $r = q/p = (4/9)/(5/9) = 4/5$ and
+      $W = \dfrac{1}{1 + r^{3}} = \dfrac{1}{1 + 64/125} =
+      \dfrac{125}{189}$. The general formula agrees, as it must:
+      $\dfrac{1 - (4/5)^{3}}{1 - (4/5)^{6}} = \dfrac{61/125}{11529/15625}$,
+      which reduces to the same $125/189$ — the collapsed version is a
+      cancellation, not a different model. The exponent is $k = 3$, not
+      $N = 6$: reaching for $1/(1 + r^{6})$ gives $0.7923$ and answers no
+      question at all, because the doubling identity was derived by cancelling
+      the factor $1 - r^{k}$ out of $1 - r^{2k}$.
+    expects: "125/189"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $r = 4/5$ and the exponent $k = 3$ in $1/(1 + r^{k})$.
+      - >
+        Notes that the collapsed form is the general formula after cancelling
+        $1 - r^{k}$, and checks the two agree.
+    targets:
+      - quant-processes.ruin.doubling-your-money
+
+  - id: qruin-doubling-your-money-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      The coin is against you, so $r = q/p > 1$. As the stack $k$ grows — with
+      the target always set at double the stack — what happens to the
+      probability of doubling?
+    answer: >
+      It decays geometrically toward $0$. The doubling probability is
+      $W = 1/(1 + r^{k})$, and with $r > 1$ the term $r^{k}$ grows
+      exponentially in $k$, so $W \to 0$. This is the sting of the node,
+      because the fair-game intuition points exactly the wrong way: at
+      $r = 1$ the answer is $1/2$ for every $k$, so a bigger bankroll looks
+      irrelevant, and it is tempting to carry that indifference across to a
+      slightly unfavourable game. It does not carry. At $p = 0.48$, doubling a
+      stack of $10$ succeeds about $31\%$ of the time and doubling a stack of
+      $100$ about $0.03\%$ of the time — same coin, same *relative* target,
+      radically different odds. Playing a losing game with more money on the
+      table for longer does not average out toward the fair result; it moves
+      geometrically away from it.
+    choices:
+      - text: >
+          It decays geometrically toward $0$, since $r^{k}$ grows
+          exponentially
+        correct: true
+        feedback: >
+          Right — $W = 1/(1 + r^{k})$ with $r > 1$ collapses as $k$ grows, and
+          a deeper stack facing a proportionally larger target is worse off,
+          not better.
+      - text: >
+          It stays at $1/2$, since the target is always double the stack
+        feedback: >
+          That is the fair case, $r = 1$, where $k$ drops out entirely. The
+          moment $r \ne 1$ the exponent $k$ is doing real work.
+      - text: >
+          It rises toward $1$, since a deeper stack can absorb more bad luck
+        feedback: >
+          A deeper stack absorbs more variance, but the target has grown with
+          it — the walk must now cover $k$ units against the drift instead of a
+          few, and the drift wins exponentially.
+      - text: >
+          It depends on $N$, which the collapsed formula has dropped
+        feedback: >
+          $N$ has not been dropped, it has been substituted: $N = 2k$ is what
+          produced $1/(1 + r^{k})$, so the $k$-dependence is exactly the
+          $N$-dependence.
+    rubric:
+      - >
+        Reads the behaviour off $W = 1/(1 + r^{k})$ with $r > 1$.
+      - >
+        Contrasts it with the fair case, where $W = 1/2$ for every $k$.
+    targets:
+      - quant-processes.ruin.doubling-your-money
+
+  # --- expected duration, fair -------------------------------------------------
+
+  - id: qruin-duration-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      For the fair game, derive $D(k) = k(N-k)$ from
+      $D(k) = 1 + \tfrac{1}{2}D(k+1) + \tfrac{1}{2}D(k-1)$, and explain why the
+      derivation needs the absorption result before it starts.
+    answer: >
+      Multiply by $2$ and rearrange: $D(k+1) - 2D(k) + D(k-1) = -2$, so the
+      second difference of $D$ is the constant $-2$ rather than $0$. The
+      homogeneous part of the solution is therefore affine, $A + Bk$, exactly
+      as for the fair $R$; a particular solution needs constant second
+      difference $-2$, and $-k^{2}$ supplies it, since
+      $-(k+1)^{2} + 2k^{2} - (k-1)^{2} = -2$. Hence
+      $D(k) = A + Bk - k^{2}$. The boundary values are $D(0) = D(N) = 0$,
+      because a walk starting on an absorbing barrier plays no rounds:
+      $D(0) = A = 0$, and $D(N) = BN - N^{2} = 0$ forces $B = N$. So
+      $D(k) = Nk - k^{2} = k(N-k)$, the product of the two stacks. Two
+      readings confirm it. The maximum is at $k = N/2$ with value $N^{2}/4$,
+      matching the diffusive scaling of a $\pm 1$ walk — covering a distance
+      $d$ costs order $d^{2}$ steps — and the function is symmetric under
+      $k \mapsto N-k$, as it must be, since the game's length does not depend
+      on which side of the table you sit. The absorption result is a
+      precondition, not a decoration: writing down $D(k)$ at all presumes the
+      absorption time has a finite expectation, and the block bound is what
+      supplies that. Solve the recursion without it and the algebra is
+      unchanged while the object being solved for may not exist — the same
+      recursion has no finite bounded solution for a walk with one barrier
+      removed and no drift.
+    rubric:
+      - >
+        Identifies the constant second difference $-2$ and produces the
+        particular solution $-k^{2}$ alongside the affine homogeneous part.
+      - >
+        Fits $D(0) = D(N) = 0$ to get $A = 0$, $B = N$.
+      - >
+        Says that finiteness of $\mathbb{E}[T]$ — from the absorption argument
+        — is what makes $D(k)$ a well-defined quantity to solve for.
+    targets:
+      - quant-processes.ruin.duration
+    exercises:
+      - quant-processes.ruin.ruin-equation
+      - quant-processes.ruin.absorption-certain
+
+  - id: qruin-duration-02
+    kind: work
+    difficulty: demanding
+    statement: >
+      A fair game is played one unit a round from a starting stack of $18$, and
+      the expected number of rounds until it ends is $792$. What is the
+      combined pot $N$?
+    answer: >
+      $62$. In the fair game the expected duration is the product of the two
+      stacks, $D(k) = k(N-k)$, so $18(N - 18) = 792$, giving $N - 18 = 44$ and
+      $N = 62$ — your $18$ against an opponent's $44$. The reason this is worth
+      running backwards is that $D$ is quadratic in $k$ for fixed $N$ but
+      *linear* in $N$ for fixed $k$, so the inverse problem in $N$ has a single
+      clean root while the inverse problem in $k$ would have two. A check worth
+      the five seconds: $18 \times 44 = 792$, and the number is comfortably
+      below the maximum $N^{2}/4 = 961$ that this pot could produce at
+      $k = 31$, as it must be for a lopsided split. The slip to avoid is
+      reading $N$ as the opponent's stack and answering $44$; $N$ is the
+      combined bankroll, and $792$ was built from both factors.
+    expects: "62"
+    rubric:
+      - >
+        Sets $18(N-18) = 792$ from $D(k) = k(N-k)$ and solves for $N$.
+      - >
+        Reports the combined pot, not the opponent's stack, and checks the
+        answer against the ceiling $N^{2}/4$.
+    targets:
+      - quant-processes.ruin.duration
+
+  - id: qruin-duration-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      Two fair matches are played for the same combined pot of $50$: one splits
+      the stacks $5$ against $45$, the other $25$ against $25$. Which is
+      expected to last longer, and by roughly what factor?
+    answer: >
+      The even split, by a factor of about $2.8$. The expected durations are
+      $5 \times 45 = 225$ rounds and $25 \times 25 = 625$ rounds, and
+      $625/225 = 25/9 \approx 2.78$. The mechanism is that $k(N-k)$ is a
+      downward parabola in $k$, maximised at $k = N/2$ with the value
+      $N^{2}/4 = 625$ and falling away toward $0$ at either end: a short stack
+      is wiped out quickly, and the long stack barely notices the swings that
+      do it. The habit this drills is separating length from outcome. The
+      lopsided match is the one where the result is nearly certain — the short
+      stack busts $90\%$ of the time — and it is also the *fast* one; the even
+      match is maximally uncertain in outcome and maximally long. Reading a
+      long expected duration as evidence of a close contest is right here, but
+      reading a probability off a duration, or the reverse, is the confusion
+      the two formulas exist to keep apart.
+    choices:
+      - text: >
+          The even split, by about $2.8$ times — $625$ rounds against $225$
+        correct: true
+        feedback: >
+          Right — $k(N-k)$ peaks at $k = N/2$ with $N^{2}/4 = 625$, and the
+          lopsided split gives $5 \times 45 = 225$.
+      - text: >
+          The lopsided split, because the short stack has to climb $45$ units
+          to win
+        feedback: >
+          It has to, and it almost never does — it busts quickly instead. The
+          expected duration averages over all paths, and the overwhelming
+          majority of them are short.
+      - text: >
+          They last the same, since the combined pot is the same
+        feedback: >
+          $N$ alone does not fix the duration: $k(N-k)$ depends on the split,
+          ranging from near $0$ for an extreme split to $N^{2}/4$ for an even
+          one.
+      - text: >
+          The even split, by exactly $5$ times, matching the ratio of the
+          starting stacks
+        feedback: >
+          The stacks are in ratio $5$, but the duration is a product of *both*
+          stacks: $625/225 = 25/9 \approx 2.78$, not $5$.
+    rubric:
+      - >
+        Evaluates $k(N-k)$ for both splits and reports the ratio $25/9$.
+      - >
+        Explains the peak at $k = N/2$ and distinguishes duration from outcome
+        probability.
+    targets:
+      - quant-processes.ruin.duration
+
+  - id: qruin-duration-04
+    kind: work
+    difficulty: routine
+    statement: >
+      A fair coin, one unit a round: you hold $7$ and the opponent holds $22$.
+      How many rounds is the game expected to last?
+    answer: >
+      $154$ rounds. The combined pot is $N = 7 + 22 = 29$ and the starting
+      stack is $k = 7$, so $D(7) = 7 \times (29 - 7) = 7 \times 22 = 154$ — the
+      product of the two stacks, which is why the formula never needs $N$
+      computed separately once both holdings are known. Two checks: the answer
+      is symmetric, so the opponent would compute $22 \times 7$ and agree,
+      which is right because the game's length is one number for both players;
+      and it sits well below the ceiling $N^{2}/4 = 210.25$ that this pot would
+      reach at an even split. The number to keep in mind for scale is that a
+      fair coin needs $154$ rounds on average to resolve a match the short
+      stack wins only $7/29 \approx 24\%$ of the time.
+    expects: "154"
+    rubric:
+      - >
+        Uses the product of the two stacks, $k(N-k) = 7 \times 22$, rather than
+        $k \times N$.
+      - >
+        Checks the value against the even-split ceiling $N^{2}/4$.
+    targets:
+      - quant-processes.ruin.duration
+
+  # --- expected duration with an edge ------------------------------------------
+
+  - id: qruin-duration-biased-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A game runs at $p = 0.52$ from $k = 6$ with a combined pot of $N = 36$,
+      and the biased formula gives $W(6) = 0.4040199$. By how many rounds does
+      the expected duration exceed the duration of the fair game played from
+      the same stacks? Give four decimal places.
+    answer: >
+      $\approx 33.6179$ rounds. The biased duration is
+      $D(k) = \dfrac{k - N\,W(k)}{q - p}$, and here $q - p = 0.48 - 0.52 =
+      -0.04$ while $36 \times 0.4040199 = 14.5447164$, so
+      $D(6) = \dfrac{6 - 14.5447164}{-0.04} = \dfrac{-8.5447164}{-0.04}
+      \approx 213.6179$. The fair game from the same stacks lasts
+      $D = 6 \times 30 = 180$ rounds, so the excess is
+      $213.6179 - 180 = 33.6179$. Both numerator and denominator are negative
+      and the signs cancel — dropping the sign on the denominator alone would
+      return $-213.6$, a nonsense duration, and that is the standard slip.
+      The direction of the result is the point: a two-point edge over a
+      thirty-unit climb makes the game both safer ($W$ up from $1/6 \approx
+      0.167$ to $0.404$) and about $19\%$ longer, because the paths that used
+      to end quickly in ruin now survive to keep playing. That is not universal
+      — a *large* edge with a nearby target races to the top barrier and
+      shortens the game instead — so the honest statement is that the drift
+      identity $N\,W(k) - k = (p-q)D(k)$ determines the direction case by case,
+      rather than any slogan about edges lengthening games.
+    expects: "33.6179"
+    tolerance: 0.001
+    rubric:
+      - >
+        Carries the sign of $q - p$ through the numerator and denominator
+        together rather than using $|q-p|$.
+      - >
+        Computes the fair comparison $k(N-k) = 180$ and subtracts, rather than
+        reporting the biased duration alone.
+    targets:
+      - quant-processes.ruin.duration-biased
+    exercises:
+      - quant-processes.ruin.duration
+      - quant-processes.ruin.biased
+
+  - id: qruin-duration-biased-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A round is won with probability $p = 3/4$. Barriers sit at $0$ and $5$,
+      the walk starts at $2$, and the biased formula gives
+      $W(2) = 108/121$. What is the expected duration? Give an exact fraction.
+    answer: >
+      $596/121 \approx 4.9256$ rounds. Substituting into
+      $D(k) = \dfrac{k - N\,W(k)}{q-p}$ with $q - p = 1/4 - 3/4 = -1/2$:
+      $5 \times \dfrac{108}{121} = \dfrac{540}{121}$, so
+      $D(2) = \dfrac{2 - 540/121}{-1/2} = \dfrac{-298/121}{-1/2} =
+      \dfrac{596}{121}$. Compare the fair game from the same stacks,
+      $2 \times 3 = 6$ rounds: this heavily favourable coin makes the game
+      *shorter*, not longer. That is worth stating plainly, because the usual
+      summary — "an edge makes the game safer and longer" — holds for a small
+      edge over a long climb, where paths that used to bust quickly now survive
+      to play on. Here the edge is twenty-five points and the target only three
+      units away, so almost every path marches straight up and ends early. The
+      identity $N\,W(k) - k = (p-q)D(k)$ is what decides which regime you are
+      in; the slogan is not.
+    expects: "596/121"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $q - p = -1/2$ with its sign and simplifies the double negative.
+      - >
+        Compares against the fair duration $k(N-k) = 6$ and reads the direction
+        of the change from the numbers rather than from a rule of thumb.
+    targets:
+      - quant-processes.ruin.duration-biased
+    exercises:
+      - quant-processes.ruin.duration
+
+  - id: qruin-duration-biased-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      From $k = 6$ with $N = 24$, the fair game lasts $108$ rounds in
+      expectation. At $p = 0.53$ the expected duration is about $117.6$ rounds;
+      at $p = 0.47$ it is about $75.0$. Which statement do these three numbers
+      support?
+    answer: >
+      A small edge in your favour lengthens the game, and a small edge against
+      you shortens it. The reason is not symmetry of the formula but the shape
+      of the paths. From a short stack most fair-game paths end early in ruin;
+      a small advantage rescues many of those, and a rescued path keeps playing
+      — $117.6$ rounds against $108$. A small disadvantage does the opposite,
+      pushing yet more paths into a quick bust, so the average collapses to
+      $75.0$. What the three numbers do *not* support is the stronger claim
+      that an edge always lengthens a game: push $p$ far enough and the walk
+      marches to the target instead, ending sooner than the fair game would.
+      The drift identity $N\,W(k) - k = (p-q)\,D(k)$ contains both regimes and
+      settles which one applies; the numbers are its output, not a rule of
+      their own.
+    choices:
+      - text: >
+          A small edge in your favour lengthens the game; a small edge against
+          you shortens it
+        correct: true
+        feedback: >
+          Right — $117.6 > 108 > 75.0$. An advantage rescues paths that would
+          have busted early and they keep playing; a disadvantage sends more of
+          them to a quick bust.
+      - text: >
+          Any departure from $p = 1/2$ shortens the game, since the walk
+          becomes more directed
+        feedback: >
+          The $p = 0.53$ figure is $117.6$, above the fair $108$ — a small
+          favourable drift lengthens it. Directedness only shortens the game
+          once the drift is strong enough to dominate.
+      - text: >
+          An edge always lengthens the game, however large
+        feedback: >
+          Only for a small edge over a long climb. A large edge with a nearby
+          target marches to the top barrier and ends *sooner* than the fair
+          game; the drift identity, not a slogan, decides the direction.
+      - text: >
+          Nothing about duration — these are ruin probabilities in disguise
+        feedback: >
+          They are expected round counts, not probabilities: $108$ is not on
+          the scale $[0,1]$ at all. Confusing $D(k)$ with $W(k)$ is exactly the
+          slip the two formulas are kept separate to prevent.
+    rubric:
+      - >
+        Orders the three numbers and attributes the lengthening to paths that
+        would otherwise have busted early.
+      - >
+        Refuses the universal claim, noting that a large enough edge shortens
+        the game again.
+    targets:
+      - quant-processes.ruin.duration-biased
+
+  # --- an unlimited opponent ---------------------------------------------------
+
+  - id: qruin-infinite-opponent-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You have a genuine edge, $p = 0.52$, and intend to play a bank with
+      unlimited capital forever, one unit a round. What is the smallest integer
+      bankroll $k$ for which your lifetime probability of going broke falls
+      below $1\%$?
+    answer: >
+      $58$ units. Against an unlimited opponent with $p > 1/2$, letting
+      $N \to \infty$ sends $r^{N} \to 0$ and leaves $R(k) = r^{k}$ with
+      $r = q/p = 0.48/0.52 = 12/13 \approx 0.923077$. The condition
+      $r^{k} < 0.01$ gives
+      $k > \dfrac{\ln 0.01}{\ln(12/13)} = \dfrac{-4.60517}{-0.080043} \approx
+      57.53$, so the smallest integer is $k = 58$. Checking both sides is what
+      makes the answer safe rather than lucky: $(12/13)^{57} \approx 0.01044$,
+      still above $1\%$, and $(12/13)^{58} \approx 0.00963$, below it. Notice
+      how the two ingredients trade off — the bust probability is geometric in
+      the bankroll with ratio $12/13$, so it takes roughly $58$ units of
+      capital to buy two nines of safety out of a two-point edge, and halving
+      the edge would roughly double that requirement. An edge without the
+      capital to outlast its variance buys very little, and the exponent is
+      where you can see exactly how little.
+    expects: "58"
+    rubric:
+      - >
+        Takes $N \to \infty$ correctly for $p > 1/2$, reducing $R(k)$ to
+        $r^{k}$ with $r = q/p < 1$.
+      - >
+        Solves $r^{k} < 0.01$ with logarithms and checks the integers on either
+        side rather than rounding the real solution.
+    targets:
+      - quant-processes.ruin.infinite-opponent
+    exercises:
+      - quant-processes.ruin.biased
+
+  - id: qruin-infinite-opponent-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A round is won with probability $p = 0.625$ against an opponent with
+      unlimited capital, and you never stop playing. Starting from $4$ units,
+      what is the probability that you eventually go broke? Give an exact
+      fraction.
+    answer: >
+      $81/625 = 0.1296$. With $p = 5/8$ and $q = 3/8$ the odds ratio is
+      $r = q/p = 3/5$, which is below $1$ because the coin favours you, so the
+      lifetime bust probability is
+      $R(4) = r^{4} = (3/5)^{4} = 81/625 = 0.1296$. Three features are worth
+      keeping. The answer does not mention any target, because there is none —
+      an unlimited opponent means the only way the game can end is your ruin.
+      It is strictly positive for every finite bankroll, so a real edge with
+      real capital is safer than break-even but never perfectly safe: even at
+      these very favourable odds, roughly one run in eight ends in a bust. And
+      it is geometric in $k$, so each extra unit of capital multiplies the bust
+      probability by $0.6$ — doubling the stack to $8$ would take it to
+      $(3/5)^{8} \approx 0.0168$.
+    expects: "81/625"
+    rubric:
+      - >
+        Uses the $N \to \infty$ limit $R(k) = (q/p)^{k}$ rather than the
+        two-barrier formula.
+      - >
+        Notes that the answer is strictly positive for finite $k$ and geometric
+        in $k$.
+    targets:
+      - quant-processes.ruin.infinite-opponent
+
+  - id: qruin-infinite-opponent-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      A trader with a large but finite bankroll plays an exactly fair game
+      against a bank with unlimited capital, staking a tiny fraction of capital
+      each round and never walking away. Which statement is correct?
+    answer: >
+      Ruin is certain; smaller bets and a larger bankroll change how long it
+      takes, not whether it happens. In the fair formula $R(k) = 1 - k/N$, any
+      fixed $k$ is negligible against a diverging $N$, so $R(k) \to 1$; and
+      shrinking the stake to $b$ only replaces $k$ by $k/b$, which is still
+      finite and still negligible against an infinite opponent. This is exactly
+      the recurrence of the symmetric one-dimensional walk: such a walk visits
+      every integer level with probability $1$, and the level $0$ is no
+      exception, so a fair gambler who never stops is certain to touch ruin at
+      some point. The two false comforts in the alternatives are the ones this
+      node exists to remove — a fair game against an infinitely rich opponent
+      is not a safe game, and neither bet sizing nor bankroll converts a
+      probability of $1$ into anything less. Only a strict edge, $p > 1/2$,
+      buys a floor, and even then the bust probability $(q/p)^{k}$ is strictly
+      positive.
+    choices:
+      - text: >
+          Ruin is certain; smaller bets and a bigger bankroll change how long
+          it takes, not whether it happens
+        correct: true
+        feedback: >
+          Right — $R(k) \to 1$ as $N \to \infty$ for every $p \le 1/2$ and
+          every finite $k$, which is one-sided recurrence of the symmetric walk
+          seen from the gambler's chair.
+      - text: >
+          Small enough bets make the ruin probability strictly less than $1$
+        feedback: >
+          Betting $b$ per round replaces the stack by $k/b$, which is still
+          finite. Against an infinite opponent every finite effective stack
+          gives $R \to 1$; the smaller stake only lengthens the game.
+      - text: >
+          A large enough bankroll makes the ruin probability strictly less than
+          $1$
+        feedback: >
+          No finite $k$ escapes: $1 - k/N \to 1$ for every fixed $k$. Only a
+          strict edge $p > 1/2$ produces a floor, and it is $(q/p)^{k}$, not
+          zero.
+      - text: >
+          The ruin probability is $1/2$ by symmetry, since the game is fair
+        feedback: >
+          The situation is not symmetric — the bank cannot be ruined, so there
+          is only one absorbing barrier. Fairness fixes the expected profit at
+          $0$, not the bust probability at $1/2$.
+    rubric:
+      - >
+        Sends $N \to \infty$ in the fair formula and concludes $R(k) \to 1$ for
+        every finite $k$.
+      - >
+        Connects certain ruin to the recurrence of the symmetric walk on the
+        line, and notes that bet size affects only the duration.
+    targets:
+      - quant-processes.ruin.infinite-opponent
+      - quant-processes.random-walks.recurrence-dimension
+    exercises:
+      - quant-processes.ruin.fair
+    connects:
+      - "quant-processes.random-walks.recurrence-dimension ~ quant-processes.ruin.infinite-opponent"
+
+  # --- uneven stakes and the adjustment coefficient ----------------------------
+
+  - id: qruin-unequal-steps-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A strategy changes the stack each round by $+1$ with probability $1/4$,
+      by $+2$ with probability $1/4$, and by $-1$ with probability $1/2$. It is
+      run forever against an opponent with unlimited capital, starting from $2$
+      units. What is the probability of eventually going broke? Give four
+      decimal places.
+    answer: >
+      $\approx 0.5359$. The drift is
+      $\mathbb{E}[X] = \frac{1}{4}(1) + \frac{1}{4}(2) + \frac{1}{2}(-1) =
+      \frac{1}{4} > 0$, and no downward move exceeds one unit, so the walk
+      cannot jump over $0$ and the bust probability is $\theta^{k}$ with
+      $\theta$ the root of $\mathbb{E}[\theta^{X}] = 1$ in $(0,1)$. That
+      equation reads
+      $\frac{1}{4}\theta + \frac{1}{4}\theta^{2} + \frac{1}{2}\theta^{-1} = 1$;
+      multiplying by $4\theta$ gives $\theta^{3} + \theta^{2} - 4\theta + 2 =
+      0$. The trivial root $\theta = 1$ is always present because
+      probabilities sum to $1$, so divide it out:
+      $\theta^{3} + \theta^{2} - 4\theta + 2 = (\theta - 1)(\theta^{2} +
+      2\theta - 2)$, and $\theta^{2} + 2\theta - 2 = 0$ has the positive root
+      $\theta = -1 + \sqrt{3} \approx 0.732051$. From $k = 2$ the answer is
+      $\theta^{2} = (\sqrt{3}-1)^{2} = 4 - 2\sqrt{3} \approx 0.5359$. Reporting
+      $\theta = 1$ itself would give the uninformative $1^{k} = 1$; and the
+      $\pm 1$ shortcut $(q/p)^{k}$ does not apply, since the up-moves are not
+      all of size one — using $q/p = (1/2)/(1/2) = 1$ here would wrongly
+      declare certain ruin for a walk with positive drift.
+    expects: "0.5359"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Writes $\mathbb{E}[\theta^{X}] = 1$ for the actual jump distribution,
+        clears denominators, and divides out the trivial root $\theta = 1$.
+      - >
+        Selects the root in $(0,1)$ and raises it to the power $k = 2$.
+      - >
+        Checks the two hypotheses — positive drift and no downward jump beyond
+        one unit.
+    targets:
+      - quant-processes.ruin.unequal-steps
+    exercises:
+      - quant-processes.ruin.infinite-opponent
+
+  - id: qruin-unequal-steps-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A round moves the stack by $+2$ with probability $3/5$ and by $-1$ with
+      probability $2/5$, played forever against an unlimited bank. The equation
+      $\mathbb{E}[\theta^{X}] = 1$ clears to $3\theta^{3} - 5\theta + 2 = 0$,
+      which factors as $(\theta - 1)(3\theta^{2} + 3\theta - 2) = 0$. Starting
+      from $3$ units, what is the probability of eventually going broke? Give
+      four decimal places.
+    answer: >
+      $\approx 0.0957$. Discard the structural root $\theta = 1$ and solve the
+      quadratic: $\theta = \dfrac{-3 + \sqrt{9 + 24}}{6} =
+      \dfrac{-3 + \sqrt{33}}{6} \approx \dfrac{2.744563}{6} \approx 0.457427$,
+      the only root in $(0,1)$; the other, $\approx -1.457$, is negative and
+      carries no probabilistic meaning. The bust probability from $k = 3$ is
+      then $\theta^{3} \approx 0.457427^{3} \approx 0.0957$. The drift here is
+      $\mathbb{E}[X] = \frac{3}{5}(2) + \frac{2}{5}(-1) = \frac{4}{5}$, large
+      and positive, which is why $\theta$ is so far below $1$ and a stack of
+      only three units already survives forever about $90\%$ of the time.
+      Comparing with a $\pm 1$ walk at the same $p = 3/5$, whose bust
+      probability would be $(2/3)^{3} \approx 0.296$, shows what the bigger
+      up-jump buys: the same win rate, three times less lifetime ruin.
+    expects: "0.0957"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides out $\theta = 1$ and takes the root of the quadratic that lies
+        in $(0,1)$, rejecting the negative one.
+      - >
+        Raises that root to the power $k = 3$ rather than reporting $\theta$
+        itself.
+    targets:
+      - quant-processes.ruin.unequal-steps
+
+  - id: qruin-unequal-steps-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      The same machinery is applied to a jump distribution with
+      $\mathbb{E}[X] \le 0$ — still no downward move beyond one unit, still an
+      unlimited opponent. What happens?
+    answer: >
+      Ruin is certain: there is no root of $\mathbb{E}[\theta^{X}] = 1$ in
+      $(0,1)$, and the bust probability is $1$. The function
+      $g(\theta) = \mathbb{E}[\theta^{X}]$ satisfies $g(1) = 1$ always, and
+      $g'(1) = \mathbb{E}[X]$; a strictly positive drift tilts $g$ upward at
+      $1$ and, since $g \to \infty$ as $\theta \to 0^{+}$ whenever a downward
+      jump is possible, forces a crossing somewhere in $(0,1)$. With
+      $\mathbb{E}[X] \le 0$ that tilt is absent and no crossing occurs, which
+      is the general version of the $\pm 1$ statement that $p \le 1/2$ against
+      an unlimited bank gives certain ruin. Reporting $\theta = 1$ here is not
+      wrong so much as it is the honest answer: bust probability $1^{k} = 1$,
+      independent of the bankroll.
+    choices:
+      - text: >
+          Ruin is certain — no root lies in $(0,1)$, so the only relevant root
+          is $\theta = 1$
+        correct: true
+        feedback: >
+          Right — the crossing in $(0,1)$ exists precisely because
+          $g'(1) = \mathbb{E}[X] > 0$; without positive drift the geometric
+          floor disappears and $\theta^{k} = 1$.
+      - text: >
+          The equation has no solution at all
+        feedback: >
+          $\theta = 1$ always solves it, since probabilities sum to $1$. What
+          disappears is the *second* root in $(0,1)$, which is where all the
+          content lives.
+      - text: >
+          The formula $\theta^{k}$ still applies, now with some $\theta > 1$
+        feedback: >
+          A root above $1$ would give a bust probability exceeding $1$. The
+          root must lie in $(0,1)$ to be a probability, and when none does, the
+          answer is certain ruin.
+      - text: >
+          The answer reverts to $(q/p)^{k}$
+        feedback: >
+          That is the $\pm 1$ special case of the same equation, and it too
+          gives $1$ when the drift is non-positive: $q/p \ge 1$ there. It is
+          not an escape from the conclusion.
+    rubric:
+      - >
+        Uses $g(1) = 1$ and $g'(1) = \mathbb{E}[X]$ to explain when a root in
+        $(0,1)$ exists.
+      - >
+        Identifies the conclusion as the general form of "certain ruin when
+        $p \le 1/2$ against an unlimited bank".
+    targets:
+      - quant-processes.ruin.unequal-steps
+
+  # --- bet size ----------------------------------------------------------------
+
+  - id: qruin-stake-scaling-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You hold $24$ units against a house holding $48$, and each round is won
+      with probability $p = 0.47$. Instead of betting one unit at a time you
+      bet $12$ units a round. What is the probability of taking the whole pot?
+      Give four decimal places.
+    answer: >
+      $\approx 0.2572$. Bet size never touches $p$, which is a property of a
+      single round; it rescales the barriers, because the walk now moves one
+      *bet* per round. With $b = 12$ the effective stacks are $k/b = 24/12 = 2$
+      and $N/b = 72/12 = 6$. With $r = q/p = 53/47 \approx 1.12766$,
+      $r^{2} \approx 1.27162$ and $r^{6} \approx 2.05621$, so
+      $W = \dfrac{1 - 1.27162}{1 - 2.05621} \approx \dfrac{-0.27162}{-1.05621}
+      \approx 0.2572$. One unit at a time, the same match gives
+      $W(24, 72) \approx 0.0030$ — three chances in a thousand — so betting in
+      twelfths multiplies the chance of success by roughly $87$, with no change
+      whatever to the odds of any individual round. The reason is entirely in
+      the exponent: $r > 1$ compounds against you once per round, and coarser
+      bets mean fewer rounds. Rescaling $k$ and $N$ but also adjusting $p$ is
+      the error to avoid — a bigger bet is not a better bet, only a rarer one.
+    expects: "0.2572"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Replaces $k$ and $N$ by $k/b$ and $N/b$ and leaves $p$ untouched.
+      - >
+        Uses the combined pot $N = 72$, not the house's $48$, before dividing
+        by the bet size.
+    targets:
+      - quant-processes.ruin.stake-scaling
+    exercises:
+      - quant-processes.ruin.biased
+
+  - id: qruin-stake-scaling-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A fair game, stack $20$ against a combined pot of $50$, but played in
+      bets of $5$ units rather than $1$. How many rounds is the game expected
+      to last?
+    answer: >
+      $24$ rounds. In bet units the barriers become $k/b = 20/5 = 4$ and
+      $N/b = 50/5 = 10$, and the fair duration formula applies to the rescaled
+      picture: $D = 4 \times (10 - 4) = 4 \times 6 = 24$. One-unit betting
+      would take $20 \times 30 = 600$ rounds, so raising the bet by a factor of
+      $5$ cut the expected length by a factor of $25$ — duration scales like
+      $1/b^{2}$, since both factors of the product shrink by $b$. Meanwhile the
+      win probability has not moved at all: $W = (k/b)/(N/b) = 4/10 = 0.4$,
+      exactly $20/50$. That split is the node in one line — in a fair game bet
+      size buys you time, or spends it, and buys nothing else.
+    expects: "24"
+    rubric:
+      - >
+        Rescales both barriers by $b = 5$ before applying $k(N-k)$.
+      - >
+        Notes that $W$ is unchanged at $0.4$ while the duration falls by
+        $b^{2} = 25$.
+    targets:
+      - quant-processes.ruin.stake-scaling
+    exercises:
+      - quant-processes.ruin.fair
+
+  - id: qruin-stake-scaling-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      In a fair game with fixed stacks, which quantity does the choice of bet
+      size move?
+    answer: >
+      The expected duration only. Betting $b$ units a round replaces the
+      barriers by $k/b$ and $N/b$, so the win probability
+      $W = (k/b)/(N/b) = k/N$ is literally unchanged — the rescaling cancels —
+      while the expected duration $(k/b)(N/b) = kN/b^{2}$ falls like the square
+      of the bet. So a fair game can be made to run for an afternoon or for a
+      minute without moving anyone's chance of winning by a hair. The
+      distinction matters because it collapses the instant the coin is biased:
+      then $W$ depends on $r^{k/b}$, the rescaling no longer cancels, and bet
+      size becomes a live strategic choice — larger for the underdog, smaller
+      for the favourite. Answering "both" imports that biased-game behaviour
+      into the fair case; answering "$W$ only" inverts the fact entirely.
+    choices:
+      - text: >
+          The expected duration only
+        correct: true
+        feedback: >
+          Right — $W = (k/b)/(N/b) = k/N$ cancels exactly, while
+          $D = kN/b^{2}$ scales with the square of the bet.
+      - text: >
+          The win probability only
+        feedback: >
+          Exactly inverted. In a fair game $W$ is the one quantity bet size
+          cannot touch; it is the biased game where $r^{k/b}$ makes $W$ move.
+      - text: >
+          Both, since larger bets are riskier
+        feedback: >
+          Larger bets raise the variance per round, but they also cut the
+          number of rounds, and in the fair game the two effects cancel exactly
+          in $W$. Only the duration survives.
+      - text: >
+          Neither — bet size is a bookkeeping choice with no consequences
+        feedback: >
+          The duration genuinely moves, by a factor of $b^{2}$, which is why
+          bet size still matters operationally even when it cannot change who
+          wins.
+    rubric:
+      - >
+        Shows the cancellation $(k/b)/(N/b) = k/N$ explicitly.
+      - >
+        States the $1/b^{2}$ scaling of the duration and notes that the
+        cancellation fails once $p \ne 1/2$.
+    targets:
+      - quant-processes.ruin.stake-scaling
+
+  # --- bold play ---------------------------------------------------------------
+
+  - id: qruin-bold-play-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A round is won with probability $p = 0.4$. You hold $6$ units and want to
+      reach $9$, and you play boldly: each round you stake the smaller of your
+      current fortune and the amount still needed. What is the probability of
+      reaching $9$? Give an exact fraction.
+    answer: >
+      $10/19 \approx 0.5263$. Bold play from $6$ stakes $\min(6, 3) = 3$, so
+      the fortune moves to $9$ (done) or $3$. From $3$ it stakes
+      $\min(3, 6) = 3$, moving to $6$ or $0$. The strategy therefore visits
+      only $\{0, 3, 6, 9\}$ and cycles between $6$ and $3$, so the two unknowns
+      refer to each other: $W(6) = p + q\,W(3)$ and $W(3) = p\,W(6)$.
+      Substituting, $W(6) = p + qp\,W(6)$, so
+      $W(6) = \dfrac{p}{1 - pq} = \dfrac{0.4}{1 - 0.24} = \dfrac{0.4}{0.76} =
+      \dfrac{10}{19}$, and $W(3) = 0.4 \times 10/19 = 4/19$. Compare betting
+      one unit at a time, where $r = q/p = 3/2$ gives
+      $W = \dfrac{1 - r^{6}}{1 - r^{9}} = \dfrac{280}{1009} \approx 0.2775$:
+      bold play nearly doubles the success probability, and it does so against
+      the fair-game benchmark of $6/9 \approx 0.667$ that neither strategy can
+      reach. The mechanism is the one to state in an interview — every extra
+      round is another independent application of a house edge, so a subfair
+      game is beaten by touching it as few times as possible. The trap is
+      solving only the first equation and forgetting that the walk can return
+      to $6$; that gives $p = 0.4$ and understates the answer.
+    expects: "10/19"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Derives the bold-play state graph $6 \to \{3, 9\}$, $3 \to \{0, 6\}$
+        from the stake rule $\min(\text{fortune}, \text{target} -
+        \text{fortune})$.
+      - >
+        Solves the mutually referring pair $W(6) = p + q\,W(3)$,
+        $W(3) = p\,W(6)$ rather than stopping at the first round.
+      - >
+        Compares against the one-unit-at-a-time value to show bold play helps
+        when the game is subfair.
+    targets:
+      - quant-processes.ruin.bold-play
+    exercises:
+      - quant-processes.ruin.stake-scaling
+      - quant-processes.ruin.biased
+
+  - id: qruin-bold-play-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      The coin is exactly fair, $p = 1/2$. Does switching from one-unit bets to
+      bold play change the probability of reaching a target $N$ from a stack
+      $k$?
+    answer: >
+      No — it is $k/N$ under either, and indeed under any betting schedule that
+      does not change $p$. Conservation of expectation is the argument: with a
+      fair coin no stake, however chosen, moves the expected fortune, so the
+      expected fortune when play stops still equals $k$. Play stops at $0$ or
+      $N$, so $N\,W = k$ and $W = k/N$ regardless of how the stakes were sized
+      along the way. That is the sharpest statement of the fair case's
+      indifference — bet size and bet schedule buy nothing but duration. The
+      value of holding it is that it isolates what bold play is actually doing
+      in a subfair game: it is not exploiting variance in the abstract, it is
+      reducing the number of times a *negative* drift is applied. With no drift
+      to reduce, there is nothing to gain, and with a positive drift the
+      argument reverses and small, frequent bets win.
+    choices:
+      - text: >
+          No — expected fortune is conserved under any stake schedule, so
+          $W = k/N$ either way
+        correct: true
+        feedback: >
+          Right — $0 \cdot R + N \cdot W = k$ holds whatever the stakes, so the
+          fair game is indifferent to bet sizing and to bold play alike.
+      - text: >
+          Yes — bigger bets always raise the success probability
+        feedback: >
+          Bigger bets raise it only in a *subfair* game, by cutting the number
+          of times the edge is applied. At $p = 1/2$ there is no edge to cut,
+          and the conservation identity pins $W$ at $k/N$.
+      - text: >
+          Yes — bold play lowers it, because fewer rounds means less
+          opportunity to recover from a bad start
+        feedback: >
+          Fewer rounds also means fewer opportunities to lose. In the fair game
+          the two cancel exactly; deciding between bold and timid play only
+          bites once the coin is biased.
+      - text: >
+          Only when the target is exactly double the stack
+        feedback: >
+          The conservation argument uses nothing about the target beyond its
+          being an absorbing level at $N$, so the indifference holds for every
+          target.
+    rubric:
+      - >
+        Uses conservation of expected fortune, and notes it holds for any stake
+        schedule rather than only for one-unit bets.
+      - >
+        Says what bold play is really exploiting — fewer applications of a
+        negative drift — and why that has no purchase at $p = 1/2$.
+    targets:
+      - quant-processes.ruin.bold-play
+    exercises:
+      - quant-processes.ruin.fair
+
+  - id: qruin-bold-play-03
+    kind: work
+    difficulty: routine
+    statement: >
+      A fair coin, a stack of $3$, and a target of $24$, played boldly — stake
+      the smaller of your fortune and the amount still needed. What is the
+      probability of reaching $24$? Give an exact fraction.
+    answer: >
+      $1/8$. Bold play from $3$ stakes $\min(3, 21) = 3$, so the fortune is
+      $0$ or $6$; from $6$ it stakes $\min(6, 18) = 6$, giving $0$ or $12$;
+      from $12$ it stakes $\min(12, 12) = 12$, giving $0$ or $24$. The target
+      is reached only by winning three straight rounds, so
+      $W = (1/2)^{3} = 1/8$. The check is the point of the exercise: the fair
+      formula gives $W = k/N = 3/24 = 1/8$ as well, and it must, because
+      expected fortune is conserved under any stake schedule when the coin is
+      fair. So bold play has bought nothing here — it has compressed a game
+      that would have averaged $3 \times 21 = 63$ one-unit rounds into at most
+      three, and left the outcome distribution untouched.
+    expects: "1/8"
+    rubric:
+      - >
+        Traces the bold-play path $3 \to 6 \to 12 \to 24$ and multiplies three
+        independent fair rounds.
+      - >
+        Checks the answer against $k/N = 3/24$ and attributes the agreement to
+        conservation of expected fortune.
+    targets:
+      - quant-processes.ruin.bold-play

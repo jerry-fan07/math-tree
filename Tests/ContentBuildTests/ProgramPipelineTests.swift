@@ -194,3 +194,46 @@ struct QuantProgramTests {
         #expect(loaded.program.spine.units.map(\.rawValue) == outlineOrder)
     }
 }
+
+/// The math tree's program (Phase 15): the canonical outline's 82 subbranches
+/// as units, held to the same rules as the quant spine — with the four forward
+/// references the foundations units force, declared and exact (D15.2).
+@Suite("Math program")
+struct MathProgramTests {
+    @Test func theMathSpineValidatesAgainstTheMathCorpus() throws {
+        let content = try ContentLoader.load(
+            root: repoRoot.appendingPathComponent("content"), relativeTo: repoRoot)
+        let graph = KnowledgeGraph(nodes: content.nodes)
+        let loaded = try ProgramLoader.load(
+            root: repoRoot.appendingPathComponent("program"), relativeTo: repoRoot)
+        #expect(loaded.exists, "the math tree ships with a program")
+
+        let diagnostics = ProgramValidator.validate(loaded.program, against: graph)
+        #expect(diagnostics.isEmpty, "the program must validate clean: \(diagnostics)")
+
+        // Every subbranch of the outline, once, in 12 parts — one per branch.
+        #expect(loaded.program.spine.units.count == 82)
+        #expect(loaded.program.spine.parts.count == 12)
+        // The accepted forward references are exactly the four the foundations
+        // cycles force; a fifth means content changed and the spine needs a look.
+        #expect(loaded.program.spine.forward.count == 4)
+    }
+
+    /// The artifact carries `forward` only when there is one to carry: the quant
+    /// spine encodes without the key, byte-for-byte as before.
+    @Test func forwardReferencesEncodeOnlyWhenPresent() throws {
+        let quant = try ProgramLoader.load(
+            root: repoRoot.appendingPathComponent("content-quant-program"), relativeTo: repoRoot)
+        let quantJSON = try #require(
+            try JSONSerialization.jsonObject(
+                with: Artifacts.encoder().encode(ProgramArtifact(quant.program))) as? [String: Any])
+        #expect(quantJSON["forward"] == nil)
+
+        let math = try ProgramLoader.load(
+            root: repoRoot.appendingPathComponent("program"), relativeTo: repoRoot)
+        let mathJSON = try #require(
+            try JSONSerialization.jsonObject(
+                with: Artifacts.encoder().encode(ProgramArtifact(math.program))) as? [String: Any])
+        #expect((mathJSON["forward"] as? [[String: Any]])?.count == 4)
+    }
+}

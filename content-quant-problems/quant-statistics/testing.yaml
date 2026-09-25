@@ -1,0 +1,1922 @@
+# Problems targeting quant-statistics.testing — errors, power, p-values and
+# confidence, plus the multiple-testing trap.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. No problem here reuses a lesson's
+# worked example or a card's instance. See ../README.md.
+
+problems:
+  # --- null, alternative, test statistic, rejection region ---------------------
+
+  - id: qtest-hypotheses-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A coin is to be tossed $10$ times and $T$ counts the heads. Before any
+      tossing a desk commits to the rejection region
+      $R = \{T \le 1\} \cup \{T \ge 9\}$ for $H_0: p = 0.5$ against
+      $H_1: p \ne 0.5$. What is the exact size $\Pr_{H_0}(T \in R)$ of this
+      test?
+    answer: >
+      $11/512 \approx 0.0215$. Under $H_0$ all $2^{10} = 1024$ head-tail words
+      are equally likely, so
+      $\Pr(T \le 1) = (\binom{10}{0} + \binom{10}{1})/1024 = 11/1024$, and by
+      the symmetry of the fair coin $\Pr(T \ge 9) = 11/1024$ as well. The two
+      pieces are disjoint, so the size is $22/1024 = 11/512 \approx 0.0215$.
+      What matters is what this is *not*: it is not $0.05$. A discrete
+      statistic offers only a coarse ladder of attainable sizes, and the next
+      region out, $\{T \le 2\} \cup \{T \ge 8\}$, jumps to
+      $2(1 + 10 + 45)/1024 = 112/1024 \approx 0.1094$, well past $5\%$. So at
+      $\alpha = 0.05$ the only admissible choice of these two is the narrow one,
+      and the test actually spends $2.15\%$ of its false-alarm budget rather
+      than the $5\%$ it was allowed — it is conservative. The trap is quoting
+      the nominal $\alpha$ as though the region achieved it; the definition only
+      promises $\Pr_{H_0}(T \in R) \le \alpha$, never equality.
+    expects: "11/512"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Computes the size by summing the null probability over the whole
+        region, both tails, rather than reporting one tail.
+      - >
+        Says that the achieved size is below $\alpha$ and names discreteness as
+        the reason, rather than asserting the size equals $0.05$.
+    targets:
+      - quant-statistics.testing.hypotheses
+    exercises:
+      - quant-probability.random-variables.pmf
+
+  - id: qtest-hypotheses-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A candidate proposes to test whether a new execution algorithm beats the
+      incumbent by writing $H_0$ as "the new algorithm has lower average
+      slippage" and $H_1$ as "the two have the same average slippage". The
+      interviewer stops them. What is the objection?
+    answer: >
+      The hypotheses are the wrong way round. A null has one job: to pin the
+      sampling distribution of the statistic down far enough that
+      $\Pr_{H_0}(T \in R)$ is computable. "Lower average slippage" leaves the
+      size of the improvement free, so it supplies no distribution and there is
+      nothing to compute a rejection probability under. The sharp claim of no
+      difference does supply one — with the difference's mean fixed at $0$ and
+      its standard error estimated from the matched daily data, the standardized
+      difference has a known null law — so that claim has to be the null, and
+      the improvement becomes the alternative. Notice the asymmetry this buys:
+      the alternative may stay as vague as "lower by some amount", because a
+      test never computes anything under $H_1$. The habit worth carrying into an
+      interview is to write the null first, out loud, and check that it names a
+      distribution before writing anything else.
+    choices:
+      - text: >
+          Nothing is wrong — the null should be whatever result you are hoping
+          to establish
+        feedback: >
+          The null is not the claim you favour; it is the one precise enough to
+          compute under, and "lower by an unspecified amount" names no sampling
+          distribution at all.
+      - text: >
+          The hypotheses are reversed: only the sharp claim of no difference
+          pins down a sampling law, so it has to be the null
+        correct: true
+        feedback: >
+          Right — $H_0$ must fix enough to evaluate $\Pr_{H_0}(T \in R)$, and
+          "no difference" does exactly that while "lower" leaves the mean free.
+      - text: >
+          $H_1$ must always be stated one-sided
+        feedback: >
+          One-sided versus two-sided is a separate choice, made in advance about
+          which deviations interest you; it has nothing to do with which
+          hypothesis can supply a null distribution.
+      - text: >
+          The test is invalid because slippage is not normally distributed
+        feedback: >
+          Distributional shape decides which statistic and which tail table to
+          use, not which of the two hypotheses is allowed to play the role of
+          the null.
+    rubric:
+      - >
+        Names computability of $\Pr_{H_0}(T \in R)$ — not desirability or
+        conservatism — as the property that decides which claim is the null.
+      - >
+        Notes that the alternative may remain composite and vague, since no
+        probability is ever computed under it.
+    targets:
+      - quant-statistics.testing.hypotheses
+
+  # --- Type I and Type II errors, significance and power ----------------------
+
+  - id: qtest-type-errors-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A one-sided test of $H_0: \mu = 0$ against $\mu > 0$ uses $n = 64$
+      independent observations with known $\sigma = 4$, and the desk
+      pre-commits to rejecting when $\bar{x} > 1$. Using $\Phi(2) \approx
+      0.9772$ and $\Phi(1) \approx 0.8413$, what is the Type II error
+      probability $\beta$ at the alternative $\mu = 1.5$?
+    answer: >
+      $0.1587$. The standard error is $\sigma/\sqrt{n} = 4/8 = 0.5$, so under
+      $H_0$ the mean $\bar{x}$ is normal with mean $0$ and standard deviation
+      $0.5$, and the size of this rule is
+      $\Pr_{H_0}(\bar{x} > 1) = 1 - \Phi(1/0.5) = 1 - \Phi(2) = 0.0228$. A Type
+      II error is failing to reject when a *specific* alternative holds, so
+      recentre: at $\mu = 1.5$ the mean $\bar{x}$ is normal with mean $1.5$ and
+      the same standard deviation $0.5$, and
+      $\beta = \Pr(\bar{x} \le 1) = \Phi((1 - 1.5)/0.5) = \Phi(-1)
+      = 1 - \Phi(1) = 1 - 0.8413 = 0.1587$, so the power there is $0.8413$. Two
+      slips are worth naming. There is no single $\beta$: at $\mu = 0.75$ the
+      same rule gives $\Phi(0.5) \approx 0.69$, a miss rate over four times as
+      large, and as $\mu$ falls to $0$ the miss rate rises to
+      $1 - \alpha = 0.9772$. And $\beta$ is not $1 - \alpha$; that number is the
+      chance of correctly keeping a true null, a statement about the null side
+      of the table entirely.
+    expects: "0.1587"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Recentres the sampling distribution at the alternative before computing
+        $\beta$, rather than working under $H_0$ throughout.
+      - >
+        States that $\beta$ is indexed by the alternative and is not
+        $1 - \alpha$.
+    targets:
+      - quant-statistics.testing.type-errors
+    exercises:
+      - quant-statistics.testing.hypotheses
+
+  - id: qtest-type-errors-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A surveillance model tests $H_0$ "this account is not manipulating" for
+      every account on the venue. Over one quarter it fails to flag an episode
+      that a later investigation confirms was genuine manipulation. Which error
+      is this, and what is its probability called?
+    answer: >
+      A Type II error, whose probability is $\beta$ at that episode's
+      particular severity. Line the two errors up against the truth. Type I
+      rejects a true $H_0$ — flagging a clean account — and its probability is
+      the size $\alpha$, a single number the desk chooses in advance. Type II
+      fails to reject a false $H_0$ — exactly what happened here — and its
+      probability is $\beta$, which is not one number at all: it depends on
+      which alternative is true. A blatant episode sits far out in the
+      alternative and is caught with high probability, so $\beta$ there is
+      small; a marginal episode sits close to the null and is missed most of the
+      time. That is why "power $0.80$" is meaningless until you say power
+      against what. The confusion to avoid is pairing Type II with $1 - \alpha$:
+      that number is the chance of correctly keeping a true null, and it says
+      nothing about misses.
+    choices:
+      - text: >
+          A Type I error, with probability $\alpha$
+        feedback: >
+          Which error is this: Type I is a false alarm — rejecting a true $H_0$,
+          here flagging a clean account. This case is the mirror image, a true
+          $H_1$ that went unflagged.
+      - text: >
+          A Type II error, with probability $\beta$ at that episode's severity
+        correct: true
+        feedback: >
+          Right — a miss. And $\beta$ carries the alternative with it: a blatant
+          episode has a small $\beta$, a marginal one a large $\beta$, from the
+          very same test.
+      - text: >
+          A Type II error, with probability $1 - \alpha$
+        feedback: >
+          The error is named correctly but the probability is not: $1 - \alpha$
+          is the chance of correctly keeping a *true* null, and $\alpha$ alone
+          never determines the miss rate.
+      - text: >
+          Neither — a missed episode is a modelling failure, not a statistical
+          error
+        feedback: >
+          Type II is precisely the name for a miss. Calling it a modelling
+          failure hides the design decision that caused it: power against this
+          kind of episode was low, and that was chosen.
+    rubric:
+      - >
+        Matches the outcome to the truth table — failing to reject a false null
+        — rather than reasoning from which answer sounds worse.
+      - >
+        Says $\beta$ depends on the alternative and is not $1 - \alpha$.
+    targets:
+      - quant-statistics.testing.type-errors
+
+  # --- power as a function of effect, sample size and level -------------------
+
+  - id: qtest-power-curve-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      For the one-sided level-$\alpha$ test of $H_0: \mu = \mu_0$ against
+      $\mu > \mu_0$ with known $\sigma$, the power at $\mu = \mu_0 + \delta$ is
+      $\Phi(\delta\sqrt{n}/\sigma - z_{\alpha})$. Prove that at fixed
+      $\delta > 0$ the power is strictly increasing in $n$ and tends to $1$;
+      show it equals $\alpha$ exactly at $\delta = 0$; and explain why shrinking
+      $\alpha$ at fixed $n$ must lower the power at every $\delta > 0$.
+    answer: >
+      Start from the rule itself. The test rejects when
+      $\bar{x} > \mu_0 + z_{\alpha}\sigma/\sqrt{n}$. If the true mean is
+      $\mu_0 + \delta$ then $\bar{x}$ is normal with that mean and standard
+      deviation $\sigma/\sqrt{n}$, so standardizing the rejection event gives
+      $\Pr(\bar{x} > \mu_0 + z_{\alpha}\sigma/\sqrt{n})
+      = \Pr(Z > z_{\alpha} - \delta\sqrt{n}/\sigma)
+      = \Phi(\delta\sqrt{n}/\sigma - z_{\alpha})$, using the symmetry of the
+      normal in the last step. Everything else follows from two facts about
+      $\Phi$: it is strictly increasing, and it tends to $1$ at $+\infty$ and to
+      $0$ at $-\infty$. Monotonicity in $n$: the argument
+      $\delta\sqrt{n}/\sigma - z_{\alpha}$ is strictly increasing in $n$ because
+      $\delta > 0$ and $\sqrt{n}$ is strictly increasing, and $\Phi$ is strictly
+      increasing, so the composition is too. The limit: as $n \to \infty$ the
+      argument tends to $+\infty$, hence the power tends to $1$ — any fixed
+      nonzero effect is eventually detected with near certainty, which is
+      exactly why significance on enormous samples says nothing about size.
+      At $\delta = 0$ the argument is $-z_{\alpha}$ and the power is
+      $\Phi(-z_{\alpha}) = 1 - \Phi(z_{\alpha}) = \alpha$ by the definition of
+      the quantile, so the power curve passes through the level at the null:
+      a test is never less likely to fire under $H_0$ than its own $\alpha$.
+      Finally, fix $n$ and shrink $\alpha$. Since $z_{\alpha}$ is the upper
+      $\alpha$-quantile, a smaller $\alpha$ means a larger $z_{\alpha}$, which
+      subtracts more from the argument and lowers $\Phi$ of it at *every*
+      $\delta > 0$ simultaneously. That is the whole trade-off in one line:
+      with $n$ and $\sigma$ held fixed the only free dial is the critical value,
+      and pushing it out to buy a smaller $\alpha$ is paid for in $\beta$
+      everywhere. Improving both at once needs a larger $n$, a smaller $\sigma$,
+      or a statistic that extracts more signal from the same data.
+    rubric:
+      - >
+        Derives the power expression by recentring $\bar{x}$ at the alternative
+        and standardizing, rather than quoting it.
+      - >
+        Grounds both monotonicity claims in the strict monotonicity of $\Phi$
+        and the behaviour of its argument, and identifies $\Phi(-z_{\alpha})$
+        with $\alpha$.
+      - >
+        Explains the $\alpha$-versus-$\beta$ trade-off as a statement about a
+        fixed $n$, and names what breaks it.
+    targets:
+      - quant-statistics.testing.power-curve
+    exercises:
+      - quant-statistics.testing.type-errors
+
+  - id: qtest-power-curve-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A one-sided test at $\alpha = 0.05$, so $z_{\alpha} = 1.645$, is run on
+      $n = 144$ observations with known $\sigma$, against the alternative
+      $\delta = 0.25\sigma$. Using $\Phi(1.355) \approx 0.9123$, what is the
+      power at that alternative?
+    answer: >
+      $0.9123$. Only the signal-to-noise ratio and the level enter, and the
+      ratio here is $\delta\sqrt{n}/\sigma = 0.25 \times \sqrt{144} = 0.25
+      \times 12 = 3$ — note that $\sigma$ cancels because the effect was quoted
+      in units of $\sigma$. The power is then
+      $\Phi(3 - 1.645) = \Phi(1.355) \approx 0.9123$, so this design misses a
+      real effect of that size about $9$ times in $100$. Two comparisons make
+      the shape of the curve visible. Quartering the sample to $n = 36$ halves
+      the ratio to $1.5$ and drops the power to
+      $\Phi(1.5 - 1.645) = \Phi(-0.145) \approx 0.44$ — below a coin flip.
+      Running the same $n = 144$ two-sided instead replaces $1.645$ by $1.96$
+      and gives $\Phi(1.04) \approx 0.851$. The slip to avoid is reading $3$
+      itself as the power, or forgetting to subtract the critical value at all.
+    expects: "0.9123"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Computes $\delta\sqrt{n}/\sigma$ first and subtracts $z_{\alpha}$
+        before applying $\Phi$.
+      - >
+        Uses the one-sided quantile $1.645$, not $1.96$, since the test is
+        one-sided.
+    targets:
+      - quant-statistics.testing.power-curve
+    exercises:
+      - quant-statistics.testing.type-errors
+
+  - id: qtest-power-curve-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      A two-sided z-test at $\alpha = 0.05$ has power exactly $0.50$ at some
+      alternative $\delta$. What is the signal-to-noise ratio
+      $\delta\sqrt{n}/\sigma$ at that alternative?
+    answer: >
+      $1.96$. The two-sided power is
+      $\Phi(\delta\sqrt{n}/\sigma - z_{\alpha/2})$, ignoring the negligible far
+      tail, so setting it to $0.50$ and using $\Phi(0) = 0.5$ with the strict
+      monotonicity of $\Phi$ forces the argument to be exactly $0$, that is
+      $\delta\sqrt{n}/\sigma = z_{\alpha/2} = 1.96$. The reading is worth
+      keeping: power $50\%$ means the alternative sits exactly on the critical
+      value, so the estimate lands above it half the time by pure symmetry.
+      Concretely, a study designed to detect $\delta$ with a signal-to-noise
+      ratio of $1.96$ is a coin flip, and a "significant" result from it is as
+      likely to be luck of the draw as evidence — which is why the conventional
+      target is $0.80$, needing $\delta\sqrt{n}/\sigma = 1.96 + 0.84 = 2.80$,
+      about half again as much signal and therefore just over twice the sample.
+      The trap is answering $0$, by reading "power $0.50$" as "no effect": at
+      $\delta = 0$ the power is $\alpha = 0.05$, not $0.50$.
+    expects: "1.96"
+    tolerance: 0.005
+    rubric:
+      - >
+        Inverts the power formula rather than evaluating it, using
+        $\Phi(0) = 0.5$ to pin the argument at zero.
+      - >
+        Uses the two-sided quantile $1.96$ and reads the answer as "the
+        alternative sits on the critical value".
+    targets:
+      - quant-statistics.testing.power-curve
+    exercises:
+      - quant-statistics.testing.type-errors
+
+  # --- the p-value ------------------------------------------------------------
+
+  - id: qtest-pvalue-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A test statistic $T$ has a continuous null distribution with CDF $F_0$,
+      and the right-tailed p-value is $p = 1 - F_0(T)$. A researcher runs the
+      test once at $\alpha = 0.05$; if $p > 0.05$ they gather a second
+      independent sample of the same size, run the same test again, and report
+      whichever of the two p-values is smaller. Under $H_0$, what is the
+      probability that the reported p-value is at most $0.05$?
+    answer: >
+      $0.0975$. First establish the one fact the calculation needs. Because
+      $F_0$ is continuous, the probability integral transform makes $F_0(T)$
+      exactly $\operatorname{Uniform}(0,1)$ under $H_0$, and since $1 - U$ is
+      uniform whenever $U$ is, the p-value $p = 1 - F_0(T)$ is
+      $\operatorname{Uniform}(0,1)$ too. Hence $\Pr_{H_0}(p \le \alpha) =
+      \alpha$ exactly, for every $\alpha$ in $[0,1]$ — that is the whole reason
+      a p-value threshold reproduces a level-$\alpha$ test. Now the procedure.
+      The first look rejects with probability $0.05$. With probability $0.95$ it
+      does not, and then the second look, independent and identically
+      distributed, rejects with probability $0.05$ again, so the total is
+      $0.05 + 0.95 \times 0.05 = 0.05 + 0.0475 = 0.0975$. The complement form is
+      the one-line check: the procedure fails to reject only if both looks fail,
+      so the size is $1 - 0.95^{2} = 1 - 0.9025 = 0.0975$. Nearly double the
+      advertised level, from one extra peek. This is the stopping rule trap in
+      miniature: $\alpha = 0.05$ describes a single pre-committed look, and
+      every additional look at fresh data is another chance to fire. Reporting
+      $0.05$ as this procedure's false-alarm rate understates it by $95\%$.
+    expects: "0.0975"
+    rubric:
+      - >
+        Derives the null uniformity of $p$ from the probability integral
+        transform and the continuity of $F_0$, rather than assuming it.
+      - >
+        Handles the two looks as reject-or-continue, giving
+        $\alpha + (1-\alpha)\alpha$, and cross-checks with $1 - (1-\alpha)^{2}$.
+    targets:
+      - quant-statistics.testing.pvalue
+      - quant-probability.random-variables.pit
+    exercises:
+      - quant-statistics.testing.hypotheses
+    connects:
+      - "quant-probability.random-variables.pit ~ quant-statistics.testing.pvalue"
+
+  - id: qtest-pvalue-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A two-sided z-test of $H_0: \mu = \mu_0$ produces the observed statistic
+      $z = 2.35$. Using $\Phi(2.35) \approx 0.9906$, what is the p-value?
+    answer: >
+      $0.0188$. Extremity is oriented by the alternative, and a two-sided
+      alternative counts a deviation of $2.35$ standard errors in either
+      direction, so
+      $p = \Pr_{H_0}(|Z| \ge 2.35) = 2(1 - \Phi(2.35)) = 2(1 - 0.9906)
+      = 2 \times 0.0094 = 0.0188$. Since $0.0188 \le 0.05$ the data rejects at
+      $5\%$, and since $0.0188 > 0.01$ it does not reject at $1\%$; the p-value
+      is precisely the boundary between the levels that reject and those that
+      do not. The standard slip is reporting $0.0094$, the one-sided tail, which
+      here would still reject at $5\%$ but is answering a different question —
+      and on data near the boundary the factor of two decides the verdict.
+      Nothing about the number licenses "there is a $1.88\%$ chance the null is
+      true"; it is a probability computed *under* the null, not about it.
+    expects: "0.0188"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Doubles the upper tail for the two-sided alternative rather than
+        reporting $1 - \Phi(2.35)$.
+      - >
+        Reads the result as the smallest level that would reject this data.
+    targets:
+      - quant-statistics.testing.pvalue
+
+  - id: qtest-pvalue-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      A directional signal is right on $8$ of $10$ independent days. Testing
+      $H_0: p = 0.5$ against $p > 0.5$ with the day count as the statistic, give
+      the *exact* one-sided p-value.
+    answer: >
+      $7/128 \approx 0.0547$. The exact null law of the hit count $T$ is
+      binomial with $n = 10$ and $p = 0.5$, so
+      $\Pr_{H_0}(T \ge 8) = (\binom{10}{8} + \binom{10}{9} + \binom{10}{10})
+      /2^{10} = (45 + 10 + 1)/1024 = 56/1024 = 7/128 \approx 0.0547$. So an
+      $80\%$ hit rate over ten days does *not* reject at $5\%$ — the sample is
+      simply too small for eight-out-of-ten to be surprising. Two lessons sit in
+      the arithmetic. The attainable levels are coarse: the next rung down is
+      $\Pr(T \ge 9) = 11/1024 \approx 0.0107$, with nothing in between, so a
+      discrete test is conservative rather than exactly level $\alpha$. And the
+      normal approximation is untrustworthy this small: it gives
+      $z = (8 - 5)/\sqrt{10 \times 0.25} = 3/1.581 = 1.897$ and
+      $p \approx 0.029$, barely half the exact value and on the opposite side of
+      the $5\%$ line. When $n$ is small enough to enumerate, enumerate.
+    expects: "7/128"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Sums the exact binomial tail from $8$ upward, including the endpoints
+        $9$ and $10$, rather than using $\Pr(T = 8)$ alone.
+      - >
+        Notes that the normal approximation materially disagrees at $n = 10$ and
+        that the exact test does not reject at $5\%$.
+    targets:
+      - quant-statistics.testing.pvalue
+    exercises:
+      - quant-probability.random-variables.pmf
+
+  # --- what a p-value is not --------------------------------------------------
+
+  - id: qtest-pvalue-misreadings-01
+    kind: decide
+    difficulty: demanding
+    statement: >
+      A researcher reports $p = 0.004$ for a new signal and writes in the
+      research memo: "there is a $99.6\%$ probability that this signal is
+      real." Which correction is right?
+    answer: >
+      The p-value is a probability computed *under* $H_0$ — the chance of data
+      at least this extreme if the signal were pure noise — and not a
+      probability *about* $H_0$ given the data. Turning one into the other is
+      Bayes' rule, and Bayes' rule needs a prior: if only one candidate signal
+      in fifty is real to begin with, then even at $p = 0.004$ and high power
+      the posterior odds are roughly $1$ to $49$ times $0.8/0.004 = 200$, that
+      is about $4$ to $1$ in favour — around $80\%$, not $99.6\%$. Change the
+      prior and the number changes with it, which is exactly the information the
+      p-value does not contain. Note also that $1 - p$ is not a replication
+      probability: replication depends on the true effect size and the next
+      study's power, neither of which appears anywhere in this calculation.
+      The disciplined report leads with the estimate and its standard error and
+      quotes the p-value second.
+    choices:
+      - text: >
+          The memo is fine, since $1 - p$ is the probability the finding
+          replicates
+        feedback: >
+          Is the p-value the probability the null is true? No — and $1 - p$ is
+          not a replication probability either; replication depends on the true
+          effect and the next study's power, which never enter the p-value.
+      - text: >
+          The p-value is the chance of data this extreme *given* $H_0$, not the
+          chance of $H_0$ given the data; converting it needs a prior
+        correct: true
+        feedback: >
+          Exactly — the conditioning runs the other way, and the missing
+          ingredient is the prior probability that a randomly chosen candidate
+          signal is real.
+      - text: >
+          The memo is fine provided the test was two-sided
+        feedback: >
+          Sidedness changes the number by a factor of two; it does not change
+          what kind of statement the number is. A two-sided $p = 0.004$ is
+          still a probability under the null.
+      - text: >
+          The memo is fine as long as $n$ is large
+        feedback: >
+          Large $n$ makes even trivial effects significant; it never converts a
+          tail probability computed under the null into a posterior about the
+          null.
+    rubric:
+      - >
+        Names the direction of the conditioning as the error, and says a prior
+        is what would be needed to make the memo's statement.
+      - >
+        Rejects the $1 - p$ replication reading as a separate mistake.
+    targets:
+      - quant-statistics.testing.pvalue-misreadings
+
+  - id: qtest-pvalue-misreadings-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A research group screens $1000$ candidate signals, of which — unknown to
+      them — exactly $20$ carry a real edge. Their test runs at $\alpha = 0.05$
+      and has power $0.80$ against edges of that size. Of the signals that come
+      back significant at $5\%$, what fraction carry a real edge?
+    answer: >
+      $16/65 \approx 0.246$. Count both columns of the truth table. Real edges:
+      $20$ of them, caught with probability $0.80$, giving $20 \times 0.80 = 16$
+      true discoveries in expectation. Noise: $980$ of them, each flagged with
+      probability $\alpha = 0.05$, giving $980 \times 0.05 = 49$ false
+      discoveries. So $16 + 49 = 65$ signals come back significant and only
+      $16/65 \approx 0.246$ of them are real — under a quarter, from a test
+      that is working exactly as advertised. The misreading this kills is
+      "$p \le 0.05$, so there is a $95\%$ chance it is real": the answer depends
+      on the base rate, which the p-value knows nothing about. Note where the
+      leverage is. Doubling the power to a hypothetical $1.0$ raises the
+      fraction only to $20/69 \approx 0.29$, while tightening $\alpha$ to
+      $0.005$ raises it to $16/(16 + 4.9) \approx 0.77$ — when the prior is
+      thin, the false-positive rate is the dial that matters.
+    expects: "16/65"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Multiplies the count of true nulls, not the total, by $\alpha$ to get
+        the false discoveries.
+      - >
+        Divides true discoveries by *all* discoveries, and says the answer
+        depends on the base rate the p-value does not carry.
+    targets:
+      - quant-statistics.testing.pvalue-misreadings
+    exercises:
+      - quant-statistics.testing.pvalue
+
+  # --- one-sided versus two-sided ---------------------------------------------
+
+  - id: qtest-one-two-sided-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      An alternative of interest has signal-to-noise ratio
+      $\delta\sqrt{n}/\sigma = 2.0$. Compare a one-sided level-$0.05$ z-test,
+      with $z_{\alpha} = 1.645$, against the two-sided one, with
+      $z_{\alpha/2} = 1.96$. Using $\Phi(0.355) \approx 0.6387$ and
+      $\Phi(0.04) \approx 0.5160$, how much power does going two-sided give up
+      at this alternative?
+    answer: >
+      $0.1227$. Both tests have the same power formula with a different
+      critical value. One-sided: $\Phi(2.0 - 1.645) = \Phi(0.355) = 0.6387$.
+      Two-sided: $\Phi(2.0 - 1.96) = \Phi(0.04) = 0.5160$, the far tail being
+      negligible here. The difference is $0.6387 - 0.5160 = 0.1227$, so
+      splitting $\alpha$ between the tails costs about $12$ percentage points of
+      power at this particular alternative — a real price, and it is the whole
+      of what two-sidedness costs. Set against it: choosing the tail after
+      seeing the sign of the estimate turns a nominal $5\%$ procedure into a
+      genuine $10\%$ one, doubling the false-alarm rate rather than shaving a
+      tenth off the power. The trade is only worth taking when a move in the
+      other direction is genuinely uninteresting, decided and written down
+      before the data arrives. Note the gap narrows as the effect grows: at
+      signal-to-noise $3.0$ the two powers are $\Phi(1.355) = 0.912$ and
+      $\Phi(1.04) = 0.851$, a gap of $0.061$.
+    expects: "0.1227"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $1.645$ for the one-sided test and $1.96$ for the two-sided, and
+        subtracts the two powers rather than the two critical values.
+      - >
+        Weighs the power cost against the doubling of the Type I rate that
+        picking the tail after the fact would cause.
+    targets:
+      - quant-statistics.testing.one-two-sided
+      - quant-statistics.testing.power-curve
+    exercises:
+      - quant-statistics.testing.pvalue
+
+  - id: qtest-one-two-sided-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A venue rewrites its fee schedule and the desk wants to know whether
+      average slippage has moved. A junior proposes a one-sided test, "because
+      we expect it to improve". Which is right?
+    answer: >
+      Two-sided. The one-sided test buys its extra power by having *zero* power
+      against deviations in the direction it ignores, so it can never report
+      that slippage got worse — and a fee schedule that quietly degrades
+      execution is precisely the finding the desk most needs to hear. The right
+      question is never "which direction do we expect?" but "is a move in the
+      other direction uninteresting?", and here it plainly is not. The price of
+      two-sidedness is small and known: $1.96$ instead of $1.645$, roughly ten
+      points of power at a moderate effect. What one-sidedness risks is much
+      worse — if the direction is chosen after the sign of the estimate is
+      seen, the nominal $5\%$ test is really a $10\%$ test. Default to
+      two-sided; make the exception explicit, in advance, and only when the
+      other tail genuinely carries no decision.
+    choices:
+      - text: >
+          One-sided is right, since the direction is known in advance
+        feedback: >
+          One-sided or two-sided turns on whether the other direction is
+          *uninteresting*, not on what you expect. A worse fee schedule is the
+          outcome the desk would most want to detect.
+      - text: >
+          Two-sided, because a deterioration is exactly the outcome the desk
+          needs to be able to detect
+        correct: true
+        feedback: >
+          Right — a one-sided test has no power at all against the tail it
+          drops, and that tail carries a real decision here.
+      - text: >
+          One-sided, but run at $\alpha/2$ so the size matches the two-sided
+          test
+        feedback: >
+          Halving the level of a one-sided test makes it stricter in the one
+          direction it watches; it still cannot reject a move the other way, so
+          it is not a substitute for a two-sided test.
+      - text: >
+          Either — for a symmetric null law the two p-values differ only by a
+          factor of two
+        feedback: >
+          The factor of two is real but beside the point: the two tests answer
+          different questions, and only one of them can see a deterioration.
+    rubric:
+      - >
+        Frames the choice as "is the other direction uninteresting", not "which
+        direction do we expect".
+      - >
+        Quantifies the cost of two-sidedness ($1.96$ versus $1.645$) and sets it
+        against the doubled Type I rate of choosing a tail after the fact.
+    targets:
+      - quant-statistics.testing.one-two-sided
+
+  # --- the z-test -------------------------------------------------------------
+
+  - id: qtest-ztest-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A desk claims that $40\%$ of its resting quotes are hit within the
+      session. In an independent sample of $600$ quotes, $255$ were hit.
+      Testing $H_0: p = 0.40$ two-sided, what is $z$?
+    answer: >
+      $1.25$. The observed proportion is $\hat{p} = 255/600 = 0.425$. For a
+      proportion the null itself supplies the variance, so the standard error
+      is $\sqrt{p_0(1-p_0)/n} = \sqrt{0.40 \times 0.60/600} = \sqrt{0.0004}
+      = 0.02$, and
+      $z = (0.425 - 0.400)/0.02 = 0.025/0.02 = 1.25$. Since $1.25 < 1.96$ the
+      data does not reject at $5\%$; the two-sided p-value is about $0.211$.
+      The trap is using the *sample* variance in the denominator: with
+      $\hat{p}(1-\hat{p}) = 0.425 \times 0.575 = 0.244375$ the standard error
+      becomes $0.02018$ and $z$ comes out $1.24$ — a small difference here, but
+      the wrong quantity in principle, because the whole point is to ask how the
+      statistic behaves *under the null*, and the null names $p_0 = 0.40$. Check
+      the approximation before using it: $np_0 = 240$ and $n(1-p_0) = 360$ are
+      both far above the rule of thumb of about $10$, so the normal law for
+      $\hat{p}$ is safe.
+    expects: "1.25"
+    rubric:
+      - >
+        Uses the null variance $p_0(1-p_0)$ in the standard error, not the
+        sample's $\hat{p}(1-\hat{p})$.
+      - >
+        Checks $np_0$ and $n(1-p_0)$ against the rule of thumb before invoking
+        the normal approximation.
+    targets:
+      - quant-statistics.testing.ztest
+    exercises:
+      - quant-probability.limits.clt
+
+  - id: qtest-ztest-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A strategy's daily P&L over $n = 81$ trading days averages $900$ dollars,
+      against a known historical daily standard deviation of $5400$ dollars.
+      Testing $H_0: \mu = 0$ two-sided and using $\Phi(1.5) \approx 0.9332$,
+      what is the p-value?
+    answer: >
+      $0.1336$. The standard error of the mean is
+      $\sigma/\sqrt{n} = 5400/\sqrt{81} = 5400/9 = 600$ dollars, so
+      $z = (900 - 0)/600 = 1.5$ and the two-sided p-value is
+      $2(1 - \Phi(1.5)) = 2(1 - 0.9332) = 2 \times 0.0668 = 0.1336$. Do not
+      reject: $1.5$ falls short of $1.96$. The interval to report alongside is
+      $900 \pm 1.96 \times 600$, that is $[-276, 2076]$ dollars, and it contains
+      zero — the same verdict read a second way, as duality guarantees. The
+      honest summary is not "the strategy makes nothing" but "eighty-one days
+      cannot separate a mean of zero from a mean of $2000$ dollars a day", which
+      is a statement about how little data this is. The common slip is dividing
+      by $\sigma$ rather than by $\sigma/\sqrt{n}$, which would give
+      $z = 0.167$ and understate the evidence by a factor of $9$.
+    expects: "0.1336"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides by the standard error $\sigma/\sqrt{n}$, not by $\sigma$.
+      - >
+        Doubles the tail for the two-sided alternative and reads the matching
+        interval as the same verdict.
+    targets:
+      - quant-statistics.testing.ztest
+    exercises:
+      - quant-statistics.testing.pvalue
+
+  - id: qtest-ztest-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      A desk wants to test $H_0: p = 0.002$ — the rate at which a rare order
+      type appears — against $p > 0.002$, from $n = 500$ observations, and
+      reaches for $z = (\hat{p} - p_0)/\sqrt{p_0(1-p_0)/n}$. Is that the right
+      tool?
+    answer: >
+      No. The z-test for a proportion leans on the normal approximation to the
+      count, and the usable condition is not "$n$ is large" but "$np_0$ and
+      $n(1-p_0)$ are both at least about $10$". Here $np_0 = 500 \times 0.002 =
+      1$: under the null the expected count is one event, the count law is
+      sharply skewed and lives on $0, 1, 2, \dots$, and a symmetric normal curve
+      fitted to it will misprice the upper tail badly. Use the exact binomial
+      tail instead, or its Poisson approximation with mean $1$, under which
+      seeing $4$ or more events has probability $1 - e^{-1}(1 + 1 + 1/2 + 1/6)
+      \approx 0.019$ — a number the normal approximation would not have got
+      close to. The general habit: state the recipe's applicability condition
+      out loud and check it before computing anything.
+    choices:
+      - text: >
+          Yes — $n = 500$ is large, so the central limit theorem applies
+        feedback: >
+          Which test: the condition is about the expected *counts*, not $n$
+          alone. With $np_0 = 1$ the null count law is far too skewed for a
+          symmetric normal fit.
+      - text: >
+          No — $np_0 = 1$ is far below the rule of thumb of about $10$, so use
+          the exact binomial or Poisson tail
+        correct: true
+        feedback: >
+          Right — the approximation, not the arithmetic, is what fails, and with
+          a mean count of one the exact tail is cheap to compute.
+      - text: >
+          No — the z-test needs $\sigma$ known, and here it has to be estimated
+        feedback: >
+          For a proportion the null supplies the variance $p_0(1-p_0)$ itself,
+          so nothing is estimated. The problem is the skewness of the count at
+          such a small $np_0$.
+      - text: >
+          No — use the t-test, since the standard deviation comes from the
+          sample
+        feedback: >
+          Which test: the t-test prices small-sample uncertainty in an estimated
+          $\sigma$ for roughly normal data. It does nothing for a count law this
+          skewed, and here $\sigma$ is not estimated at all.
+    rubric:
+      - >
+        Checks $np_0$ rather than $n$, and names about $10$ as the threshold.
+      - >
+        Proposes the exact binomial or Poisson tail as the replacement, not the
+        t-test.
+    targets:
+      - quant-statistics.testing.ztest
+
+  # --- 60 heads in 100 tosses -------------------------------------------------
+
+  - id: qtest-coin-sixty-heads-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A coin turns up heads $1300$ times in $2500$ tosses, a $52\%$ rate. Under
+      $H_0: p = 0.5$, give the two-sided p-value computed *with* the continuity
+      correction, using $\Phi(1.98) \approx 0.9761$.
+    answer: >
+      $0.0478$. Under $H_0$ the head count has mean $2500 \times 0.5 = 1250$ and
+      standard deviation $\sqrt{2500 \times 0.25} = 25$. The naive statistic is
+      $z = (1300 - 1250)/25 = 50/25 = 2.0$, giving $p = 0.0455$. The continuity
+      correction replaces the boundary $1300$ by $1299.5$, since the discrete
+      event $\{X \ge 1300\}$ is best matched by the continuous event
+      $\{X \ge 1299.5\}$: $z = 49.5/25 = 1.98$ and
+      $p = 2(1 - \Phi(1.98)) = 2 \times 0.0239 = 0.0478$. Still a rejection at
+      $5\%$, and that is the point. At $n = 100$ the same naive $z = 2.0$ moved
+      to $1.9$ under the correction and the p-value crossed the $5\%$ line, so
+      the verdict sat inside the approximation's own error. Here the half-unit
+      is one fiftieth of a standard deviation rather than one tenth — the
+      correction's size shrinks like $1/\sqrt{n}$ — so it shifts $p$ by only
+      $0.0023$ and cannot flip the answer. Scale is what turns a borderline
+      reading into a decision: a $52\%$ rate over $2500$ tosses is stronger
+      evidence than a $60\%$ rate over $100$.
+    expects: "0.0478"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Shifts the boundary by half a unit toward the mean, giving $1299.5$ and
+        a $z$ smaller than the naive one.
+      - >
+        Says why the correction barely moves the verdict here — its size falls
+        like $1/\sqrt{n}$ — and contrasts that with the $n = 100$ case.
+    targets:
+      - quant-statistics.testing.coin-sixty-heads
+    exercises:
+      - quant-probability.limits.normal-approx-binomial
+      - quant-statistics.testing.ztest
+
+  - id: qtest-coin-sixty-heads-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A candidate computes $z = (60 - 50)/5 = 2.0$ for $60$ heads in $100$
+      tosses, reports the two-sided $p = 0.0455$, and declares the coin biased
+      at $5\%$. Which single correction most changes the verdict?
+    answer: >
+      The continuity correction. Replacing the boundary $60$ by $59.5$ gives
+      $z = 9.5/5 = 1.9$ and $p = 2(1 - \Phi(1.9)) \approx 0.057$, which no
+      longer clears $5\%$ — and the exact binomial confirms it,
+      $2\Pr(X \ge 60) = 2(0.0284) = 0.0569$. So the honest verdict flips to
+      "fail to reject", and more importantly the whole question sits inside the
+      approximation's own error: $0.0455$ against $0.0569$ is not a difference
+      you should be deciding on. The other candidate fixes do not apply. There
+      is nothing to estimate here — the null itself gives
+      $\sqrt{100 \times 0.25} = 5$ — so no t-distribution is involved. And
+      switching to one-sided after seeing which way the coin fell would double
+      the real Type I rate while making the result look *stronger*, the exact
+      manoeuvre the pre-commitment rule exists to forbid. Scale settles it
+      instead: the same $60\%$ rate over $1000$ tosses gives $z \approx 6.3$.
+    choices:
+      - text: >
+          Applying the continuity correction, which moves $z$ to $1.9$ and $p$
+          to about $0.057$
+        correct: true
+        feedback: >
+          Right, and the exact binomial agrees at $0.0569$ — both land the other
+          side of $5\%$, so the original verdict does not survive.
+      - text: >
+          Switching to a one-sided test, since bias toward heads was the
+          suspicion
+        feedback: >
+          One-sided or two-sided has to be settled before the data. Switching
+          after seeing which way the coin fell doubles the real Type I rate, and
+          it strengthens the claim rather than correcting it.
+      - text: >
+          Using the t-distribution, since the standard deviation was estimated
+        feedback: >
+          Which test: the standard deviation $\sqrt{100 \times 0.25} = 5$ comes
+          from the null hypothesis itself. Nothing was estimated, so there is no
+          t here.
+      - text: >
+          Collecting more data, since $n = 100$ is too small for the normal
+          approximation
+        feedback: >
+          More data would settle it, but with $np_0 = 50$ the approximation is
+          already sound. What is mishandled is the half-integer boundary, and
+          the continuity correction is the fix.
+    rubric:
+      - >
+        Identifies the half-unit boundary shift as what moves the p-value, and
+        cross-checks against the exact binomial.
+      - >
+        Rejects the one-sided switch as illegitimate after the fact, and notes
+        no estimated $\sigma$ is involved.
+    targets:
+      - quant-statistics.testing.coin-sixty-heads
+
+  # --- the t-distribution -----------------------------------------------------
+
+  - id: qtest-t-distribution-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      For iid normal data with mean $\mu$ and variance $\sigma^{2}$, show that
+      $t = (\bar{x} - \mu)/(s/\sqrt{n})$ has the t-distribution with
+      $\nu = n - 1$ degrees of freedom. Identify the standard normal $Z$ and
+      the chi-square $V$ in the representation $Z/\sqrt{V/\nu}$, state the two
+      distributional facts the argument relies on, and show where $\sigma$
+      cancels.
+    answer: >
+      The t-distribution with $\nu$ degrees of freedom is *defined* as the law
+      of $Z/\sqrt{V/\nu}$ where $Z$ is standard normal, $V$ is chi-square with
+      $\nu$ degrees of freedom, and the two are independent. So the work is to
+      exhibit that shape. Write the statistic as a ratio and insert $\sigma$
+      twice: $t = (\bar{x} - \mu)/(s/\sqrt{n}) = \dfrac{(\bar{x} -
+      \mu)/(\sigma/\sqrt{n})}{s/\sigma}$. The numerator is
+      $Z = (\bar{x} - \mu)/(\sigma/\sqrt{n})$, standard normal exactly, because
+      a sum of independent normals is normal and $\bar{x}$ has mean $\mu$ and
+      variance $\sigma^{2}/n$ — no appeal to the central limit theorem is
+      needed, and none would be legitimate at small $n$. For the denominator,
+      the first distributional fact is Cochran's: for iid normal data
+      $V = (n-1)s^{2}/\sigma^{2}$ is chi-square with $\nu = n - 1$ degrees of
+      freedom, one degree lost because $s^{2}$ measures spread about the
+      estimated $\bar{x}$ rather than about $\mu$. Then
+      $s/\sigma = \sqrt{V/\nu}$, and $t = Z/\sqrt{V/\nu}$ as required. The
+      second fact is the independence of $\bar{x}$ and $s^{2}$, which holds for
+      normal data and for normal data only; without it the ratio would not have
+      the t law even with both marginals correct. Where $\sigma$ cancels is the
+      whole trick: it appears in the numerator to standardize $\bar{x}$ and in
+      the denominator to standardize $s$, and the ratio is free of it. That is
+      why the null law is a fixed table depending on $n$ alone and not on the
+      unknown scale — a statistic you can compute and compare without knowing
+      $\sigma$. Two consequences worth stating. The extra randomness in the
+      denominator, absent from a z-statistic, is exactly what fattens the tails,
+      and as $\nu \to \infty$ the law of large numbers drives $s/\sigma \to 1$
+      so the t converges to the standard normal. And the hypothesis that data is
+      normal is doing real work here: with heavy-tailed or serially dependent
+      data neither Cochran's result nor the independence holds, and the tabulated
+      t tails understate the true ones.
+    rubric:
+      - >
+        Splits the statistic into $Z$ over $\sqrt{V/\nu}$ by inserting and
+        cancelling $\sigma$, rather than asserting the result.
+      - >
+        Names both hypotheses — the chi-square law of $(n-1)s^{2}/\sigma^{2}$
+        with $n-1$ degrees of freedom, and the independence of $\bar{x}$ from
+        $s^{2}$ — and says both need normality.
+      - >
+        Explains that the cancellation of $\sigma$ is what makes the null law
+        computable without knowing the scale.
+    targets:
+      - quant-statistics.testing.t-distribution
+    exercises:
+      - quant-probability.continuous.normal
+
+  - id: qtest-t-distribution-02
+    kind: work
+    difficulty: demanding
+    statement: >
+      The t-distribution with $\nu = 1$ degree of freedom is exactly the
+      standard Cauchy, whose CDF is $F(x) = 1/2 + \arctan(x)/\pi$. For
+      $T \sim t_{1}$, what is $\Pr(|T| \ge 4)$? Use $\arctan(4) \approx 1.3258$
+      radians and $\pi \approx 3.1416$.
+    answer: >
+      $0.156$. The Cauchy is symmetric about $0$, so
+      $\Pr(|T| \ge 4) = 2(1 - F(4)) = 2\left(\dfrac{1}{2} -
+      \dfrac{\arctan(4)}{\pi}\right) = 1 - \dfrac{2\arctan(4)}{\pi}
+      = 1 - \dfrac{2 \times 1.3258}{3.1416} = 1 - 0.8440 = 0.1560$. Set that
+      against the normal, where $2(1 - \Phi(4)) \approx 0.0000633$: the Cauchy
+      puts roughly $2500$ times as much mass beyond four standard-normal units.
+      That is the tail-weight premium in its most extreme form. A t-statistic of
+      $4$ from a sample of $n = 2$ — one degree of freedom, $\sigma$ estimated
+      from a single difference — carries a p-value of about $0.156$ and is not
+      remotely significant, while the same $4$ read off a z-table would look
+      overwhelming. The mechanism is the same one that makes the Cauchy
+      pathological: it is a ratio of normals, and a denominator that lands near
+      zero throws the ratio far out. Estimating the noise level from a tiny
+      sample is exactly that division, which is why the t tails fatten as $\nu$
+      falls and settle down to the normal's as $\nu$ grows.
+    expects: "0.156"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses symmetry to double the single tail $1 - F(4)$ rather than reporting
+        one tail.
+      - >
+        Compares against the normal tail and attributes the gap to the
+        ratio-of-normals construction with an estimated denominator.
+    targets:
+      - quant-statistics.testing.t-distribution
+      - quant-probability.continuous.cauchy
+    exercises:
+      - quant-probability.continuous.normal
+    connects:
+      - "quant-probability.continuous.cauchy ~ quant-statistics.testing.t-distribution"
+
+  - id: qtest-t-distribution-03
+    kind: work
+    difficulty: standard
+    statement: >
+      A $t_{\nu}$ variable has variance $\nu/(\nu - 2)$ for $\nu > 2$. What is
+      the smallest integer $\nu$ for which that variance is at most $1.1$, that
+      is within $10\%$ of the standard normal's variance of $1$?
+    answer: >
+      $\nu = 22$. Solve $\nu/(\nu - 2) \le 1.1$. Since $\nu > 2$ the denominator
+      is positive, so multiplying through is safe:
+      $\nu \le 1.1(\nu - 2) = 1.1\nu - 2.2$, hence $2.2 \le 0.1\nu$ and
+      $\nu \ge 22$. At $\nu = 22$ the variance is $22/20 = 1.1$ exactly, and at
+      $\nu = 21$ it is $21/19 \approx 1.105$, just over — so $22$ is the
+      smallest, corresponding to a sample of $n = 23$. Two cautions. The
+      inequality flips if you multiply without checking $\nu > 2$, which is also
+      where the variance stops existing: at $\nu = 2$ it is infinite and at
+      $\nu = 1$, the Cauchy, even the mean fails to exist. And variance
+      converging is a weaker statement than the tails converging: at $\nu = 22$
+      the two-sided $95\%$ critical value is still about $2.07$ against the
+      normal's $1.96$, and the discrepancy in the far tail is larger than the
+      variance gap suggests.
+    expects: "22"
+    rubric:
+      - >
+        Solves the inequality after noting $\nu > 2$ makes the denominator
+        positive, and checks the neighbouring integer.
+      - >
+        Distinguishes the variance converging to $1$ from the critical values
+        converging to $1.96$.
+    targets:
+      - quant-statistics.testing.t-distribution
+    exercises:
+      - quant-probability.continuous.normal
+
+  # --- the t-test -------------------------------------------------------------
+
+  - id: qtest-ttest-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two execution algorithms are run side by side on the same $16$ trading
+      days, and $d_i$ is the day's slippage difference in basis points, algorithm
+      A minus algorithm B. The desk records only two summaries:
+      $\sum_{i} d_i = 24$ and $\sum_{i} d_i^{2} = 96$. Testing
+      $H_0: \mu_d = 0$, what is the paired t-statistic?
+    answer: >
+      $t = 3$. Pairing first: because both algorithms saw the same $16$ days,
+      the matched differences are one sample, and the two-series problem
+      collapses to a one-sample t-test on the $d_i$. The mean is
+      $\bar{d} = 24/16 = 1.5$ basis points. For the spread, use the computing
+      form of the sum of squared deviations:
+      $\sum_i (d_i - \bar{d})^{2} = \sum_i d_i^{2} - n\bar{d}^{2}
+      = 96 - 16(1.5)^{2} = 96 - 36 = 60$, so
+      $s^{2} = 60/(n-1) = 60/15 = 4$ and $s = 2$. The standard error is
+      $s/\sqrt{n} = 2/4 = 0.5$, hence $t = 1.5/0.5 = 3$. With $\nu = 15$ the
+      two-sided $5\%$ critical value is $2.131$, so $3 > 2.131$ rejects. The
+      classic slip is dividing the sum of squared deviations by $n$ rather than
+      $n - 1$: that gives $s^{2} = 3.75$, $s = 1.936$, $t = 3.10$, an inflated
+      statistic from an estimator that is biased low for $\sigma^{2}$ exactly
+      because $\bar{d}$ was fitted from the same data. The second slip is running
+      an unpaired test on the two series separately, which throws away the
+      matching and pays for the common market shock twice.
+    expects: "3"
+    rubric:
+      - >
+        Reduces the two matched series to their differences and runs a
+        one-sample test on those.
+      - >
+        Recovers $s^{2}$ from $\sum d_i^{2} - n\bar{d}^{2}$ divided by $n - 1$,
+        not by $n$, and divides by $s/\sqrt{n}$ to form $t$.
+    targets:
+      - quant-statistics.testing.ttest
+    exercises:
+      - quant-statistics.testing.ztest
+      - quant-statistics.testing.t-distribution
+
+  - id: qtest-ttest-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A researcher reports $t = 2.9$ on $250$ daily returns of a momentum
+      strategy and calls the edge established at $1\%$. The returns are
+      positively autocorrelated at lag one with $\rho \approx 0.3$. What is the
+      strongest objection?
+    answer: >
+      The t-test's independence assumption fails, and positive autocorrelation
+      makes the reported statistic too large. The formula $t = \bar{x}/(s/\sqrt{n})$
+      uses $\Var(\bar{x}) = \sigma^{2}/n$, which is only true for independent
+      draws. With persistence the variance of the mean inflates by roughly
+      $(1+\rho)/(1-\rho) = 1.3/0.7 \approx 1.86$, so the honest standard error is
+      about $\sqrt{1.86} \approx 1.36$ times larger and the corrected statistic
+      is about $2.9/1.36 \approx 2.13$ — still positive, no longer decisive at
+      $1\%$, where the cutoff is $2.576$. Note what is *not* the objection.
+      Normality is not the issue: at $n = 250$ the CLT has taken hold and the
+      $t_{249}$ table is indistinguishable from the normal, with critical value
+      $1.97$ against $1.96$. Nor is the choice of the t table over the z table
+      material at this sample size. Dependence is the assumption that actually
+      binds, and daily P&L breaks it routinely; the fixes are a Newey-West style
+      standard error, or aggregating to non-overlapping blocks long enough that
+      the blocks are near-independent.
+    choices:
+      - text: >
+          At $n = 250$ the sample is too small for the t-distribution, so the
+          normal table should have been used instead
+        feedback: >
+          Backwards, and immaterial: the t table is the conservative one, and at
+          $\nu = 249$ the two-sided $5\%$ critical value is $1.97$ against the
+          normal's $1.96$ — a difference far too small to matter here.
+      - text: >
+          Serial dependence inflates the variance of the mean, so the true
+          standard error is larger and the reported $t$ overstates the evidence
+        correct: true
+        feedback: >
+          Right — with $\rho = 0.3$ the variance of $\bar{x}$ inflates by about
+          $(1+\rho)/(1-\rho) \approx 1.86$, cutting the statistic to roughly
+          $2.13$.
+      - text: >
+          Daily returns are not exactly normal, so no t-test on them is ever
+          valid
+        feedback: >
+          The t-test tolerates mild non-normality well once $n$ is in the
+          hundreds, because the CLT does the work for $\bar{x}$; it is
+          dependence and heavy tails, not mild skew, that break it.
+      - text: >
+          Nothing is wrong — $2.9$ clears the $1\%$ two-sided cutoff of $2.576$,
+          so the edge is established
+        feedback: >
+          It clears the cutoff only if the standard error in the denominator is
+          the right one, and with autocorrelated data it is not.
+    rubric:
+      - >
+        Names independence, not normality or the choice of table, as the
+        assumption that fails.
+      - >
+        Says the direction of the error — positive autocorrelation inflates
+        $\Var(\bar{x})$, so the reported $t$ is too large — and gives a rough
+        corrected value.
+    targets:
+      - quant-statistics.testing.ttest
+    exercises:
+      - quant-statistics.testing.ztest
+      - quant-probability.limits.clt
+
+  # --- comparing two means ----------------------------------------------------
+
+  - id: qtest-two-sample-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two market-making strategies quote the same instrument. Each has daily
+      return standard deviation $\sigma = 2\%$, their same-day returns correlate
+      at $\rho = 0.5$, and over $n = 64$ matched days strategy A beat strategy B
+      by an average of $0.6\%$ per day. What is the paired t-statistic for
+      $H_0: \mu_d = 0$?
+    answer: >
+      $t = 2.4$. The daily difference $d = x_A - x_B$ has variance
+      $\Var(x_A) + \Var(x_B) - 2\Cov(x_A, x_B) = 2\sigma^{2}(1 - \rho)
+      = 2(4)(0.5) = 4$ in percent-squared units, so its standard deviation is
+      $2\%$ per day. Over $64$ matched days the standard error of the mean
+      difference is $2\%/\sqrt{64} = 2\%/8 = 0.25\%$, and
+      $t = 0.6/0.25 = 2.4$. Against $t_{63,0.025} \approx 2.00$ this rejects.
+      The comparison worth carrying away is what ignoring the pairing costs:
+      treating the two series as independent gives a difference variance of
+      $2\sigma^{2} = 8$, a standard error of $\sqrt{8}/8 = 0.354\%$, and
+      $t = 1.70$ — the same data failing to reject. Pairing multiplies the
+      statistic by $1/\sqrt{1-\rho} = \sqrt{2} \approx 1.41$ here, equivalent to
+      doubling the sample. The mechanism is that the market factor both
+      strategies ride cancels inside each day's difference, and the more
+      correlated the two are, the more of the noise the subtraction removes.
+    expects: "2.4"
+    rubric:
+      - >
+        Uses $2\sigma^{2}(1-\rho)$ for the variance of the difference, keeping
+        the covariance term, rather than $2\sigma^{2}$.
+      - >
+        Divides by $\sqrt{n}$ once, on the differences, and states the gain over
+        the unpaired comparison as $1/\sqrt{1-\rho}$.
+    targets:
+      - quant-statistics.testing.two-sample
+    exercises:
+      - quant-statistics.testing.ttest
+
+  - id: qtest-two-sample-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Two independent desks are compared on their per-trade edge in basis
+      points. Desk A: $n_1 = 16$ trades, $\bar{x}_1 = 6$, $s_1 = 4$. Desk B:
+      $n_2 = 27$ trades, $\bar{x}_2 = 1$, $s_2 = 9$. What is Welch's
+      $t = (\bar{x}_1 - \bar{x}_2)/\sqrt{s_1^{2}/n_1 + s_2^{2}/n_2}$?
+    answer: >
+      $t = 2.5$. The two squared standard errors are
+      $s_1^{2}/n_1 = 16/16 = 1$ and $s_2^{2}/n_2 = 81/27 = 3$; Welch adds them,
+      giving $\sqrt{1 + 3} = 2$ basis points for the standard error of the
+      difference, so $t = (6 - 1)/2 = 5/2 = 2.5$. Welch's fractional degrees of
+      freedom come out near $38.8$, whose two-sided $5\%$ critical value is about
+      $2.02$, so this rejects. The point of the example is the contrast with the
+      pooled-variance alternative: pooling gives
+      $s_p^{2} = (15 \cdot 16 + 26 \cdot 81)/41 \approx 57.2$, $s_p \approx 7.56$,
+      a standard error of $7.56\sqrt{1/16 + 1/27} \approx 2.39$ and
+      $t \approx 2.10$. Pooling forces one common variance on samples whose
+      standard deviations differ by a factor of more than two, and it lends the
+      larger, noisier sample's variance to the smaller, quieter one. Welch costs
+      nothing but a messier degrees-of-freedom formula and drops an assumption
+      there is no reason to make, which is why it is the default. Note the
+      standard errors add, never the standard deviations: $\sqrt{1} + \sqrt{3}$
+      would give $2.73$ and a badly understated statistic.
+    expects: "2.5"
+    rubric:
+      - >
+        Adds the two squared standard errors $s_i^{2}/n_i$ and takes one square
+        root, rather than adding standard deviations.
+      - >
+        Says why the pooled version is the wrong default when the two sample
+        variances differ this much.
+    targets:
+      - quant-statistics.testing.two-sample
+    exercises:
+      - quant-statistics.testing.ttest
+
+  # --- confidence intervals and test duality ----------------------------------
+
+  - id: qtest-ci-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A $95\%$ z-interval for a signal's mean daily edge, in basis points, is
+      reported as $[1.04, 4.96]$. Nothing else about the sample is given. What is
+      the value of $z$ for a two-sided test of $H_0: \mu = 1$ basis point?
+    answer: >
+      $z = 2$. The interval carries everything the test needs, because
+      $\bar{x} \pm 1.96\,\sigma/\sqrt{n}$ is symmetric about the estimate. Its
+      centre is $\bar{x} = (1.04 + 4.96)/2 = 3.00$ basis points, and its
+      half-width is $(4.96 - 1.04)/2 = 1.96$, which by construction equals
+      $1.96\,\sigma/\sqrt{n}$ — so the standard error is exactly $1$ basis point.
+      Then $z = (\bar{x} - \mu_0)/\mathrm{SE} = (3.00 - 1)/1 = 2$. Since
+      $|z| = 2 > 1.96$ the test rejects at $5\%$, and duality says it must:
+      $\mu_0 = 1$ lies just outside $[1.04, 4.96]$, and the interval is precisely
+      the set of nulls this data fails to reject. The two readings are the same
+      arithmetic run in opposite directions, which is why an interview answer of
+      "does the interval contain $\mu_0$?" is a complete answer to "does the
+      two-sided test reject?". Note how thin the margin is: a null of $1.05$
+      would sit inside and fail to reject, at $z = 1.95$, and no one should treat
+      the two nulls as different findings.
+    expects: "2"
+    rubric:
+      - >
+        Recovers $\bar{x}$ from the midpoint and the standard error from the
+        half-width divided by $1.96$.
+      - >
+        States the duality — the interval is the set of nulls not rejected — and
+        checks the two verdicts agree.
+    targets:
+      - quant-statistics.testing.ci
+    exercises:
+      - quant-statistics.testing.ztest
+
+  - id: qtest-ci-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A fill-quality study has $n = 16$ observations with $\bar{x} = 5.0$ basis
+      points and sample standard deviation $s = 4.0$ basis points; $\sigma$ is
+      not known. Using $t_{15, 0.025} = 2.131$, what is the lower endpoint of the
+      $95\%$ confidence interval for the mean?
+    answer: >
+      $2.869$ basis points. The standard error is $s/\sqrt{n} = 4.0/4 = 1.0$
+      basis point, the margin is $t_{15,0.025} \cdot 1.0 = 2.131$, and the
+      interval is $5.0 \pm 2.131$, that is $[2.869, 7.131]$. Because $\sigma$ was
+      estimated from the same $16$ points, the t quantile is the right
+      multiplier; using $1.96$ instead would give $[3.04, 6.96]$, an interval
+      about $8\%$ too narrow whose true coverage is below the advertised $95\%$.
+      Two readings follow immediately. Zero is far outside, so the two-sided
+      test of $H_0: \mu = 0$ rejects comfortably. And the interval is wide: this
+      data is consistent with an edge of $3$ basis points and with one of $7$,
+      more than twice as large, so the study establishes that slippage is real
+      without pinning down its size. Narrowing to $\pm 1$ basis point would take
+      roughly $(2.131/1)^{2} \cdot 16 \approx 73$ observations, since width falls
+      only like $1/\sqrt{n}$.
+    expects: "2.869"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses the $t_{n-1}$ quantile rather than $1.96$ because $\sigma$ is
+        estimated, and divides $s$ by $\sqrt{n}$.
+      - >
+        Reads the interval as both a test verdict and a statement about
+        resolution.
+    targets:
+      - quant-statistics.testing.ci
+    exercises:
+      - quant-statistics.testing.ztest
+
+  - id: qtest-ci-03
+    kind: work
+    difficulty: standard
+    statement: >
+      A desk currently reports a $95\%$ z-interval for a mean built from $n$
+      observations with known $\sigma$. Compliance asks for $99\%$ confidence
+      without any loss of precision — the new interval must be no wider than the
+      old one. Using $z_{0.025} = 1.96$ and $z_{0.005} = 2.576$, by what factor
+      must $n$ grow?
+    answer: >
+      By a factor of about $1.727$. The half-width is
+      $z_{\alpha/2}\,\sigma/\sqrt{n}$, so holding $\sigma$ fixed and requiring
+      $2.576/\sqrt{n'} \le 1.96/\sqrt{n}$ gives
+      $\sqrt{n'/n} \ge 2.576/1.96 = 1.3143$ and
+      $n'/n \ge (1.3143)^{2} = 1.7273$. Raising the confidence level from $95\%$
+      to $99\%$ therefore costs about $73\%$ more data — a sample of $500$ becomes
+      $864$. The structural fact is that the level enters only through the
+      quantile while the sample size enters through $\sqrt{n}$, so every demand
+      for precision or confidence is paid for in the square. The same arithmetic
+      run for width alone says halving a width takes four times the data, and
+      quartering it sixteen times. The common error is to compare the levels
+      rather than the quantiles and conclude the interval needs to grow by
+      $99/95$; the confidence level and the interval's width are not
+      proportional to each other at all.
+    expects: "1.727"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Compares quantiles, not confidence levels, and squares the ratio because
+        the half-width scales like $1/\sqrt{n}$.
+      - >
+        Reports the factor as a multiple of the existing $n$ and notes the
+        general square law.
+    targets:
+      - quant-statistics.testing.ci
+    exercises:
+      - quant-statistics.testing.ztest
+
+  # --- what the confidence level is a statement about -------------------------
+
+  - id: qtest-ci-interpretation-01
+    kind: decide
+    difficulty: demanding
+    statement: >
+      A risk report states: "our $95\%$ confidence interval for the mean daily
+      P&L is $[12, 48]$ thousand dollars, so $95\%$ of the desk's daily P&L
+      outcomes will fall in this range." What is wrong with the sentence?
+    answer: >
+      It confuses an interval for the *mean* with an interval for a single day's
+      *outcome*. The confidence interval is built from the standard error
+      $\sigma/\sqrt{n}$ and shrinks like $1/\sqrt{n}$; it describes how precisely
+      the long-run average has been located, and with enough days it collapses
+      toward a point. The range in which individual daily P&L falls is governed
+      by $\sigma$ itself, which does not shrink at all: a prediction interval is
+      roughly $\bar{x} \pm 1.96\sigma$, wider than the confidence interval by a
+      factor of $\sqrt{n}$. If this interval came from $n = 100$ days, its
+      half-width of $18$ implies $\sigma/\sqrt{n} \approx 9.18$, hence
+      $\sigma \approx 91.8$ thousand dollars and a daily range of roughly
+      $[-150, +210]$ — ten times wider, and containing large losses the quoted
+      sentence appears to rule out. A second, separate error lurks in the same
+      sentence if it is read the other way: the $95\%$ attaches to the procedure
+      across repeated samples, not to this particular computed interval, which
+      either covers the true mean or does not.
+    choices:
+      - text: >
+          Nothing — a $95\%$ interval is by definition the range containing
+          $95\%$ of the outcomes
+        feedback: >
+          That is a prediction interval, built from $\sigma$; a confidence
+          interval is built from $\sigma/\sqrt{n}$ and is about the mean.
+      - text: >
+          It reads an interval for the mean as an interval for a single day's
+          outcome; the latter is wider by a factor of about $\sqrt{n}$
+        correct: true
+        feedback: >
+          Right — the confidence interval shrinks like $1/\sqrt{n}$ while the
+          spread of daily outcomes does not shrink at all.
+      - text: >
+          The interval should have been computed with $2.576$ rather than $1.96$
+        feedback: >
+          That would change the level from $95\%$ to $99\%$, leaving the
+          category error — mean versus single outcome — exactly where it was.
+      - text: >
+          The error is only that P&L is not normally distributed
+        feedback: >
+          Non-normality would perturb both intervals a little; it does not
+          explain a gap of a factor of $\sqrt{n}$ between them.
+    rubric:
+      - >
+        Separates the standard error $\sigma/\sqrt{n}$, which governs the
+        confidence interval, from $\sigma$, which governs the spread of single
+        outcomes.
+      - >
+        Says the confidence interval narrows with more data while the range of
+        daily outcomes does not.
+    targets:
+      - quant-statistics.testing.ci-interpretation
+    exercises:
+      - quant-statistics.testing.ci
+
+  - id: qtest-ci-interpretation-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A researcher publishes $95\%$ confidence intervals for five unrelated
+      parameters, each computed from its own independent dataset. What is the
+      probability that all five intervals cover their respective true
+      parameters?
+    answer: >
+      $0.95^{5} \approx 0.7738$. Coverage is a property of each procedure
+      separately — interval $i$ covers with probability $0.95$ — and the five
+      datasets are independent, so the events multiply:
+      $0.95^{5} = 0.7737809...$, about $77.4\%$. Equivalently the chance that at
+      least one of the five misses is $1 - 0.7738 = 0.2262$, more than one in
+      four, and the expected number of misses is $5 \times 0.05 = 0.25$. This is
+      the confidence-interval face of the multiple-testing problem: "$95\%$
+      each" is emphatically not "$95\%$ jointly", and a table of twenty such
+      intervals is more likely than not to contain a miss, since
+      $1 - 0.95^{20} = 0.64$. If a joint statement is what the reader will make,
+      the intervals have to be widened — Bonferroni would build each at level
+      $1 - 0.05/5 = 0.99$, using $2.576$ in place of $1.96$ and paying about
+      $31\%$ extra width for a family-wise guarantee. The interpretation trap is
+      that the coverage guarantee is about the recipe repeated, and repeating it
+      across parameters compounds the failure probability just as it does across
+      samples.
+    expects: "0.7738"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Multiplies the per-interval coverage probabilities because the datasets
+        are independent, rather than quoting $0.95$.
+      - >
+        Reads the answer as the interval version of family-wise error and names
+        the widening that a joint statement would require.
+    targets:
+      - quant-statistics.testing.ci-interpretation
+    exercises:
+      - quant-statistics.testing.ci
+
+  # --- sample size to resolve an effect ---------------------------------------
+
+  - id: qtest-sample-size-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A desk has $n = 400$ days of returns on a strategy whose daily standard
+      deviation is $\sigma = 1.6\%$. At two-sided $\alpha = 0.05$ and power
+      $0.80$, so that $z_{\alpha/2} + z_{\beta} = 2.80$, what is the smallest
+      daily edge $\delta$, in percent, that this much data can resolve?
+    answer: >
+      $\delta = 0.224\%$ per day. Run the sample-size relation backwards. Power
+      $1 - \beta$ is reached when $\delta\sqrt{n}/\sigma = z_{\alpha/2} +
+      z_{\beta}$, so
+      $\delta = (z_{\alpha/2} + z_{\beta})\sigma/\sqrt{n}
+      = 2.80 \times 1.6/\sqrt{400} = 2.80 \times 1.6/20 = 4.48/20 = 0.224$
+      percent. Anything smaller is more likely than not to be missed even if it
+      is real, which is the honest way to describe an underpowered study. This is
+      the root-n rule read as a budget: resolution improves only like
+      $\sigma/\sqrt{n}$, so the four hundred days already in hand buy a
+      detectable effect of $0.224\%$, and getting to $0.112\%$ — half as large —
+      would take $1600$ days, four times the data and roughly six years more of
+      trading. Two cautions. The minimum detectable effect is not the standard
+      error $\sigma/\sqrt{n} = 0.08\%$; it is $2.80$ times it, because the
+      threshold has to clear the null's critical value *and* leave the
+      alternative enough room to land past it $80\%$ of the time. And $\delta$ is
+      not an estimate of the edge — it is a statement about the experiment, fixed
+      before any data is examined.
+    expects: "0.224"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Solves $\delta\sqrt{n}/\sigma = z_{\alpha/2} + z_{\beta}$ for $\delta$
+        rather than for $n$.
+      - >
+        Distinguishes the minimum detectable effect from the standard error, and
+        states the $1/\sqrt{n}$ scaling of resolution.
+    targets:
+      - quant-statistics.testing.sample-size
+      - quant-probability.limits.root-n
+    exercises:
+      - quant-statistics.testing.power-curve
+      - quant-statistics.testing.ztest
+    connects:
+      - "quant-probability.limits.root-n ~ quant-statistics.testing.sample-size"
+
+  - id: qtest-sample-size-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A signal's returns have standard deviation $\sigma = 3\%$ per day, and a
+      desk wants to detect an edge of $\delta = 0.25\%$ per day at two-sided
+      $\alpha = 0.05$ with power $0.90$, whose multiplier is
+      $(1.96 + 1.28)^{2} = 10.5$. How many days of data are needed?
+    answer: >
+      About $1512$ days. The formula is
+      $n \approx ((z_{\alpha/2} + z_{\beta})\sigma/\delta)^{2}
+      = 10.5 \times (\sigma/\delta)^{2}$, and here
+      $\sigma/\delta = 3/0.25 = 12$, so $n \approx 10.5 \times 144 = 1512$
+      trading days — a little over six years. Only the ratio $\sigma/\delta$
+      matters, not the units: the same $1512$ would come out for $\sigma = 30$
+      basis points against $\delta = 2.5$ basis points. Two comparisons make the
+      cost visible. Settling for power $0.80$ drops the multiplier to $7.85$ and
+      the requirement to $1130$ days, so the last ten points of power cost about
+      a year and a half of trading. And halving the target edge to $0.125\%$
+      quadruples the requirement to about $6048$ days, roughly twenty-four years,
+      which is usually the point at which the honest answer is that the effect
+      cannot be established from this data source at all. The frequent slip is
+      forgetting the square and reporting $10.5 \times 12 = 126$.
+    expects: "1512"
+    tolerance: 0.5
+    rubric:
+      - >
+        Squares the ratio $\sigma/\delta$ and multiplies by the level-and-power
+        constant.
+      - >
+        States that only $\sigma/\delta$ enters, and quantifies what a smaller
+        $\delta$ or higher power costs.
+    targets:
+      - quant-statistics.testing.sample-size
+    exercises:
+      - quant-statistics.testing.power-curve
+
+  # --- how many flips to detect an edge ---------------------------------------
+
+  - id: qtest-detect-coin-edge-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A coin is genuinely biased to $p = 0.53$. You will flip it $n = 2500$ times
+      and run a two-sided $5\%$ test of $H_0: p = 0.5$, using the null per-flip
+      standard deviation $\sigma = 0.5$. Given $\Phi(1.04) \approx 0.8508$, what
+      is the power of this test?
+    answer: >
+      $0.8508$. The effect is $\delta = 0.53 - 0.50 = 0.03$ per flip, and the
+      signal-to-noise ratio is
+      $\delta\sqrt{n}/\sigma = 0.03 \times 50/0.5 = 1.5/0.5 = 3.0$. Power for the
+      two-sided test is
+      $\Phi(\delta\sqrt{n}/\sigma - z_{\alpha/2}) = \Phi(3.0 - 1.96)
+      = \Phi(1.04) = 0.8508$, ignoring the far tail, whose contribution here is
+      about $\Phi(-4.96) \approx 4 \times 10^{-7}$ and rounds away entirely.
+      Read the number as a bet: even with a real three-point edge and $2500$
+      flips, one experiment in seven comes back unable to reject a fair coin.
+      Sanity-check it against the design formula in the other direction — $80\%$
+      power at $\delta = 0.03$ needs
+      $n \approx (2.80 \times 0.5/0.03)^{2} \approx 2178$ flips, and $2500$ is
+      comfortably more, so power above $0.80$ is exactly what should have been
+      expected. The usual error is to subtract $z_{\alpha} = 1.645$ here; that is
+      the one-sided critical value and it would overstate the power as
+      $\Phi(1.355) \approx 0.912$.
+    expects: "0.8508"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Forms the signal-to-noise ratio $\delta\sqrt{n}/\sigma$ and subtracts
+        $z_{\alpha/2}$, not $z_{\alpha}$, for a two-sided test.
+      - >
+        Notes the far tail is negligible and cross-checks against the sample-size
+        formula.
+    targets:
+      - quant-statistics.testing.detect-coin-edge
+    exercises:
+      - quant-statistics.testing.sample-size
+      - quant-statistics.testing.power-curve
+
+  - id: qtest-detect-coin-edge-02
+    kind: work
+    difficulty: standard
+    statement: >
+      How many flips are needed to detect a coin biased to $p = 0.60$ at
+      two-sided $\alpha = 0.05$ with power $0.80$? Use the null per-flip standard
+      deviation $\sigma = 0.5$ and the multiplier
+      $z_{\alpha/2} + z_{\beta} = 2.80$.
+    answer: >
+      $n \approx 196$ flips. Here $\delta = 0.60 - 0.50 = 0.10$, so
+      $n \approx ((z_{\alpha/2} + z_{\beta})\sigma/\delta)^{2}
+      = (2.80 \times 0.5/0.10)^{2} = 14^{2} = 196$. The number is worth holding
+      next to the familiar hundred-toss puzzle: a coin that really lands heads
+      $60\%$ of the time still needs about two hundred tosses before the standard
+      test catches it four times in five, so a hundred tosses is an underpowered
+      experiment even against an edge this large — its power is
+      $\Phi(0.10 \times 10/0.5 - 1.96) = \Phi(0.04) \approx 0.52$, barely a coin
+      flip itself. The square law is the whole content: a $55\%$ coin, half the
+      edge, needs four times as many flips, about $784$. Using the alternative's
+      own standard deviation $\sqrt{0.6 \times 0.4} = 0.49$ in place of the null's
+      $0.5$ trims the requirement to about $188$, a refinement small enough to
+      ignore in an interview but worth naming.
+    expects: "196"
+    tolerance: 0.5
+    rubric:
+      - >
+        Applies $n \approx ((z_{\alpha/2}+z_{\beta})\sigma/\delta)^{2}$ with
+        $\delta$ measured from $0.5$.
+      - >
+        Places the answer against a hundred tosses and states the square law for
+        a smaller edge.
+    targets:
+      - quant-statistics.testing.detect-coin-edge
+    exercises:
+      - quant-statistics.testing.sample-size
+
+  # --- family-wise error and Bonferroni ---------------------------------------
+
+  - id: qtest-multiple-testing-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Independent tests are run one after another, each at $\alpha = 0.05$, on
+      nulls that are all true. What is the smallest number of tests $m$ for which
+      the family-wise error rate first exceeds $0.50$ — that is, for which a
+      false rejection somewhere becomes more likely than not?
+    answer: >
+      $m = 14$. The family-wise error rate is $1 - 0.95^{m}$, so the condition
+      $1 - 0.95^{m} > 0.5$ is $0.95^{m} < 0.5$, that is
+      $m > \ln(0.5)/\ln(0.95) = (-0.6931)/(-0.05129) = 13.51$, hence $m = 14$.
+      Checking the two neighbours: $0.95^{13} = 0.5133$ gives a rate of $0.4867$,
+      just under a half, and $0.95^{14} = 0.4877$ gives $0.5123$, just over. So
+      fourteen honest tests at the conventional level are already a coin flip on
+      producing at least one false discovery, and the twenty of a routine
+      backtest sweep push it to $1 - 0.95^{20} = 0.64$. The approximation
+      $m\alpha$ from the union bound would answer $m = 10$ here, which is wrong
+      in the safe direction — the bound is an upper bound on the rate, so it
+      reaches $0.5$ sooner than the truth does, and the gap widens as $m$ grows
+      because $1 - (1-\alpha)^{m}$ saturates at $1$ while $m\alpha$ runs past it.
+      The moral: the level $\alpha$ is a promise about *one* pre-registered test,
+      and it decays geometrically over a sequence.
+    expects: "14"
+    rubric:
+      - >
+        Solves $1 - (1-\alpha)^{m} > 0.5$ with logarithms and rounds up to the
+        first integer that satisfies it, checking the neighbour.
+      - >
+        Compares with the union bound $m\alpha$ and says which direction the
+        bound errs in.
+    targets:
+      - quant-statistics.testing.multiple-testing
+    exercises:
+      - quant-probability.inequalities.union-bound
+      - quant-statistics.testing.type-errors
+
+  - id: qtest-multiple-testing-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A research group will run $m = 25$ independent tests and wants a
+      family-wise error rate of at most $\alpha = 0.05$. They apply Bonferroni
+      and test each hypothesis at $0.05/25 = 0.002$. If all $25$ nulls are true,
+      what is the *actual* family-wise error rate this achieves?
+    answer: >
+      $1 - (1 - 0.002)^{25} = 1 - 0.998^{25} \approx 0.0488$. Computing:
+      $0.998^{25} = \exp(25\ln 0.998) = \exp(-0.05005) = 0.95118$, so the rate is
+      $0.04882$. The union bound promised only $m\alpha' = 25 \times 0.002 = 0.05$
+      as a ceiling, and the truth comes in slightly under it, at about $97.6\%$
+      of the budget. That gap is the price of a bound that holds whatever the
+      dependence: it discards the second-order terms
+      $\binom{25}{2}(0.002)^{2} \approx 0.0012$ and beyond, which are exactly what
+      independence would let you keep. Here the slack is negligible, and at small
+      $\alpha'$ it always is — $1 - (1-\alpha')^{m} \approx m\alpha'$ to first
+      order. Where Bonferroni really loses is not this rounding but power: each
+      test now needs $|z| \ge 3.09$ instead of $1.96$, so a genuine effect that
+      would have been found at $5\%$ can easily be missed, and with correlated
+      tests, as overlapping backtests are, the correction is more conservative
+      still. Holm's step-down gives the same family-wise guarantee with uniformly
+      more power.
+    expects: "0.0488"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses the exact independent rate $1 - (1-\alpha')^{m}$ with the corrected
+        per-test level, not the original $0.05$.
+      - >
+        Compares the achieved rate with the union bound $m\alpha'$ and names the
+        real cost of Bonferroni as lost power.
+    targets:
+      - quant-statistics.testing.multiple-testing
+    exercises:
+      - quant-probability.inequalities.union-bound
+
+  - id: qtest-multiple-testing-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      A desk screens $200$ candidate factors and finds that Bonferroni at
+      $0.05/200 = 0.00025$ leaves nothing at all significant. A colleague
+      proposes switching to Benjamini-Hochberg. What does that switch actually
+      change?
+    answer: >
+      It changes the quantity being controlled, not merely the arithmetic.
+      Bonferroni and Holm both cap the family-wise error rate, the probability of
+      *any* false rejection among the $200$; Benjamini-Hochberg instead controls
+      the false discovery rate, the expected proportion of the rejections that
+      are false. Those are different promises. At a $10\%$ FDR, a screen that
+      returns twenty factors is accepting that about two of them are noise, which
+      is a sensible trade for a pipeline whose output goes to further testing and
+      an unacceptable one for a single irreversible decision. The switch buys
+      power precisely by tolerating some false positives, and the step-up
+      procedure compares the $k$-th smallest p-value to $k\alpha/m$ rather than
+      to $\alpha/m$, so the largest surviving p-values face a much gentler
+      threshold. Worth naming alongside: Holm's step-down keeps the family-wise
+      guarantee exactly and still dominates Bonferroni uniformly, so there is
+      never a reason to prefer plain Bonferroni to Holm; the real decision here
+      is which error rate the research question deserves.
+    choices:
+      - text: >
+          It controls the family-wise error rate at a looser level, so more
+          factors survive
+        feedback: >
+          Benjamini-Hochberg does not control the family-wise rate at all; it
+          controls a different quantity, which is why it has more power.
+      - text: >
+          It controls the expected *proportion* of rejections that are false
+          rather than the chance of any false rejection, buying power by
+          tolerating some false positives
+        correct: true
+        feedback: >
+          Right — a $10\%$ false discovery rate over twenty rejections expects
+          about two of them to be noise, which is a different promise from
+          "probably no errors at all".
+      - text: >
+          It removes the need for any correction once $m$ exceeds about $100$
+        feedback: >
+          The multiplicity does not go away with scale; it grows. BH is a
+          correction, just one calibrated to a different error rate.
+      - text: >
+          It is strictly worse than Bonferroni because it rejects more
+          hypotheses
+        feedback: >
+          Rejecting more is the point when the output feeds further validation;
+          whether it is worse depends entirely on which error rate the decision
+          needs.
+    rubric:
+      - >
+        Names the controlled quantity in each case — family-wise error versus
+        false discovery proportion — rather than describing BH as a looser FWER
+        method.
+      - >
+        Says what the extra power costs, and notes Holm dominates Bonferroni
+        under the family-wise guarantee.
+    targets:
+      - quant-statistics.testing.multiple-testing
+    exercises:
+      - quant-statistics.testing.pvalue
+      - quant-statistics.testing.type-errors
+
+  # --- data snooping in strategy research -------------------------------------
+
+  - id: qtest-data-snooping-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A research pipeline screens $200$ candidate signals. Suppose $10$ of them
+      carry a real edge and the other $190$ are pure noise, and that each signal
+      is tested at $\alpha = 0.05$ with power $0.80$ against its true effect. Of
+      the signals the screen declares significant, what fraction are false
+      discoveries?
+    answer: >
+      About $0.5429$, that is $54.3\%$ — more than half. Count the two streams
+      separately. Of the $10$ real signals, power $0.80$ finds
+      $10 \times 0.80 = 8$ in expectation. Of the $190$ nulls, the level $0.05$
+      falsely rejects $190 \times 0.05 = 9.5$ in expectation. The screen therefore
+      declares about $8 + 9.5 = 17.5$ signals significant, and the false share is
+      $9.5/17.5 = 19/35 \approx 0.5429$. The lesson is that $\alpha$ and the
+      false-discovery share are not the same number and are not even close: the
+      test's error rate is $5\%$ per null, but what a researcher cares about is
+      the reverse conditional, $\Pr(\text{no edge} \mid \text{significant})$, and
+      that depends on the base rate. Here noise outnumbers signal nineteen to
+      one, so even a well-powered test hands back a coin flip. Two levers move
+      it. Raising power to $0.99$ only gets the false share to $9.5/19.4 = 0.49$,
+      barely anything, because the flood of false positives is the binding term.
+      Tightening the level to $0.005$ takes it to $0.95/8.95 \approx 0.106$ —
+      the level, not the power, is what controls a screen. This is why a search
+      over many specifications must be declared: the survivor's nominal p-value
+      was computed under the wrong null, and the right question is how a best-of
+      statistic behaves.
+    expects: "0.5429"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Counts expected true and false rejections separately from the base rate,
+        power and level, rather than quoting $\alpha$.
+      - >
+        Names the quantity as the reverse conditional
+        $\Pr(\text{no edge} \mid \text{significant})$ and says that tightening
+        the level, not raising power, is the effective lever.
+    targets:
+      - quant-statistics.testing.data-snooping
+    exercises:
+      - quant-statistics.testing.multiple-testing
+      - quant-statistics.testing.type-errors
+
+  - id: qtest-data-snooping-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A researcher searched $30$ specifications on data through $2019$, picked
+      the single best, and then evaluated that one strategy on $2020$ to $2023$
+      data that had been sealed from the start, obtaining $p = 0.02$. Is that
+      $p = 0.02$ a legitimate $5\%$ test?
+    answer: >
+      Yes, provided the holdout really was untouched and the strategy was frozen
+      before it was opened. The reason the in-sample p-value of a search winner
+      is meaningless is that the reported null ignores the selection: the correct
+      null law is that of the maximum over $30$ noise statistics, which sits far
+      out in the tail. A holdout removes exactly that defect, because on fresh
+      data the single frozen hypothesis is pre-registered — one test, one null,
+      one p-value, and the $5\%$ level means what it says. The conditions are
+      strict and are where candidates lose the point. The holdout must never have
+      been looked at, not even for a sanity plot; only one strategy may be
+      carried forward, since taking the top three and testing all of them
+      restores $m = 3$ and needs a correction; and the split must respect time
+      and any overlap, because a strategy with a multi-day holding period leaks
+      across a naive boundary. The catch that survives all of this is that a
+      holdout is spent on first use: come back with a second candidate after the
+      first fails and the sealed data has quietly become in-sample too.
+    choices:
+      - text: >
+          No — the search over $30$ specifications contaminates every subsequent
+          test of the winner, forever
+        feedback: >
+          The contamination is of the *in-sample* null, which the search
+          distorted; fresh data the search never touched restores a clean single
+          test.
+      - text: >
+          Yes, if the holdout was genuinely never examined and exactly one frozen
+          strategy was carried into it
+        correct: true
+        feedback: >
+          Right — on untouched data the winner is a single pre-registered
+          hypothesis, so the nominal level is the real one.
+      - text: >
+          Yes unconditionally, because out-of-sample evidence never needs a
+          multiplicity correction
+        feedback: >
+          Carry three finalists into the holdout, or peek and re-tune, and the
+          multiplicity is right back; the guarantee depends on the discipline,
+          not on the label.
+      - text: >
+          No — the p-value must be multiplied by $30$ before it can be reported
+        feedback: >
+          That Bonferroni adjustment is what the *in-sample* result needed. The
+          holdout test is a single test and needs no such factor.
+    rubric:
+      - >
+        Explains that the in-sample defect is a wrong null — the law of the
+        maximum over the search — and that untouched data restores a single
+        pre-registered test.
+      - >
+        States the conditions: one frozen candidate, no prior inspection, a split
+        that respects time, and a holdout that is spent once used.
+    targets:
+      - quant-statistics.testing.data-snooping
+    exercises:
+      - quant-statistics.testing.multiple-testing
+      - quant-statistics.testing.pvalue
+
+  # --- statistical versus practical significance ------------------------------
+
+  - id: qtest-practical-significance-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A signal's estimated edge is $0.9$ basis points per trade with a standard
+      error of $0.5$ basis points, measured over $400$ trades. Round-trip costs
+      are $0.3$ basis points. What is the z-statistic for the economically
+      relevant null, $H_0: \mu = 0.3$ — the hypothesis that the edge exactly
+      covers costs and no more?
+    answer: >
+      $z = 1.2$. The statistic is $(\hat{\mu} - \mu_0)/\mathrm{SE}
+      = (0.9 - 0.3)/0.5 = 0.6/0.5 = 1.2$, well short of $1.96$: this data cannot
+      establish that the strategy makes money after costs. Contrast the number a
+      researcher would usually report, the test against zero,
+      $z = 0.9/0.5 = 1.8$ — also short of significance here, but note that the
+      two nulls answer different questions, and it is the second one that a risk
+      committee should be asking. The $95\%$ interval is
+      $0.9 \pm 1.96 \times 0.5 = [-0.08, 1.88]$ basis points, so the honest
+      summary is that the data is consistent with a small loss and with an edge
+      five times the cost hurdle; $400$ trades simply does not resolve the
+      question. Two habits fall out of this. Test against the threshold that
+      makes the decision, not against zero, whenever a cost, a hurdle rate or a
+      benchmark defines what "works" means. And read the interval rather than the
+      verdict: "not significant" here means undetermined, not refuted, and the
+      remedy is more trades — reaching $80\%$ power against a true net edge of
+      $0.6$ basis points needs roughly
+      $7.85(\sigma/\delta)^{2} = 7.85(10/0.6)^{2} \approx 2181$ trades, since the
+      per-trade standard deviation is $0.5\sqrt{400} = 10$ basis points.
+    expects: "1.2"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Standardizes against the cost hurdle $\mu_0 = 0.3$ rather than against
+        zero, and divides by the standard error.
+      - >
+        Reads the interval as "undetermined rather than refuted" and says what
+        would settle it.
+    targets:
+      - quant-statistics.testing.practical-significance
+    exercises:
+      - quant-statistics.testing.ci
+      - quant-statistics.testing.ztest
+
+  - id: qtest-practical-significance-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      An order-routing change is evaluated over five million orders. The measured
+      improvement is $0.002$ basis points per order with a standard error of
+      $0.0004$, giving $z = 5$ and $p < 10^{-6}$; the $95\%$ interval is
+      $[0.0012, 0.0028]$ basis points. Round-trip costs on this desk run about
+      $0.5$ basis points. How should the result be reported?
+    answer: >
+      As a precisely measured effect that is economically negligible. Five
+      million orders make the standard error tiny, and $z = 5$ says only that the
+      improvement is distinguishable from exactly zero — which, for any change
+      that does something, it eventually will be. What decides the question is
+      the interval: the entire range $[0.0012, 0.0028]$ sits more than two
+      hundred times below the $0.5$ basis-point cost scale, so even the most
+      favourable value the data supports is immaterial. This is the large-$n$
+      face of the significance trap, and its mirror image is equally common: a
+      genuinely valuable effect measured over forty trades can sit at $p = 0.3$
+      and be dismissed, when the correct reading is that the experiment was too
+      small to tell. The reporting discipline that avoids both is to lead with
+      the estimate and its interval in the units the decision is made in, put the
+      p-value second, and state the comparison against the economic threshold
+      explicitly. A t-statistic measures how sure you are that an effect is not
+      exactly zero; it says nothing whatever about whether the effect is worth
+      having.
+    choices:
+      - text: >
+          Highly significant, so the change should be adopted
+        feedback: >
+          Significance at $z = 5$ says the effect is not exactly zero; it does
+          not say the effect is large enough to matter, and here the whole
+          interval is orders of magnitude below the cost scale.
+      - text: >
+          Precisely measured and economically negligible — lead with the
+          interval against the cost threshold, not with the p-value
+        correct: true
+        feedback: >
+          Right — five million orders buy precision, and the precision reveals
+          that the effect is real and irrelevant.
+      - text: >
+          The result is unreliable because such a small p-value must indicate a
+          data error
+        feedback: >
+          A tiny p-value is exactly what a real, tiny effect produces at
+          $n = 5$ million; nothing here is anomalous.
+      - text: >
+          Inconclusive, since the improvement is smaller than the transaction
+          cost
+        feedback: >
+          It is not inconclusive at all — it is very well determined. The finding
+          is a confident "too small to matter", which is a decision, not a
+          failure to decide.
+    rubric:
+      - >
+        Separates precision from importance, using the interval in economic
+        units rather than the p-value.
+      - >
+        Names the mirror error — a valuable effect dismissed for low power — and
+        gives the reporting order that avoids both.
+    targets:
+      - quant-statistics.testing.practical-significance
+    exercises:
+      - quant-statistics.testing.ci

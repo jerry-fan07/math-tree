@@ -79,6 +79,23 @@ struct ScoreSection: View {
             if case let .learned(retrievability) = state {
                 MeasureBar(value: retrievability, tint: valueColor(theme))
             }
+            // §6.8's rung, in the course's vocabulary, beside §4.5's number: the
+            // panel is where the two read-outs are seen together, so they had
+            // better agree — and they do, by construction (Proficient is met).
+            let level = scores.level(of: node.id)
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                MasteryDot(level: level, diameter: 6)
+                    .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 3 }
+                Text(level.title)
+                    .font(Typeface.sans(12, .medium))
+                    .foregroundStyle(level.tint(theme).color)
+                Text(level.detail)
+                    .font(Typeface.mono(10))
+                    .foregroundStyle(theme.inkFaint.color)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .help(level.detail)
             HStack(alignment: .firstTextBaseline) {
                 Text(ScoreFormat.due(scores.nextDue(of: node.id), relativeTo: scores.evaluatedAt))
                     .foregroundStyle(

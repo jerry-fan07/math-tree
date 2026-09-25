@@ -106,6 +106,30 @@ struct FixtureUserTests {
     /// §4.5's *definition*, recomputed here from the spec rather than taken from
     /// `Frontier`'s internals. A literal list of every id would have to be rewritten
     /// every time a subbranch lands, and would stop being read the second time.
+    /// Phase 15's exit criterion, on the real fixture: §6.8's Proficient rung
+    /// is §4.5's met — for every content node, and in the summary's count — so
+    /// the course's read-outs and the map's colours can never disagree.
+    @Test func theLadderAgreesWithTheFrontier() {
+        let evidence = MasteryEvidence(events: events)
+        let content = graph.nodes.filter(\.kind.isContent).map(\.id)
+        var met = 0
+        for id in content {
+            let level = Mastery.level(of: id, state: state, evidence: evidence, at: now, config: config)
+            let isMet =
+                state.isLearned(id) && (retrievability(id) ?? 0) > config.masteryThreshold
+            #expect(level.isMet == isMet, "\(id): \(level) vs met=\(isMet)")
+            if isMet { met += 1 }
+        }
+        let summary = Mastery.summary(
+            of: content, state: state, evidence: evidence, at: now, config: config)
+        #expect(summary.metCount == met)
+        #expect(summary.total == content.count)
+        // The fixture holds only self-reports and their propagation, so nothing
+        // is proven: the top rung is empty until a problem is passed.
+        #expect(summary.count(.mastered) == 0)
+        #expect(evidence.proven.isEmpty)
+    }
+
     @Test func frontierMatchesHandComputedTruth() {
         let frontier = Set(Frontier.compute(graph: graph, state: state, at: now, config: config))
 

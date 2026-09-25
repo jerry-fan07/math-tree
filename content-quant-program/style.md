@@ -97,6 +97,15 @@ inside `\text{...}`** (it splits the enclosing span — write digits in the
 `\text` directly). The corpus self-check renders every section of every lesson
 and CI fails on any deviation.
 
+## `dialogue` — the lesson as a Socratic dialogue (§6.9)
+
+A lesson may carry a `dialogue:` instead of `steps:` — the same card
+vocabulary plus `reflect` and `part`, held to a contract that puts the
+question before the explanation. `program/dialogue.md` is normative for
+dialogues in both trees; read it before writing one, and check with
+`python3 Scripts/check-lesson-file.py --dialogue <unit-id>`. A lesson carries
+`steps` or `dialogue`, never both.
+
 ## `steps` — the lesson as cards (§6.7)
 
 Optional, and worth authoring wherever you can. A lesson with no `steps` still
@@ -137,9 +146,24 @@ node from paged prose to a checked lesson.
 - **A card is `teach` xor `ask`** — one beat or one question, never both, and
   never neither. A `teach` card carrying `choices`/`expects`/`feedback` is an
   error, not a shorthand.
-- **Aim for 5–7 cards and at least two checks per lesson.** Below four cards the
-  lint says so; zero checks makes it a slideshow, which the lint also says.
-  Alternate: teach, teach, check, teach, check.
+- **Aim for 6–9 cards and at least two checks per lesson — three where the
+  node computes anything.** Below four cards the lint says so; zero checks
+  makes it a slideshow, which the lint also says, and the pre-flight check
+  refuses a single check. Alternate: teach, teach, check, teach, check, teach,
+  check. Since Phase 15 every lesson in the corpus carries `steps` — a lesson
+  paging off its prose is the fallback, not the norm.
+- **Build the lesson, don't summarise it.** The cards are the Khan-Academy
+  pass over the node: motivate (one card), define or state precisely (one),
+  a first concrete instance (one), a check on that instance, the general
+  pattern or the load-bearing step of the proof (one or two), a check that
+  needs the pattern, the standard trap (one), and the recap beat. A `teach`
+  card is two or three sentences carrying *one* idea at reading size; a card
+  that restates the previous card is a card to delete.
+- **Show the computation that produces `expects` inside `feedback`.** The
+  feedback is the only place a correct answer is *explained* and the only
+  place a wrong one is corrected, and it is also the reviewer's check on the
+  author: `expects: "1.6"` beside `$0.3(10) + 0.7(-2) = 1.6$` can be verified
+  in a glance; a bare number cannot.
 - **`expects` must be quoted and must be a number.** It decodes as a `String`,
   so an unquoted `expects: 1` fails the build as an integer. And the parser
   reads decimals, fractions `a/b`, percentages and `\frac{a}{b}` — nothing else.

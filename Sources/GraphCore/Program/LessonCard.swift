@@ -1,21 +1,37 @@
 import Foundation
 
-/// §6.7's unit of a paged lesson: one screen the reader dismisses with a click.
+/// §6.7's unit of a lesson, and §6.9's step of a dialogue.
 ///
-/// A card is a **teaching beat** or a **check**, never both — `teach` xor `ask`,
-/// enforced by the validator rather than by the type, because YAML has no sum
-/// types and an author who writes both should be told which line to delete rather
-/// than have one silently win.
+/// A card is exactly one of three things — a **teaching beat** (`teach`), a
+/// **check** (`ask`, machine-graded), or a **reflection** (`reflect`, §6.9: an
+/// open question the reader answers in their own words and then compares with
+/// the tutor's `answer`). One of the three, never two — enforced by the
+/// validator rather than by the type, because YAML has no sum types and an
+/// author who writes two should be told which line to delete rather than have
+/// one silently win.
+///
+/// Any card may also open a **part** of a dialogue (`part:`, a short title) —
+/// the dialogue's sections, which the player sets as headings and lists in its
+/// outline.
 ///
 /// The check's fields (`choices`, `expects`, `tolerance`, `feedback`) sit *inline*
 /// rather than under a nested `check:` mapping (D13.3): the authored form stays
 /// flat, and `AnswerCheck` is composed from them on read.
 public struct LessonCard: Codable, Hashable, Sendable {
     /// A teaching beat — one idea, two or three sentences. Present exactly when
-    /// this is not a check.
+    /// this is neither a check nor a reflection.
     public let teach: String?
     /// The question. Present exactly when this is a check.
     public let ask: String?
+    /// §6.9's open question: the reader writes an answer, then reads the tutor's.
+    /// Present exactly when this is a reflection.
+    public let reflect: String?
+    /// The tutor's answer to a reflection — better than what a reader will write:
+    /// it names the idea and says why. Present exactly on a reflection.
+    public let answer: String?
+    /// §6.9: the title of the dialogue part this card opens, or `nil` when the
+    /// card continues the current one.
+    public let part: String?
     /// Multiple-choice rows. Empty on a typed check and on a teaching card.
     public let choices: [AnswerChoice]
     /// The expected value of a typed check, as the author wrote it.
@@ -34,6 +50,9 @@ public struct LessonCard: Codable, Hashable, Sendable {
     public init(
         teach: String? = nil,
         ask: String? = nil,
+        reflect: String? = nil,
+        answer: String? = nil,
+        part: String? = nil,
         choices: [AnswerChoice] = [],
         expects: String? = nil,
         tolerance: Double? = nil,
@@ -43,6 +62,9 @@ public struct LessonCard: Codable, Hashable, Sendable {
     ) {
         self.teach = teach
         self.ask = ask
+        self.reflect = reflect
+        self.answer = answer
+        self.part = part
         self.choices = choices
         self.expects = expects
         self.tolerance = tolerance
@@ -60,21 +82,40 @@ public struct LessonCard: Codable, Hashable, Sendable {
 
     public var isCheck: Bool { ask?.trimmed.isEmpty == false }
 
+    /// §6.9's reflection: an open question with a model answer, graded by the
+    /// reader against the tutor rather than by the app.
+    public var isReflection: Bool { !isCheck && reflect?.trimmed.isEmpty == false }
+
+    /// Whether the dialogue waits on this card — a check or a reflection. A
+    /// teaching beat never waits; it is read on the way to the next question.
+    public var isQuestion: Bool { isCheck || isReflection }
+
+    /// The part title this card opens, trimmed, or `nil`.
+    public var partTitle: String? {
+        guard let part = part?.trimmed, !part.isEmpty else { return nil }
+        return part
+    }
+
     /// What the card shows above the fold — the beat, or the question.
-    public var prompt: String { (isCheck ? ask : teach) ?? "" }
+    public var prompt: String {
+        (isCheck ? ask : (isReflection ? reflect : teach)) ?? ""
+    }
 
     /// Every renderable field, for the corpus self-check.
     public var renderableFields: [(field: String, source: String)] {
         var out: [(String, String)] = []
+        if let part { out.append(("card.part", part)) }
         if let teach { out.append(("card.teach", teach)) }
         if let ask { out.append(("card.ask", ask)) }
+        if let reflect { out.append(("card.reflect", reflect)) }
+        if let answer { out.append(("card.answer", answer)) }
         if let hint { out.append(("card.hint", hint)) }
         if let check { out.append(contentsOf: check.renderableFields.map { ("card.\($0.0)", $0.1) }) }
         return out
     }
 
     enum CodingKeys: String, CodingKey {
-        case teach, ask, choices, expects, tolerance, hint, feedback
+        case part, teach, ask, reflect, answer, choices, expects, tolerance, hint, feedback
     }
 
     // Hand-written for the same reason `Lesson`'s is: absent fields decode as nil
@@ -85,6 +126,9 @@ public struct LessonCard: Codable, Hashable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         teach = try c.decodeIfPresent(String.self, forKey: .teach)
         ask = try c.decodeIfPresent(String.self, forKey: .ask)
+        reflect = try c.decodeIfPresent(String.self, forKey: .reflect)
+        answer = try c.decodeIfPresent(String.self, forKey: .answer)
+        part = try c.decodeIfPresent(String.self, forKey: .part)
         choices = try c.decodeIfPresent([AnswerChoice].self, forKey: .choices) ?? []
         expects = try c.decodeIfPresent(String.self, forKey: .expects)
         tolerance = try c.decodeIfPresent(Double.self, forKey: .tolerance)
@@ -95,8 +139,11 @@ public struct LessonCard: Codable, Hashable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(part, forKey: .part)
         try c.encodeIfPresent(teach, forKey: .teach)
         try c.encodeIfPresent(ask, forKey: .ask)
+        try c.encodeIfPresent(reflect, forKey: .reflect)
+        try c.encodeIfPresent(answer, forKey: .answer)
         if !choices.isEmpty { try c.encode(choices, forKey: .choices) }
         try c.encodeIfPresent(expects, forKey: .expects)
         try c.encodeIfPresent(tolerance, forKey: .tolerance)
@@ -108,28 +155,41 @@ public struct LessonCard: Codable, Hashable, Sendable {
 // MARK: - Paging a lesson
 
 extension Lesson {
-    /// §6.7's cards: what the player pages through.
+    /// §6.7's cards: what the player plays.
     ///
-    /// Authored `steps` when the lesson has them, and otherwise a **derivation
-    /// from the prose already written** (D13.1) — the hook, each paragraph of the
+    /// §6.9's `dialogue` when the lesson has one, then authored `steps`, and
+    /// otherwise a **derivation from the prose already written** (D13.1) — the
+    /// hook, each paragraph of the
     /// explanation, then worked, interview, pitfalls and recap, one card each, in
     /// the reader's own order. That fallback is why "click any node and be taught
     /// it in pieces" is true for the whole corpus on the day the player ships,
     /// rather than only for the units someone has since re-authored.
     public var cards: [LessonCard] {
-        guard steps.isEmpty else { return steps }
+        if !dialogue.isEmpty { return dialogue }
+        if !steps.isEmpty { return steps }
         return derivedCards
     }
+
+    /// The cards an author wrote — the dialogue, or the steps — and empty when
+    /// the player would derive them.
+    public var authoredCards: [LessonCard] { dialogue.isEmpty ? steps : dialogue }
 
     /// Whether this lesson's cards were authored — which is also, in practice,
     /// whether it can *check* anything: a derived card is prose, and prose asks
     /// nothing.
-    public var isInteractive: Bool { !steps.isEmpty }
+    public var isInteractive: Bool { !authoredCards.isEmpty }
+
+    /// §6.9: whether this lesson is taught as a Socratic dialogue — questions
+    /// first, the idea named only once the reader has reached for it.
+    public var isDialogue: Bool { !dialogue.isEmpty }
 
     /// Whether an authored lesson actually poses a question. A `steps` list of
     /// nothing but `teach` cards pages nicely and still measures nothing, which is
     /// what `lesson-steps-no-check` exists to hint about.
-    public var checkCount: Int { steps.count(where: \.isCheck) }
+    public var checkCount: Int { authoredCards.count(where: \.isCheck) }
+
+    /// §6.9's reflections among the authored cards.
+    public var reflectionCount: Int { authoredCards.count(where: \.isReflection) }
 
     private var derivedCards: [LessonCard] {
         var out: [LessonCard] = []

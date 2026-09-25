@@ -1,0 +1,1795 @@
+# Problems targeting quant-processes.random-walks — the simple walk and its
+# path-counting arsenal.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. No problem here reuses a lesson's
+# worked example or a card's instance; every number was recomputed, several by
+# brute-force enumeration of all $2^{n}$ paths. See ../README.md.
+
+problems:
+  # --- the simple symmetric random walk ---------------------------------------
+
+  - id: qrw-ssrw-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A market maker's inventory moves by $+1$ or $-1$ with equal probability on
+      each trade, independently, starting from $0$. After $8$ trades the
+      inventory stands at $+2$. What is the probability that after $12$ trades
+      it stands at $+4$?
+    answer: >
+      $1/4$. Do not recompute the whole walk: increments are independent and
+      stationary, so $S_{12} - S_8$ is an independent copy of $S_4$ and the
+      conditioning on $S_8 = 2$ is discarded entirely. The event is
+      $S_{12} - S_8 = 4 - 2 = 2$ over $4$ fresh steps, which needs
+      $(4 + 2)/2 = 3$ up-steps, so the probability is
+      $\binom{4}{3} 2^{-4} = 4/16 = 1/4$. The trap is to reach for the
+      unconditional $\Pr(S_{12} = 4) = \binom{12}{8} 2^{-12} = 495/4096
+      \approx 0.121$, which answers a different question — it forgets that the
+      first $8$ steps are already known and re-randomises them.
+    expects: "1/4"
+    rubric:
+      - >
+        Uses stationary independent increments to replace the conditional
+        question by an unconditional one about a fresh $4$-step walk.
+      - >
+        Converts the required displacement $+2$ into $3$ up-steps out of $4$
+        rather than into a coefficient indexed by $2$.
+    targets:
+      - quant-processes.random-walks.ssrw
+    exercises:
+      - quant-probability.foundations.independence-events
+
+  - id: qrw-ssrw-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A fair coin is tossed $16$ times, scoring $+1$ per head and $-1$ per tail.
+      What is the probability the running total ends at $-6$?
+    answer: >
+      $273/4096 \approx 0.0667$. Solve $2U - 16 = -6$ for the number of heads:
+      $U = 5$. So the favourable paths are the ones with exactly $5$ heads among
+      $16$ tosses, $\binom{16}{5} = 4368$ of them, out of $2^{16} = 65536$
+      equally likely paths. Hence $4368/65536 = 273/4096 \approx 0.0667$. The
+      standard slip is to write $\binom{16}{6}$ or $\binom{16}{-6}$, indexing
+      the coefficient by the target *position* instead of by the up-step count
+      $(n + k)/2$ that produces it; $\binom{16}{6} 2^{-16} = 8008/65536
+      \approx 0.122$ is the probability of finishing at $-4$, not $-6$.
+    expects: "273/4096"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Solves $S_n = 2U - n$ for $U = 5$ before writing any binomial
+        coefficient.
+      - >
+        Divides by $2^{16}$, the number of equally likely paths, rather than by
+        anything derived from the endpoint.
+    targets:
+      - quant-processes.random-walks.ssrw
+    exercises:
+      - quant-probability.discrete.binomial
+
+  - id: qrw-ssrw-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      For the simple symmetric walk with $S_0 = 0$, which expression gives
+      $\Pr(S_n = k)$ when $n$ and $k$ have the same parity?
+    answer: >
+      $\binom{n}{(n+k)/2} 2^{-n}$. The position after $n$ steps is $S_n = 2U -
+      n$ with $U$ the number of up-steps, so landing on $k$ requires exactly
+      $U = (n+k)/2$ of them; the coefficient must be indexed by that count, not
+      by $k$. Every path has the same weight $2^{-n}$, so the probability is
+      the count times $2^{-n}$. When $n$ and $k$ differ in parity the required
+      $U$ is not an integer and the probability is exactly $0$, not merely
+      small.
+    choices:
+      - text: >
+          $\binom{n}{k} 2^{-n}$
+        feedback: >
+          This indexes the coefficient by the target position. The number of
+          up-steps is $(n+k)/2$, and only for $k = n$ do the two agree.
+      - text: >
+          $\binom{n}{(n+k)/2} 2^{-n}$
+        correct: true
+      - text: >
+          $\binom{n}{(n+k)/2} 2^{-k}$
+        feedback: >
+          The denominator counts paths, and there are $2^{n}$ of them — one per
+          sequence of $n$ steps. The endpoint $k$ never enters the weight.
+      - text: >
+          $\binom{n}{(n+k)/2} 2^{-(n+k)/2}$
+        feedback: >
+          The weight $2^{-n}$ belongs to the whole path — one factor of $1/2$
+          per step taken — not $2^{-U}$ for the up-steps alone. The down-steps
+          are just as random as the up-steps.
+    rubric:
+      - >
+        Names $(n+k)/2$ as the up-step count and explains why the coefficient is
+        indexed by it.
+      - >
+        Says the weight of every path is $2^{-n}$, independent of where it ends.
+    targets:
+      - quant-processes.random-walks.ssrw
+
+  # --- mean, variance and increment covariance ---------------------------------
+
+  - id: qrw-moments-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A desk's cumulative P&L is a simple symmetric random walk, one unit per
+      trade. What is $\operatorname{Var}(S_{12} + S_{30})$?
+    answer: >
+      $66$. Expand the variance of a sum:
+      $\operatorname{Var}(S_{12} + S_{30}) = \operatorname{Var}(S_{12}) +
+      2\operatorname{Cov}(S_{12}, S_{30}) + \operatorname{Var}(S_{30})$. The
+      walk has $\operatorname{Var}(S_n) = n$ and
+      $\operatorname{Cov}(S_m, S_n) = \min(m,n)$, because the two sums share
+      their first $\min(m,n)$ mean-zero increments and the rest are independent
+      of everything before them. So the total is
+      $12 + 2 \cdot 12 + 30 = 66$. The trap is dropping the covariance and
+      answering $12 + 30 = 42$: that is the variance of the sum of two
+      *independent* walks, and $S_{12}$ and $S_{30}$ are as dependent as they
+      could be — $S_{12}$ is literally one of the terms in $S_{30}$. A cleaner
+      route confirms it: $S_{12} + S_{30} = 2S_{12} + (S_{30} - S_{12})$, whose
+      pieces *are* independent, giving $4(12) + 18 = 66$.
+    expects: "66"
+    rubric:
+      - >
+        Uses $\operatorname{Cov}(S_m, S_n) = \min(m,n)$ rather than treating the
+        two positions as independent.
+      - >
+        Keeps the factor $2$ on the covariance term, or equivalently rewrites
+        the sum as $2S_{12} + (S_{30} - S_{12})$ before squaring.
+    targets:
+      - quant-processes.random-walks.moments
+    exercises:
+      - quant-probability.expectation.variance
+
+  - id: qrw-moments-02
+    kind: work
+    difficulty: standard
+    statement: >
+      For a simple symmetric random walk, what is the correlation between
+      $S_{36}$ and $S_{144}$?
+    answer: >
+      $1/2$. The covariance is $\operatorname{Cov}(S_{36}, S_{144}) =
+      \min(36,144) = 36$, and the standard deviations are $\sqrt{36} = 6$ and
+      $\sqrt{144} = 12$, so the correlation is $36/(6 \cdot 12) = 36/72 = 1/2$.
+      Equivalently $\sqrt{m/n} = \sqrt{36/144} = \sqrt{1/4} = 1/2$. Notice how
+      slowly this decays: the later time is four times the earlier one, yet half
+      the correlation survives, because the shared history $S_{36}$ is a full
+      $36$ units of variance inside the $144$. Answering $36/144 = 1/4$ divides
+      by the variance instead of by the product of standard deviations — that is
+      the ratio $m/n$, not $\sqrt{m/n}$.
+    expects: "1/2"
+    rubric:
+      - >
+        Divides the covariance $\min(m,n)$ by $\sqrt{m}\sqrt{n}$, not by $n$.
+      - >
+        Reports the correlation as $\sqrt{m/n}$ and notes the square-root, not
+        linear, decay.
+    targets:
+      - quant-processes.random-walks.moments
+
+  - id: qrw-moments-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      A candidate says: "the steps of the walk are independent, so $S_{20}$ and
+      $S_{50}$ are independent too." What is wrong, and what is actually true?
+    answer: >
+      The *increments* are independent, not the *positions*.
+      $S_{50} = S_{20} + (S_{50} - S_{20})$ decomposes into a piece that is
+      exactly $S_{20}$ and a piece independent of it, so the two positions share
+      $20$ units of variance and $\operatorname{Cov}(S_{20}, S_{50}) = 20 \ne
+      0$; the correlation is $\sqrt{20/50} \approx 0.632$. What is true is that
+      $S_{50} - S_{20}$ is independent of $S_{20}$ and distributed as $S_{30}$.
+      This is the property that makes every conditional question in the unit
+      collapse to an unconditional one.
+    choices:
+      - text: >
+          Correct as stated — independent steps make all the partial sums
+          independent
+        feedback: >
+          Independence does not pass from the increments to their running sums.
+          $S_{20}$ is one of the summands of $S_{50}$, so knowing it moves the
+          law of $S_{50}$ by exactly that much.
+      - text: >
+          Wrong: $S_{20}$ and $S_{50}$ have covariance $20$; what is independent
+          of $S_{20}$ is the increment $S_{50} - S_{20}$
+        correct: true
+      - text: >
+          Wrong: no two positions of the walk are ever independent, at any times
+        feedback: >
+          Almost right but overstated. $S_0 = 0$ is independent of everything,
+          and increments over disjoint blocks are independent of one another —
+          it is only overlapping partial sums that are dependent.
+    rubric:
+      - >
+        Separates "independent increments" from "independent positions" and says
+        which of the two the walk has.
+      - >
+        Names the decomposition $S_n = S_m + (S_n - S_m)$ as the reason, and can
+        quote $\operatorname{Cov} = \min(m,n)$.
+    targets:
+      - quant-processes.random-walks.moments
+
+  # --- the √n scale ------------------------------------------------------------
+
+  - id: qrw-sqrt-n-scaling-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      After $400$ fair coin tosses a gambler leads by $40$ units — a two-sigma
+      lead. Suppose the lead never changes again. How many *further* tosses are
+      needed before that same lead of $40$ is only a one-sigma event?
+    answer: >
+      $1200$. A one-sigma lead at time $n$ means $40 = \sqrt{n}$, since
+      $\operatorname{Var}(S_n) = n$ gives standard deviation $\sqrt{n}$; so
+      $n = 1600$ tosses in total, and $1600 - 400 = 1200$ further tosses. The
+      point is the exponent: shrinking a fixed lead from two sigma to one sigma
+      costs a factor of $4$ in $n$, not a factor of $2$, because the yardstick
+      grows like $\sqrt{n}$. Answering $400$ further tosses treats the standard
+      deviation as linear in $n$; answering "the lead will shrink" misreads the
+      law of large numbers, which says the *fraction* of heads converges while
+      the raw lead $S_n$ has no restoring force at all.
+    expects: "1200"
+    rubric:
+      - >
+        Sets $40 = \sqrt{n}$ rather than scaling $n$ linearly with the sigma
+        count.
+      - >
+        Subtracts the $400$ tosses already taken, and does not claim the lead
+        itself shrinks.
+    targets:
+      - quant-processes.random-walks.sqrt-n-scaling
+    exercises:
+      - quant-processes.random-walks.moments
+
+  - id: qrw-sqrt-n-scaling-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A fair coin is tossed $160{,}000$ times and heads lead tails by $1400$.
+      How many standard deviations from zero is that?
+    answer: >
+      $3.5$. The standard deviation of $S_n$ is $\sqrt{n} = \sqrt{160{,}000} =
+      400$, so the lead sits at $1400/400 = 3.5$ standard deviations — large
+      enough to be worth a second look, though far from decisive on its own. The
+      instructive contrast is with the head *fraction*, which is
+      $(160{,}000 + 1400)/2 / 160{,}000 = 80{,}700/160{,}000 = 0.5044$, visually
+      indistinguishable from a fair coin. The same data point looks alarming in
+      raw units and innocuous in proportional units; only the $\sqrt{n}$
+      normalisation resolves it.
+    expects: "3.5"
+    rubric:
+      - >
+        Normalises by $\sqrt{n} = 400$, not by $n$ and not by a guessed scale.
+      - >
+        Notes that the head fraction $0.5044$ and the sigma count are the same
+        fact stated in two units.
+    targets:
+      - quant-processes.random-walks.sqrt-n-scaling
+
+  - id: qrw-sqrt-n-scaling-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      A fair coin is tossed $22{,}500$ times. Estimate the probability that
+      heads lead tails by at least $300$. Give four decimal places.
+    answer: >
+      $\approx 0.0228$. The walk is a sum of $22{,}500$ independent bounded
+      steps with mean $0$ and variance $1$, so the central limit theorem applies
+      to $S_n/\sqrt{n}$: its law is close to standard normal. Here
+      $\sqrt{n} = 150$, so the threshold $300$ is exactly $z = 300/150 = 2$
+      standard deviations, and $\Pr(S_n \ge 300) \approx \Pr(Z \ge 2) \approx
+      0.0228$. Two habits are being drilled at once — convert the raw lead to
+      sigma units before reaching for any table, and remember the normal
+      approximation is what licenses the table in the first place. Answering
+      "essentially zero because $300$ is a lot of heads" is the error the
+      $\sqrt{n}$ scale exists to prevent: $300$ is only $2\sqrt{n}$ here.
+    expects: "0.0228"
+    tolerance: 0.002
+    rubric:
+      - >
+        Divides by $\sqrt{n} = 150$ to get $z = 2$ before quoting a normal tail.
+      - >
+        Cites the central limit theorem for the sum of iid bounded steps as the
+        justification, rather than treating normality as an assumption about
+        coins.
+    targets:
+      - quant-processes.random-walks.sqrt-n-scaling
+      - quant-probability.limits.clt
+    exercises:
+      - quant-processes.random-walks.moments
+    connects:
+      - "quant-probability.limits.clt ~ quant-processes.random-walks.sqrt-n-scaling"
+
+  # --- the biased walk ---------------------------------------------------------
+
+  - id: qrw-biased-walk-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A strategy wins one unit with probability $p = 0.53$ and loses one unit
+      otherwise, independently each trade. How many trades are needed before the
+      expected cumulative profit equals three standard deviations of the
+      cumulative P&L?
+    answer: >
+      $2491$. Drift is linear and noise is only square-root, so the two cross
+      once. With $q = 0.47$ the drift after $n$ trades is $n(p - q) = 0.06n$,
+      and since a single step has variance $4pq = 4(0.53)(0.47) = 0.9964$, the
+      standard deviation is $\sqrt{0.9964\,n}$. Setting
+      $0.06n = 3\sqrt{0.9964\,n}$ and squaring gives
+      $0.0036\,n^{2} = 9(0.9964)n$, so
+      $n = 9(0.9964)/0.0036 = 8.9676/0.0036 = 2491$. The general shape worth
+      carrying into an interview is $n = k^{2}\,4pq/(p-q)^{2}$ for a $k$-sigma
+      edge — quadratic in $k$, so five-sigma confidence costs about
+      $25/9 \approx 2.8$ times as many trades as three-sigma. Using
+      $\operatorname{Var}(X_i) = 1$, the fair-coin value, gives $2500$ and
+      quietly assumes away the bias.
+    expects: "2491"
+    tolerance: 2
+    rubric:
+      - >
+        Uses the biased step variance $4pq = 0.9964$, not the symmetric value
+        $1$.
+      - >
+        Sets drift equal to $3$ standard deviations and solves the resulting
+        quadratic, giving $n \propto k^{2}$.
+    targets:
+      - quant-processes.random-walks.biased-walk
+    exercises:
+      - quant-probability.expectation.variance
+
+  - id: qrw-biased-walk-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A walk takes $8$ steps, each $+1$ with probability $3/5$ and $-1$ with
+      probability $2/5$. What is $\Pr(S_8 = -2)$? Give four decimal places.
+    answer: >
+      $\approx 0.1239$. Reaching $-2$ in $8$ steps needs $(8 - 2)/2 = 3$
+      up-steps and $5$ down-steps, and every such path carries weight
+      $p^{3}q^{5}$ — the same weight for all of them, which is why the path
+      count still does the work even though paths are no longer equally likely.
+      So $\Pr(S_8 = -2) = \binom{8}{3}(3/5)^{3}(2/5)^{5} = 56 \cdot
+      \dfrac{27}{125} \cdot \dfrac{32}{3125} = \dfrac{48384}{390625} \approx
+      0.1239$. Two traps sit here. Inverting the ratio — using $p$ for the
+      down-steps — gives $\binom{8}{3}(2/5)^{3}(3/5)^{5} \approx 0.2787$, more
+      than a factor of two out, and in the wrong direction for a walk fighting a
+      positive drift. And using the symmetric count $\binom{8}{3}2^{-8} =
+      0.219$ ignores the bias entirely.
+    expects: "0.1239"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Attaches the weight $p^{u}q^{n-u}$ with $u = 3$ up-steps, rather than
+        the symmetric $2^{-n}$.
+      - >
+        Puts $q^{5}$ on the five down-steps and $p^{3}$ on the three up-steps,
+        not the other way round.
+    targets:
+      - quant-processes.random-walks.biased-walk
+    exercises:
+      - quant-probability.discrete.binomial
+
+  - id: qrw-biased-walk-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      For a walk with $\Pr(X_i = +1) = p$ and $\Pr(X_i = -1) = q = 1 - p$, what
+      is $\operatorname{Var}(S_n)$?
+    answer: >
+      $4pqn$. Each step satisfies $X_i^{2} = 1$ identically, so
+      $\mathbb{E}[X_i^{2}] = 1$ while $\mathbb{E}[X_i] = p - q$, giving
+      $\operatorname{Var}(X_i) = 1 - (p-q)^{2} = (1-(p-q))(1+(p-q)) = 2q \cdot
+      2p = 4pq$. The steps are independent, so variances add and
+      $\operatorname{Var}(S_n) = 4pqn$. Note $4pq \le 1$ with equality only at
+      $p = 1/2$: bias makes the walk *less* variable, because a lopsided coin is
+      more predictable. The number that does not add is the mean, which
+      contributes $n(p-q)$ to the position and nothing to the variance.
+    choices:
+      - text: >
+          $n$ — variances of $\pm 1$ steps always add to $n$
+        feedback: >
+          That is the symmetric value. It uses
+          $\operatorname{Var}(X_i) = \mathbb{E}[X_i^{2}] = 1$ and forgets to
+          subtract $(\mathbb{E}[X_i])^{2} = (p-q)^{2}$, which is nonzero
+          whenever $p \ne 1/2$.
+      - text: >
+          $4pqn$
+        correct: true
+      - text: >
+          $n(p - q)^{2}$
+        feedback: >
+          That is the square of the drift per step, not the variance. It goes to
+          $0$ at $p = 1/2$, where the walk is at its noisiest — a sign the
+          formula is upside down.
+      - text: >
+          $npq$
+        feedback: >
+          This is the binomial variance of the *up-step count* $U$. The position
+          is $S_n = 2U - n$, and rescaling by $2$ multiplies the variance by
+          $4$.
+    rubric:
+      - >
+        Derives $\operatorname{Var}(X_i) = 1 - (p-q)^{2} = 4pq$ from
+        $X_i^{2} \equiv 1$.
+      - >
+        Notes that $S_n = 2U - n$ carries a factor $4$ from the binomial
+        variance $npq$.
+    targets:
+      - quant-processes.random-walks.biased-walk
+    exercises:
+      - quant-probability.discrete.bernoulli
+
+  # --- path counting -----------------------------------------------------------
+
+  - id: qrw-path-counting-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      How many $14$-step paths of a $\pm 1$ walk start at height $0$, pass
+      through height $2$ at time $6$, and end at height $4$?
+    answer: >
+      $840$. Split at the checkpoint and multiply, which is legitimate because
+      the two halves use disjoint blocks of steps. First half: $6$ steps from
+      $0$ to $2$ needs $(6 + 2)/2 = 4$ up-steps, so $\binom{6}{4} = 15$ paths.
+      Second half: $8$ steps from $2$ to $4$ is a rise of $2$, needing
+      $(8 + 2)/2 = 5$ up-steps, so $\binom{8}{5} = 56$ paths. The total is
+      $15 \cdot 56 = 840$. Two checks keep the arithmetic honest: both segments
+      have matching parity, and $840$ is a strict fraction of the
+      $\binom{14}{9} = 2002$ paths from $0$ to $4$ with no checkpoint imposed.
+      Adding the two counts instead of multiplying, or counting the second leg
+      as $8$ steps from $0$ to $4$ ($\binom{8}{6} = 28$), are the two ways this
+      goes wrong.
+    expects: "840"
+    rubric:
+      - >
+        Multiplies the two segment counts, using that the increments in disjoint
+        time blocks are chosen independently.
+      - >
+        Counts the second leg as a rise of $2$ from height $2$, not as a path
+        from $0$ to $4$.
+    targets:
+      - quant-processes.random-walks.path-counting
+    exercises:
+      - quant-probability.counting.combinations
+
+  - id: qrw-path-counting-02
+    kind: work
+    difficulty: standard
+    statement: >
+      How many $11$-step paths of a $\pm 1$ walk run from height $3$ to height
+      $-2$?
+    answer: >
+      $165$. The displacement is $b - a = -2 - 3 = -5$, which has the same
+      parity as $n = 11$, so paths exist. The number of up-steps is
+      $(n + b - a)/2 = (11 - 5)/2 = 3$, and choosing which of the $11$ steps go
+      up determines the path completely, so the count is
+      $\binom{11}{3} = 165$. The starting height is a red herring for the
+      *count* — only the displacement matters, since the whole path translates
+      — but it matters enormously the moment a barrier or a level is introduced.
+      Writing $\binom{11}{-2}$ or $\binom{11}{5}$ indexes by the endpoint or the
+      displacement instead of by the up-step count.
+    expects: "165"
+    rubric:
+      - >
+        Checks that $n$ and $b - a$ share parity before counting.
+      - >
+        Indexes the coefficient by $(n + b - a)/2 = 3$, the number of up-steps.
+    targets:
+      - quant-processes.random-walks.path-counting
+    exercises:
+      - quant-probability.counting.combinations
+
+  - id: qrw-path-counting-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      For a walk with up-probability $p = 0.6$, a candidate computes
+      $\Pr(S_{10} = 2)$ as (number of paths from $0$ to $2$ in $10$ steps)
+      divided by $2^{10}$. Is that right?
+    answer: >
+      No — the count is right, the weight is not. There are $\binom{10}{6} =
+      210$ paths from $0$ to $2$, but for $p \ne 1/2$ a path is not worth
+      $2^{-10}$; it is worth $p^{u}q^{10-u}$. What rescues the method is that
+      all $210$ of these paths use the same $6$ up-steps and $4$ down-steps, so
+      they share the weight $(0.6)^{6}(0.4)^{4}$ and the answer is
+      $210 (0.6)^{6}(0.4)^{4} \approx 0.2508$, against $210/1024 \approx 0.205$
+      for the fair walk. Path counting survives the bias; equal likelihood does
+      not.
+    choices:
+      - text: >
+          Yes — path counts are combinatorial, so the bias cannot affect them
+        feedback: >
+          The count is unaffected; the *probability* is not. Dividing by
+          $2^{10}$ silently asserts every path is equally likely, which is
+          exactly what $p = 0.6$ denies.
+      - text: >
+          No — the count is right, but each path is worth $p^{u}q^{n-u}$, so
+          multiply the count by $(0.6)^{6}(0.4)^{4}$ instead of dividing by
+          $2^{10}$
+        correct: true
+      - text: >
+          No — with a bias the paths to a fixed endpoint have different weights,
+          so no single count can be used
+        feedback: >
+          Different endpoints carry different weights, but paths to the *same*
+          endpoint all use the same number of up-steps and therefore share one
+          weight. That is precisely why the counting method survives.
+    rubric:
+      - >
+        Separates the path count, which is unchanged, from the per-path weight,
+        which is not $2^{-n}$ when $p \ne 1/2$.
+      - >
+        Says that all paths to a fixed endpoint share the weight
+        $p^{u}q^{n-u}$, which is what keeps the count usable.
+    targets:
+      - quant-processes.random-walks.path-counting
+      - quant-processes.random-walks.biased-walk
+
+  # --- the reflection principle ------------------------------------------------
+
+  - id: qrw-reflection-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A fair $\pm 1$ walk runs for $12$ steps from $0$. What is the probability
+      that it reaches level $+3$ at some time and finishes at or below $-2$?
+    answer: >
+      $79/4096 \approx 0.0193$. Reflect after the first visit to $a = 3$: paths
+      that touch $3$ and end at $b$ correspond bijectively to unrestricted paths
+      ending at $2a - b = 6 - b$, so the count is $\binom{12}{(12 + 6 - b)/2}$.
+      Sum over the admissible endpoints, all even because $n = 12$ is even.
+      $b = -2$ gives $\binom{12}{10} = 66$; $b = -4$ gives
+      $\binom{12}{11} = 12$; $b = -6$ gives $\binom{12}{12} = 1$; $b = -8$ and
+      below give $0$, since the reflected endpoint $14$ exceeds $12$ steps.
+      Total $66 + 12 + 1 = 79$ paths out of $2^{12} = 4096$, so the probability
+      is $79/4096$. The trap is reflecting about the *endpoint* level $-2$
+      rather than about the touched level $3$: reflection is anchored at the
+      barrier the path visits, and the first hitting time of that barrier is
+      where the map switches on.
+    expects: "79/4096"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Reflects about the touched level $a = 3$, mapping endpoint $b$ to
+        $2a - b$, and not about the endpoint level.
+      - >
+        Sums over all endpoints $b \le -2$ of the right parity and stops when
+        the reflected endpoint exceeds $n$.
+    targets:
+      - quant-processes.random-walks.reflection
+    exercises:
+      - quant-processes.random-walks.path-counting
+
+  - id: qrw-reflection-02
+    kind: work
+    difficulty: standard
+    statement: >
+      How many $10$-step paths of a fair $\pm 1$ walk from $0$ touch level $+2$
+      at some point and end at $-2$?
+    answer: >
+      $45$. Here $a = 2 \ge 1$ and $b = -2 < a$, so the reflection principle
+      applies as stated. Reflecting the path after its first visit to level $2$
+      sends the endpoint $b = -2$ to $2a - b = 4 + 2 = 6$, and the map is a
+      bijection onto *all* $10$-step paths ending at $6$ — no constraint left.
+      Those number $\binom{10}{(10+6)/2} = \binom{10}{8} = 45$. So the
+      probability of this event is $45/1024 \approx 0.044$. The reflected
+      endpoint is $2a - b$, not $b - 2a$ or $2b - a$; a quick sanity check is
+      that it must lie strictly above $a$, and $6 > 2$.
+    expects: "45"
+    rubric:
+      - >
+        Checks the hypotheses $a \ge 1$ and $b < a$ before applying the formula.
+      - >
+        Computes the reflected endpoint as $2a - b = 6$ and verifies it lies
+        above $a$.
+    targets:
+      - quant-processes.random-walks.reflection
+
+  - id: qrw-reflection-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Fix an integer level $a \ge 1$ and an endpoint $b < a$ with $b$ of the same
+      parity as $n$. Prove that the $n$-step paths from $0$ that touch $a$ and
+      end at $b$ are in bijection with all $n$-step paths from $0$ that end at
+      $2a - b$, and deduce the count $\binom{n}{(n + 2a - b)/2}$.
+    answer: >
+      Let $A$ be the set of paths from $0$ that reach $a$ and end at $b$, and
+      $B$ the set of all paths from $0$ ending at $2a - b$. Define $\varphi$ on
+      $A$: for a path in $A$ let $\tau = \min\{k : S_k = a\}$, which is finite by
+      assumption and at most $n$, and replace $S_k$ by $2a - S_k$ for every
+      $k > \tau$, leaving the path untouched up to $\tau$. Reflecting about a
+      horizontal line preserves step sizes — an up-step becomes a down-step and
+      conversely — so $\varphi$ of a path is again a $\pm 1$ path, it still
+      passes through $a$ at time $\tau$ since $2a - a = a$, and it ends at
+      $2a - S_n = 2a - b$. So $\varphi$ maps $A$ into $B$. For the inverse, take
+      any path in $B$. Since $b < a$ we have $2a - b > a$, and the path starts at
+      $0 < a$ and ends above $a$, so by the intermediate-value property of a
+      $\pm 1$ path it must hit $a$; let $\sigma$ be its first hitting time, and
+      reflect after $\sigma$. This lands in $A$, because reflecting after the
+      first hit of $a$ preserves that first hitting time exactly — the two paths
+      agree up to $\sigma$, so they have the same first passage. The two maps
+      are mutually inverse for the same reason, so $\varphi$ is a bijection.
+      Hence $|A| = |B|$, and $B$ is unconstrained: an $n$-step path ends at
+      $2a - b$ exactly when $(n + 2a - b)/2$ of its steps go up, giving
+      $|A| = \binom{n}{(n + 2a - b)/2}$. Two remarks. Multiple visits to $a$ need
+      no inclusion-exclusion, because the map is anchored at the *first* visit
+      and only that one. And the hypothesis $b < a$ is what makes every path in
+      $B$ cross $a$ — drop it and the inverse map is undefined on paths that
+      never reach the level.
+    rubric:
+      - >
+        Defines the map at the *first* hitting time of $a$ and checks the image
+        is a legal $\pm 1$ path ending at $2a - b$.
+      - >
+        Constructs the inverse and argues every path ending at $2a - b > a$ must
+        cross $a$, which is where the hypothesis $b < a$ is used.
+      - >
+        Concludes with the unconstrained count $\binom{n}{(n + 2a - b)/2}$ and
+        notes that repeated visits to $a$ cause no double counting.
+    targets:
+      - quant-processes.random-walks.reflection
+    exercises:
+      - quant-processes.random-walks.path-counting
+
+  # --- the ballot problem ------------------------------------------------------
+
+  - id: qrw-ballot-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      An election ends $12$ votes for A to $8$ for B, and the ballots are
+      counted in uniformly random order. What is the probability that A is never
+      behind during the count but is tied with B at least once after the first
+      ballot?
+    answer: >
+      $12/65 \approx 0.185$. Two ballot statements bracket the event. A is
+      strictly ahead at every stage with probability $(p - q)/(p + q) =
+      (12-8)/20 = 1/5$, and A is never behind, ties allowed, with probability
+      $(p - q + 1)/(p + 1) = 5/13$. Being strictly ahead throughout is the same
+      as never being behind *and* never tying after the start, so the two
+      events nest and the answer is the difference:
+      $5/13 - 1/5 = 25/65 - 13/65 = 12/65 \approx 0.185$. Almost half of the
+      never-behind counts involve at least one tie, which is the point — ties
+      are common, not exceptional. The classic error is treating the two ballot
+      formulas as answers to the same question and subtracting nothing, or
+      subtracting in the wrong order because $(p-q+1)/(p+1)$ is not obviously
+      the larger of the two.
+    expects: "12/65"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses the strict form $(p-q)/(p+q)$ and the weak form $(p-q+1)/(p+1)$ for
+        the two different events.
+      - >
+        Recognises that "strictly ahead throughout" is contained in "never
+        behind", so the answer is a difference of the two probabilities.
+    targets:
+      - quant-processes.random-walks.ballot
+
+  - id: qrw-ballot-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A finishes with $11$ votes and B with $6$. Counted in a uniformly random
+      order, what is the probability A leads at every stage of the count?
+    answer: >
+      $5/17 \approx 0.294$. The ballot theorem gives
+      $(p - q)/(p + q) = (11 - 6)/(11 + 6) = 5/17$. It is worth seeing why the
+      answer is so small when the final margin is nearly two to one: leading
+      wire to wire is a constraint on all $17$ prefixes at once, and the very
+      first ballot alone is B's with probability $6/17$, which already kills the
+      event. Indeed the answer equals $1 - 2q/(p+q) = 1 - 12/17 = 5/17$, the
+      reflection argument's form: the bad paths are exactly twice the ones that
+      open with a vote for B. The formula requires the strict final lead
+      $p > q$; applied to a tie or a loss it returns a meaningless number.
+    expects: "5/17"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Applies $(p-q)/(p+q)$ with $p = 11$, $q = 6$, after checking $p > q$.
+      - >
+        Can restate the answer as $1 - 2q/(p+q)$, the reflection count of the
+        bad orderings.
+    targets:
+      - quant-processes.random-walks.ballot
+
+  - id: qrw-ballot-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Prove the ballot theorem: if A finishes with $p$ votes and B with $q < p$,
+      the probability that A is strictly ahead at every stage of a uniformly
+      random count is $(p - q)/(p + q)$.
+    answer: >
+      Encode a count as a path: the $k$th ballot is a $+1$ step if it is for A
+      and a $-1$ step if it is for B, so a count is a path of $n = p + q$ steps
+      from $0$ to $p - q$, and all $\binom{p+q}{p}$ such paths are equally
+      likely because the counting order is uniform. Call a path *bad* if
+      $S_k \le 0$ for some $k \ge 1$. Split the bad paths by their first step.
+      If the first step is down, then $S_1 = -1 \le 0$ and the path is bad
+      automatically; the fraction of paths starting with a down step is
+      $q/(p+q)$, since the first ballot is uniform among the $p + q$ ballots.
+      If the first step is up, the path is bad exactly when it returns to $0$
+      later, because it starts at $+1$ and must eventually be at $p - q > 0$ —
+      being bad means touching $0$. Reflect such a path about the level $0$ up
+      to its first return: an up-first path touching $0$ maps to a down-first
+      path touching $0$, and the map is invertible by reflecting back, so these
+      two families are equinumerous. Every down-first path touches $0$ or starts
+      below it, so it is in the second family, and the bad paths therefore number
+      exactly twice the down-first ones: a fraction $2q/(p+q)$. Hence the good
+      paths are a fraction $1 - 2q/(p+q) = (p + q - 2q)/(p + q) = (p-q)/(p+q)$,
+      which is the claim. Two checks: at $q = 0$ the answer is $1$, as it must
+      be, and at $q = p - 1$ it is $1/(2p - 1)$, small but positive. The weak
+      form — A never *trailing*, ties permitted — is a different event with
+      probability $(p - q + 1)/(p + 1)$, and conflating the two is the standard
+      way this proof is misquoted.
+    rubric:
+      - >
+        Translates the count into an equally likely path and identifies "bad"
+        with touching $0$ after the start.
+      - >
+        Splits on the first ballot and builds the reflection bijection between
+        the up-first bad paths and the down-first paths, giving the factor $2$.
+      - >
+        Finishes with $1 - 2q/(p+q)$ and does not silently answer the weak
+        never-behind question instead.
+    targets:
+      - quant-processes.random-walks.ballot
+    exercises:
+      - quant-processes.random-walks.reflection
+
+  # --- first passage to a level ------------------------------------------------
+
+  - id: qrw-first-passage-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      For a fair $\pm 1$ walk from $0$, let $T_4$ be the first time the walk
+      reaches $+4$. What is $\Pr(T_4 = 10)$?
+    answer: >
+      $3/64 \approx 0.0469$. The hitting-time theorem says
+      $\Pr(T_a = n) = \dfrac{a}{n}\Pr(S_n = a)$ whenever $n \ge a$ and the two
+      match parity — here $n = 10$ and $a = 4$ are both even, so the formula is
+      live. First the endpoint law: reaching $+4$ in $10$ steps needs
+      $(10+4)/2 = 7$ up-steps, so $\Pr(S_{10} = 4) = \binom{10}{7} 2^{-10} =
+      120/1024$. Then
+      $\Pr(T_4 = 10) = \dfrac{4}{10} \cdot \dfrac{120}{1024} =
+      \dfrac{480}{10240} = \dfrac{3}{64}$. The factor $a/n$ is doing real work:
+      it is the fraction of paths ending at $4$ whose *first* visit to $4$ is at
+      the very last step. Quoting $\Pr(S_{10} = 4) \approx 0.117$ as the answer
+      confuses "is at $+4$ now" with "arrives at $+4$ for the first time now",
+      and overstates by a factor $10/4$.
+    expects: "3/64"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Checks that $n = 10$ and $a = 4$ share parity and that $n \ge a$ before
+        using the hitting-time theorem.
+      - >
+        Multiplies the endpoint probability by $a/n = 2/5$ rather than reporting
+        it unchanged.
+    targets:
+      - quant-processes.random-walks.first-passage
+    exercises:
+      - quant-processes.random-walks.path-counting
+
+  - id: qrw-first-passage-02
+    kind: work
+    difficulty: standard
+    statement: >
+      For a fair $\pm 1$ walk from $0$, what is the probability that the first
+      time the walk reaches $+1$ is at step $7$?
+    answer: >
+      $5/128 \approx 0.0391$. Apply
+      $\Pr(T_1 = n) = \dfrac{1}{n}\Pr(S_n = 1)$ at $n = 7$, which has the same
+      parity as $a = 1$. Reaching $+1$ in $7$ steps needs $(7+1)/2 = 4$
+      up-steps, so $\Pr(S_7 = 1) = \binom{7}{4}2^{-7} = 35/128$, and
+      $\Pr(T_1 = 7) = \dfrac{1}{7}\cdot\dfrac{35}{128} = \dfrac{5}{128}$. Set
+      beside $\Pr(T_1 = 1) = 1/2$, $\Pr(T_1 = 3) = 1/8$, $\Pr(T_1 = 5) = 1/16$,
+      this continues a sequence that decays like $n^{-3/2}$ — slowly enough that
+      $\sum n \Pr(T_1 = n)$ diverges, which is why the level is reached with
+      probability $1$ but the expected wait is infinite. Even times are
+      impossible: $T_1$ and $1$ must match parity.
+    expects: "5/128"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses the $1/n$ factor from the hitting-time theorem, not the endpoint
+        law alone.
+      - >
+        Notes that $\Pr(T_1 = n) = 0$ at even $n$ by parity.
+    targets:
+      - quant-processes.random-walks.first-passage
+
+  - id: qrw-first-passage-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      A strategy gains one unit with probability $0.45$ and loses one unit with
+      probability $0.55$ on each independent trade, starting from $0$. What is
+      the probability its cumulative P&L ever reaches $+5$? Give four decimal
+      places.
+    answer: >
+      $\approx 0.3666$. For the biased walk with $p < 1/2$ the level is missed
+      outright with positive probability, and the hitting probability is
+      $\Pr(T_a < \infty) = (p/q)^{a}$ — the ratio of the *smaller* to the
+      *larger* step probability, raised to the level. Here
+      $p/q = 0.45/0.55 = 9/11$, so the answer is
+      $(9/11)^{5} = 59049/161051 \approx 0.3666$. The structural reason for the
+      power is that reaching $+5$ means reaching $+1$ five times over, each leg
+      an independent copy of the first, so the probabilities multiply. The named
+      trap is inverting the ratio: $(11/9)^{5} \approx 2.73$ is not a
+      probability at all, and its appearance above $1$ is the immediate signal
+      that $p$ and $q$ were swapped. The fair case is the boundary — at
+      $p = q$ the ratio is $1$ and the level is reached with probability $1$,
+      though with infinite expected time.
+    expects: "0.3666"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $(p/q)^{a}$ with $p < q$, so the base is less than $1$ and the
+        answer is a probability.
+      - >
+        Explains the exponent $a$ as $a$ independent copies of the one-level
+        passage.
+    targets:
+      - quant-processes.random-walks.first-passage
+      - quant-processes.random-walks.biased-walk
+
+  # --- the running maximum -----------------------------------------------------
+
+  - id: qrw-max-distribution-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A fair $\pm 1$ walk runs $14$ steps from $0$. What is the probability that
+      its running maximum $M_{14} = \max_{0 \le k \le 14} S_k$ equals exactly
+      $5$?
+    answer: >
+      $1001/16384 \approx 0.0611$. The point law of the maximum is
+      $\Pr(M_n = a) = \Pr(S_n = a) + \Pr(S_n = a + 1)$, obtained by differencing
+      $\Pr(M_n \ge a)$. At $n = 14$, $a = 5$, parity does half the work for
+      free: $14$ is even, so $S_{14}$ lives on even sites and
+      $\Pr(S_{14} = 5) = 0$. The whole answer is the second term,
+      $\Pr(S_{14} = 6) = \binom{14}{10} 2^{-14} = 1001/16384 \approx 0.0611$.
+      So a walk of even length is at its high-water mark of exactly $5$ only by
+      touching $6$ and coming back — it can never *finish* at $5$. Forgetting the
+      $\Pr(S_n = a+1)$ term gives $0$ here, an obviously wrong answer that the
+      parity check flags immediately.
+    expects: "1001/16384"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $\Pr(M_n = a) = \Pr(S_n = a) + \Pr(S_n = a+1)$ rather than
+        $\Pr(S_n = a)$ alone.
+      - >
+        Notices $\Pr(S_{14} = 5) = 0$ by parity and does not treat it as a small
+        positive number.
+    targets:
+      - quant-processes.random-walks.max-distribution
+    exercises:
+      - quant-processes.random-walks.first-passage
+
+  - id: qrw-max-distribution-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A fair $\pm 1$ walk runs $7$ steps from $0$. What is $\Pr(M_7 \ge 3)$?
+    answer: >
+      $37/128 \approx 0.289$. Use
+      $\Pr(M_n \ge a) = 2\Pr(S_n \ge a) - \Pr(S_n = a)$, valid for $a \ge 1$.
+      The endpoint tail: $S_7 \ge 3$ means finishing at $3$, $5$ or $7$, which
+      needs $5$, $6$ or $7$ up-steps, so
+      $\Pr(S_7 \ge 3) = (\binom{7}{5} + \binom{7}{6} + \binom{7}{7})/128 =
+      (21 + 7 + 1)/128 = 29/128$. And $\Pr(S_7 = 3) = 21/128$. Therefore
+      $\Pr(M_7 \ge 3) = 2(29/128) - 21/128 = 37/128$. Note the ratio to
+      $\Pr(S_7 \ge 3)$ is $37/29 \approx 1.28$, nowhere near $2$: the clean
+      doubling appears only when $\Pr(S_n = a) = 0$ by a parity clash, and here
+      $n = 7$ and $a = 3$ are both odd. Dropping the $-\Pr(S_n = a)$ correction
+      double-counts the paths that finish exactly at the level.
+    expects: "37/128"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Subtracts $\Pr(S_n = a)$ once, rather than doubling the tail outright.
+      - >
+        Computes the tail $\Pr(S_7 \ge 3)$ by summing over endpoints of the
+        right parity.
+    targets:
+      - quant-processes.random-walks.max-distribution
+
+  - id: qrw-max-distribution-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      For independent variables $Y_1, \dots, Y_n$ the maximum has CDF
+      $\Pr(\max_i Y_i \le t) = \prod_i \Pr(Y_i \le t)$. Why can that route not
+      be used to get the law of $M_n = \max_{0 \le k \le n} S_k$ for a random
+      walk?
+    answer: >
+      Because $S_0, S_1, \dots, S_n$ are not independent — they are partial sums
+      sharing every earlier increment, with
+      $\operatorname{Cov}(S_j, S_k) = \min(j,k)$, so the product rule for a
+      maximum's CDF has no hypothesis to stand on. What replaces it is
+      reflection: $\{M_n \ge a\} = \{T_a \le n\}$ converts a statement about the
+      whole path into one about a first hitting time, and the bijection turns
+      that into the endpoint count
+      $\Pr(M_n \ge a) = 2\Pr(S_n \ge a) - \Pr(S_n = a)$. The two techniques
+      answer the same shape of question under opposite dependence assumptions.
+    choices:
+      - text: >
+          The steps $X_i$ are independent, so the product rule does apply — it
+          is just tedious
+        feedback: >
+          The product rule needs the variables being maximised to be
+          independent, and those are the partial sums $S_k$, not the steps. The
+          steps' independence is what makes the sums dependent.
+      - text: >
+          The partial sums are strongly dependent, so the product-of-CDFs
+          formula does not apply; reflection supplies the law instead
+        correct: true
+      - text: >
+          The maximum is over an infinite collection, so no finite product
+          exists
+        feedback: >
+          The maximum here is over the $n + 1$ times $0, 1, \dots, n$, a finite
+          collection. Finiteness is not the obstacle; dependence is.
+    rubric:
+      - >
+        Names the dependence of the partial sums, with
+        $\operatorname{Cov}(S_j, S_k) = \min(j,k)$, as the failed hypothesis.
+      - >
+        Names reflection, via $\{M_n \ge a\} = \{T_a \le n\}$, as the
+        replacement technique.
+    targets:
+      - quant-processes.random-walks.max-distribution
+      - quant-probability.random-variables.min-max
+    exercises:
+      - quant-processes.random-walks.reflection
+    connects:
+      - "quant-probability.random-variables.min-max ~ quant-processes.random-walks.max-distribution"
+
+  # --- does the walk reach a level? --------------------------------------------
+
+  - id: qrw-reach-level-example-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Toss a fair coin $11$ times, scoring $+1$ per head and $-1$ per tail. What
+      is the probability the running total ever reaches $+4$?
+    answer: >
+      $29/128 \approx 0.227$. Since $n = 11$ is odd and $a = 4$ is even, parity
+      forbids finishing exactly at the level: $\Pr(S_{11} = 4) = 0$. The
+      maximum law $\Pr(M_n \ge a) = 2\Pr(S_n \ge a) - \Pr(S_n = a)$ therefore
+      collapses to exactly twice the tail. That tail is
+      $\Pr(S_{11} \ge 4) = \Pr(S_{11} \ge 5)$, the endpoints $5, 7, 9, 11$
+      needing $8, 9, 10, 11$ heads:
+      $(\binom{11}{8} + \binom{11}{9} + \binom{11}{10} + \binom{11}{11})/2048 =
+      (165 + 55 + 11 + 1)/2048 = 232/2048$. So
+      $\Pr(M_{11} \ge 4) = 464/2048 = 29/128 \approx 0.227$, exactly twice
+      $\Pr(S_{11} \ge 4) \approx 0.113$. The quotable form: when the parities
+      clash, touching a level is exactly twice as likely as ending at or above
+      it. Forgetting to check parity first, and subtracting a nonzero
+      $\Pr(S_{11} = 4)$, is how the factor of two gets lost.
+    expects: "29/128"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Checks the parity of $n$ against $a$ first, concluding
+        $\Pr(S_{11} = 4) = 0$.
+      - >
+        Sums the endpoint tail over $5, 7, 9, 11$ only, then doubles.
+    targets:
+      - quant-processes.random-walks.reach-level-example
+    exercises:
+      - quant-processes.random-walks.max-distribution
+
+  - id: qrw-reach-level-example-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Toss a fair coin $12$ times, scoring $+1$ per head and $-1$ per tail. What
+      is the probability the running total ever reaches $+4$?
+    answer: >
+      $1093/4096 \approx 0.267$. Here $n = 12$ and $a = 4$ share parity, so the
+      "exactly double" shortcut — which needs $\Pr(S_n = a) = 0$ from a parity
+      clash — is unavailable, and the correction term in
+      $\Pr(M_n \ge a) = 2\Pr(S_n \ge a) - \Pr(S_n = a)$ is live.
+      The endpoints at or above $4$ are $4, 6, 8, 10, 12$, needing
+      $8, 9, 10, 11, 12$ heads, so
+      $\Pr(S_{12} \ge 4) = (495 + 220 + 66 + 12 + 1)/4096 = 794/4096$, and
+      $\Pr(S_{12} = 4) = \binom{12}{8}/4096 = 495/4096$. Hence
+      $\Pr(M_{12} \ge 4) = 2(794/4096) - 495/4096 = 1093/4096 \approx 0.267$.
+      The ratio to $\Pr(S_{12} \ge 4) \approx 0.194$ is $1093/794 \approx 1.38$,
+      not $2$ — the doubling is a parity accident, not a law, and quoting it
+      here would overstate the answer by about forty-five percent.
+    expects: "1093/4096"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Retains the $-\Pr(S_n = a)$ term because $n$ and $a$ have the same
+        parity here.
+      - >
+        Says explicitly that the factor-of-two shortcut does not apply, and can
+        quote the actual ratio.
+    targets:
+      - quant-processes.random-walks.reach-level-example
+
+  # --- return to the origin ----------------------------------------------------
+
+  - id: qrw-return-origin-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Let $u_{2n} = \Pr(S_{2n} = 0)$ for the fair walk. At which even time
+      $2n$ does $u_{2n}$ first fall below $0.10$?
+    answer: >
+      $64$. Work with the Stirling asymptotic
+      $u_{2n} = \binom{2n}{n}4^{-n} \sim 1/\sqrt{\pi n}$, and solve
+      $1/\sqrt{\pi n} < 0.10$, i.e. $\pi n > 100$, i.e. $n > 100/\pi \approx
+      31.83$. So $n = 32$ and the time is $2n = 64$. The exact value confirms
+      it: $u_{64} = \binom{64}{32}4^{-32} \approx 0.09935$, just under the
+      threshold, while $u_{62} \approx 0.10093$ is just over — the asymptotic is
+      accurate enough at this size to pick the right $n$ outright. The headline
+      is the slowness of the decay. Sixty-four tosses buy only a drop from $1$
+      to about a tenth, because $u_{2n}$ falls like $n^{-1/2}$; to halve it
+      again takes four times as many tosses.
+    expects: "64"
+    rubric:
+      - >
+        Uses $u_{2n} \sim 1/\sqrt{\pi n}$ and solves for $n$, then reports the
+        time $2n$, not $n$.
+      - >
+        Recognises the $n^{-1/2}$ decay, so quartering the probability costs a
+        factor $16$ in time.
+    targets:
+      - quant-processes.random-walks.return-origin
+    exercises:
+      - quant-tools.series-calculus.stirling
+
+  - id: qrw-return-origin-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A fair coin is tossed $18$ times. What is the exact probability that heads
+      and tails have come up equally often?
+    answer: >
+      $12155/65536 \approx 0.1855$. Equality means the walk is at the origin at
+      time $18$, which requires exactly $9$ of the $18$ steps to go up. So
+      $u_{18} = \binom{18}{9}4^{-9} = 48620/262144 = 12155/65536 \approx
+      0.1855$. Two sanity checks come free. Stirling predicts
+      $1/\sqrt{9\pi} \approx 0.1881$, within one and a half percent of the truth
+      at this modest $n$. And parity says the answer would be exactly $0$ — not
+      merely small — at any odd number of tosses, since the walk cannot sit on
+      an even site at an odd time. The common slip is dividing $\binom{18}{9}$
+      by $2^{9}$ rather than by $2^{18}$, which is the count of coin sequences,
+      not of up-step choices.
+    expects: "12155/65536"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Writes $u_{2n} = \binom{2n}{n}/4^{n}$ with $2n = 18$, dividing by
+        $2^{18}$.
+      - >
+        Notes that the odd-time probability is exactly $0$ by parity.
+    targets:
+      - quant-processes.random-walks.return-origin
+
+  - id: qrw-return-origin-03
+    kind: work
+    difficulty: standard
+    statement: >
+      Estimate $u_{200} = \Pr(S_{200} = 0)$ for the fair walk using Stirling's
+      formula. Give four decimal places.
+    answer: >
+      $\approx 0.0564$. Stirling gives $\binom{2n}{n} \sim 4^{n}/\sqrt{\pi n}$,
+      so $u_{2n} = \binom{2n}{n}4^{-n} \sim 1/\sqrt{\pi n}$. With $2n = 200$,
+      that is $n = 100$ and
+      $u_{200} \approx 1/\sqrt{100\pi} = 1/(10\sqrt{\pi}) \approx 0.05642$. The
+      exact value is $0.05635$, so the estimate is good to about one part in
+      eight hundred. The error to avoid is cancelling only the exponential parts
+      of Stirling and dropping the $\sqrt{2\pi n}$ prefactors: that loses the
+      constant entirely and returns $1$, which is not even the right order. Note
+      also that $n$ in the asymptotic is *half* the time, so plugging $200$ into
+      $1/\sqrt{\pi n}$ understates the answer by a factor $\sqrt{2}$.
+    expects: "0.0564"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Applies $u_{2n} \sim 1/\sqrt{\pi n}$ with $n = 100$, half the time index.
+      - >
+        Keeps the $\sqrt{2\pi n}$ prefactors in Stirling so the constant
+        survives.
+    targets:
+      - quant-processes.random-walks.return-origin
+    exercises:
+      - quant-tools.series-calculus.stirling
+
+  # --- first return to the origin ----------------------------------------------
+
+  - id: qrw-first-return-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two players stake one unit on each of $12$ fair coin tosses. What is the
+      probability that they are never level again after the first toss — that
+      is, that the walk does not return to $0$ at any time up to and including
+      step $12$?
+    answer: >
+      $231/1024 \approx 0.226$. The identity to know is
+      $\Pr(T_0 > 2n) = u_{2n}$: the probability of *no* return through time
+      $2n$ equals the probability of *being* at the origin at time $2n$, a
+      numerical coincidence with a bijective proof and one of the most quoted
+      facts about the walk. So the answer is
+      $u_{12} = \binom{12}{6}4^{-6} = 924/4096 = 231/1024 \approx 0.226$. Direct
+      enumeration of all $4096$ paths confirms $924$ of them avoid $0$
+      throughout. The intuition it corrects is strong and wrong: people expect
+      "never level in twelve tosses" to be rare, when in fact it happens nearly
+      a quarter of the time, and the probability decays only like $n^{-1/2}$.
+      Summing the first-return law $f_2 + f_4 + \dots + f_{12}$ and subtracting
+      from $1$ gives the same number, at ten times the work.
+    expects: "231/1024"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $\Pr(T_0 > 2n) = u_{2n}$ rather than summing the first-return law
+        term by term.
+      - >
+        Evaluates $u_{12} = \binom{12}{6}/4^{6}$ correctly and comments on how
+        slowly the no-return probability decays.
+    targets:
+      - quant-processes.random-walks.first-return
+    exercises:
+      - quant-processes.random-walks.return-origin
+
+  - id: qrw-first-return-02
+    kind: work
+    difficulty: standard
+    statement: >
+      For the fair walk from $0$, what is the probability that the first return
+      to the origin occurs exactly at step $12$?
+    answer: >
+      $21/1024 \approx 0.0205$. Use $f_{2n} = \dfrac{u_{2n}}{2n - 1}$ with
+      $2n = 12$, so $n = 6$ and the divisor is $2n - 1 = 11$. Since
+      $u_{12} = \binom{12}{6}4^{-6} = 231/1024$, we get
+      $f_{12} = \dfrac{231/1024}{11} = \dfrac{21}{1024} \approx 0.0205$. The
+      other exact form, $f_{2n} = u_{2n-2} - u_{2n}$, must give the same value:
+      $u_{10} - u_{12} = 252/1024 - 231/1024 = 21/1024$, and it does. Index care
+      is the whole discipline here — the divisor is $2n - 1 = 11$, not
+      $2n = 12$ and not $n = 6$, and the differencing form takes $u$ at
+      $2n - 2 = 10$, not at $2n$.
+    expects: "21/1024"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides $u_{12}$ by $2n - 1 = 11$, and can say why the divisor is odd.
+      - >
+        Cross-checks with the telescoping form $u_{2n-2} - u_{2n}$.
+    targets:
+      - quant-processes.random-walks.first-return
+
+  - id: qrw-first-return-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      A candidate reasons: "Condition on the first step. By symmetry the walk
+      must come back to $0$, so the return is certain — and since it is certain,
+      the expected time to return is finite." Which half of this is right?
+    answer: >
+      The certainty is right; the conclusion about the mean does not follow.
+      First-step analysis really does deliver
+      $\Pr(T_0 < \infty) = 1$: conditioning on the first step reduces the return
+      question to the hitting probability of a level from one unit away, which
+      for the symmetric walk is $1$. But that argument sees only the total
+      probability mass, never how it is spread over time. The spreading is what
+      matters: $f_{2n} \sim \dfrac{1}{2\sqrt{\pi}\,n^{3/2}}$, so
+      $\mathbb{E}[T_0] = \sum_n 2n f_{2n}$ behaves like $\sum n^{-1/2}$ and
+      diverges. Certain to happen, infinite expected wait — the standard warning
+      that a probability-one statement says nothing about timing.
+    choices:
+      - text: >
+          Both halves are right — a certain event over a discrete time index has
+          finite expected waiting time
+        feedback: >
+          There is no such implication. A waiting time can be finite with
+          probability $1$ and still have infinite mean, which happens exactly
+          when its tail is heavy enough — here it decays only like $n^{-1/2}$.
+      - text: >
+          The certainty is right and follows from first-step analysis, but the
+          finite mean does not follow — the $n^{-3/2}$ tail makes
+          $\mathbb{E}[T_0]$ infinite
+        correct: true
+      - text: >
+          Neither half is right — the symmetric walk returns with probability
+          less than $1$
+        feedback: >
+          Recurrence in one dimension is a theorem: $\sum_n f_{2n}$ telescopes
+          to $u_0 = 1$. Return is certain; it is only the timing that misbehaves.
+      - text: >
+          The certainty is right, and $\mathbb{E}[T_0]$ is finite but simply not
+          computable in closed form
+        feedback: >
+          It is not a computability issue. The series $\sum 2n f_{2n}$ is
+          comparable to $\sum n^{-1/2}$, which diverges — the mean is infinite,
+          not merely awkward.
+    rubric:
+      - >
+        Credits first-step analysis with the certainty of return and states what
+        it cannot see.
+      - >
+        Names the $n^{-3/2}$ tail of $f_{2n}$ as the reason the mean diverges.
+    targets:
+      - quant-processes.random-walks.first-return
+      - quant-tools.recurrences.first-step-analysis
+    exercises:
+      - quant-processes.random-walks.return-origin
+    connects:
+      - "quant-processes.random-walks.first-return ~ quant-tools.recurrences.first-step-analysis"
+
+  - id: qrw-first-return-04
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Let $f_{2n} = \Pr(T_0 = 2n)$ and $u_{2n} = \Pr(S_{2n} = 0)$ for the fair
+      walk, and take as given the identity $f_{2n} = u_{2n-2} - u_{2n}$. Prove
+      that the walk returns to the origin with probability $1$, and that
+      $\mathbb{E}[T_0] = \infty$.
+    answer: >
+      For the certainty, sum the given identity. The partial sums telescope:
+      $\sum_{n=1}^{N} f_{2n} = \sum_{n=1}^{N}(u_{2n-2} - u_{2n}) = u_0 -
+      u_{2N}$, since every interior term cancels. Now $u_0 = \Pr(S_0 = 0) = 1$,
+      and $u_{2N} = \binom{2N}{N}4^{-N} \sim 1/\sqrt{\pi N} \to 0$ as
+      $N \to \infty$. Letting $N \to \infty$ gives
+      $\Pr(T_0 < \infty) = \sum_{n \ge 1} f_{2n} = 1 - 0 = 1$; odd times
+      contribute nothing by parity. So the return is certain.
+      For the mean, note first that certainty says nothing about the mean, so a
+      separate estimate is needed. From $f_{2n} = u_{2n}/(2n-1)$ and
+      $u_{2n} \sim 1/\sqrt{\pi n}$ we get
+      $f_{2n} \sim \dfrac{1}{2\sqrt{\pi}\,n^{3/2}}$. Then
+      $\mathbb{E}[T_0] = \sum_{n \ge 1} 2n f_{2n}$ has terms
+      $2n f_{2n} \sim \dfrac{1}{\sqrt{\pi}\,n^{1/2}}$, and
+      $\sum_n n^{-1/2}$ diverges by comparison with $\int_1^{\infty}
+      x^{-1/2}\,dx = \infty$. Since the terms are eventually bounded below by a
+      constant multiple of $n^{-1/2}$, the series diverges and
+      $\mathbb{E}[T_0] = \infty$.
+      The two halves are logically independent, and that is the lesson: total
+      mass is controlled by a telescoping sum, while the mean is controlled by
+      the tail exponent. A tail decaying like $n^{-3/2}$ is exactly on the far
+      side of the boundary — summable, so the event is certain, but not
+      summable against a factor of $n$, so the mean blows up.
+    rubric:
+      - >
+        Telescopes $\sum (u_{2n-2} - u_{2n})$ to $u_0 - u_{2N}$ and uses
+        $u_{2N} \to 0$ to get total mass $1$.
+      - >
+        Derives $f_{2n} \sim n^{-3/2}/(2\sqrt{\pi})$ and compares
+        $\sum 2n f_{2n}$ with the divergent $\sum n^{-1/2}$.
+      - >
+        States that certainty of return does not by itself bound the mean, so
+        the second half needs its own tail estimate.
+    targets:
+      - quant-processes.random-walks.first-return
+    exercises:
+      - quant-tools.series-calculus.telescoping
+      - quant-tools.series-calculus.stirling
+
+  # --- expected distance from the origin ---------------------------------------
+
+  - id: qrw-expected-distance-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      For the fair $\pm 1$ walk from $0$, compute $\mathbb{E}|S_{15}|$ exactly.
+    answer: >
+      $6435/2048 \approx 3.142$. The exact identities are
+      $\mathbb{E}|S_{2n}| = 2n\,u_{2n}$ for even times and
+      $\mathbb{E}|S_{2n+1}| = (2n+1)\,u_{2n}$ for odd ones — note that the odd
+      case still uses $u$ at the *even* index $2n$, one below the time. Here
+      $15 = 2n + 1$ with $n = 7$, so
+      $\mathbb{E}|S_{15}| = 15\,u_{14} = 15 \cdot \binom{14}{7}4^{-7} =
+      15 \cdot \dfrac{3432}{16384} = 15 \cdot \dfrac{429}{2048} =
+      \dfrac{6435}{2048} \approx 3.142$. Direct summation
+      $\sum_k |k|\Pr(S_{15} = k)$ over the eight admissible odd values gives the
+      same fraction. Compare the asymptotic $\sqrt{2 \cdot 15/\pi} \approx
+      3.090$ and the standard deviation $\sqrt{15} \approx 3.873$: the expected
+      distance is about four-fifths of a standard deviation, and the two are
+      different statistics. Applying the even formula $2n u_{2n}$ at this odd
+      time — reading $15$ as $2n$ and using a nonexistent $u_{15}$ — is the slip.
+    expects: "6435/2048"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses the odd-time identity $\mathbb{E}|S_{2n+1}| = (2n+1)u_{2n}$, with
+        $u$ evaluated at $14$, not at $15$ or $16$.
+      - >
+        Distinguishes the mean absolute displacement from the standard deviation
+        $\sqrt{n}$.
+    targets:
+      - quant-processes.random-walks.expected-distance
+    exercises:
+      - quant-processes.random-walks.return-origin
+
+  - id: qrw-expected-distance-02
+    kind: work
+    difficulty: standard
+    statement: >
+      For the fair $\pm 1$ walk, compute $\mathbb{E}|S_{12}|$ exactly, and say
+      how it compares with $\sqrt{12}$.
+    answer: >
+      $693/256 \approx 2.707$, against $\sqrt{12} \approx 3.464$. The even-time
+      identity is $\mathbb{E}|S_{2n}| = 2n\,u_{2n}$, so with $2n = 12$ and
+      $u_{12} = \binom{12}{6}4^{-6} = 924/4096 = 231/1024$ we get
+      $\mathbb{E}|S_{12}| = 12 \cdot \dfrac{231}{1024} = \dfrac{2772}{1024} =
+      \dfrac{693}{256} \approx 2.707$. The ratio to the standard deviation is
+      $2.707/3.464 \approx 0.781$, close to the limiting $\sqrt{2/\pi} \approx
+      0.798$ — the same constant that makes $\mathbb{E}|Z| = \sigma\sqrt{2/\pi}$
+      for a centred normal. Quoting $\sqrt{12}$ as the expected distance is the
+      standard conflation: the standard deviation is the root of the mean
+      *square*, and Jensen's inequality already tells you the mean absolute
+      value must be strictly smaller.
+    expects: "693/256"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Applies $\mathbb{E}|S_{2n}| = 2n\,u_{2n}$ with the correct $u_{12}$.
+      - >
+        Reports the ratio to $\sqrt{n}$ as roughly $0.8$, not $1$.
+    targets:
+      - quant-processes.random-walks.expected-distance
+
+  # --- paths that never go negative --------------------------------------------
+
+  - id: qrw-nonnegative-paths-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Among the $14$-step paths of a $\pm 1$ walk that start at $0$ and end at
+      $0$, what fraction never dip below $0$?
+    answer: >
+      $1/8$. The paths from $0$ back to $0$ in $14$ steps number
+      $\binom{14}{7} = 3432$. Those that also stay nonnegative throughout are
+      counted by the Catalan number $C_7 = \binom{14}{7}/(7+1) = 3432/8 = 429$.
+      The fraction is therefore $429/3432 = 1/8$, and in general it is exactly
+      $1/(n+1)$ for a $2n$-step excursion — the binomial cancels completely, so
+      the answer never needs the coefficient evaluated at all. Direct
+      enumeration of the $16384$ paths of length $14$ finds exactly $429$
+      nonnegative returns, confirming the count. Note what the question asks:
+      this is a conditional fraction among the paths that return to $0$, not the
+      unconditional probability that a $14$-step walk stays nonnegative — a
+      different question, over a strictly larger set of paths, with a
+      different answer.
+    expects: "1/8"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Identifies the nonnegative returning paths with the Catalan number
+        $C_n = \binom{2n}{n}/(n+1)$.
+      - >
+        Cancels to $1/(n+1)$ and does not confuse this conditional fraction with
+        the unconditional $u_{2n}$.
+    targets:
+      - quant-processes.random-walks.nonnegative-paths
+    exercises:
+      - quant-probability.counting.catalan
+
+  - id: qrw-nonnegative-paths-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A fair coin is tossed $14$ times. What is the exact probability that heads
+      never trail tails at any point during the sequence?
+    answer: >
+      $429/2048 \approx 0.209$. This is the striking identity of the node:
+      $\Pr(S_1 \ge 0, \dots, S_{2n} \ge 0) = u_{2n} = \binom{2n}{n}4^{-n}$, the
+      same number as the probability of *being* at the origin at time $2n$,
+      even though the two events are quite different. With $2n = 14$ that is
+      $\binom{14}{7}4^{-7} = 3432/16384 = 429/2048 \approx 0.209$; enumerating
+      all $16384$ paths confirms $3432$ of them stay nonnegative. The interview
+      value is the size of the number: better than one sequence in five has
+      heads never behind across fourteen tosses, so "the lead never changed
+      hands" is unremarkable rather than suspicious. It is a symmetric-walk
+      identity only — under a bias the two sides come apart.
+    expects: "429/2048"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Quotes $\Pr(S_1 \ge 0, \dots, S_{2n} \ge 0) = u_{2n}$ and evaluates it
+        at $2n = 14$.
+      - >
+        Reads "never trail" as $\ge 0$ throughout, ties permitted, rather than
+        as strictly positive.
+    targets:
+      - quant-processes.random-walks.nonnegative-paths
+
+  - id: qrw-nonnegative-paths-03
+    kind: work
+    difficulty: standard
+    statement: >
+      A fair coin is tossed $14$ times. What is the exact probability that heads
+      are *strictly* ahead of tails after every single toss?
+    answer: >
+      $429/4096 \approx 0.105$. The strict version is exactly half the weak one:
+      $\Pr(S_1 > 0, \dots, S_{2n} > 0) = u_{2n}/2$, because a strictly positive
+      path must open with an up-step, and after that first step the remaining
+      constraint matches the nonnegative one. With $2n = 14$ that is
+      $\dfrac{1}{2}\binom{14}{7}4^{-7} = \dfrac{1}{2}\cdot\dfrac{3432}{16384} =
+      \dfrac{429}{4096} \approx 0.105$. Enumeration over all $16384$ paths gives
+      $1716$ strictly positive ones, confirming the halving. The factor of two
+      between the two readings is the single most common way this question is
+      misanswered: "never behind" and "always ahead" differ precisely by whether
+      ties are permitted, and permitting them doubles the probability.
+    expects: "429/4096"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $u_{2n}/2$ for the strict event, and explains the factor by the
+        forced first up-step.
+      - >
+        Keeps the two readings distinct rather than quoting one number for both.
+    targets:
+      - quant-processes.random-walks.nonnegative-paths
+
+  # --- recurrence and dimension ------------------------------------------------
+
+  - id: qrw-recurrence-dimension-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Prove that the simple symmetric random walk on $\mathbb{Z}$ is recurrent,
+      using the criterion that the walk returns to its start with probability
+      $1$ if and only if $\sum_{n \ge 0} \Pr(S_n = 0) = \infty$. Then explain
+      what changes in three dimensions.
+    answer: >
+      Write $R$ for the probability of ever returning to the origin and $V$ for
+      the total number of visits, counting time $0$. Each visit restarts the
+      walk by the strong Markov property, so $V$ is geometric with
+      $\Pr(V = k) = R^{k-1}(1-R)$ and
+      $\mathbb{E}[V] = 1/(1 - R)$ when $R < 1$. Counting the same expectation a
+      second way, $V = \sum_{n \ge 0}\mathbf{1}\{S_n = 0\}$, so by linearity
+      $\mathbb{E}[V] = \sum_{n \ge 0}\Pr(S_n = 0)$. The two expressions give the
+      criterion: the sum is infinite exactly when $R = 1$.
+      Now evaluate the sum in one dimension. Odd terms vanish by parity, and the
+      even ones are $u_{2n} = \binom{2n}{n}4^{-n}$. Stirling's formula gives
+      $\binom{2n}{n} \sim 4^{n}/\sqrt{\pi n}$, hence
+      $u_{2n} \sim 1/\sqrt{\pi n}$. Therefore
+      $\sum_{n \ge 1} u_{2n}$ is comparable to $\sum_n n^{-1/2}$, which diverges
+      by comparison with $\int_1^{\infty} x^{-1/2}\,dx$. So the sum is infinite,
+      $R = 1$, and the walk is recurrent — it returns with probability $1$, and
+      by the geometric structure it returns infinitely often with probability
+      $1$.
+      In three dimensions nothing about the criterion changes, only the
+      exponent. The return probability at time $2n$ decays like
+      $c\,n^{-3/2}$, because the walk now spreads over a volume of order
+      $n^{3/2}$ rather than a length of order $n^{1/2}$; and
+      $\sum_n n^{-3/2}$ converges. So $\mathbb{E}[V] < \infty$, forcing
+      $R < 1$ — numerically $R \approx 0.3405$ — and the walk is transient. The
+      borderline sits at $d = 2$, where $u_{2n} \sim 1/(\pi n)$ and the harmonic
+      series still just diverges. The intuition to resist is "more room means
+      more chances to come back": more room is exactly why the walk escapes.
+    rubric:
+      - >
+        Derives $\mathbb{E}[V] = 1/(1-R)$ from the geometric restart structure
+        and $\mathbb{E}[V] = \sum_n \Pr(S_n = 0)$ by linearity, so the criterion
+        is proved rather than quoted.
+      - >
+        Uses Stirling to get $u_{2n} \sim 1/\sqrt{\pi n}$ and compares
+        $\sum n^{-1/2}$ with a divergent integral.
+      - >
+        Locates the change in three dimensions in the exponent $n^{-3/2}$, whose
+        series converges, and does not argue from "more room to return".
+    targets:
+      - quant-processes.random-walks.recurrence-dimension
+    exercises:
+      - quant-processes.random-walks.return-origin
+      - quant-tools.series-calculus.integral-comparison
+
+  - id: qrw-recurrence-dimension-02
+    kind: work
+    difficulty: standard
+    statement: >
+      For the simple symmetric walk on $\mathbb{Z}^{2}$, each of the four
+      neighbours chosen with probability $1/4$, what is the exact probability of
+      standing at the origin after $4$ steps?
+    answer: >
+      $9/64 \approx 0.141$. Rotate the lattice by $45$ degrees: writing
+      $A_n = X_n + Y_n$ and $B_n = X_n - Y_n$ for the rotated coordinates,
+      each two-dimensional step changes each of the two combinations by exactly
+      $\pm 1$, and the two do so independently. So the walk splits into two
+      independent one-dimensional walks and
+      $\Pr(S_{2n} = 0) = u_{2n}^{2}$, the square of the one-dimensional value.
+      At $2n = 4$, $u_4 = \binom{4}{2}4^{-2} = 6/16 = 3/8$, so the answer is
+      $(3/8)^{2} = 9/64$. A direct enumeration over the $256$ four-step paths on
+      the square lattice gives $36$ returns, that is $36/256 = 9/64$, confirming
+      the identity. Because $u_{2n} \sim 1/\sqrt{\pi n}$, squaring gives
+      $\Pr(S_{2n} = 0) \sim 1/(\pi n)$ in two dimensions — still a divergent
+      series, so the plane is recurrent, but only just.
+    expects: "9/64"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses the $45$-degree rotation to factor the planar walk into two
+        independent one-dimensional walks.
+      - >
+        Squares $u_{2n}$ rather than treating the planar return probability as
+        equal to the linear one.
+    targets:
+      - quant-processes.random-walks.recurrence-dimension
+
+  - id: qrw-recurrence-dimension-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      Which statement correctly explains why the simple symmetric walk is
+      recurrent on $\mathbb{Z}^{2}$ but transient on $\mathbb{Z}^{3}$?
+    answer: >
+      The criterion is whether $\sum_n \Pr(S_n = 0)$ converges. In two
+      dimensions the return probability decays like $1/(\pi n)$, and the
+      harmonic series diverges, so the walk is recurrent. In three dimensions it
+      decays like $c\,n^{-3/2}$, and $\sum n^{-3/2}$ converges, so the total
+      expected number of visits is finite and the return probability is
+      strictly less than $1$ — about $0.3405$. The exponent crosses the critical
+      value $1$ exactly between $d = 2$ and $d = 3$; nothing about the
+      symmetry or fairness of the steps changes.
+    choices:
+      - text: >
+          In three dimensions there is more room to explore, so the walk has
+          more ways to find its way back
+        feedback: >
+          This is backwards. More room means the walk spreads over a volume of
+          order $n^{3/2}$, so it is *less* likely to be at any given site, and
+          the return series converges.
+      - text: >
+          $\sum_n \Pr(S_n = 0)$ diverges in two dimensions, where the terms
+          decay like $1/n$, and converges in three, where they decay like
+          $n^{-3/2}$
+        correct: true
+      - text: >
+          The three-dimensional walk has nonzero drift, so it escapes to
+          infinity
+        feedback: >
+          There is no drift: every coordinate of the walk has mean zero in
+          every dimension. Transience here is a matter of how fast the return
+          probability decays, not of any systematic pull.
+      - text: >
+          In three dimensions the walk can never return, because the parity
+          constraint has no solution
+        feedback: >
+          Parity works the same way in every dimension, and returns at even
+          times are perfectly possible in $\mathbb{Z}^{3}$ — they just happen
+          only finitely often, with total return probability about $0.3405$.
+    rubric:
+      - >
+        States the criterion as convergence or divergence of
+        $\sum_n \Pr(S_n = 0)$, with the exponent crossing $1$ between $d = 2$
+        and $d = 3$.
+      - >
+        Rejects the "more room to return" intuition explicitly.
+    targets:
+      - quant-processes.random-walks.recurrence-dimension
+
+  # --- expected number of visits -----------------------------------------------
+
+  - id: qrw-expected-visits-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      For the simple symmetric walk on $\mathbb{Z}^{3}$ the Green's function at
+      the origin is $\sum_{n \ge 0}\Pr(S_n = 0) = 1.5164$. What is the
+      probability that the walk returns to its starting point at least twice?
+      Give four decimal places.
+    answer: >
+      $\approx 0.1160$. Two steps. First recover the return probability $R$ from
+      the series. Let $V$ be the total number of visits including time $0$; each
+      visit restarts the walk, so $V$ is geometric with
+      $\Pr(V = k) = R^{k-1}(1-R)$ and $\mathbb{E}[V] = 1/(1-R)$. Counting visits
+      as a sum of indicators gives the other expression,
+      $\mathbb{E}[V] = \sum_{n \ge 0}\Pr(S_n = 0)$, which is the Green's
+      function quoted. So $1/(1-R) = 1.5164$, giving
+      $1 - R = 1/1.5164 = 0.65946$ and $R = 0.34054$. Second, returning at least
+      twice means succeeding at two independent restarts, so the answer is
+      $R^{2} = (0.34054)^{2} \approx 0.1160$. Reading the Green's function in
+      this direction — from an easily summed series to a hard-to-compute hitting
+      probability — is the whole reason it is worth naming. Reporting $1.5164$,
+      or $1/1.5164$, answers the wrong question: the first is the expected visit
+      count, the second the probability of *never* returning.
+    expects: "0.1160"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Sets $\mathbb{E}[V] = 1/(1-R)$ from the geometric restart structure,
+        equates it with the Green's function, and solves for $R$.
+      - >
+        Squares $R$ for two successful restarts, rather than stopping at $R$ or
+        reporting the expected visit count.
+    targets:
+      - quant-processes.random-walks.expected-visits
+    exercises:
+      - quant-tools.series-calculus.geometric-series
+
+  - id: qrw-expected-visits-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A simple symmetric walk on $\mathbb{Z}^{3}$ has return probability
+      $R = 0.3405$. What is the probability that it visits the origin at least
+      four times, counting the visit at time $0$? Give four decimal places.
+    answer: >
+      $\approx 0.0395$. The total visit count $V$ is geometric with
+      $\Pr(V = k) = R^{k-1}(1-R)$, so the tail is
+      $\Pr(V \ge k) = R^{k-1}$ — reaching a $k$th visit means returning
+      successfully $k - 1$ times, each an independent trial with probability
+      $R$. Hence $\Pr(V \ge 4) = R^{3} = (0.3405)^{3} \approx 0.0395$. The
+      exponent is $3$, not $4$: time $0$ is a visit that costs nothing. Getting
+      that off by one gives $R^{4} \approx 0.0134$, understating by a factor of
+      nearly three. For contrast, in one dimension $R = 1$ and every such tail
+      equals $1$ — the origin is visited infinitely often almost surely, and so
+      is every other integer.
+    expects: "0.0395"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses the geometric tail $\Pr(V \ge k) = R^{k-1}$, counting time $0$ as
+        the first visit.
+      - >
+        Raises $R$ to the power $3$, not $4$.
+    targets:
+      - quant-processes.random-walks.expected-visits
+
+  # --- the arcsine law ---------------------------------------------------------
+
+  - id: qrw-arcsine-law-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      In a long fair coin-flip game, let $F$ be the fraction of time the running
+      total spends on the positive side. Using the arcsine law, what is the
+      probability that $F$ lies between $0.40$ and $0.60$? Give four decimal
+      places.
+    answer: >
+      $\approx 0.1282$. The limiting law is
+      $\Pr(F \le x) = \dfrac{2}{\pi}\arcsin\sqrt{x}$, so the answer is the
+      difference of the distribution function at the two ends:
+      $\dfrac{2}{\pi}\left(\arcsin\sqrt{0.60} - \arcsin\sqrt{0.40}\right) =
+      \dfrac{2}{\pi}(0.88608 - 0.68472) \approx \dfrac{2}{\pi}(0.20136) \approx
+      0.1282$. So the "obviously typical" outcome — one side ahead roughly half
+      the time — happens under thirteen percent of the time. The density is
+      U-shaped, lowest in the middle, and the mass piles up at the two extremes:
+      the same formula gives about $0.2048$ for $F \ge 0.90$ alone, more than
+      the whole central band of width $0.2$ around $1/2$. Reaching for
+      a law of large numbers here is the trap; "which side is ahead at time $t$"
+      is wildly dependent across $t$, so nothing concentrates at $1/2$.
+    expects: "0.1282"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Differences the arcsine CDF at the two endpoints rather than evaluating
+        a density.
+      - >
+        Notes that the answer is small because the density is U-shaped, and does
+        not appeal to a law of large numbers.
+    targets:
+      - quant-processes.random-walks.arcsine-law
+
+  - id: qrw-arcsine-law-02
+    kind: work
+    difficulty: standard
+    statement: >
+      With $F$ the fraction of time a long fair coin-flip game spends on the
+      positive side, what is the probability that $F \ge 0.85$? Give four
+      decimal places.
+    answer: >
+      $\approx 0.2532$. Take the complement of the arcsine distribution
+      function: $\Pr(F \ge 0.85) = 1 - \dfrac{2}{\pi}\arcsin\sqrt{0.85} =
+      1 - \dfrac{2}{\pi}(1.17310) \approx 1 - 0.74682 = 0.2532$. By symmetry
+      $\Pr(F \le 0.15)$ is the same, so more than half of all fair games have
+      one side ahead at least eighty-five percent of the time. That is the
+      practical content: a long one-sided run in a track record is the ordinary
+      behaviour of a fair process, not evidence of an edge. Forgetting to
+      complement, and quoting $0.7468$, answers "at most $0.85$" instead.
+    expects: "0.2532"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Complements the arcsine CDF rather than evaluating it directly at
+        $0.85$.
+      - >
+        Uses the symmetry of $F$ about $1/2$ to double the tail when describing
+        how common lopsided games are.
+    targets:
+      - quant-processes.random-walks.arcsine-law
+
+  # --- fair, certain, and unboundedly slow -------------------------------------
+
+  - id: qrw-fair-but-slow-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A trader stakes one unit on each of a sequence of fair coin flips and
+      resolves to stop the moment he is ahead by one unit. Using the estimate
+      $\Pr(T_1 > N) \approx \sqrt{2/(\pi N)}$, what is the probability he is
+      still trading after $40{,}000$ flips? Give four decimal places.
+    answer: >
+      $\approx 0.0040$. Substituting $N = 40{,}000$ gives
+      $\sqrt{2/(\pi \cdot 40{,}000)} = \sqrt{2/125{,}664} =
+      \sqrt{1.5915 \times 10^{-5}} \approx 0.003989$, so about four chances in a
+      thousand. The three facts must be held together. The stop is reached with
+      probability $1$, since the fair walk is recurrent and hits every level
+      eventually. The chance of still waiting after any given horizon is small.
+      And yet $\mathbb{E}[T_1] = \infty$, because a tail decaying like
+      $N^{-1/2}$ is exactly heavy enough for $\sum_N \Pr(T_1 > N)$ to diverge —
+      which is the sum that computes the mean. So the "sure win" is bought with
+      unbounded time and, along the way, unbounded drawdown. The inference to
+      refuse is the one from "small tail at my horizon" to "safe to size with a
+      finite bankroll": a finite bankroll turns this into gambler's ruin, where
+      the guarantee is gone.
+    expects: "0.0040"
+    tolerance: 0.0002
+    rubric:
+      - >
+        Evaluates $\sqrt{2/(\pi N)}$ at $N = 40{,}000$ rather than mixing up the
+        constant or dropping the factor $2$.
+      - >
+        States that the probability-$1$ stop coexists with
+        $\mathbb{E}[T_1] = \infty$, because $\sum_N \Pr(T_1 > N)$ diverges.
+    targets:
+      - quant-processes.random-walks.fair-but-slow
+    exercises:
+      - quant-processes.random-walks.first-return
+
+  - id: qrw-fair-but-slow-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A fair $\pm 1$ walk satisfies $\mathbb{E}[S_n] = 0$ for every $n$. Which
+      conclusion does that license?
+    answer: >
+      Only that the game is fair at each fixed time. It says nothing about the
+      path between now and then: the maximum drawdown along the way has infinite
+      expectation, the running maximum grows like $\sqrt{2n/\pi}$, and the
+      absolute lead $|S_n|$ diverges even though its signed mean stays at zero.
+      Fairness of the mean and control of the excursions are different
+      properties, and only the first is on offer. This is why risk limits are
+      written in capital and in time rather than in probability — a rule whose
+      guarantee is "probability $1$ eventually" has no bound on either resource.
+    choices:
+      - text: >
+          The walk tends to drift back toward $0$, so large excursions correct
+          themselves
+        feedback: >
+          There is no restoring force. $\mathbb{E}[S_n] = 0$ is an average over
+          paths at a fixed time, not a pull on any single path; the typical
+          distance from the origin grows like $\sqrt{n}$ without bound.
+      - text: >
+          The game is fair at each fixed time, but nothing follows about the
+          size of the drawdowns along the way
+        correct: true
+      - text: >
+          The expected maximum drawdown before any fixed time is $0$
+        feedback: >
+          The expected running maximum after $n$ steps is about
+          $\sqrt{2n/\pi}$, and the expected drawdown is of the same order — a
+          mean of zero for $S_n$ constrains neither.
+      - text: >
+          A strategy that stops once ahead by $100$ has finite expected duration
+          because each step is fair
+        feedback: >
+          The stop is reached with probability $1$, but the expected time is
+          infinite; fairness of each step gives no bound on the waiting time.
+    rubric:
+      - >
+        Separates "mean zero at each fixed time" from any statement about the
+        path's excursions or drawdown.
+      - >
+        Notes that the running maximum grows like $\sqrt{n}$ and the expected
+        time to a fixed profit target is infinite.
+    targets:
+      - quant-processes.random-walks.fair-but-slow

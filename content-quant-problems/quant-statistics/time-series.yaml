@@ -1,0 +1,1692 @@
+# Problems targeting quant-statistics.time-series — serial dependence, the AR(1)
+# and MA(1) families, and the unit-root boundary where all of it stops working.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. No problem here reuses a lesson's
+# worked example or a card's instance. See ../README.md.
+
+problems:
+  # --- weak stationarity and white noise --------------------------------------
+
+  - id: qts-stationarity-01
+    kind: decide
+    difficulty: demanding
+    statement: >
+      Four candidate series are built from iid shocks $\varepsilon_t$ with mean
+      $0$ and variance $1$. Exactly one is weakly stationary. Which?
+    answer: >
+      $x_t = \varepsilon_t - 0.3\varepsilon_{t-2}$. Check the three conditions on
+      it: the mean is $0$ at every $t$; the variance is
+      $(1 + 0.09) \cdot 1 = 1.09$ at every $t$; and the autocovariances are
+      $\gamma_2 = -0.3$, with $\gamma_1 = 0$ and $\gamma_k = 0$ for $k \ge 3$ —
+      all functions of the lag alone. A finite window over shocks is always
+      weakly stationary, whatever the coefficients. Each of the others fails a
+      different condition, which is the point of the question. The series
+      $x_t = \sqrt{t}\,\varepsilon_t$ has constant mean $0$ but variance $t$, so
+      it fails the second condition even though a plot of it looks centred. The
+      cumulative sum $x_t = \sum_{s \le t}\varepsilon_s$ likewise has variance
+      $t$. And $x_t = 6 + 0.4t + \varepsilon_t$ has constant variance $1$ but a
+      mean that moves, so a sample average over a long stretch estimates nothing
+      — there is no fixed number for it to converge to.
+    choices:
+      - text: >
+          $x_t = \varepsilon_t - 0.3\varepsilon_{t-2}$
+        correct: true
+        feedback: >
+          Right: mean $0$, variance $1.09$ and $\gamma_k$ a function of the lag
+          alone. A finite window over white noise is stationary for any
+          coefficients.
+      - text: >
+          $x_t = \sqrt{t}\,\varepsilon_t$
+        feedback: >
+          The mean is constant at $0$, but $\operatorname{Var}(x_t) = t$ grows
+          without bound — the second condition fails.
+      - text: >
+          $x_t = \sum_{s \le t}\varepsilon_s$
+        feedback: >
+          This is a random walk: $\operatorname{Var}(x_t) = t$, and the
+          autocovariance depends on where you stand, not just the lag.
+      - text: >
+          $x_t = 6 + 0.4t + \varepsilon_t$
+        feedback: >
+          The variance is a constant $1$, but the mean $6 + 0.4t$ moves, so the
+          first condition fails. Detrending, not differencing, is the cure here.
+    rubric:
+      - >
+        Tests all three conditions rather than eyeballing a plot: constant mean,
+        constant finite variance, and autocovariance depending on the lag alone.
+      - >
+        Recognises that a finite moving window over white noise is stationary
+        for any coefficient values, unlike an autoregression.
+    targets:
+      - quant-statistics.time-series.stationarity
+
+  - id: qts-stationarity-02
+    kind: work
+    difficulty: demanding
+    statement: >
+      Let $\varepsilon_t$ be iid standard normal and set
+      $x_t = \varepsilon_t\varepsilon_{t-1}$. This series is white noise: mean
+      $0$, variance $1$, and $\gamma_k = 0$ for every $k \ne 0$. Compute
+      $\operatorname{Cov}(x_t^{2}, x_{t+1}^{2})$.
+    answer: >
+      $2$. First the pieces. $\mathbb{E}[x_t] =
+      \mathbb{E}[\varepsilon_t]\mathbb{E}[\varepsilon_{t-1}] = 0$ and
+      $\mathbb{E}[x_t^{2}] = \mathbb{E}[\varepsilon_t^{2}]
+      \mathbb{E}[\varepsilon_{t-1}^{2}] = 1$, so the variance is $1$. Now
+      $x_t^{2}x_{t+1}^{2} = \varepsilon_{t-1}^{2}\varepsilon_t^{4}
+      \varepsilon_{t+1}^{2}$, and independence splits the expectation into
+      $\mathbb{E}[\varepsilon_{t-1}^{2}]\mathbb{E}[\varepsilon_t^{4}]
+      \mathbb{E}[\varepsilon_{t+1}^{2}] = 1 \cdot 3 \cdot 1 = 3$, using the
+      standard normal's fourth moment $3$. Hence
+      $\operatorname{Cov}(x_t^{2}, x_{t+1}^{2}) = 3 - 1 \cdot 1 = 2$. The lesson
+      is the whole reason white noise is weaker than iid: every *linear*
+      dependence in this series is exactly zero, so a correlogram of $x_t$ shows
+      nothing at all, yet the squares are strongly dependent — a large $|x_t|$
+      means a large $|\varepsilon_t|$, which feeds straight into $x_{t+1}$. That
+      is volatility clustering in miniature, and it is invisible to the ACF of
+      the level.
+    expects: "2"
+    rubric:
+      - >
+        Uses independence to factor $\mathbb{E}[x_t^{2}x_{t+1}^{2}]$ into
+        moments of single shocks, and quotes $\mathbb{E}[\varepsilon^{4}] = 3$
+        for a standard normal rather than $1$.
+      - >
+        Names the moral: zero autocorrelation in the level is compatible with
+        strong dependence in the squares, so white noise does not mean iid.
+    targets:
+      - quant-statistics.time-series.stationarity
+    exercises:
+      - quant-probability.joint.covariance
+
+  - id: qts-stationarity-03
+    kind: work
+    difficulty: routine
+    statement: >
+      A weakly stationary series has $\gamma_0 = 25$ and
+      $\operatorname{Cov}(x_3, x_7) = 10$. What is
+      $\operatorname{Cov}(x_{20}, x_{24})$?
+    answer: >
+      $10$. Weak stationarity says the autocovariance is a function of the lag
+      alone: $\operatorname{Cov}(x_t, x_{t+k}) = \gamma_k$ for every $t$. The
+      given pair sits at lag $7 - 3 = 4$, so $\gamma_4 = 10$; the asked pair sits
+      at lag $24 - 20 = 4$ as well, so the answer is the same $\gamma_4 = 10$.
+      Nothing about the calendar position matters — that invariance is exactly
+      what stationarity buys, and it is what lets you pool pairs four apart from
+      all over one path to estimate a single number. The value $\gamma_0 = 25$ is
+      there to be used elsewhere: it converts the covariance to the correlation
+      $\rho_4 = 10/25 = 0.4$, which is what a correlogram would actually plot.
+    expects: "10"
+    rubric:
+      - >
+        Identifies both pairs as lag $4$ and invokes the definition rather than
+        recomputing anything.
+      - >
+        Does not divide by $\gamma_0$: the question asks for a covariance, and
+        $0.4$ is the correlation.
+    targets:
+      - quant-statistics.time-series.stationarity
+
+  # --- the autocorrelation function -------------------------------------------
+
+  - id: qts-acf-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A weakly stationary series has $\rho_1 = 0.8$. Not every $\rho_2$ is then
+      possible, because the correlation matrix of $(x_1, x_2, x_3)$ — the matrix
+      with entries $\rho_{|i-j|}$ — must be positive semidefinite. What is the
+      smallest value $\rho_2$ can take?
+    answer: >
+      $0.28$. Write the $3 \times 3$ correlation matrix with rows
+      $(1, \rho_1, \rho_2)$, $(\rho_1, 1, \rho_1)$, $(\rho_2, \rho_1, 1)$. Its
+      determinant is $(1-\rho_2)(1 + \rho_2 - 2\rho_1^{2})$, and with
+      $|\rho_1| \le 1$ the binding factor is the second one, so positive
+      semidefiniteness requires $\rho_2 \ge 2\rho_1^{2} - 1$. At $\rho_1 = 0.8$
+      that is $2(0.64) - 1 = 0.28$, and the matrix at $\rho_2 = 0.28$ is
+      singular — exactly on the boundary, with $x_3$ a deterministic linear
+      function of $x_1$ and $x_2$. Sanity check the shape of the bound: at
+      $\rho_1 = 0$ it allows $\rho_2 \ge -1$, no constraint at all, while at
+      $\rho_1 = 1$ it forces $\rho_2 = 1$. The moral is that a correlogram is not
+      a free list of numbers you may sketch at will — strong correlation at lag
+      $1$ drags lag $2$ upward, and an AR(1) sits well inside the allowed region
+      with $\rho_2 = \rho_1^{2} = 0.64$.
+    expects: "0.28"
+    rubric:
+      - >
+        Uses positive semidefiniteness of the lag-structured correlation matrix,
+        not an ad hoc rule, and gets the bound $\rho_2 \ge 2\rho_1^{2} - 1$.
+      - >
+        Notes that the bound binds from below only — large positive $\rho_1$
+        forbids negative $\rho_2$, so ACFs are constrained sequences.
+    targets:
+      - quant-statistics.time-series.acf
+    exercises:
+      - quant-probability.joint.correlation
+
+  - id: qts-acf-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A weakly stationary series has autocovariances $\gamma_0 = 50$,
+      $\gamma_1 = -20$, $\gamma_2 = 8$, and $\gamma_k = 0$ for $k \ge 3$. What is
+      $\rho_{-2}$?
+    answer: >
+      $0.16$. The autocorrelation is the autocovariance scaled by the variance:
+      $\rho_k = \gamma_k/\gamma_0$. So $\rho_2 = 8/50 = 0.16$, and since the ACF
+      is symmetric — $\rho_{-k} = \rho_k$, because
+      $\operatorname{Cov}(x_t, x_{t-k})$ and
+      $\operatorname{Cov}(x_t, x_{t+k})$ are the same number for a stationary
+      series — the answer at lag $-2$ is also $0.16$. Two checks worth making
+      habitual. First $\rho_0 = \gamma_0/\gamma_0 = 1$ always, so a correlogram
+      that does not start at $1$ has been mislabelled. Second, the signs here
+      alternate — $\rho_1 = -20/50 = -0.4$ then $\rho_2 = 0.16$ — which reads
+      like an alternating process, though the hard cut-off after lag $2$ says
+      moving average of order $2$ rather than an autoregression, whose ACF would
+      never reach exactly zero.
+    expects: "0.16"
+    rubric:
+      - >
+        Divides by $\gamma_0$ rather than reporting the raw covariance, and uses
+        $\rho_{-k} = \rho_k$ instead of calling the negative lag undefined.
+      - >
+        Reads the cut-off after lag $2$ as an MA signature rather than an
+        autoregressive one.
+    targets:
+      - quant-statistics.time-series.acf
+
+  # --- reading a sample ACF ---------------------------------------------------
+
+  - id: qts-sample-acf-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A five-observation series reads $4, 7, 5, 9, 5$. Using the standard
+      estimator — the same denominator $\sum_{t=1}^{n}(x_t - \bar{x})^{2}$ at
+      every lag — compute the sample autocorrelation at lag $1$.
+    answer: >
+      $-0.5625$. The mean is $(4+7+5+9+5)/5 = 30/5 = 6$, so the deviations are
+      $-2, 1, -1, 3, -1$. The lag-$1$ numerator pairs each deviation with the
+      next: $(-2)(1) + (1)(-1) + (-1)(3) + (3)(-1) = -2 - 1 - 3 - 3 = -9$. The
+      denominator is the full sum of squared deviations,
+      $4 + 1 + 1 + 9 + 1 = 16$. Hence $\hat{\rho}_1 = -9/16 = -0.5625$. Two
+      traps. The numerator has only $n - 1 = 4$ terms while the denominator has
+      $n = 5$; dividing the numerator by $4$ and the denominator by $5$ first —
+      as if computing two separate averages — gives $-0.703$ and is the common
+      error. And with $n = 5$ the standard band is
+      $\pm 1.96/\sqrt{5} \approx \pm 0.88$, so this large-looking negative value
+      is not evidence of anything: five points can produce almost any
+      $\hat{\rho}_1$ by chance.
+    expects: "-0.5625"
+    rubric:
+      - >
+        Centres the data first, then uses the same denominator
+        $\sum (x_t - \bar{x})^{2}$ at the lag as at lag $0$ — no separate
+        normalisation of the shorter numerator sum.
+      - >
+        Comments on significance using $\pm 1.96/\sqrt{n}$ and concludes that
+        $n = 5$ supports no conclusion at all.
+    targets:
+      - quant-statistics.time-series.sample-acf
+    exercises:
+      - quant-statistics.time-series.acf
+
+  - id: qts-sample-acf-02
+    kind: work
+    difficulty: standard
+    statement: >
+      You have $n = 625$ observations and plot the sample ACF at lags $1$ through
+      $20$. The data really are iid noise. On average, how many of those $20$
+      bars pierce the $\pm 1.96/\sqrt{n}$ band?
+    answer: >
+      $1$. The bands are pointwise, not simultaneous: for each fixed lag,
+      $\hat{\rho}_k$ is approximately $N(0, 1/n)$ under the iid null, so each
+      individual bar has probability $0.05$ of falling outside
+      $\pm 1.96/\sqrt{625} = \pm 1.96/25 = \pm 0.0784$. Across $20$ lags the
+      expected count is $20 \times 0.05 = 1$. That is the whole reason a lone
+      spike proves nothing — one crossing in twenty is the *typical* picture
+      under pure noise, not evidence against it. If you want a verdict on the
+      first $20$ lags jointly, run a Ljung–Box test, which pools them into a
+      single statistic with a single $5\%$ level. The practical habit: before
+      getting excited about the bar at lag $7$, ask how many lags you looked at
+      before you noticed it.
+    expects: "1"
+    rubric:
+      - >
+        Treats the band as pointwise at level $0.05$ per lag and multiplies by
+        the number of lags examined.
+      - >
+        Names the joint test (Ljung–Box) as the right instrument when the
+        question is about a whole correlogram rather than one pre-chosen lag.
+    targets:
+      - quant-statistics.time-series.sample-acf
+    exercises:
+      - quant-statistics.time-series.acf
+
+  # --- the AR(1) process ------------------------------------------------------
+
+  - id: qts-ar1-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A stationary AR(1) reads $x_t = 2.8 - 0.75x_{t-1} + \varepsilon_t$ with
+      $\varepsilon_t$ white noise of variance $\sigma^{2} = 7$. What is
+      $\operatorname{Var}(x_t)$?
+    answer: >
+      $16$. Stationarity holds because $|-0.75| < 1$. Take variances of both
+      sides of the recursion. The constant contributes nothing, $x_{t-1}$ has the
+      same variance $\gamma_0$ as $x_t$ by stationarity, and $\varepsilon_t$ is
+      uncorrelated with $x_{t-1}$ — it has not happened yet as far as $x_{t-1}$
+      is concerned — so the cross term vanishes and
+      $\gamma_0 = \phi^{2}\gamma_0 + \sigma^{2}$. Solving,
+      $\operatorname{Var}(x_t) = \sigma^{2}/(1-\phi^{2}) = 7/(1 - 0.5625) =
+      7/0.4375 = 16$. Two remarks. Only $\phi^{2}$ enters, so a coefficient of
+      $-0.75$ inflates the variance exactly as much as $+0.75$ does — the sign
+      controls whether the path alternates or persists, not how wide it is. And
+      the mean is $\mu = c/(1-\phi) = 2.8/1.75 = 1.6$, which the negative $\phi$
+      makes a level the series crosses constantly rather than one it drifts
+      around.
+    expects: "16"
+    rubric:
+      - >
+        Argues that $\varepsilon_t$ is uncorrelated with $x_{t-1}$ before
+        dropping the cross term, rather than dropping it silently.
+      - >
+        Uses $1 - \phi^{2}$ rather than $1 - \phi$ in the denominator, and does
+        not let the negative sign change the variance.
+    targets:
+      - quant-statistics.time-series.ar1
+    exercises:
+      - quant-probability.expectation.variance
+
+  - id: qts-ar1-02
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Without quoting the formula, derive $\operatorname{Var}(x_t) =
+      \sigma^{2}/(1-\phi^{2})$ for a stationary AR(1) by *iterating* the
+      recursion $x_t = \phi x_{t-1} + \varepsilon_t$ backwards, and explain where
+      the argument breaks when $|\phi| \ge 1$.
+    answer: >
+      Substitute the recursion into itself $m$ times:
+      $x_t = \varepsilon_t + \phi\varepsilon_{t-1} + \phi^{2}\varepsilon_{t-2} +
+      \dots + \phi^{m-1}\varepsilon_{t-m+1} + \phi^{m}x_{t-m}$. Because the
+      shocks are mutually uncorrelated, the variance of the shock part is the sum
+      of the individual variances,
+      $\sigma^{2}(1 + \phi^{2} + \phi^{4} + \dots + \phi^{2(m-1)})$, a geometric
+      series in $\phi^{2}$. Let $m \to \infty$. When $|\phi| < 1$ the remainder
+      term $\phi^{m}x_{t-m}$ has variance $\phi^{2m}\gamma_0 \to 0$, so it
+      disappears, and the geometric sum converges to
+      $\sigma^{2}/(1-\phi^{2})$ — which is the claim. The infinite form
+      $x_t = \sum_{j \ge 0}\phi^{j}\varepsilon_{t-j}$ is worth stating on its own:
+      today's value is a geometrically weighted memory of every past shock.
+      Now the failure. At $|\phi| = 1$ the geometric series has every term equal
+      to $\sigma^{2}$, so after $m$ steps the variance is $m\sigma^{2}$ and it
+      diverges; the remainder term does not shrink either, since
+      $\phi^{2m} = 1$ forever. At $|\phi| > 1$ both problems get worse — the
+      weights on old shocks grow rather than decay, so the distant past dominates
+      the present. In neither case is there a finite $\gamma_0$ to solve for,
+      which is why $\gamma_0 = \phi^{2}\gamma_0 + \sigma^{2}$ — the one-line
+      route — is legitimate only after stationarity has been established. Assumed
+      blindly at $\phi = 1$ it returns $\sigma^{2}/0$, and at $\phi = 1.2$ it
+      cheerfully returns a *negative* variance, which is the algebra warning you
+      that its premise was false.
+    rubric:
+      - >
+        Unrolls to a finite sum plus a remainder $\phi^{m}x_{t-m}$ and argues
+        that the remainder's variance vanishes, rather than writing an infinite
+        sum without justification.
+      - >
+        Sums the geometric series in $\phi^{2}$, not $\phi$, using that distinct
+        shocks are uncorrelated.
+      - >
+        Explains the breakdown at $|\phi| \ge 1$ concretely — divergent sum,
+        non-vanishing remainder, and the absurd negative variance the shortcut
+        formula returns.
+    targets:
+      - quant-statistics.time-series.ar1
+    exercises:
+      - quant-probability.expectation.variance
+
+  - id: qts-ar1-03
+    kind: work
+    difficulty: routine
+    statement: >
+      A stationary AR(1) reads $x_t = 1.2 + 0.4x_{t-1} + \varepsilon_t$. What is
+      its unconditional mean?
+    answer: >
+      $2$. Take expectations of both sides. By stationarity
+      $\mathbb{E}[x_t] = \mathbb{E}[x_{t-1}] = \mu$, and
+      $\mathbb{E}[\varepsilon_t] = 0$, so $\mu = 1.2 + 0.4\mu$. Then
+      $0.6\mu = 1.2$ and $\mu = c/(1-\phi) = 1.2/0.6 = 2$. The trap is reading
+      $c = 1.2$ as the mean: the constant is the intercept of the recursion, not
+      the level the series revolves around, and the gap between them widens as
+      $\phi$ approaches $1$ — the same $c = 1.2$ with $\phi = 0.95$ would give a
+      mean of $24$. A useful sanity check is that the recursion holds at the
+      mean: $1.2 + 0.4(2) = 2$ exactly, so once the series sits at $2$ it has no
+      systematic tendency to move away.
+    expects: "2"
+    rubric:
+      - >
+        Uses $\mathbb{E}[x_t] = \mathbb{E}[x_{t-1}]$ from stationarity to solve
+        for $\mu$, rather than reading off the intercept.
+      - >
+        Gets $c/(1-\phi)$, not $c$ and not $c/\phi$.
+    targets:
+      - quant-statistics.time-series.ar1
+
+  - id: qts-ar1-04
+    kind: work
+    difficulty: standard
+    statement: >
+      A spread follows an Ornstein–Uhlenbeck process with mean-reversion rate
+      $\theta = 0.2$ per year. You will only ever see it on a quarterly grid, so
+      you model the sampled series as an AR(1). What coefficient $\phi$ should
+      that AR(1) have? Give four decimal places.
+    answer: >
+      $0.9512$. Sampling an OU process at spacing $\Delta$ gives exactly an
+      AR(1) with $\phi = e^{-\theta\Delta}$ — the continuous-time reversion rate
+      and the discrete-time coefficient are the same fact told on two clocks.
+      Quarterly means $\Delta = 0.25$ years, so
+      $\phi = e^{-0.2 \times 0.25} = e^{-0.05} \approx 0.9512$. Notice what the
+      sampling frequency does: the *process* is unchanged, but reading it
+      monthly would give $e^{-0.2/12} \approx 0.9835$ and reading it annually
+      $e^{-0.2} \approx 0.8187$. A quoted $\phi$ is therefore meaningless without
+      its frequency, whereas $\theta$ is a property of the spread itself. Check
+      the half-life both ways as reassurance: $\ln 2/\theta = 3.47$ years, and
+      $\ln 2/\ln(1/0.9512) = 13.86$ quarters, which is the same $3.47$ years.
+    expects: "0.9512"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $\phi = e^{-\theta\Delta}$ with $\Delta$ in the same time units as
+        $\theta$, rather than $1 - \theta\Delta$ or $\theta\Delta$ itself.
+      - >
+        Says why a coefficient without a stated sampling frequency is
+        uninterpretable, while the reversion rate is not.
+    targets:
+      - quant-statistics.time-series.ar1
+      - quant-processes.ito.ou
+    connects:
+      - quant-processes.ito.ou ~ quant-statistics.time-series.ar1
+
+  # --- geometric decay of the AR(1) ACF ---------------------------------------
+
+  - id: qts-ar1-acf-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A stationary AR(1) is observed to have lag-$2$ autocorrelation
+      $\rho_2 = 0.5625$, and its lag-$1$ autocorrelation is positive. What is
+      $\rho_5$? Give four decimal places.
+    answer: >
+      $0.2373$. For an AR(1) the Yule–Walker recursion $\gamma_k =
+      \phi\gamma_{k-1}$ gives $\rho_k = \phi^{k}$, so $\rho_2 = \phi^{2} =
+      0.5625$ and $\phi = \pm 0.75$. The sign is settled by the stated
+      $\rho_1 > 0$: since $\rho_1 = \phi$, the coefficient is $+0.75$, not
+      $-0.75$. Then $\rho_5 = 0.75^{5} = 0.2373046875 \approx 0.2373$. Two things
+      to keep. Even lags cannot identify the sign of $\phi$ on their own —
+      $\phi = -0.75$ produces the identical $\rho_2 = 0.5625$ but
+      $\rho_5 = -0.2373$, a sign flip in the answer, so a question that gives you
+      only an even lag is incomplete. And the decay is geometric, never a
+      cut-off: $\rho_5$ is still nearly a quarter, and no lag of an AR(1) is ever
+      exactly zero. That is what separates the tailing-off AR correlogram from
+      the MA one that stops dead.
+    expects: "0.2373"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Inverts $\rho_2 = \phi^{2}$ and then uses the stated sign of $\rho_1$ to
+        choose between the two roots, instead of assuming $\phi > 0$.
+      - >
+        Applies $\rho_k = \phi^{k}$ at lag $5$, and notes that an AR(1) ACF
+        decays without ever hitting zero.
+    targets:
+      - quant-statistics.time-series.ar1-acf
+    exercises:
+      - quant-statistics.time-series.ar1
+
+  - id: qts-ar1-acf-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A stationary AR(1) has $\phi = 0.45$. What is its autocorrelation at lag
+      $3$?
+    answer: >
+      $0.091125$. Multiply the centred recursion by $x_{t-k}$ and take
+      expectations: $\varepsilon_t$ is uncorrelated with everything dated $t-k$
+      or earlier, so only the autoregressive term survives and
+      $\gamma_k = \phi\gamma_{k-1}$. Dividing through by $\gamma_0$ gives
+      $\rho_k = \phi\rho_{k-1}$ with $\rho_0 = 1$, hence $\rho_k = \phi^{k}$.
+      At $k = 3$ this is $0.45^{3} = 0.091125$. Read the sequence to feel the
+      decay: $0.45$, $0.2025$, $0.0911$ — already below a tenth by the third lag,
+      so with, say, $n = 400$ observations the band $\pm 1.96/20 = \pm 0.098$
+      swallows lag $3$ entirely and a fitted correlogram would look like an
+      MA(2). The trap is multiplying instead of exponentiating: $3 \times 0.45$
+      or $0.45/3$ are both wrong, and only the power form respects
+      $|\rho_k| \le 1$.
+    expects: "0.091125"
+    rubric:
+      - >
+        Derives or quotes $\rho_k = \phi^{k}$ from the Yule–Walker recursion
+        $\gamma_k = \phi\gamma_{k-1}$.
+      - >
+        Raises $\phi$ to the power $k$ rather than scaling it by $k$.
+    targets:
+      - quant-statistics.time-series.ar1-acf
+    exercises:
+      - quant-statistics.time-series.ar1
+
+  # --- half-life of mean reversion --------------------------------------------
+
+  - id: qts-half-life-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A daily spread is fitted as a stationary AR(1) with $\phi = 0.93$. What is
+      the half-life of a shock, in trading days? Give two decimal places.
+    answer: >
+      $9.55$ days. A shock is worth $\phi^{k}$ after $k$ periods, so the
+      half-life solves $0.93^{h} = 1/2$. Taking logs,
+      $h\ln 0.93 = -\ln 2$, so $h = \ln 2/\ln(1/0.93) = 0.693147/0.072571
+      \approx 9.5513$, that is $9.55$ trading days — call it two trading weeks.
+      Check it: $0.93^{9.55} = 0.500$. The popular shortcut $\ln 2/(1-\phi) =
+      0.6931/0.07 = 9.90$ overstates by about $4\%$ here, because it replaces
+      $\ln(1/\phi)$ by $1-\phi$, an approximation that is only good very close to
+      $1$. Note the units: $9.55$ is meaningless unless the reader knows the
+      series was sampled daily, so always answer in periods and name the period.
+      And note the sensitivity — nudging the fit to $\phi = 0.95$ would move the
+      half-life to $13.5$ days, so a half-life estimate inherits all the noise in
+      the estimate of $\phi$, and then some.
+    expects: "9.55"
+    tolerance: 0.005
+    rubric:
+      - >
+        Solves $\phi^{h} = 1/2$ with logarithms, giving $\ln 2/\ln(1/\phi)$, and
+        does not stop at the approximation $\ln 2/(1-\phi)$.
+      - >
+        States the answer in periods and names the sampling frequency the number
+        depends on.
+    targets:
+      - quant-statistics.time-series.half-life
+    exercises:
+      - quant-statistics.time-series.ar1-acf
+
+  - id: qts-half-life-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A portfolio manager wants a mean-reverting signal whose shocks decay
+      halfway in exactly $4$ periods. What AR(1) coefficient $\phi$ delivers
+      that? Give four decimal places.
+    answer: >
+      $0.8409$. Invert the half-life relation. From $\phi^{h} = 1/2$ with
+      $h = 4$, take the fourth root of a half: $\phi = 2^{-1/4} =
+      1/2^{0.25} \approx 0.840896$, so $0.8409$. Verify by going forward:
+      $0.8409^{4} = 0.4999$, and the half-life $\ln 2/\ln(1/0.8409) = 4.00$.
+      The reflex answer $\phi = 1 - \ln 2/4 = 0.8267$ comes from inverting the
+      near-boundary approximation and is visibly off — it would give a half-life
+      of $3.65$ periods, nearly a tenth short. Useful anchors to carry:
+      $h = 1$ needs $\phi = 0.5$ exactly, $h = 2$ needs $2^{-1/2} = 0.707$, and
+      each doubling of the half-life pushes $\phi$ closer to $1$ without ever
+      reaching it, which is why the unit root sits at $h = \infty$.
+    expects: "0.8409"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Inverts to $\phi = 2^{-1/h}$ rather than manipulating the linearised
+        approximation.
+      - >
+        Checks the answer by recomputing the half-life from the $\phi$ found.
+    targets:
+      - quant-statistics.time-series.half-life
+    exercises:
+      - quant-statistics.time-series.ar1-acf
+
+  # --- forecasting an AR(1) ---------------------------------------------------
+
+  - id: qts-forecast-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A stationary AR(1) reads $x_t = 1.5 + 0.8x_{t-1} + \varepsilon_t$. Today's
+      value is $x_t = 12$. What is the minimum-mean-squared-error forecast of
+      $x_{t+2}$?
+    answer: >
+      $10.38$. First find the level the forecast decays toward:
+      $\mu = c/(1-\phi) = 1.5/0.2 = 7.5$. The $k$-step forecast is
+      $\mu + \phi^{k}(x_t - \mu)$, so at $k = 2$ it is
+      $7.5 + 0.8^{2}(12 - 7.5) = 7.5 + 0.64(4.5) = 7.5 + 2.88 = 10.38$. Building
+      it up one step at a time gives the same thing and shows why: the one-step
+      forecast is $1.5 + 0.8(12) = 11.1$, and feeding that back in gives
+      $1.5 + 0.8(11.1) = 10.38$, because the expectation of the intervening shock
+      is zero. Two observations. The forecast never overshoots the mean — it
+      closes $36\%$ of today's $4.5$-point gap in two steps and approaches $7.5$
+      geometrically thereafter. And nothing before $x_t$ enters: for an AR(1),
+      yesterday's value is redundant once today's is known, which is exactly what
+      the PACF cutting off after lag $1$ is telling you.
+    expects: "10.38"
+    rubric:
+      - >
+        Computes $\mu = c/(1-\phi)$ first and forecasts the *deviation* from it,
+        rather than applying $\phi^{k}$ to the raw level $12$.
+      - >
+        Uses $\phi^{2}$ for two steps ahead, and notes that values before $x_t$
+        do not enter the forecast.
+    targets:
+      - quant-statistics.time-series.forecast
+    exercises:
+      - quant-statistics.time-series.ar1
+
+  - id: qts-forecast-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A stationary AR(1) reads $x_t = 2.6 + 0.35x_{t-1} + \varepsilon_t$, and
+      today $x_t = 10$. Forecast $x_{t+1}$.
+    answer: >
+      $6.1$. The one-step forecast is just the conditional expectation of the
+      recursion: $\mathbb{E}[x_{t+1} \mid x_t] = 2.6 + 0.35x_t +
+      \mathbb{E}[\varepsilon_{t+1}] = 2.6 + 0.35(10) + 0 = 2.6 + 3.5 = 6.1$.
+      Equivalently, in deviation form, $\mu = 2.6/0.65 = 4$ and the forecast is
+      $4 + 0.35(10 - 4) = 4 + 2.1 = 6.1$ — the same number, which is a good habit
+      to check. Note how far the forecast pulls back: today's $10$ sits $6$ above
+      the mean and tomorrow's forecast sits only $2.1$ above it, because
+      $\phi = 0.35$ is weak memory. The trap is forecasting $10$ itself — a
+      "random walk" answer that is right only when $\phi = 1$ — or forecasting
+      $\mu = 4$, which is the $k \to \infty$ limit, not the next step.
+    expects: "6.1"
+    rubric:
+      - >
+        Takes the conditional expectation of the recursion, setting the future
+        shock to zero rather than dropping the intercept.
+      - >
+        Produces a forecast strictly between $x_t$ and $\mu$, and can say why
+        that must be so when $0 < \phi < 1$.
+    targets:
+      - quant-statistics.time-series.forecast
+    exercises:
+      - quant-statistics.time-series.ar1
+
+  - id: qts-forecast-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      A researcher reports that daily returns on a name have a lag-$1$
+      autocorrelation of $0.25$, "solidly significant", and proposes to trade it.
+      Modelling the returns as an AR(1), what fraction of next-day return
+      variance does the one-step forecast actually explain?
+    answer: >
+      $0.0625$, that is $6.25\%$. For an AR(1) the one-step forecast error
+      variance is $\sigma^{2}$ while the unconditional variance is
+      $\sigma^{2}/(1-\phi^{2})$, so the fraction of variance removed by
+      forecasting is $1 - (1-\phi^{2}) = \phi^{2}$. With $\phi = \rho_1 = 0.25$
+      that is $0.25^{2} = 0.0625$. This is the trap the question is built around:
+      autocorrelation read as predictability. Statistical significance and
+      economic size are different questions — with $n = 2500$ days the noise band
+      is only $\pm 0.039$, so $0.25$ is overwhelmingly significant, and yet
+      $93.75\%$ of tomorrow's move remains unforecastable. The residual standard
+      deviation is $\sqrt{1 - 0.0625} = 0.968$ of the unconditional one, a $3\%$
+      reduction in typical error. Before costs that is a thin edge; after
+      spread and impact on a daily-turnover strategy it is often nothing at all.
+      The general rule to carry into an interview: predictability scales as
+      $\phi^{2}$, not $\phi$.
+    expects: "0.0625"
+    rubric:
+      - >
+        Reports $\phi^{2}$, not $\phi$, as the fraction of variance explained,
+        deriving it from the ratio of error variance to unconditional variance.
+      - >
+        Separates statistical significance from economic magnitude, and names
+        the trap of reading an autocorrelation as tradable predictability.
+    targets:
+      - quant-statistics.time-series.forecast
+    exercises:
+      - quant-statistics.time-series.ar1
+
+  # --- the MA(1) process ------------------------------------------------------
+
+  - id: qts-ma1-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      An MA(1) reads $x_t = \mu + \varepsilon_t - 0.8\varepsilon_{t-1}$ with
+      $\varepsilon_t$ white noise of variance $\sigma^{2}$. What is $\rho_1$?
+      Give four decimal places.
+    answer: >
+      $-0.4878$. The shocks are uncorrelated, so
+      $\gamma_0 = \operatorname{Var}(\varepsilon_t) + \theta^{2}
+      \operatorname{Var}(\varepsilon_{t-1}) = (1 + 0.64)\sigma^{2} =
+      1.64\sigma^{2}$. For the lag-$1$ covariance, $x_t$ and $x_{t+1}$ share
+      exactly one shock, $\varepsilon_t$, which appears with coefficient $1$ in
+      $x_t$ and coefficient $\theta$ in $x_{t+1}$, so
+      $\gamma_1 = \theta\sigma^{2} = -0.8\sigma^{2}$. Hence
+      $\rho_1 = \theta/(1+\theta^{2}) = -0.8/1.64 \approx -0.4878$, and
+      $\sigma^{2}$ cancels — which is why the question can omit it. Notice how
+      close this is to the extreme: $|\rho_1| \le 1/2$ for every MA(1), attained
+      only at $\theta = \pm 1$, so $-0.4878$ is nearly as negative as an MA(1)
+      can be. If a correlogram showed $\rho_1 = -0.7$ with a clean cut-off
+      afterwards, no MA(1) could have generated it. And $\rho_k = 0$ for
+      $k \ge 2$ here, since $x_t$ and $x_{t+2}$ share no shock at all.
+    expects: "-0.4878"
+    tolerance: 0.00005
+    rubric:
+      - >
+        Builds $\gamma_0 = (1+\theta^{2})\sigma^{2}$ and
+        $\gamma_1 = \theta\sigma^{2}$ from which shocks the two dates share,
+        rather than quoting a memorised ratio.
+      - >
+        Keeps the sign of $\theta$ and observes that $|\rho_1|$ here is close to
+        the MA(1) ceiling of $1/2$.
+    targets:
+      - quant-statistics.time-series.ma1
+    exercises:
+      - quant-statistics.time-series.acf
+
+  - id: qts-ma1-02
+    kind: justify
+    difficulty: demanding
+    statement: >
+      For the MA(1) process $x_t = \mu + \varepsilon_t +
+      \theta\varepsilon_{t-1}$, derive $\rho_1 = \theta/(1+\theta^{2})$ and
+      $\rho_k = 0$ for $k \ge 2$ from the definition, then prove that
+      $|\rho_1| \le 1/2$ for every real $\theta$ and say which $\theta$ attain
+      the bound.
+    answer: >
+      Centre the series, so $x_t - \mu = \varepsilon_t +
+      \theta\varepsilon_{t-1}$ and the mean plays no further role. Since distinct
+      shocks are uncorrelated and each has variance $\sigma^{2}$,
+      $\gamma_0 = \operatorname{Var}(\varepsilon_t) +
+      \theta^{2}\operatorname{Var}(\varepsilon_{t-1}) = (1+\theta^{2})
+      \sigma^{2}$. For lag $1$, expand
+      $\operatorname{Cov}(\varepsilon_t + \theta\varepsilon_{t-1},
+      \varepsilon_{t+1} + \theta\varepsilon_t)$ into four terms; three pair
+      distinct shocks and vanish, and the survivor is
+      $\theta\operatorname{Var}(\varepsilon_t) = \theta\sigma^{2}$, so
+      $\gamma_1 = \theta\sigma^{2}$ and $\rho_1 = \theta/(1+\theta^{2})$. For
+      $k \ge 2$ the windows $\{\varepsilon_t, \varepsilon_{t-1}\}$ and
+      $\{\varepsilon_{t+k}, \varepsilon_{t+k-1}\}$ are disjoint, so every term of
+      the expansion pairs distinct shocks and $\gamma_k = 0$ exactly — a hard
+      cut-off, not a fast decay. For the bound, the inequality
+      $|\rho_1| \le 1/2$ is equivalent to $2|\theta| \le 1 + \theta^{2}$, which
+      rearranges to $0 \le (|\theta| - 1)^{2}$ — true for every real $\theta$,
+      with equality exactly when $|\theta| = 1$. So $\rho_1 = 1/2$ at
+      $\theta = 1$ and $\rho_1 = -1/2$ at $\theta = -1$, and nothing else gets
+      there. Two consequences worth stating. Because $\rho_1$ is unchanged when
+      $\theta$ is replaced by $1/\theta$ — the ratio $\theta/(1+\theta^{2})$ is
+      invariant under that swap — the autocovariances cannot distinguish the two,
+      and one fits the invertible root $|\theta| < 1$, which is the one for which
+      the shocks can be recovered from observed history. And any correlogram with
+      a clean cut-off after lag $1$ but $|\rho_1| > 1/2$ rules out an MA(1)
+      outright, whatever the coefficient.
+    rubric:
+      - >
+        Computes $\gamma_0$ and $\gamma_1$ by expanding the covariance and
+        killing terms that pair distinct shocks, rather than quoting the result.
+      - >
+        Argues $\gamma_k = 0$ for $k \ge 2$ from disjoint shock windows — an
+        exact cut-off, contrasted with the AR(1)'s geometric tail.
+      - >
+        Proves the bound by reducing $2|\theta| \le 1+\theta^{2}$ to
+        $(|\theta|-1)^{2} \ge 0$, and identifies $\theta = \pm 1$ as the only
+        cases of equality.
+    targets:
+      - quant-statistics.time-series.ma1
+    exercises:
+      - quant-statistics.time-series.acf
+
+  - id: qts-ma1-03
+    kind: work
+    difficulty: routine
+    statement: >
+      Software returns an MA(1) fit with $\theta = 2.5$. Your risk system
+      requires the invertible parametrisation. What value of $\theta$ do you
+      report instead?
+    answer: >
+      $0.4$. The autocovariance structure of an MA(1) is unchanged when $\theta$
+      is replaced by $1/\theta$, because $\rho_1 = \theta/(1+\theta^{2})$ takes
+      the same value at both: at $\theta = 2.5$ it is
+      $2.5/(1+6.25) = 2.5/7.25 \approx 0.3448$, and at $\theta = 1/2.5 = 0.4$ it
+      is $0.4/1.16 \approx 0.3448$ — identical. So the two fits are
+      observationally equivalent in second moments, and the convention is to
+      report the invertible root, the one with $|\theta| < 1$, namely $0.4$.
+      Invertibility is not cosmetic: only when $|\theta| < 1$ can the recursion
+      $\varepsilon_t = x_t - \mu - \theta\varepsilon_{t-1}$ be run stably to
+      recover the unobserved shocks from observed history, which is precisely
+      what forecasting an MA model requires. Run it with $\theta = 2.5$ and any
+      error in the starting value is amplified by $2.5$ at every step. Note the
+      variances do differ — $7.25\sigma^{2}$ against $1.16\sigma^{2}$ — so the
+      fitted $\sigma^{2}$ must be rescaled to match.
+    expects: "0.4"
+    rubric:
+      - >
+        Reports $1/\theta$ and verifies the two values give the same $\rho_1$.
+      - >
+        Says what invertibility buys: recovering the shocks from observed
+        history by a stable recursion.
+    targets:
+      - quant-statistics.time-series.ma1
+    exercises:
+      - quant-statistics.time-series.acf
+
+  # --- reading AR versus MA off the correlograms ------------------------------
+
+  - id: qts-ar-ma-signatures-01
+    kind: decide
+    difficulty: demanding
+    statement: >
+      A correlogram of a long, clearly stationary series shows an ACF that
+      declines smoothly and stays visibly positive out to lag $10$, while the
+      PACF has two large bars at lags $1$ and $2$ and then sits inside the noise
+      bands at every later lag. Which model does this shape name?
+    answer: >
+      An AR(2). The Box–Jenkins identification table reads off which correlogram
+      cuts off and which tails off. The PACF cutting off after lag $p$ says
+      autoregressive of order $p$, because once you condition on the last $p$
+      values, older ones add nothing — here $p = 2$. The ACF tailing off
+      geometrically is the matching half of the AR signature: an autoregression's
+      ACF is a mixture of geometric terms and never reaches exactly zero. An
+      MA($q$) would show the reverse pattern, a hard cut-off in the ACF after lag
+      $q$ with a tailing PACF, so the ACF still positive at lag $10$ rules it
+      out. An ARMA would tail off in *both*, so the clean PACF cut-off rules that
+      out too. And a unit root would show an ACF near $1$ falling almost
+      linearly, not smoothly decaying on a stationary series. The practical
+      caution is to read the pattern rather than individual bars: sample
+      correlograms wobble inside $\pm 2/\sqrt{n}$, so break ties toward the
+      smaller model, which forecasts better out of sample.
+    choices:
+      - text: >
+          AR(2)
+        correct: true
+        feedback: >
+          Right: PACF cutting off after lag $2$ names the order, and the tailing
+          ACF is the matching half of the autoregressive signature.
+      - text: >
+          MA(2)
+        feedback: >
+          That is the mirror image. An MA(2) cuts off in the *ACF* after lag $2$;
+          here the ACF is still positive at lag $10$.
+      - text: >
+          ARMA(1,1)
+        feedback: >
+          Both correlograms tail off for an ARMA. The clean PACF cut-off after
+          lag $2$ is evidence against a moving-average component.
+      - text: >
+          A unit-root series needing one difference
+        feedback: >
+          That shows an ACF near $1$ decaying almost linearly across many lags —
+          and the series was stated to be stationary.
+    rubric:
+      - >
+        Uses the cut-off/tail-off table in both directions: PACF cut-off names
+        the AR order, ACF cut-off names the MA order.
+      - >
+        Rules out ARMA and the unit-root case explicitly rather than stopping at
+        the first plausible label.
+    targets:
+      - quant-statistics.time-series.ar-ma-signatures
+    exercises:
+      - quant-statistics.time-series.sample-acf
+
+  - id: qts-ar-ma-signatures-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      You plot the ACF of $600$ observations of a price level. The bars read
+      $0.99, 0.98, 0.96, 0.95, 0.93, \dots$, still above $0.8$ at lag $20$ and
+      declining in an almost straight line. What does this shape say to do next?
+    answer: >
+      Difference the series before fitting anything. An ACF that starts near $1$
+      and falls almost linearly across many lags, rather than decaying
+      geometrically, is the signature of a non-stationary series — the sample
+      autocorrelations of an $I(1)$ process are driven toward $1$ at short lags
+      and decline roughly like $1 - k/n$ because the series never returns to a
+      fixed level. Fitting an AR(1) to it would return $\hat{\phi}$ close to $1$
+      and standard errors from the wrong distribution. The reflex "AR(1) with
+      high $\phi$" answer is the trap: a genuinely stationary AR(1) with
+      $\phi = 0.99$ has $\rho_{20} = 0.99^{20} = 0.82$, which is numerically
+      similar here, and that is exactly why the correlogram alone cannot settle
+      it — you run a Dickey–Fuller test, with its own critical values near
+      $-2.86$ rather than $-1.96$, and if the unit root is not rejected you model
+      $\Delta x_t$. Working in returns rather than prices is this rule applied
+      once and for all.
+    choices:
+      - text: >
+          Treat the series as non-stationary: test for a unit root and model the
+          first difference.
+        correct: true
+        feedback: >
+          Right — near-linear decay from $1$ is the $I(1)$ signature, and
+          Dickey–Fuller with its own critical values is the formal check.
+      - text: >
+          Fit an MA(20), since the ACF is nonzero out to lag $20$.
+        feedback: >
+          Fitting twenty moving-average parameters to a trending level is
+          curve-fitting; the shape says non-stationary, not high-order MA.
+      - text: >
+          Fit an AR(1) and report the estimated $\phi$ with its usual $t$-test.
+        feedback: >
+          That is the trap. Near a unit root the $t$-statistic is not normal, so
+          the usual test is invalid exactly where you need it.
+      - text: >
+          Nothing is wrong: the ACF of any long series looks like this.
+        feedback: >
+          A stationary series' ACF decays geometrically toward zero; staying
+          above $0.8$ at lag $20$ is not the generic picture.
+    rubric:
+      - >
+        Reads near-linear decay from $1$ as the non-stationarity signature
+        rather than as a strongly autocorrelated stationary series.
+      - >
+        Names the formal test and the fact that its critical values are not the
+        normal ones.
+    targets:
+      - quant-statistics.time-series.ar-ma-signatures
+    exercises:
+      - quant-statistics.time-series.sample-acf
+
+  # --- AR(p), MA(q) and ARMA --------------------------------------------------
+
+  - id: qts-higher-order-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      An AR(2) reads $x_t = 0.6x_{t-1} + 0.2x_{t-2} + \varepsilon_t$.
+      Stationarity requires every root of $1 - 0.6z - 0.2z^{2} = 0$ to lie
+      outside the unit circle. What is the modulus of the *smallest* root? Give
+      four decimal places.
+    answer: >
+      $1.1926$. Write the characteristic equation as
+      $0.2z^{2} + 0.6z - 1 = 0$ and apply the quadratic formula:
+      $z = \dfrac{-0.6 \pm \sqrt{0.36 + 0.8}}{0.4} = \dfrac{-0.6 \pm
+      \sqrt{1.16}}{0.4}$. Since $\sqrt{1.16} \approx 1.077033$, the roots are
+      $z \approx 0.477033/0.4 = 1.192582$ and $z \approx -1.677033/0.4 =
+      -4.192582$. The smallest modulus is $1.1926$. Because it exceeds $1$ — and
+      it is the binding one, the other being far outside — the process is
+      stationary, though only just: a root at $1.19$ means a slowly decaying ACF
+      and a long effective memory. Two warnings. It is the roots of the *lag
+      polynomial* that must lie outside the unit circle, which is the reciprocal
+      convention to the one that puts eigenvalues inside it; mixing the two
+      inverts every conclusion. And no simple bound on the coefficients replaces
+      the root condition in general — $\phi_1 + \phi_2 = 0.8 < 1$ is necessary
+      here but not by itself sufficient.
+    expects: "1.1926"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Forms the lag polynomial $1 - \phi_1 z - \phi_2 z^{2}$ correctly, with
+        the signs of the coefficients negated, before solving.
+      - >
+        Compares the root modulus to $1$ from the outside — roots outside the
+        unit circle — and does not substitute a coefficient rule of thumb.
+    targets:
+      - quant-statistics.time-series.higher-order
+    exercises:
+      - quant-statistics.time-series.ar1
+
+  - id: qts-higher-order-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A colleague dismisses the fit $x_t = 1.2x_{t-1} - 0.35x_{t-2} +
+      \varepsilon_t$ on the grounds that "the coefficient on the first lag
+      exceeds $1$, so it explodes". Is the process stationary?
+    answer: >
+      Yes, it is stationary. The condition for an AR($p$) is on the roots of the
+      lag polynomial, not on any individual coefficient. Here
+      $1 - 1.2z + 0.35z^{2} = 0$ gives
+      $z = \dfrac{1.2 \pm \sqrt{1.44 - 1.4}}{0.7} = \dfrac{1.2 \pm 0.2}{0.7}$,
+      so $z = 2$ and $z \approx 1.4286$. Both lie outside the unit circle, so a
+      unique stationary solution exists. The intuition is that the negative
+      second coefficient pulls back what the first one pushes: the two lags work
+      against each other, producing a damped oscillation rather than an
+      explosion. The rule $|\phi| < 1$ is exactly the $p = 1$ special case of the
+      root condition and does not generalise coefficient by coefficient — for
+      AR(2) the necessary and sufficient conditions are
+      $\phi_1 + \phi_2 < 1$, $\phi_2 - \phi_1 < 1$ and $|\phi_2| < 1$, all three
+      of which hold here ($0.85$, $-1.55$ and $0.35$).
+    choices:
+      - text: >
+          Yes — both roots of $1 - 1.2z + 0.35z^{2}$ lie outside the unit circle,
+          so a stationary solution exists.
+        correct: true
+        feedback: >
+          Right: the roots are $2$ and $1.4286$, and the negative second
+          coefficient damps what the first amplifies.
+      - text: >
+          No — a coefficient above $1$ on any lag makes an AR process explosive.
+        feedback: >
+          That generalises $|\phi| < 1$ past its $p = 1$ scope. The condition is
+          on the roots of the whole polynomial.
+      - text: >
+          Only if $\phi_1 + \phi_2 < 1$, which fails here.
+        feedback: >
+          $\phi_1 + \phi_2 = 0.85 < 1$, so it holds. It is also only one of three
+          conditions, not the whole test.
+      - text: >
+          Undecidable without knowing $\sigma^{2}$.
+        feedback: >
+          The shock variance scales the series but cannot affect stationarity,
+          which depends on the coefficients alone.
+    rubric:
+      - >
+        Solves for the roots of the lag polynomial rather than inspecting
+        coefficients one at a time.
+      - >
+        Explains why a lag-$1$ coefficient above $1$ is compatible with
+        stationarity when the lag-$2$ coefficient is negative.
+    targets:
+      - quant-statistics.time-series.higher-order
+    exercises:
+      - quant-statistics.time-series.ar1
+
+  # --- the unit-root boundary, and the cure ------------------------------------
+
+  - id: qts-unit-root-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A level series follows a random walk with drift,
+      $x_t = x_{t-1} + c + \varepsilon_t$, with $c = 0.05$ per day and iid
+      shocks of standard deviation $\sigma = 3$. After $t$ days the drift has
+      accumulated $ct$ while the wandering part has standard deviation
+      $\sigma\sqrt{t}$. How many days must pass before the accumulated drift
+      first equals one standard deviation of the wandering?
+    answer: >
+      $3600$ days. Set the two against each other: $ct = \sigma\sqrt{t}$ gives
+      $0.05t = 3\sqrt{t}$, so $\sqrt{t} = 3/0.05 = 60$ and
+      $t = 60^{2} = 3600$. In general the crossing point is
+      $t = (\sigma/c)^{2}$, quadratic in the noise-to-drift ratio, which is why
+      it is so far away. The drift grows like $t$ and the noise only like
+      $\sqrt{t}$, so the trend does win eventually — but $3600$ trading days is
+      about fourteen years. Over a single quarter, $t = 63$, the drift has
+      contributed $0.05 \times 63 = 3.15$ against a standard deviation of
+      $3\sqrt{63} \approx 23.8$, so the observed level says essentially nothing
+      about $c$. This is the practical content of a unit root: the level of the
+      series is dominated by accumulated shocks that never fade, so fitting a
+      mean or a trend to it estimates almost nothing, and the sensible move is
+      to model the increments instead.
+    expects: "3600"
+    rubric:
+      - >
+        Sets the deterministic accumulation $ct$ against the stochastic
+        $\sigma\sqrt{t}$ rather than against a single-period $\sigma$.
+      - >
+        Reads the answer as an economic statement — the drift is invisible
+        inside the wandering for years — not just as a number.
+    targets:
+      - quant-statistics.time-series.unit-root
+    exercises:
+      - quant-statistics.time-series.ar1
+      - quant-processes.random-walks.ssrw
+      - quant-probability.expectation.variance
+
+  - id: qts-unit-root-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Two desks each carry a series for $250$ trading days. Desk A holds a
+      stationary AR(1) with $\phi = 0.95$ and shock variance $1$; desk B holds a
+      random walk with the same shock variance, started at the same point. How
+      many times larger is the standard deviation of B's level at $t = 250$ than
+      the stationary standard deviation of A's? Give four decimal places.
+    answer: >
+      $4.9371$. Desk A's series has the stationary variance
+      $\gamma_0 = \sigma^{2}/(1-\phi^{2}) = 1/(1 - 0.9025) = 1/0.0975 =
+      10.2564$, so its standard deviation is $\sqrt{10.2564} = 3.2026$ — and
+      that number is the same on day $1$ as on day $250$, because the series has
+      a fixed distribution to sit in. Desk B's has
+      $\operatorname{Var}(x_t) = t\sigma^{2} = 250$, so its standard deviation
+      is $\sqrt{250} = 15.8114$, and it will keep growing. The ratio is
+      $15.8114/3.2026 = 4.9371$. The lesson is that $\phi = 0.95$ and $\phi = 1$
+      are not neighbours in behaviour, however close they look on a fitted
+      coefficient: one gives a series that stays inside a band of a few units
+      forever, the other a series whose spread has no ceiling at all. Push the
+      horizon to $t = 1000$ and B's standard deviation doubles again while A's
+      does not move.
+    expects: "4.9371"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $\sigma^{2}/(1-\phi^{2})$ for the stationary series and
+        $t\sigma^{2}$ for the walk, rather than one formula for both.
+      - >
+        Notes that A's number is horizon-free while B's grows without bound —
+        the qualitative break at $\phi = 1$.
+    targets:
+      - quant-statistics.time-series.unit-root
+    exercises:
+      - quant-statistics.time-series.ar1
+      - quant-statistics.time-series.stationarity
+      - quant-probability.expectation.variance
+
+  - id: qts-unit-root-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      For a driftless random walk started at $x_0 = 0$, show that
+      $\operatorname{Corr}(x_t, x_{t+k}) = \sqrt{t/(t+k)}$, and explain why a
+      correlation this close to $1$ is evidence *against* stationarity rather
+      than for it.
+    answer: >
+      Write $x_{t+k} = x_t + (\varepsilon_{t+1} + \dots + \varepsilon_{t+k})$.
+      The bracket is independent of $x_t$, so
+      $\operatorname{Cov}(x_t, x_{t+k}) = \operatorname{Var}(x_t) =
+      t\sigma^{2}$. The variances are $t\sigma^{2}$ and $(t+k)\sigma^{2}$, so
+      the correlation is
+      $t\sigma^{2}/\sqrt{t\sigma^{2}(t+k)\sigma^{2}} = t/\sqrt{t(t+k)} =
+      \sqrt{t/(t+k)}$. Now read the formula. It depends on $t$, not on the lag
+      $k$ alone, which is exactly the third condition of weak stationarity
+      failing: there is no function $\gamma_k$ for the sample autocorrelation to
+      estimate. And for fixed $k$ the correlation tends to $1$ as $t$ grows —
+      at $t = 200$, $k = 10$ it is $\sqrt{200/210} = 0.9759$. So the diagnostic
+      picture of a long random walk is a sample ACF that starts near $1$ and
+      falls almost linearly rather than geometrically, which is the shape that
+      should send you to a Dickey–Fuller test rather than to an AR fit. The trap
+      is to read high autocorrelation as strong, estimable persistence; here it
+      is the signature of a series with no fixed distribution at all.
+    rubric:
+      - >
+        Splits $x_{t+k}$ into $x_t$ plus independent future shocks to get
+        $\operatorname{Cov} = t\sigma^{2}$, rather than attempting a direct sum.
+      - >
+        Draws the stationarity conclusion from the $t$-dependence — the
+        autocorrelation is not a function of the lag alone.
+      - >
+        Connects the limit $\sqrt{t/(t+k)} \to 1$ to the near-linear decay seen
+        in a sample ACF of a non-stationary series.
+    targets:
+      - quant-statistics.time-series.unit-root
+    exercises:
+      - quant-statistics.time-series.stationarity
+      - quant-processes.random-walks.ssrw
+      - quant-probability.joint.covariance
+
+  - id: qts-differencing-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A series is already a stationary AR(1) with $\phi = 0.6$ and shock
+      variance $1$, but an analyst differences it anyway. What is the lag-$1$
+      autocorrelation $\rho_1$ of $\Delta x_t = x_t - x_{t-1}$?
+    answer: >
+      $-0.2$. The AR(1) has $\gamma_0 = 1/(1 - 0.36) = 1.5625$ and
+      $\gamma_k = \phi^{k}\gamma_0$, so $\gamma_1 = 0.9375$ and
+      $\gamma_2 = 0.5625$. Then
+      $\operatorname{Var}(\Delta x_t) = 2\gamma_0 - 2\gamma_1 =
+      2\gamma_0(1-\phi) = 1.25$, and
+      $\operatorname{Cov}(\Delta x_t, \Delta x_{t-1}) = 2\gamma_1 - \gamma_0 -
+      \gamma_2 = -\gamma_0(1-\phi)^{2} = -0.25$, giving
+      $\rho_1 = -0.25/1.25 = -0.2$. The algebra collapses to
+      $\rho_1 = -(1-\phi)/2$ for any AR(1), which is negative for every
+      $\phi < 1$: a negative lag-$1$ autocorrelation appearing in a differenced
+      series is the standard fingerprint of overdifferencing. The two limits
+      make it concrete. As $\phi \to 0$ the value tends to $-1/2$, the
+      white-noise case sitting exactly on the non-invertible MA(1) edge; as
+      $\phi \to 1$ it tends to $0$, because there the difference really was the
+      right object. Note also that the variance fell here, from $1.5625$ to
+      $1.25$ — differencing doubles the variance of white noise but shrinks it
+      whenever $\phi > 1/2$, so a variance check alone will not catch the
+      mistake.
+    expects: "-0.2"
+    rubric:
+      - >
+        Expands $\operatorname{Cov}(\Delta x_t, \Delta x_{t-1})$ into four
+        autocovariance terms rather than differencing the correlations.
+      - >
+        Identifies the negative $\rho_1$ as the overdifferencing signature and
+        not as a feature of the underlying series.
+    targets:
+      - quant-statistics.time-series.differencing
+    exercises:
+      - quant-statistics.time-series.ar1
+      - quant-statistics.time-series.stationarity
+      - quant-probability.joint.covariance
+
+  - id: qts-differencing-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Four series are on the desk. For exactly one of them a first difference is
+      the right treatment. Which?
+    answer: >
+      The log price of the liquid equity. A Dickey–Fuller test that fails to
+      reject leaves a unit root on the table, and $\Delta \log P_t = r_t$ is the
+      stationary object to model — this is the whole reason quant work happens
+      in returns. Each of the other three is a different way to get it wrong.
+      The AR(1) spread with $\phi = 0.55$ is already $I(0)$, with a half-life of
+      $\ln 2/\ln(1/0.55) \approx 1.16$ days; differencing it would inject an
+      MA(1) with $\rho_1 = -(1-\phi)/2 = -0.225$ that no fitted model can undo.
+      The inventory series $y_t = 40 + 0.6t + u_t$ has a *deterministic* trend
+      with stationary deviations, so the cure is a regression on time and the
+      residual, not a difference — matching the cure to the disease is the point
+      of the node. And the return series is already the first difference of the
+      log price; differencing again produces a second difference, compounding
+      the same error. Differencing is not a free safety margin applied by
+      default; it is the specific answer to a stochastic trend.
+    choices:
+      - text: >
+          The log price of a liquid equity, whose Dickey–Fuller test does not
+          reject a unit root.
+        correct: true
+        feedback: >
+          Right — an $I(1)$ level, and $\Delta \log P_t = r_t$ is the stationary
+          series that can be averaged and tested.
+      - text: >
+          A stationary AR(1) spread with $\phi = 0.55$ and a half-life near
+          $1.16$ days.
+        feedback: >
+          Already $I(0)$. Differencing it manufactures an MA(1) with
+          $\rho_1 = -0.225$ and buys nothing.
+      - text: >
+          An inventory series $y_t = 40 + 0.6t + u_t$ with $u_t$ stationary.
+        feedback: >
+          That trend is deterministic, so regress on time and keep the residual
+          — detrending, not differencing.
+      - text: >
+          The daily log returns already computed from that log price.
+        feedback: >
+          Those are the first difference. Differencing them gives a second
+          difference and a worse model.
+    rubric:
+      - >
+        Separates a stochastic trend (difference) from a deterministic trend
+        (detrend by regression) rather than treating both as non-stationarity.
+      - >
+        Names a concrete cost of the unnecessary difference — the injected,
+        non-invertible MA(1) component.
+    targets:
+      - quant-statistics.time-series.differencing
+    exercises:
+      - quant-statistics.time-series.unit-root
+      - quant-statistics.time-series.stationarity
+
+  # --- spurious regression, and the case where levels are legitimate -----------
+
+  - id: qts-spurious-regression-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      In the Granger–Newbold experiment at $n = 50$, a regression of one random
+      walk on an independent other rejects the true null $\beta = 0$ at the
+      $5\%$ level about $70\%$ of the time. You run $200$ independent
+      replications and count the rejections. What is the standard deviation of
+      that count? Give four decimal places.
+    answer: >
+      $6.4807$. Each replication is an independent trial that rejects with
+      probability $0.7$, so the count is binomial with $n = 200$ and
+      $p = 0.7$: the mean is $200(0.7) = 140$ and the variance is
+      $200(0.7)(0.3) = 42$, so the standard deviation is
+      $\sqrt{42} = 6.4807$. The number is worth holding next to the honest one.
+      A correctly sized $5\%$ test would give a count centred on
+      $200(0.05) = 10$ with standard deviation
+      $\sqrt{200(0.05)(0.95)} = 3.0822$. The spurious count of $140$ is not a
+      lucky draw from that distribution — it is a different distribution, and no
+      amount of replication will make the two overlap. This is why the failure
+      is described as structural rather than as a small-sample fluke: the
+      $t$-statistic diverges like $\sqrt{n}$, so raising $n$ pushes the
+      rejection rate toward $1$ instead of down toward $0.05$.
+    expects: "6.4807"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Recognises the replication count as binomial and uses $np(1-p)$ rather
+        than a normal approximation with an invented variance.
+      - >
+        Contrasts the spurious rejection rate with the nominal $5\%$ one, and
+        notes that more data widens rather than closes the gap.
+    targets:
+      - quant-statistics.time-series.spurious-regression
+    exercises:
+      - quant-statistics.time-series.unit-root
+      - quant-statistics.regression.ols
+      - quant-probability.discrete.binomial
+
+  - id: qts-spurious-regression-02
+    kind: work
+    difficulty: standard
+    statement: >
+      For a regression residual with lag-$1$ autocorrelation $\hat{\rho}_1$, the
+      Durbin–Watson statistic satisfies $d \approx 2(1 - \hat{\rho}_1)$. A
+      levels-on-levels backtest comes back with $d = 0.30$. What lag-$1$
+      residual autocorrelation does that imply?
+    answer: >
+      $0.85$. Invert the relation: $\hat{\rho}_1 \approx 1 - d/2 = 1 - 0.15 =
+      0.85$. That single number is the whole diagnosis. Well-behaved residuals
+      are close to uncorrelated, which puts $d$ near $2$ — a fit with
+      $d = 1.96$ corresponds to $\hat{\rho}_1 = 0.02$. A residual carrying
+      $\hat{\rho}_1 = 0.85$ is nearly as persistent as a random walk, so the
+      OLS standard errors, which assume residuals that settle down, are
+      computing the wrong quantity, and the reported $t$-statistic on the slope
+      cannot be read at face value however large it is. The rule of thumb that
+      follows is the one to carry into an interview: a Durbin–Watson well below
+      the regression's $R^{2}$, rather than near $2$, says the fit is riding on
+      shared wandering. The cure is to regress differences on differences, or to
+      establish cointegration first.
+    expects: "0.85"
+    rubric:
+      - >
+        Inverts $d \approx 2(1-\hat{\rho}_1)$ correctly rather than reading $d$
+        itself as a correlation.
+      - >
+        Interprets the implied persistence as $I(1)$-like residuals invalidating
+        the OLS standard errors, not as ordinary noise.
+    targets:
+      - quant-statistics.time-series.spurious-regression
+    exercises:
+      - quant-statistics.time-series.unit-root
+      - quant-statistics.regression.ols
+
+  - id: qts-cointegration-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two log-price series are cointegrated with hedge ratio $\beta = 1.8$, and
+      the spread $s_t = y_t - 1.8x_t$ follows a stationary AR(1) with
+      $\phi = 0.75$ and innovations of standard deviation $0.6$, measured in
+      percentage points. What is the stationary standard deviation of the
+      spread? Give four decimal places.
+    answer: >
+      $0.9071$ percentage points. The spread is an ordinary stationary AR(1), so
+      $\operatorname{Var}(s_t) = \sigma^{2}/(1-\phi^{2}) = 0.36/(1 - 0.5625) =
+      0.36/0.4375 = 0.822857$, and the standard deviation is
+      $\sqrt{0.822857} = 0.9071$. Everything a pairs trade needs follows from
+      that one number plus the half-life
+      $\ln 2/\ln(1/0.75) = 0.6931/0.2877 = 2.4094$ periods: a two-standard-
+      deviation entry band sits at $\pm 1.8142$ percentage points, and once
+      inside it the spread is expected to close halfway back in about two and a
+      half periods. The point of the node is what this computation is *not*
+      available for. Neither $x_t$ nor $y_t$ has a finite variance to quote —
+      each wanders without bound — so the mean-reversion toolkit applies to the
+      combination and only to the combination, and it applies only once the
+      residual has passed a unit-root test against Engle–Granger's stricter
+      critical values rather than a plain Dickey–Fuller table.
+    expects: "0.9071"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Applies the stationary AR(1) variance to the spread, and does not try to
+        attach a variance to either level.
+      - >
+        Ties the number to a tradeable band or half-life, and conditions the
+        whole calculation on cointegration actually having been tested.
+    targets:
+      - quant-statistics.time-series.cointegration
+    exercises:
+      - quant-statistics.time-series.spurious-regression
+      - quant-statistics.time-series.differencing
+      - quant-statistics.time-series.ar1
+
+  - id: qts-cointegration-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Under genuine cointegration the estimated $\hat{\beta}$ is
+      super-consistent, converging at rate $n$ rather than the usual
+      $\sqrt{n}$. You quadruple the sample, from $n$ to $4n$. By roughly what
+      factor does the standard error of $\hat{\beta}$ shrink?
+    answer: >
+      By a factor of $4$. Converging at rate $n$ means the estimation error
+      behaves like $1/n$, so multiplying the sample by $4$ divides the error by
+      $4$. Under the ordinary $\sqrt{n}$ rate the same extra data would only buy
+      a factor of $\sqrt{4} = 2$, which is the number most people reach for out
+      of habit. The mechanism is worth stating rather than memorising: the
+      shared wandering of the two $I(1)$ levels is enormous compared with the
+      stationary spread, and any $\beta$ other than the true one leaves a piece
+      of that wandering in the residual, which the sum of squares punishes at a
+      rate that grows with the sample. The wrong values are ruled out fast
+      precisely because the levels are non-stationary. Note the asymmetry with
+      the spurious case: the same non-stationarity that makes an unrelated
+      levels regression diverge is what makes a genuinely cointegrating one
+      converge unusually quickly.
+    choices:
+      - text: >
+          About $4$ — at rate $n$ the error behaves like $1/n$, so quadrupling
+          the sample divides it by $4$.
+        correct: true
+        feedback: >
+          Right, and the ordinary $\sqrt{n}$ rate would have bought only a
+          factor of $2$ from the same data.
+      - text: >
+          About $2$, the usual gain from quadrupling a sample.
+        feedback: >
+          That is the $\sqrt{n}$ rate. Super-consistency is the claim that
+          cointegration beats it.
+      - text: >
+          About $16$, since the error scales with $n^{2}$.
+        feedback: >
+          Rate $n$ means error proportional to $1/n$, not $1/n^{2}$ — the factor
+          is $4$, not $16$.
+      - text: >
+          It does not shrink; $\hat{\beta}$ is biased under cointegration.
+        feedback: >
+          The opposite: $\hat{\beta}$ converges, and faster than usual. Bias is
+          the spurious-regression case, where nothing converges.
+    rubric:
+      - >
+        Reads "rate $n$" as an error proportional to $1/n$ and converts that to
+        a factor, rather than reaching for the $\sqrt{n}$ default.
+      - >
+        Explains why the non-stationary levels help here, in contrast with the
+        spurious regression where they destroy the inference.
+    targets:
+      - quant-statistics.time-series.cointegration
+    exercises:
+      - quant-statistics.time-series.spurious-regression
+      - quant-statistics.regression.ols
+      - quant-statistics.time-series.unit-root
+
+  # --- what autocorrelation does to a sample mean ------------------------------
+
+  - id: qts-effective-sample-size-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A P&L stream is MA(1), $x_t = \varepsilon_t + 0.5\varepsilon_{t-1}$, not
+      AR(1). For large $n$ the variance of the sample mean is
+      $\dfrac{\gamma_0}{n}\left(1 + 2\sum_{k \ge 1}\rho_k\right)$. What is the
+      inflation factor — the bracket — for this series?
+    answer: >
+      $1.8$. An MA(1) has $\rho_1 = \theta/(1+\theta^{2}) = 0.5/1.25 = 0.4$ and
+      $\rho_k = 0$ for every $k \ge 2$, because the series shares a shock with
+      its immediate neighbour and with nothing else. The sum is therefore a
+      single term and the bracket is $1 + 2(0.4) = 1.8$. The trap this problem
+      exists for is the shortcut: seeing a lag-$1$ autocorrelation of $0.4$ and
+      plugging it into the AR(1) formula $(1+\phi)/(1-\phi) = 1.4/0.6 =
+      2.3333$, which overstates the correction by about $30\%$ — the resulting
+      standard errors are too *wide* by a factor of
+      $\sqrt{2.3333/1.8} = 1.1387$. The AR(1) result is not a general law about
+      lag-$1$ autocorrelation; it is what
+      $1 + 2\sum_{k \ge 1}\phi^{k}$ collapses to when the whole ACF is
+      geometric. Match the formula to the dependence structure: sum the actual
+      $\rho_k$, and only then read off an effective sample size
+      $n_{\text{eff}} = n/1.8$.
+    expects: "1.8"
+    rubric:
+      - >
+        Computes $\rho_1 = \theta/(1+\theta^{2})$ and uses that every higher lag
+        of an MA(1) is exactly zero.
+      - >
+        States why $(1+\phi)/(1-\phi)$ does not apply — it sums a geometric ACF,
+        which an MA(1) does not have.
+    targets:
+      - quant-statistics.time-series.effective-sample-size
+    exercises:
+      - quant-statistics.time-series.acf
+      - quant-statistics.time-series.ar1-acf
+      - quant-probability.joint.covariance
+
+  - id: qts-effective-sample-size-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A strategy's daily P&L is AR(1) with $\phi = 0.6$, observed over
+      $n = 480$ trading days. What is the effective sample size
+      $n_{\text{eff}} = n(1-\phi)/(1+\phi)$?
+    answer: >
+      $120$. Substituting, $n_{\text{eff}} = 480(0.4)/1.6 = 192/1.6 = 120$.
+      Read what that costs. Nearly two years of daily P&L carries the
+      information of $120$ independent days, so the naive standard error, built
+      on $480$, is too small by
+      $\sqrt{480/120} = \sqrt{4} = 2$ — a clean factor of two here because the
+      inflation factor $(1+\phi)/(1-\phi) = 1.6/0.4 = 4$ is a perfect square. A
+      naive $t$-statistic of $3.0$ on the mean is really $1.5$, so a result
+      reported as comfortably significant is not significant at all. This is the
+      single most common way a backtest oversells itself: the autocorrelation
+      that makes an equity curve look smooth is exactly the thing that makes its
+      Sharpe ratio's error bars wider than the naive formula admits.
+    expects: "120"
+    rubric:
+      - >
+        Applies $n(1-\phi)/(1+\phi)$ rather than dividing $n$ by $\phi$ or by
+        the correlation directly.
+      - >
+        Converts the effective sample size into the correction to a standard
+        error or $t$-statistic — the square root of the inflation factor.
+    targets:
+      - quant-statistics.time-series.effective-sample-size
+    exercises:
+      - quant-statistics.time-series.ar1-acf
+      - quant-statistics.time-series.ar1
+
+  # --- the stylized facts of returns -------------------------------------------
+
+  - id: qts-vol-clustering-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Model a return series as a two-regime mixture: on $80\%$ of days the
+      return is normal with mean $0$ and standard deviation $0.8$ percentage
+      points, and on the remaining $20\%$ it is normal with mean $0$ and
+      standard deviation $2.0$. The regime is drawn independently each day. What
+      is the kurtosis $\mathbb{E}[r^{4}]/(\mathbb{E}[r^{2}])^{2}$ of the
+      mixture? Give four decimal places.
+    answer: >
+      $6.1481$. Condition on the regime and use $\mathbb{E}[Z^{4}] =
+      3\sigma^{4}$ for a mean-zero normal. The second moment is
+      $\mathbb{E}[r^{2}] = 0.8(0.64) + 0.2(4) = 0.512 + 0.8 = 1.312$, and the
+      fourth is
+      $\mathbb{E}[r^{4}] = 3\left(0.8(0.64)^{2} + 0.2(4)^{2}\right) =
+      3(0.32768 + 3.2) = 10.58304$. The kurtosis is
+      $10.58304/1.312^{2} = 10.58304/1.721344 = 6.1481$, more than twice the
+      normal's $3$, produced by nothing more exotic than two normals. Notice
+      where it comes from: the turbulent regime occupies a fifth of the days but
+      supplies $3.2/3.52768 \approx 91\%$ of the fourth moment. That is the
+      mechanism behind the stylized fact — a fat-tailed daily return
+      distribution need not be a strange law, only a mixture over changing
+      volatility. One honest caveat: this mixture is independent across days, so
+      it delivers fat tails without any clustering. Clustering is the extra
+      ingredient that the regime itself is persistent, which is what shows up as
+      autocorrelation in $r_t^{2}$.
+    expects: "6.1481"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $\mathbb{E}[Z^{4}] = 3\sigma^{4}$ inside each regime and mixes the
+        moments, rather than mixing the standard deviations first.
+      - >
+        Separates the two facts: a mixture explains fat tails, while persistence
+        of the regime is what explains clustering.
+    targets:
+      - quant-statistics.time-series.vol-clustering
+    exercises:
+      - quant-probability.expectation.lotus
+      - quant-probability.expectation.variance
+
+  - id: qts-vol-clustering-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      An analyst reports a sample kurtosis of $9.4$ for a stock's daily returns
+      and $3.6$ for its monthly returns over the same window, and concludes that
+      one of the two must be a coding error. What is the right reading?
+    answer: >
+      Both numbers are what the stylized facts predict, and nothing needs
+      fixing. A monthly return is a sum of roughly twenty daily ones, and
+      averaging across calm and turbulent days is exactly the mixing that thins
+      tails back toward the normal — the same central-limit logic that makes
+      aggregated quantities look Gaussian. Daily kurtosis well above $3$
+      alongside near-normal monthly kurtosis is the ordinary picture for a
+      liquid equity, not a contradiction. Two things follow. First, a kurtosis
+      figure quoted without a sampling frequency is close to meaningless, so ask
+      for the frequency before arguing about the number. Second, the frequency
+      dependence is itself evidence for the mixture story: if daily returns were
+      iid draws from a single fat-tailed law with a stable shape, aggregation
+      would not tidy them up this fast. The tails thin because the volatility
+      regime the return was drawn from gets averaged away.
+    choices:
+      - text: >
+          Both are expected — a monthly return averages over calm and turbulent
+          days, which thins the tails back toward the normal.
+        correct: true
+        feedback: >
+          Right, and the frequency dependence is itself evidence for the mixture
+          picture behind the fat daily tails.
+      - text: >
+          The daily figure must be wrong, since kurtosis above $3$ is not
+          attainable for returns.
+        feedback: >
+          Kurtosis is unbounded above, and daily equity kurtosis in the high
+          single digits is routine.
+      - text: >
+          The monthly figure must be wrong, since aggregation cannot change a
+          shape statistic.
+        feedback: >
+          Aggregation changes shape precisely — that is the central limit
+          theorem acting on a sum of twenty daily returns.
+      - text: >
+          The two can only be reconciled if the monthly returns were computed
+          around a different mean.
+        feedback: >
+          The mean plays almost no role at these horizons; the gap is a tail
+          effect of aggregation, not a centring error.
+    rubric:
+      - >
+        Explains the thinning as aggregation over regimes rather than as an
+        error in one of the two estimates.
+      - >
+        Draws the practical rule that a kurtosis number is only meaningful with
+        its sampling frequency attached.
+    targets:
+      - quant-statistics.time-series.vol-clustering
+    exercises:
+      - quant-statistics.time-series.differencing
+
+  - id: qts-vol-clustering-03
+    kind: work
+    difficulty: standard
+    statement: >
+      On $n = 2500$ daily observations the level-return ACF has
+      $\hat{\rho}_1 = 0.015$ while the squared-return ACF has
+      $\hat{\rho}_1 = 0.21$. Under the white-noise null a sample autocorrelation
+      has standard error $1/\sqrt{n}$. How many standard errors from zero is the
+      squared-return figure?
+    answer: >
+      $10.5$. The standard error is $1/\sqrt{2500} = 1/50 = 0.02$, so the
+      squared-return autocorrelation sits at $0.21/0.02 = 10.5$ standard errors
+      from zero — far outside the $\pm 1.96$ band, which here is
+      $\pm 0.0392$. Run the same arithmetic on the level: $0.015/0.02 = 0.75$
+      standard errors, comfortably inside the band and indistinguishable from
+      noise. That contrast is the whole content of the first two stylized facts,
+      and it comes from one dataset, one estimator and one null — the only thing
+      that changed is whether the sign of each move was kept or discarded.
+      Squaring throws the direction away and keeps the size, and the size is
+      what carries the structure. The practical warning is the one about running
+      only the level test: seeing $0.75$ standard errors and concluding the
+      series is unpredictable misses a signal ten standard errors wide sitting
+      in the second moment.
+    expects: "10.5"
+    rubric:
+      - >
+        Uses $1/\sqrt{n}$ as the standard error and divides, rather than
+        comparing the raw autocorrelation to a fixed threshold.
+      - >
+        Reports the level figure as inside the band and reads the pair as two
+        compatible facts, not a contradiction.
+    targets:
+      - quant-statistics.time-series.vol-clustering
+    exercises:
+      - quant-statistics.time-series.sample-acf
+      - quant-statistics.time-series.acf
+
+  - id: qts-level-versus-scale-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A directional signal has correlation $\rho = 0.03$ with the next day's
+      return. A position scaled to the signal earns a per-day information ratio
+      of about $\rho$, and information ratios annualise by $\sqrt{252}$. What
+      annualised Sharpe ratio does the signal support before costs? Give four
+      decimal places.
+    answer: >
+      $0.4762$. The daily information ratio is about $0.03$, and
+      $\sqrt{252} = 15.8745$, so the annualised figure is
+      $0.03 \times 15.8745 = 0.4762$. Two readings sit on top of that number.
+      The optimistic one: a correlation of $0.03$ explains
+      $\rho^{2} = 0.0009$ of return variance — under a tenth of a percent, a
+      quantity no one would look at twice in a regression report — and it is
+      still a real strategy, because a Sharpe ratio accumulates over $252$
+      independent bets while $R^{2}$ does not. The pessimistic one: $0.4762$ is
+      gross, and a signal this thin is destroyed by a few basis points of cost
+      per turn, which is exactly why level predictability is arbitraged down to
+      the level where it is barely worth having. Compare the other half of the
+      problem. A forecast of tomorrow's realised volatility correlates with the
+      outcome at something like $0.9$, and no comparable force competes it away,
+      because knowing that tomorrow is turbulent is not a direction to bet in.
+    expects: "0.4762"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Annualises by $\sqrt{252}$ rather than by $252$, and keeps the
+        distinction between $\rho$ and $\rho^{2}$ straight.
+      - >
+        Explains why a tiny $R^{2}$ is compatible with a usable Sharpe ratio,
+        and why costs are what usually kill it.
+    targets:
+      - quant-statistics.time-series.level-versus-scale
+    exercises:
+      - quant-statistics.time-series.forecast
+      - quant-statistics.time-series.vol-clustering
+
+  - id: qts-level-versus-scale-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Your desk can fund exactly one research project. Which is most likely to
+      produce something that survives contact with the market?
+    answer: >
+      Forecasting tomorrow's realised variance from the past twenty daily
+      absolute returns. The asymmetry is not that variance is easier to model
+      than the mean; it is that a directional edge is trivially tradeable — buy
+      or sell, done — so competition drives it toward zero, while a variance
+      forecast cannot be monetised by a simple long or short at all. Capturing
+      it takes an option, a variance swap or a realised-versus-implied
+      structure, so the efficient-markets force that erases level predictability
+      has no direct analogue acting on scale predictability, and the persistence
+      in $|r_t|$ survives. That is the whole reason the ARCH and GARCH families
+      are pointed at conditional variance rather than conditional mean. Of the
+      others, the five-lag sign forecast is fishing in the most competed water
+      in the market; the levels regression on an unrelated macro series is the
+      spurious-regression trap, where a large $R^{2}$ and a collapsed
+      Durbin–Watson would be the tell; and screening $500$ candidates for the
+      largest in-sample $t$-statistic finds a maximum of noise, not a signal.
+    choices:
+      - text: >
+          Forecast tomorrow's realised variance from the past twenty daily
+          absolute returns.
+        correct: true
+        feedback: >
+          Right — scale predictability survives because it cannot be traded away
+          with a simple directional position.
+      - text: >
+          Forecast the sign of tomorrow's index return from the past five daily
+          returns.
+        feedback: >
+          The most competed quantity in the market. Any linear level edge is
+          trivially tradeable and has already been arbitraged down.
+      - text: >
+          Regress the index level on an unrelated macro level series and trade
+          the fitted relationship.
+        feedback: >
+          Two $I(1)$ levels regressed on each other — the spurious-regression
+          trap, with the large $R^{2}$ to make it convincing.
+      - text: >
+          Screen $500$ candidate level signals and keep the one with the largest
+          in-sample $t$-statistic.
+        feedback: >
+          Selecting the maximum of $500$ statistics finds noise. The winner's
+          $t$-statistic is not a $t$-statistic any more.
+    rubric:
+      - >
+        Grounds the choice in tradeability — why a mean edge is competed away
+        and a variance forecast is not — rather than in modelling difficulty.
+      - >
+        Identifies at least one of the other three as a named failure mode:
+        competition, spurious regression, or multiple testing.
+    targets:
+      - quant-statistics.time-series.level-versus-scale
+    exercises:
+      - quant-statistics.time-series.vol-clustering
+      - quant-statistics.time-series.forecast

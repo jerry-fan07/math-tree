@@ -40,9 +40,9 @@ math-tree/
 
 ### Phase → milestone map (mapping, not renumbering — §9 stays authoritative)
 
-| Phase | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Milestone | M0 | M0 | M0 | M1 | M1 | M3 | M3 | M3 | M4 | M5 | M6 | M7 | M8 | M9 |
+| Phase | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Milestone | M0 | M0 | M0 | M1 | M1 | M3 | M3 | M3 | M4 | M5 | M6 | M7 | M8 | M9 | M9 | M10 | M11 |
 
 Two items are deliberately built one milestone early: the precomputed-layout pipeline (Phase 2, though §9 lists it under M1) and graph propagation (Phase 5, though §9 lists it under M4) — each is cheapest to build alongside its surrounding code (layout with the content compiler, propagation with the scoring fold). Their §9 milestones remain where the capability is *demonstrated*.
 
@@ -280,6 +280,32 @@ Not a numbered phase: an outside design pass over what Phases 4–8 built, impor
 
 **Deliverable**: click any node in the quant tree and get a paged, checked lesson that ends in problems that measure.
 **Exit criterion**: a lesson with no authored `steps` still pages (derived cards cover all six sections); an authored check accepts every spelling of its answer the parser promises and rejects a near miss outside tolerance; a passed mastery problem writes `test` evidence through the existing `Grading` path and visibly moves the node's colour, the unit read-out and the program progress bar, with **no new state file**; every new authored field renders clean under `MATHTREE_MATH_CHECK`; the player renders offscreen in both themes across teach, unresolved check, resolved-correct, resolved-wrong and mastery cards.
+
+## Phase 15 — The course
+
+**Goal**: M10 — §6.8. The program read as a course rather than a book, and both trees taught whole. Two complaints drove it: the learning surfaces were not intuitive (no front door, no "where am I", no "what next", stage columns labelled in the design's private vocabulary), and only 38 of 1,280 content nodes could actually *ask* the reader anything.
+
+**Tasks**
+- `GraphCore`: `MasteryLevel` / `MasteryEvidence` / `Mastery` — the five-rung ladder and its points, derived from the folded state and the log alone, with Proficient ≡ §4.5's met; `UnitTest.paper(for:bank:level:attempted:limit:)` — one standard-difficulty problem per skill, unmastered-first under a cap, sat in teaching order; `ProgramSpine.title` and `ProgramSpine.forward` (declared forward references, D15.2) with `program-forward-stale` / `program-forward-unexplained`; `ProgramPlan.Step.forward`; D15.4's rounding rule in `AnswerCheck.isCorrect(typed:)`.
+- `ContentBuild`: the spine decodes `title`/`forward`; the artifact writes both only when present (the quant artifact is identical to Phase 14's except for its authored `title`); `Scripts/check-lesson-file.py` serves both trees and refuses a single-check lesson; `Scripts/check-problem-file.py` is the bank's isolated pre-flight (validator rules, check faults, LaTeX, and the mastery bar).
+- App: `ProgramView` becomes course home → `UnitPage` → `ChapterReader`, breadcrumb as eyebrow, `ProgramEntry` for the three ways in; `MasteryVisuals` (dot, segmented bar, legend, points); `LessonPlayer` context and the finish card's rung + next skill; `UnitTestSession` over `ProblemSheet` with `UnitTestSummary`; the rail's Course section; `FocusView`'s guide line, start-here action, learn-on-hover rows and worded stage labels; "mastered" → "proficient" in every met read-out; `PanelShot` renders `course.png`, `unit.png`, `lesson-finish.png` over the real math program.
+- Content: `program/` — the math tree's spine (82 units, 12 parts, 4 declared forward references) and lessons with `steps` for every authored unit; `steps` for the 56 remaining quant units; problem banks for all 56 quant units and all 15 math units (the three pre-Phase-13 banks upgraded to the mastery bar). Generated one sonnet/opus agent per unit against the pre-flight checkers, validated per batch, committed per batch.
+
+**Deliverable**: open either tree, press Continue, and be taught skill after skill — cards, checks, a mastery set, a rung, the next skill — with a unit page that says where you stand and a unit test that proves it.
+**Exit criterion**: `validate` reports every content node of both trees lesson-covered *and* card-covered, with at least two bank problems per node; every unit's problem file passes `check-problem-file.py`; the math spine validates with exactly the declared forward references and the quant artifact is identical to Phase 14's except for its authored `title`; the ladder's Proficient count equals the frontier's met count on the fixture user; a typed `0.4667` is accepted for `7/15` and `0.47` is not; `MATHTREE_MATH_CHECK` is clean over both corpora; the course home, a unit page, the finish card, the rail and a subject path render offscreen in both themes.
+
+## Phase 16 — Socratic dialogues
+
+**Goal**: M11 — §6.9. Lessons that teach question-first. Every card lesson in both trees follows define → check, which has the reader recognise an idea rather than reach for it; the competitive-programming tutor's dialogues (a problem, the brute force, its cost, the waste, the insight, the proof, asked rather than told) are the model.
+
+**Tasks**
+- `GraphCore`: `LessonCard.reflect` / `.answer` / `.part` (hand-written Codable, absent keys encode away); `Lesson.dialogue`, played ahead of `steps` by `Lesson.cards`; `DialogueSession` — the transcript's state machine (the gate, kept wrong picks, typed misses with direction, reveal, reflections and self-ratings, parts, the seam's `answerCorrectly(through:)`); `ProgramValidator.cardFaults` for all three card kinds and the opt-in dialogue contract (`dialogue-opens-without-part`, `dialogue-lecture`, `dialogue-thin`, `dialogue-no-reflection`, `dialogue-choice-without-why`, plus `lesson-steps-and-dialogue`, `lesson-reflection-missing-answer`, `lesson-stray-answer`).
+- `ContentBuild` / scripts: the summary line counts dialogues and reflections; `check-lesson-file.py` mirrors every new rule and gains `--dialogue` (every lesson of the unit must be one) and the checker-only length bars.
+- App: `LessonPlayer` rebuilt as a transcript over `DialogueSession` — part headings, beats, question boxes (choice with retry, typed with directional misses, reflection with the tutor's answer and a self-rating), hint and "show me" everywhere, an outline/tally/builds-on rail, letter keys for choices, the finish (recap, "now on your own" mastery set, self-report, rung, next skill) at the transcript's foot; Escape routed to the owner while the player holds the keyboard, and the map reclaiming the keys when nobody holds them; the unit page marks dialogue skills; `MathTextCheck` samples `dialogue`; `PanelShot` renders the real reference dialogue in eight states plus the steps and derived fallbacks.
+- Content: `program/dialogue.md` (the contract, both trees); `analysis.svc.mvt` hand-written as the reference; pilot units `analysis.svc` and `quant-probability.foundations` converted, one opus author per unit against `check-lesson-file.py --dialogue`.
+
+**Deliverable**: open the Mean Value Theorem and be asked about a speeding fine before being told any theorem — then reach for the pace-car argument yourself, and see the tutor's version beside yours.
+**Exit criterion**: the dialogue contract's rules each fail their named case and bind only `dialogue` lessons (tests); every pilot lesson passes `check-lesson-file.py --dialogue` and `ContentBuild validate`; `MATHTREE_MATH_CHECK` is clean over both corpora; the transcript renders offscreen at its opening, a kept wrong row, a typed miss, a reflection before and after, a late part and the finish, in both themes.
 
 ---
 
@@ -850,7 +876,101 @@ Matrices and `align` environments are unimplemented and unwritten — `content-q
 forbids environments outright. A line carrying a fraction is taller than its neighbours, the
 same as in any book with inline quotients, and no attempt is made to even the leading.
 
+### Phase 15
+
+**D15.1 — The program is read as a course, and the book stays one click away.**
+Phase 12's reader was faithful to §6.6's display paragraph and still failed the reader: a contents rail beside a chapter says nothing about *where you are* or *what to do next*, and "esc — full map" was the only navigation. The fix is not a new data model — spine, lessons, cards and the log are unchanged — but the hierarchy every course app puts first: home (continue, measure, parts), unit (ladder, skills with actions, test), lesson. The breadcrumb is the eyebrow because turn 1's grammar already has an eyebrow slot and a crumb is metadata. The chapter reader is kept whole as "read as a chapter": some readers want the book, and deleting a working surface to make a point is not subtraction. Unauthored math units collapse to one sentence per part — 67 dashes in a list reads as broken, one line reads as honest.
+
+**D15.2 — Forward references are declared, exact, and surfaced — the rule is not weakened.**
+The math tree's foundations units need each other (relations ↔ functions, cardinality ↔ number systems); no order is a linear extension, and re-homing nodes would rename permanent ids. Three options: downgrade `program-order-violation` to a hint (loses the guarantee for the quant tree, whose test pins it as an error), re-parent nodes (breaks ids and fixtures), or let the spine *declare* each accepted edge with a reviewer's note. The third keeps the rule an error, adds `program-forward-stale` so a declaration that is no longer forward fails too (the list cannot rot in either direction), and `ProgramPlan.Step.forward` is computed from the graph rather than read off the declaration, so the unit page and the reader say "uses X, taught later" whether or not the validator is currently happy. Four edges, all on late nodes referencing the next unit — the benign shape.
+
+**D15.3 — Proficient is met; Mastered is proven; and the word moved.**
+The obvious ladder puts "Mastered" where the app already said "mastered" (met). Khan's ladder has a rung above that — proficient *and* verified later — and this app has exactly the instrument to verify: a passed `test` event. So Proficient ≡ met (by any evidence, including propagated implicit reviews, because that is what the map's colour already means and the panel must not disagree with the dot) and Mastered ≡ met + the most recent problem targeting the node passed. Every "N / M mastered" read-out in the app now says "proficient", because shipping two meanings of one word across one screen was the alternative. `MasteryEvidence` reads the log in fold order for "most recent", so a replay reaches the same rung. Considered and rejected: a rung for "inferred only" (met by propagation, never directly reviewed) — it would make the ladder disagree with the frontier, and the fact is available as a detail instead.
+
+**D15.4 — A typed decimal is compared at the precision the reader chose.**
+D13.4 made the parser generous about spelling and strict about value, and the player's own hint promised that `7/15`, `0.4667` and `46.67%` "all read alike" — which was false: with no authored tolerance the comparison was relative $10^{-6}$, so a reader who computed $7/15$ and typed its four-place rounding was told they were wrong. Pushing a `tolerance` onto every fraction in 1,280 lessons is the wrong fix (and the pilot units did not do it). The rule is now: a decimal with at least three places is right when the expected value rounds to it; fewer places stay exact (`0.47` is a guess); a fraction is exact; an authored tolerance replaces the rule. The existing test that pinned the strict behaviour was reversed deliberately, not accommodated.
+
+**D15.5 — The unit test is the middle of the bank, sat in teaching order.**
+A mastery set is hardest-first because the node was taught a minute ago (D13.6). A unit test asks across a unit learned over weeks, and opening every question at `demanding` measures stamina, not the ladder — so the paper prefers `standard`, then `routine`, then `demanding`, and an unattempted problem over a seen one. When the cap bites, mastered skills are dropped first (the test spends its questions where the rung can still move), but the chosen questions are then *sat* in teaching order, because a paper that jumps around a unit is harder for no reason. Each question grades through the existing `ProblemSheet` and `Grading` path — a miss still asks where it broke — so the test writes exactly the evidence a review would, and the summary is a read-out of the fold, not a second measurement.
+
+**D15.6 — The content campaign: one author per unit, checked in isolation, committed per batch.**
+Phase 12's shape (D12.7) again, with two additions. `check-lesson-file.py` infers the tree from the unit id and refuses a single-check lesson; `check-problem-file.py` is new — the bank had no isolated pre-flight, so 71 problem authors would have contended on the Swift build or shipped unchecked. Both mirror the validators plus the *coverage bar* the course needs: every node with ≥2 problems, one `demanding` and one not, `work`/`decide` machine-checked. Every author is told to show the computation that produces `expects` inside `feedback`/`answer`, because a bare number is the one thing no pre-flight can verify and a shown computation is checkable at a glance. The math course's guide drops `interview` and asks for `steps` on every lesson; a mathematics course's answers are mostly not numbers, so it says so and steers authors to `choices`.
+
+**D15.7 — The content campaign, in three sittings.**
+About 150 authoring agents ran between September 4 and 7, 2026 — one per
+unit, sonnet for quant cards, opus for math lessons and every bank — and the
+run was interrupted four times: the account's monthly spend limit ended the
+first wave mid-write, a five-hour session limit ended two later waves, and the
+machine sleeping stalled a dozen agents (an agent whose API stream hangs looks
+alive to the harness for a long time; the tell is a bank file whose
+modification time stops moving). Salvage worked the same way every time: a
+file that passed its pre-flight check was validated and committed; a
+part-written file stayed in place — the loader reads it, so the tree keeps
+validating as long as each problem is well-formed — and a fresh agent resumed
+it under a "finish" prompt that keeps existing ids and runs the checker
+first. The three math lesson drafts were parked in `program/drafts/` for the
+same reason and finished the same way.
+
+Final state: both programs are fully interactive — the quant program's 958
+lessons carry 2,851 authored checks, the math program's 322 carry 958 — and
+both banks meet the mastery bar on every node: 2,278 quant problems over all
+958 nodes (58/58 units), 706 math problems over all 322 nodes (15/15 authored
+units, all placement-ready). The rendering self-check is clean over 62,325
+fields; 335 tests pass; the course renders over the real program in both
+themes. The exit criterion holds in every clause.
+
+What the campaign taught, now encoded: (a) gate every commit on the renderer
+self-check's *exit code* — piped through `tail` it was swallowed once and
+eight `\"` escapes reached a commit before the next run caught them, so
+`check-lesson-file.py` now rejects a backslash-escaped quote; (b) the Swift
+validator is stricter than the Python checker on `exercises` (a tag must lie
+in a target's `requires` closure) and on `connects` (ends sorted, edge
+authored), so the checker gained the sorted-ends rule and every prompt names
+the closure rule; (c) a part-written file with a violation blocks *every*
+other author's commit, so authors run the checker per chunk, not per file;
+(d) the advisor tool hangs under load — later prompts forbade it and had the
+author verify numbers in Python instead; (e) the placement-probe pin is a
+function of the askable set, not only of the policy (11 → 21 when the set
+grew tenfold).
+
+**D15.8 — Known gaps.**
+Unit numbering on the course home skips where unauthored units collapse
+(units 13–18 are the six analysis units not yet authored), which is honest
+but reads oddly until the outline fills. A unit test has no probe
+(micro-problem) path — a miss localizes directly, without §5.4's follow-up
+question — because `ProblemSheet`'s probe replaces the current problem and a
+paper has no slot for a substitution. The player has no keyboard shortcut
+for "next skill". The chapter reader is unchanged from Phase 12 except for
+its rung labels. Two content corrections were made in passing on the authors'
+findings (a reversed interval direction in the Slutsky worked example; power
+0.80 as a one-in-five miss; the auction formats grouped backwards; an
+effective spread below the quoted one explained as walking the book), which
+suggests the older prose would repay a review pass with the cards' checks as
+the instrument. `check-problem-file.py` does not enforce the prominence-2
+"three problems" rule; every author honoured it by hand, so a future bank
+could silently fall short. A `connects` problem can only score a `relates`
+edge whose far end it also targets, so units whose `relates` edges all leave
+the unit carry `connects: []` throughout — the edge review §4.4 promises is
+unreachable there until a cross-unit problem is written on purpose.
+
 ---
+
+### Phase 16
+
+**D16.1 — The lesson is a transcript, and a question is a gate but never a lock.**
+§6.7 chose one card per screen so a beat had to be dismissed (D13.5's rhythm). A dialogue breaks that choice on purpose: its later questions lean on a situation set up at the start ("the pace car"), and one card per screen hides it by the fifth card. So the player shows everything up to the first unanswered question and unfolds the next stretch on an answer — the competitive-programming tutor's form. That makes each question a gate, which D13.5 ruled out; the amendment is that the gate is one click wide ("show me" on every question, and a reflection accepts an empty answer), so the reader who wants the next idea still gets it, while the reader who engages is asked before being told. Considered and rejected: pinning the opening scenario above a card-per-screen player (it keeps two layouts for one lesson and still hides every intermediate result).
+
+**D16.2 — A dialogue is opt-in, and its contract is an error.**
+The contract (≤2 beats between questions, ≥5 questions across ≥2 parts, a reflection, a why on every row) is the whole difference between a dialogue and a card deck; as a hint it would decay on the next campaign. But 1,280 card lessons violate it by construction, and they are not wrong — they are the other form. So a lesson opts in by authoring `dialogue:` instead of `steps:` (never both), and the contract binds exactly those. The per-card rules (a card is one of `teach`/`ask`/`reflect`; a reflection has an `answer`; an `answer` has a reflection) hold everywhere, because they name silent failures in either form. `Lesson.cards` prefers `dialogue`, then `steps`, then the derived paging, so a unit can convert lesson by lesson.
+
+**D16.3 — A wrong answer is kept, and a reflection is not graded.**
+A §6.7 check resolved on the first commit and showed the canonical feedback; the distractor's own feedback was read once, if at all. In a dialogue the wrong rows *are* the teaching (they are the misconceptions a real reader holds), so a wrong pick stays on the page with its feedback and the reader picks again, and the verdict says "first try" or "after N tries". A typed miss says which way it missed — too high, too low, or off by a factor (≥10) — which is a hint the reader earned by committing to a number; unreadable input is a spelling problem and is not counted. A reflection has no machine check at all: matching free text against LaTeX is a rabbit hole and would make the app grade exactly the answers it cannot understand. The reader compares, rates their own version (had it / partly / missed it), and none of it is recorded (D13.2).
+
+**D16.4 — The session is a GraphCore value type.**
+The player's state — gate, outcomes, kept picks, misses, reflections, ratings, hints — lives in `DialogueSession`, not in a dozen `@State` dictionaries, because the rules that make a dialogue a dialogue (what is visible, when a question counts as first try, what "show me" resolves to) should be testable without a window, and the seam the shot harness uses (`answerCorrectly(through:)`) should be the same code the tests exercise. It records nothing and dies with the player; the bookmark is still `ProgramPlan.resume`.
+
+**D16.5 — Offscreen frames start near their gate.**
+`NSHostingView` + `cacheDisplay` draws a `ScrollView` at its top and ignores `defaultScrollAnchor`, so a frame opened deep in a transcript would show its first screen and pass. The seam therefore starts a seam-opened transcript at the gate's part (or two steps above the gate, or at the ending) with a "N earlier steps above" line. It is inert in the app: nothing there sets `startCard`.
 
 ## Risks (top three, with mitigations already embedded above)
 

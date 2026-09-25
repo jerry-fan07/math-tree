@@ -66,6 +66,96 @@ lessons:
       Supervised learning picks $\hat f$ to minimize expected loss on a
       fresh draw, and under squared loss the object being estimated is
       exactly the conditional mean $\mathbb{E}[Y\mid X]$.
+    steps:
+      - teach: >
+          A random draw $(X,Y)$ follows some joint law $P$ that the learner
+          never sees — only $n$ example draws from it. Fitting picks $\hat f$
+          from a class $\mathcal{F}$ to make the risk $R(f) = \mathbb{E}[L(Y,
+          f(X))]$ small on a fresh draw, and which risk that is depends
+          entirely on the loss $L$.
+      - teach: >
+          Under squared loss, adding and subtracting the conditional mean
+          $m(x) = \mathbb{E}[Y \mid X=x]$ inside $(Y-f(x))^{2}$ kills the
+          cross term, leaving $\operatorname{Var}(Y\mid X=x) +
+          (m(x)-f(x))^{2}$. Only the second piece answers to $f$, and it is
+          zero exactly when $f(x)=m(x)$ — so under squared loss, fitting is
+          estimating a conditional mean.
+      - ask: >
+          Conditional on $X=50$, $Y$ equals $10$ with probability $0.2$,
+          $20$ with probability $0.5$, and $30$ with probability $0.3$. What
+          is $m(50) = \mathbb{E}[Y\mid X=50]$?
+        expects: "21"
+        hint: >
+          Weight each value by its conditional probability and add.
+        feedback: >
+          $m(50) = 0.2(10)+0.5(20)+0.3(30) = 2+10+9 = 21$ — the same
+          add-and-subtract argument says no other single number scores lower
+          expected squared error at $X=50$.
+      - teach: >
+          The loss picks the target, not just the penalty. Absolute loss is
+          minimized by the conditional median, and $0$–$1$ loss by the most
+          likely class — every technique later in this unit is this same
+          problem with a specific $\mathcal{F}$, $L$, and fitting rule
+          attached.
+      - ask: >
+          Which target does absolute loss $|Y-f(x)|$ minimize?
+        choices:
+          - text: >
+              The conditional mean $\mathbb{E}[Y\mid X=x]$
+            feedback: >
+              That's the minimizer of squared loss, not absolute loss —
+              different losses target different summaries of the same
+              conditional distribution.
+          - text: >
+              The conditional median
+            correct: true
+            feedback: >
+              Absolute loss is minimized by the median: it weighs a unit of
+              error the same on both sides regardless of size, which the
+              median — not the mean — balances.
+          - text: >
+              The most likely class, i.e. the mode
+            feedback: >
+              That's the target under $0$–$1$ loss, used for classification,
+              not the continuous-valued target of absolute loss.
+        feedback: >
+          Absolute loss is minimized by the conditional median — squared to
+          mean, absolute to median, $0$–$1$ to mode.
+      - teach: >
+          The independence of the $n$ training draws is the first
+          assumption a trading desk breaks. Daily returns are serially
+          dependent and the joint law $P$ itself drifts, so a model fit as
+          if draws were i.i.d. is already modelling something other than the
+          market it will trade on.
+      - ask: >
+          A dataset of daily equity returns is treated as $n$ independent
+          draws from a fixed $P$ when fitting a model. What does this
+          assumption most directly get wrong?
+        choices:
+          - text: >
+              Nothing — returns really are independent draws from a fixed
+              law
+            feedback: >
+              Returns are serially dependent and $P$ itself drifts over
+              time; treating them as i.i.d. is a convenience, not a fact.
+          - text: >
+              Both independence across days and a fixed $P$ are violated
+            correct: true
+            feedback: >
+              Both fail together: successive returns are correlated, and
+              the law generating them shifts across regimes — the setup
+              this node opens with breaks on exactly the data quant models
+              are fit to.
+          - text: >
+              Only the fixed-$P$ part is wrong; independence across days is
+              fine
+            feedback: >
+              Independence fails too — volatility clustering and
+              momentum/reversal effects are exactly serial dependence.
+        feedback: >
+          Both assumptions built into $(x_i,y_i)$ being i.i.d. draws from a
+          fixed $P$ are optimistic for market data: draws are dependent and
+          the law drifts.
 
   - node: quant-statistics.learning.generalization-gap
     hook: >
@@ -111,6 +201,78 @@ lessons:
       Training error understates true error by an amount that grows with
       parameters spent and shrinks like $1/n$: it is a biased number, not a
       neutral one.
+    steps:
+      - teach: >
+          Empirical risk $\hat R(f) = \frac1n \sum_i L(y_i, f(x_i))$ is what
+          fitting minimizes; risk $R(f)$ on a fresh draw is what actually
+          gets scored. They differ because the same data chose $\hat f$ and
+          then graded it — $\hat f$ was built to look good exactly on the
+          points measuring it.
+      - teach: >
+          The gap has an exact size: $\mathbb{E}[R-\hat R] = \frac{2}{n}
+          \sum_i \operatorname{Cov}(\hat y_i, y_i)$, which for a linear fit
+          with $p$ parameters and noise variance $\sigma^{2}$ collapses to
+          $2p\sigma^{2}/n$. Each parameter spent buys back a fixed,
+          computable amount of fake accuracy.
+      - ask: >
+          A linear model with $p=10$ parameters is fit on $n=50$ points with
+          noise variance $\sigma^{2}=3$. What is the expected optimism
+          $2p\sigma^{2}/n$?
+        expects: "1.2"
+        hint: >
+          Plug the three numbers straight into $2p\sigma^{2}/n$.
+        feedback: >
+          $2(10)(3)/50 = 60/50 = 1.2$ — true out-of-sample error exceeds
+          training error by $1.2$ on average, purely from fitting on the
+          scored data.
+      - teach: >
+          The formula also says the gap scales linearly in $p$: spend twice
+          as many parameters at fixed $n$ and $\sigma^{2}$, and the expected
+          optimism exactly doubles.
+      - ask: >
+          Same setup, but $p$ doubles to $20$ while $n=50$ and
+          $\sigma^{2}=3$ stay fixed. What is the new expected optimism?
+        expects: "2.4"
+        hint: >
+          The formula is linear in $p$ — no need to redo the whole
+          calculation from scratch.
+        feedback: >
+          $2(20)(3)/50 = 120/50 = 2.4$ — exactly double the $p=10$ answer,
+          confirming the linear dependence on parameters spent.
+      - teach: >
+          The pattern isn't specific to linear regression: any procedure
+          that chooses its parameters using the same data it's later scored
+          on inflates its apparent performance. The fix is always the
+          same — score on data the choice never touched.
+      - ask: >
+          A researcher reports a strategy's in-sample $R^{2}$ as its
+          expected live performance. What's wrong with that?
+        choices:
+          - text: >
+              Nothing, $R^{2}$ measures fit quality directly
+            feedback: >
+              In-sample $R^{2}$ is exactly the biased quantity this node
+              names — it was computed on the same data that chose the
+              model.
+          - text: >
+              In-sample $R^{2}$ is optimistic by construction, the same
+              mechanism as the generalization gap
+            correct: true
+            feedback: >
+              The model was fit to look good on that data; $R^{2}$ inherits
+              the same optimism as empirical risk, and the true
+              out-of-sample number is worse.
+          - text: >
+              It's only a problem for models with more than a handful of
+              parameters
+            feedback: >
+              The bias exists at any $p>0$ and shrinks with $n$, but it
+              doesn't vanish just because $p$ is small — every parameter
+              spent buys some.
+        feedback: >
+          In-sample $R^{2}$, like training error, is graded by the same
+          data that chose the model — it's optimistic by exactly the
+          mechanism this node derives, not a neutral performance number.
 
   - node: quant-statistics.learning.overfitting
     hook: >
@@ -156,6 +318,100 @@ lessons:
       Overfitting is fitting the sample instead of the population; the
       culprit is capacity relative to data, and its signature is training
       error falling while held-out error rises.
+    steps:
+      - teach: >
+          A model overfits when it reproduces structure that lives in the
+          training sample but not in $P$ — noise treated as signal. The tell
+          is a widening gap as flexibility rises: training error keeps
+          falling while held-out error turns and climbs.
+      - teach: >
+          What drives it is capacity in the widest sense — parameters,
+          depth, features searched, and every choice made after looking at
+          the data. A polynomial of degree $n-1$ fit to $n$ points
+          reproduces every point exactly: zero training error, by
+          construction, with no guarantee it recovered any real signal.
+      - ask: >
+          A dataset has $8$ points. What is the minimum polynomial degree
+          guaranteed to pass through all $8$ exactly, no matter what
+          pattern generated them?
+        expects: "7"
+        hint: >
+          A degree-$d$ polynomial has $d+1$ free coefficients — match that
+          to the number of points.
+        feedback: >
+          Degree $n-1=7$: an $8$-point dataset has $8$ values to match, and
+          a degree-$7$ polynomial has exactly $8$ coefficients to spend
+          matching them, zero training error guaranteed regardless of the
+          real pattern.
+      - teach: >
+          Zero training error is a red flag, not an achievement: that
+          flexibility didn't necessarily recover more signal. In return
+          prediction especially, where signal is a tiny fraction of total
+          variance, a flexible fit is mostly fitting noise by construction.
+      - ask: >
+          A model's training error falls smoothly as complexity rises.
+          Held-out error falls at first, reaches a minimum, then rises. At
+          what point does the model start overfitting?
+        choices:
+          - text: >
+              Only once held-out error exceeds its starting value
+            feedback: >
+              That's much too late — the model already started fitting
+              noise once held-out error stopped improving, well before it
+              climbs back above where it started.
+          - text: >
+              Right where held-out error turns and starts rising
+            correct: true
+            feedback: >
+              That turning point is exactly the signature this node names:
+              past it, added flexibility is buying training-error
+              improvement that doesn't transfer, i.e. noise.
+          - text: >
+              As soon as training error reaches zero
+            feedback: >
+              Training error can reach zero well before or after the
+              held-out turning point, depending on capacity — it's not
+              itself the signal to watch.
+        feedback: >
+          The widening-gap signature is the held-out turning point, not a
+          fixed training-error threshold — training error alone never tells
+          you when to stop.
+      - teach: >
+          Capacity is spent by any data-driven choice, not just parameter
+          count. Picking the best $3$ features out of $300$ by checking
+          which correlate with $Y$ already spends capacity on the search,
+          even though the model handed to production has only $3$
+          coefficients.
+      - ask: >
+          A researcher searches $300$ candidate features, keeps the $3$
+          with the strongest in-sample correlation to $Y$, and fits a
+          $3$-parameter linear model. Is this model's effective capacity
+          well described by its $3$ parameters?
+        choices:
+          - text: >
+              Yes — only the final model's parameter count matters
+            feedback: >
+              The search itself was a data-driven choice; a model that
+              looks small can still have spent capacity nobody counted in
+              its parameter total.
+          - text: >
+              No — the $300$-feature search already spent capacity the
+              $3$-parameter count doesn't reflect
+            correct: true
+            feedback: >
+              Every choice made after looking at the data counts, including
+              which features survived a search — the final model's small
+              size hides how much fitting actually happened.
+          - text: >
+              No, but only if the search used cross-validation
+            feedback: >
+              Cross-validation changes how the capacity is later estimated,
+              not whether the search itself spent capacity — the search
+              spends capacity regardless of how it's later evaluated.
+        feedback: >
+          Capacity is spent by the whole modelling process, including
+          feature search — a $3$-parameter model chosen from $300$
+          candidates is not as simple as it looks.
 
   - node: quant-statistics.learning.bias-variance
     hook: >
@@ -204,6 +460,76 @@ lessons:
       Prediction error splits into irreducible noise plus squared bias plus
       variance; only the last two are addressable, and they trade against
       each other as flexibility changes.
+    steps:
+      - teach: >
+          Split $Y-\hat f(x) = \varepsilon + (f(x)-\mathbb{E}_D[\hat f(x)])
+          + (\mathbb{E}_D[\hat f(x)]-\hat f(x))$: irreducible noise, a fixed
+          bias term, and $\hat f(x)$'s deviation from its own average over
+          training sets $D$. Squaring and taking expectation, every cross
+          term vanishes — $\varepsilon$ is centred and independent of $D$,
+          and the third piece is centred around $\mathbb{E}_D[\hat f(x)]$
+          by construction.
+      - teach: >
+          What survives is exactly $\sigma^{2} + \text{bias}^{2} +
+          \text{variance}$. $\sigma^{2}$ is a hard floor no model reaches
+          under; only bias and variance answer to modelling, and they move
+          in opposite directions as flexibility changes.
+      - ask: >
+          At a point with true value $f(x)=20$ and noise variance
+          $\sigma^{2}=9$, an estimator has bias $-3$ and variance $1$. What
+          is its MSE?
+        expects: "19"
+        hint: >
+          Add noise variance, squared bias, and variance.
+        feedback: >
+          $9 + (-3)^{2} + 1 = 9 + 9 + 1 = 19$.
+      - teach: >
+          An unbiased estimator is not automatically preferred: bias only
+          has to cost less MSE than the variance it buys back. Compare the
+          biased estimator above to an alternative that has zero bias at
+          the same point but variance $14$.
+      - ask: >
+          Same point, $\sigma^{2}=9$: an unbiased estimator
+          ($\text{bias}=0$) has variance $14$. What is its MSE?
+        expects: "23"
+        hint: >
+          Bias-squared is $0$ here, so only two of the three terms are
+          nonzero.
+        feedback: >
+          $9+0+14=23$ — worse than the biased estimator's $19$, despite
+          having no bias at all.
+      - teach: >
+          The decomposition settles a common confusion this comparison
+          makes concrete: a small amount of bias can buy a large amount of
+          variance reduction, and MSE — not unbiasedness — is what should
+          be optimized.
+      - ask: >
+          Between the two estimators above (MSE $19$ biased, MSE $23$
+          unbiased), which does the bias-variance decomposition say to
+          prefer, and why?
+        choices:
+          - text: >
+              The unbiased one — bias is always worse than variance
+            feedback: >
+              MSE doesn't distinguish where the error comes from; the
+              biased estimator has lower total MSE here despite carrying
+              bias.
+          - text: >
+              The biased one — its lower MSE means the bias it carries
+              bought more variance reduction than it cost
+            correct: true
+            feedback: >
+              MSE is what matters for prediction accuracy, and $19<23$: the
+              $-3$ bias here was worth paying for a variance drop from $14$
+              to $1$.
+          - text: >
+              They're equivalent — both are valid predictors of $f(x)=20$
+            feedback: >
+              They have different MSE, $19$ versus $23$ — not equivalent by
+              the metric that matters for prediction.
+        feedback: >
+          Prefer the lower MSE regardless of which piece — bias or
+          variance — it comes from; here that's the biased estimator.
 
   - node: quant-statistics.learning.complexity-dial
     hook: >
@@ -246,6 +572,76 @@ lessons:
     recap: >
       Held-out error is U-shaped in complexity; more data pushes the optimum
       toward complexity, weak signal pushes it hard toward simplicity.
+    steps:
+      - teach: >
+          Since only bias-squared and variance are addressable, and they
+          move in opposite directions as capacity rises, held-out error is
+          U-shaped in the complexity dial: it falls while bias reduction
+          dominates, then rises once variance takes over. The optimum sits
+          where the marginal bias reduction stops paying for the marginal
+          variance it costs.
+      - teach: >
+          Two things move that optimum. More data shrinks variance at fixed
+          bias, so it drifts toward more complexity as $n$ grows. A low
+          signal-to-noise ratio does the opposite: extra flexibility mostly
+          buys variance with little real bias left to reduce, pinning the
+          optimum far toward simplicity.
+      - ask: >
+          On a weak-signal problem ($\sigma^{2}=1$), a *low* complexity
+          setting has squared bias $0.30$ and variance $0.01$. What is its
+          total held-out error?
+        expects: "1.31"
+        hint: >
+          Held-out error is $\sigma^{2} + \text{bias}^{2} + \text{variance}$.
+        feedback: >
+          $1 + 0.30 + 0.01 = 1.31$.
+      - teach: >
+          Training error alone can't locate this optimum — it falls
+          monotonically as complexity rises, never turning upward. Finding
+          the dial setting needs held-out error at more than one setting.
+      - ask: >
+          Same problem, a *medium* complexity setting has squared bias
+          $0.10$ and variance $0.08$. What is its total held-out error?
+        expects: "1.18"
+        hint: >
+          Same formula, new bias and variance numbers.
+        feedback: >
+          $1 + 0.10 + 0.08 = 1.18$ — lower than the low-complexity setting's
+          $1.31$, so the curve is still falling here.
+      - teach: >
+          A *high* complexity setting on this same problem has squared bias
+          $0.02$ but variance $0.25$, for a total of $1.27$ — worse than
+          medium's $1.18$. The curve has turned: past medium, variance is
+          growing faster than bias is shrinking.
+      - ask: >
+          At high complexity here, squared bias is only $0.02$ (down from
+          $0.10$ at medium) but total held-out error is worse ($1.27$ vs
+          $1.18$). What happened?
+        choices:
+          - text: >
+              The extra flexibility bought a small bias reduction but a
+              bigger variance increase
+            correct: true
+            feedback: >
+              Variance rose from $0.08$ to $0.25$ — a jump of $0.17$ —
+              while bias-squared only fell by $0.08$. Past medium, the
+              marginal variance cost exceeds the marginal bias benefit,
+              exactly the rising side of the U.
+          - text: >
+              The noise floor $\sigma^{2}$ increased at higher complexity
+            feedback: >
+              $\sigma^{2}=1$ is fixed by the problem, not the model — it
+              never changes as complexity moves.
+          - text: >
+              Held-out error should be judged by bias alone, so high
+              complexity is actually best
+            feedback: >
+              Held-out error is the sum of all three terms; bias alone
+              ignores the variance it cost to get there.
+        feedback: >
+          Past the optimum, added flexibility keeps trading bias for
+          variance, but the variance it buys back costs more than the bias
+          it removes — the defining shape of the U.
 
   - node: quant-statistics.learning.train-val-test
     hook: >
@@ -291,6 +687,95 @@ lessons:
       Fit on training, choose on validation, report on test — and the test
       number is only honest while it stays unopened until every decision is
       frozen.
+    steps:
+      - teach: >
+          Three disjoint roles, not three arbitrary piles. Training fits
+          parameters at one fixed configuration. Validation scores several
+          configurations against each other and picks a winner. Test is
+          opened exactly once, after every decision is frozen, to report a
+          number nobody chose anything against.
+      - teach: >
+          The rule follows straight from how training error was shown to be
+          biased: any data used to make a decision has been spent. Peek at
+          the test set, retune, and rescore, and it has quietly become a
+          second validation set, optimistic by exactly the amount you tuned
+          against it.
+      - ask: >
+          With $n=800$ and a $60/20/20$ split, how many points land in the
+          validation set?
+        expects: "160"
+        hint: >
+          Validation gets $20\%$ of the total.
+        feedback: >
+          $0.20 \times 800 = 160$ points to score configurations against
+          each other, leaving $480$ for training and $160$ untouched for
+          test.
+      - teach: >
+          The allocation tilts toward training when $n$ is small, because a
+          small training slice means high-variance parameter estimates and
+          little can be spared for scoring.
+      - ask: >
+          A team retunes its model after checking its test-set score, then
+          reports that same test score as final performance. What has
+          happened?
+        choices:
+          - text: >
+              Nothing — the test set was still only opened once
+            feedback: >
+              It was opened, used to make a decision (retuning), and then
+              reused to report — that's two uses, not one.
+          - text: >
+              The test set has quietly become a second validation set, and
+              the reported number is now optimistic
+            correct: true
+            feedback: >
+              Retuning against the observed test score is exactly the
+              decision-spends-data mechanism — the number no longer
+              measures a frozen model against untouched data.
+          - text: >
+              It's fine, because the retuned model is objectively better
+            feedback: >
+              Being better on that specific test set doesn't mean better in
+              general — that's precisely what an untouched test set was
+              supposed to verify.
+        feedback: >
+          The moment a decision is made in response to the test score, it
+          has been spent — the honest fix is a fresh, still-unopened test
+          set.
+      - teach: >
+          Skipping validation entirely and comparing candidate models
+          directly on the test set makes the same mistake one step earlier:
+          the "test" score used to pick a winner was never a frozen,
+          one-time read.
+      - ask: >
+          A team has only train and test sets — no validation set — and
+          picks the best of five candidate models by test accuracy, then
+          reports that accuracy as the final number. What's wrong?
+        choices:
+          - text: >
+              Nothing — comparing models on held-out data is exactly what
+              you're supposed to do
+            feedback: >
+              Held-out data, yes — but this is the *test* set, meant to be
+              opened once after selection, not used to select.
+          - text: >
+              Choosing among five models by test accuracy is exactly what
+              validation is for, so the reported number is optimistic
+            correct: true
+            feedback: >
+              The test set was used to make a decision — which of five
+              models to keep — so it has played the validation role and can
+              no longer report an honest number.
+          - text: >
+              You need three separate test sets, one per role, not one
+              validation set
+            feedback: >
+              One validation set is enough; the fix is adding it back, not
+              multiplying test sets.
+        feedback: >
+          Selection needs its own slice. Without a validation set, model
+          choice necessarily spends the test set, and the number reported
+          afterward is no longer honest.
 
   - node: quant-statistics.learning.cross-validation
     hook: >
@@ -335,6 +820,96 @@ lessons:
       Rotate the held-out fold $k$ times and average: every point is
       predicted out of sample, and $k=5$ or $10$ balances near-unbiasedness
       against averaging noise.
+    steps:
+      - teach: >
+          A single validation split scores models against a small held-out
+          sample, which is itself noisy. $k$-fold fixes that: partition
+          into $k$ near-equal folds, fit on the points outside fold $j$,
+          score the points inside it, and average the $k$ scores.
+      - teach: >
+          Every observation is predicted exactly once, by a model that
+          never trained on it — the average $\frac1k\sum_j e_j$ is the
+          reported CV error.
+      - ask: >
+          With $n=150$ and $k=5$, the per-fold losses are $e_1,\dots,e_5 =
+          0.55, 0.60, 0.58, 0.62, 0.65$. What is the reported CV error?
+        expects: "0.6"
+        hint: >
+          Average the five fold losses.
+        feedback: >
+          $(0.55+0.60+0.58+0.62+0.65)/5 = 3.00/5 = 0.6$.
+      - teach: >
+          Leave-one-out ($k=n$) trains on nearly all of $n$, so it's close
+          to unbiased for the error at sample size $n-1$ — but the $n$
+          training sets differ by only one point each, so the $n$ resulting
+          errors are nearly identical, and averaging near-duplicates barely
+          reduces variance.
+      - ask: >
+          Why does leave-one-out reduce the variance of the averaged CV
+          estimate so little compared to $k=5$, despite averaging $n$
+          separate folds?
+        choices:
+          - text: >
+              Because the $n$ training sets differ by only one point each,
+              so the $n$ fold errors are highly correlated with each other
+            correct: true
+            feedback: >
+              Averaging near-duplicate, highly correlated errors doesn't
+              shrink variance the way averaging independent-ish estimates
+              does — the folds barely differ, so their errors barely
+              differ.
+          - text: >
+              Because each leave-one-out fold trains on less data than a
+              $5$-fold split, making every individual fold noisier
+            feedback: >
+              The opposite: LOO trains each fold on *more* data (all but
+              one point) than $5$-fold does, which is why LOO is
+              near-unbiased, not why averaging fails to reduce variance.
+          - text: >
+              Averaging always reduces variance regardless of how
+              correlated the pieces being averaged are
+            feedback: >
+              Averaging correlated quantities reduces variance far less
+              than averaging independent ones — that's exactly the LOO
+              problem.
+        feedback: >
+          LOO's $n$ fits are nearly identical, so its $n$ errors are nearly
+          identical too — near-unbiased, but the averaging buys little
+          variance reduction for $n$ times the compute.
+      - teach: >
+          Small $k$ trains each fold on noticeably less data than the full
+          sample, so it estimates the error of a smaller, worse model and
+          reports pessimistically. $k=5$ or $10$ balances the two.
+      - ask: >
+          With only $n=40$ points, you consider $k=2$ versus $k=10$. Which
+          is more likely to make the reported error look worse than the
+          true error of a model trained on all $40$ points, and why?
+        choices:
+          - text: >
+              $k=2$, because each fold trains on only half the data,
+              estimating the error of a distinctly smaller, worse model
+            correct: true
+            feedback: >
+              With $k=2$ each fold trains on just $20$ points — noticeably
+              less than $40$ — so the folds' models are worse than the
+              full-data model, and the average reports pessimistically.
+          - text: >
+              $k=10$, because it requires more fits and therefore more
+              noise
+            feedback: >
+              More fits changes cost, not the size of each fold's training
+              set — with $n=40$, $k=10$ trains each fold on $36$ points,
+              close to the full sample.
+          - text: >
+              Neither — the choice of $k$ doesn't affect each fold's
+              training set size
+            feedback: >
+              It does: each fold trains on $n - n/k$ points, so smaller $k$
+              means a smaller training set per fold.
+        feedback: >
+          Small $k$ starves each fold of training data relative to the full
+          sample, producing a pessimistically biased error estimate — the
+          reason $k=5$ or $10$ is the standard choice.
 
   - node: quant-statistics.learning.regularization
     hook: >
@@ -384,6 +959,96 @@ lessons:
       Penalizing coefficient size turns model-size selection into a
       continuous dial $\lambda$, buying variance reduction at the price of
       bias, provided predictors are standardized first.
+    steps:
+      - teach: >
+          Rather than picking a discrete model size, fit a large, flexible
+          model and shrink it: $\lambda \to 0$ recovers the unpenalized fit,
+          $\lambda \to \infty$ kills every coefficient. Shrinking trades
+          bias for variance the same way any move along the complexity dial
+          does, just by penalty strength instead of by counting parameters.
+      - teach: >
+          A penalty on raw coefficient size is not scale-invariant: a
+          feature measured in small units needs a large coefficient to have
+          any effect, so an unstandardized penalty crushes it far harder,
+          purely because of units. Predictors must be standardized first,
+          and the intercept — which sets the baseline, not complexity — is
+          left unpenalized.
+      - ask: >
+          A single standardized predictor gives $X'X=50$. With unpenalized
+          coefficient $\hat\beta=3.0$ and $\lambda=50$, what is the ridge
+          coefficient $\hat\beta_{\text{ridge}} =
+          \frac{X'X}{X'X+\lambda}\hat\beta$?
+        expects: "1.5"
+        tolerance: 0.0005
+        hint: >
+          First find the shrinkage factor $X'X/(X'X+\lambda)$, then apply
+          it to $\hat\beta$.
+        feedback: >
+          The shrinkage factor is $50/(50+50)=0.5$, so
+          $\hat\beta_{\text{ridge}} = 0.5(3.0) = 1.5$.
+      - teach: >
+          Geometrically, lasso's $\ell_1$ ball has corners on the
+          coordinate axes, and the loss contours typically first touch the
+          constraint region at a corner — a coefficient set exactly to
+          zero. Ridge's round $\ell_2$ ball has no corners, so it only
+          shrinks, never zeroes.
+      - ask: >
+          Which penalty is capable of setting a coefficient to exactly
+          zero?
+        choices:
+          - text: >
+              Ridge ($\ell_2$)
+            feedback: >
+              Ridge's constraint region is round with no corners, so the
+              loss contours meet it at a point where every coefficient is
+              generally still nonzero — it only shrinks.
+          - text: >
+              Lasso ($\ell_1$)
+            correct: true
+            feedback: >
+              Lasso's constraint region has corners on the axes, and the
+              loss contours typically first touch at one — exactly zeroing
+              a coefficient.
+          - text: >
+              Both penalties zero coefficients equally often
+            feedback: >
+              Only lasso's corners produce exact zeros; ridge's round
+              region generically doesn't.
+        feedback: >
+          Corners on the axes are what produce exact zeros — lasso has
+          them, ridge doesn't.
+      - teach: >
+          Choosing $\lambda$ by minimizing training loss defeats the point:
+          training loss always prefers less penalty, so it pushes $\lambda$
+          toward $0$ regardless of what generalizes best.
+      - ask: >
+          A researcher selects $\lambda$ by picking whichever value on a
+          grid minimizes training loss. What will happen?
+        choices:
+          - text: >
+              It will correctly balance the bias-variance tradeoff
+            feedback: >
+              Training loss has no way to see variance — it only ever
+              rewards a better fit to the training data itself.
+          - text: >
+              It will select $\lambda$ at or near the smallest value on the
+              grid, defeating the purpose of regularizing at all
+            correct: true
+            feedback: >
+              Training loss is minimized by the least-penalized model
+              available, since penalizing coefficients can only raise
+              training loss — this selection rule always drifts toward
+              $\lambda=0$.
+          - text: >
+              It will select a very large $\lambda$, over-penalizing the
+              model
+            feedback: >
+              The opposite: large $\lambda$ raises training loss by
+              shrinking coefficients away from their best in-sample fit.
+        feedback: >
+          $\lambda$ has to be chosen out-of-sample — training loss is
+          monotonically better at $\lambda=0$, so minimizing it can never
+          select real regularization.
 
   - node: quant-statistics.learning.hyperparameter-selection
     hook: >
@@ -430,6 +1095,74 @@ lessons:
       The CV score of the configuration you selected is not an honest error
       estimate; nest the selection in an outer loop or hold out data it never
       touched.
+    steps:
+      - teach: >
+          A cross-validation score for one fixed configuration is a noisy
+          estimate of that configuration's true error. Sweep a grid and
+          take the minimum score, and the same mechanism that made training
+          error optimistic reappears one level up: the winner was chosen
+          partly because its noise happened to look good.
+      - teach: >
+          Two fixes mirror train/val/test. Nested cross-validation puts
+          selection in an inner loop and estimates error in an outer loop
+          that never saw the choice. Simpler: reserve a test set selection
+          never touches.
+      - ask: >
+          A $\lambda$ grid $\{0.01, 0.1, 1, 10\}$ gives $5$-fold CV errors
+          $1.02, 0.95, 0.97, 1.15$. What is the minimum CV score in this
+          grid?
+        expects: "0.95"
+        hint: >
+          Just read off the smallest of the four scores.
+        feedback: >
+          $0.95$, achieved at $\lambda=0.1$ — but this minimum is itself a
+          selection statistic, chosen because it happened to look best.
+      - teach: >
+          The one-standard-error rule is a habit worth keeping even with a
+          proper outer estimate: since the minimum score is itself noisy,
+          take the simplest configuration whose score falls within one
+          standard error of it.
+      - ask: >
+          The minimum score $0.95$ (at $\lambda=0.1$) has standard error
+          $0.02$. What is the upper edge of the one-standard-error band
+          around it?
+        expects: "0.97"
+        hint: >
+          Add the standard error to the minimum score.
+        feedback: >
+          $0.95 + 0.02 = 0.97$ — any configuration scoring at or below
+          $0.97$ is statistically indistinguishable from the raw minimum.
+      - teach: >
+          Among configurations inside that band, the rule picks the
+          simplest — here, the most heavily penalized, i.e. the largest
+          $\lambda$.
+      - ask: >
+          With the band $[0.95, 0.97]$, and $\lambda=1$ scoring $0.97$
+          (inside the band, and more penalized than $\lambda=0.1$), which
+          $\lambda$ does the one-standard-error rule select?
+        choices:
+          - text: >
+              $\lambda=0.01$, since it's the least penalized
+            feedback: >
+              Its score is $1.02$, well outside the $[0.95,0.97]$ band —
+              not a candidate at all.
+          - text: >
+              $\lambda=0.1$, the raw minimum
+            feedback: >
+              That's the naive rule the one-standard-error rule exists to
+              improve on — it ignores that the minimum is noisy and a
+              simpler config scores statistically the same.
+          - text: >
+              $\lambda=1$, the simplest configuration within one standard
+              error of the minimum
+            correct: true
+            feedback: >
+              $\lambda=1$ scores $0.97$, right at the edge of the band, and
+              is more heavily penalized (simpler) than $\lambda=0.1$ — the
+              rule prefers it over chasing the noisy raw minimum.
+        feedback: >
+          Take the simplest configuration whose score is within one
+          standard error of the minimum, rather than the minimum itself.
 
   - node: quant-statistics.learning.gradient-descent
     hook: >
@@ -479,6 +1212,69 @@ lessons:
       Gradient descent on curvature $a$ converges for $0<\eta<2/a$, lands
       exactly on the minimum at $\eta=1/a$, and diverges past $2/a$ —
       too small is slow, too large is fatal.
+    steps:
+      - teach: >
+          Many losses have no closed-form point where the gradient
+          vanishes, so instead of solving $\nabla L(\theta)=0$ directly,
+          iterate toward it: $\theta_{t+1}=\theta_t-\eta\,\nabla
+          L(\theta_t)$, a small step downhill each round.
+      - teach: >
+          The quadratic $L(\theta)=\frac12 a\theta^{2}$ makes the whole
+          boundary explicit: the update is $\theta_{t+1}=(1-\eta
+          a)\theta_t$, which converges exactly when $|1-\eta a|<1$, i.e.
+          $0<\eta<2/a$.
+      - ask: >
+          For curvature $a=5$, what is the largest learning rate $\eta$
+          that still converges?
+        expects: "0.4"
+        hint: >
+          The boundary is $\eta = 2/a$.
+        feedback: >
+          $2/a = 2/5 = 0.4$ — at or above this, the update factor
+          $1-\eta a$ no longer has magnitude under $1$.
+      - teach: >
+          Inside that boundary, behavior still varies: at $\eta=1/a$ the
+          factor is exactly zero and the minimum is reached in one step;
+          between $1/a$ and $2/a$ the factor is negative but shrinking, so
+          the path oscillates in sign while still converging.
+      - ask: >
+          At exactly $\eta=2/a$, what happens to the iterates?
+        choices:
+          - text: >
+              They converge to the minimum, just more slowly than at
+              $\eta=1/a$
+            feedback: >
+              At $\eta=2/a$ the factor $1-\eta a$ equals exactly $-1$, and
+              $|-1|$ is not less than $1$ — this is the convergence
+              boundary, not a slow case inside it.
+          - text: >
+              They oscillate forever with constant magnitude, neither
+              shrinking nor diverging
+            correct: true
+            feedback: >
+              The factor is exactly $-1$, so each step flips sign without
+              changing size: $\theta_t = (-1)^{t}\theta_0$ forever.
+          - text: >
+              They diverge to infinity
+            feedback: >
+              Divergence happens strictly past $\eta=2/a$, where $|1-\eta
+              a|>1$ — at exactly $2/a$ the magnitude stays fixed.
+        feedback: >
+          $\eta=2/a$ is the exact knife-edge: the factor has magnitude $1$,
+          so the iterates neither shrink nor grow, oscillating forever.
+      - teach: >
+          Too small $\eta$ is merely slow, since the factor stays close to
+          $1$. But a single global $\eta$ forces the slower directions to
+          crawl whenever curvature differs sharply across directions,
+          producing the classic zig-zag.
+      - ask: >
+          With curvature $a=5$, learning rate $\eta=0.1$, and starting
+          point $\theta_0=8$, what is $\theta_1$ after one gradient step?
+        expects: "4"
+        hint: >
+          Compute the factor $1-\eta a$ first, then multiply by $\theta_0$.
+        feedback: >
+          Factor $=1-0.1(5)=0.5$, so $\theta_1=0.5(8)=4$.
 
   - node: quant-statistics.learning.sgd
     hook: >
@@ -526,6 +1322,96 @@ lessons:
       A random mini-batch gradient is unbiased and cheap; getting actual
       convergence out of it, rather than a noise ball, needs a learning rate
       that decays.
+    steps:
+      - teach: >
+          A full gradient over $n$ points costs $O(n)$ per step, wasted
+          early in training when any roughly downhill direction will do.
+          Replacing it with a mini-batch of size $b \ll n$ costs $O(b)$
+          instead.
+      - teach: >
+          The mini-batch gradient is an unbiased estimate of the full
+          gradient — every point has equal chance of appearing, so its
+          expectation over the random batch equals the full-data average —
+          so steps are downhill on average even though any single step may
+          go slightly the wrong way.
+      - ask: >
+          With $n=2{,}000{,}000$ points and mini-batch size $b=200$, how
+          many mini-batch steps make up one epoch ($n/b$)?
+        expects: "10000"
+        hint: >
+          One epoch is one full pass through the data, in batches of size
+          $b$.
+        feedback: >
+          $2{,}000{,}000/200 = 10{,}000$ steps — the same total work as one
+          full-batch step, but $10{,}000$ downhill moves instead of one.
+      - teach: >
+          That noise means the fixed-step convergence argument no longer
+          applies as-is: a constant $\eta$ leaves the iterates rattling in
+          a noise ball around the optimum rather than settling on it. The
+          step size must decay.
+      - ask: >
+          Which pair of conditions on the decaying step sizes $\eta_t$ is
+          the classical requirement for actually reaching the optimum,
+          rather than settling for a noise ball?
+        choices:
+          - text: >
+              $\sum_t \eta_t < \infty$ and $\sum_t \eta_t^{2} < \infty$
+            feedback: >
+              If the total step budget $\sum_t \eta_t$ is finite, the path
+              can only travel a bounded total distance — it may never
+              reach the optimum from far away.
+          - text: >
+              $\sum_t \eta_t = \infty$ and $\sum_t \eta_t^{2} < \infty$
+            correct: true
+            feedback: >
+              Unbounded total travel ($\sum \eta_t=\infty$) lets the path
+              reach the optimum from anywhere, while finite squared steps
+              ($\sum \eta_t^{2}<\infty$) keep accumulated noise variance
+              finite so it actually settles.
+          - text: >
+              $\eta_t$ constant for all $t$
+            feedback: >
+              A constant step size satisfies neither condition — it leaves
+              the iterates rattling in a noise ball forever, never settling
+              exactly.
+        feedback: >
+          $\sum_t \eta_t=\infty$ keeps the travel budget unbounded;
+          $\sum_t \eta_t^{2}<\infty$ keeps the noise variance finite — both
+          are needed together for real convergence.
+      - teach: >
+          One pass through the reshuffled data is an epoch, and with $n$
+          large the first epoch typically does most of the work — exactly
+          why paying $O(n)$ for one exact step is wasteful early in
+          training.
+      - ask: >
+          A constant, non-decaying learning rate is used throughout
+          training. Where do the iterates end up?
+        choices:
+          - text: >
+              Exactly at the true optimum, just slower to arrive than with
+              a decaying rate
+            feedback: >
+              Constant $\eta$ never satisfies the decay conditions, so the
+              noise never dies down — the issue isn't speed, it's that the
+              iterates never settle exactly.
+          - text: >
+              Rattling in a noise ball around the optimum, never settling
+              on it exactly
+            correct: true
+            feedback: >
+              Without decay, gradient noise keeps perturbing the iterate by
+              a roughly constant amount each step, so it orbits the
+              optimum rather than converging to it.
+          - text: >
+              Diverging to infinity regardless of how small the learning
+              rate is
+            feedback: >
+              A reasonably small constant $\eta$ typically keeps the
+              iterates bounded near the optimum — divergence needs $\eta$
+              too large for the curvature, not just non-decaying.
+        feedback: >
+          A non-decaying $\eta$ trades exact convergence for a permanent
+          noise ball — the accumulated variance never shrinks.
 
   - node: quant-statistics.learning.logistic-regression
     hook: >
@@ -576,6 +1462,107 @@ lessons:
       Logistic regression is a linear model on the log-odds scale, fit by
       maximizing a convex likelihood with no closed form — the default
       classifier every fancier one must beat.
+    steps:
+      - teach: >
+          OLS fits a linear index by minimizing squared error, but for a
+          binary $Y$ that index is unbounded and squared loss isn't the
+          natural loss for a probability target. Logistic regression keeps
+          the linear index $\eta(x)=\beta_0+\beta_1 x_1+\dots+\beta_p x_p$
+          but passes it through $1/(1+e^{-\eta(x)})$ so the output lands in
+          $(0,1)$.
+      - ask: >
+          With $\beta_0=-1$, $\beta_1=0.4$: at $x=5$, what is
+          $p=\Pr(Y=1\mid x)$?
+        expects: "0.7311"
+        tolerance: 0.0005
+        hint: >
+          Compute $\eta(5)$ first, then apply $1/(1+e^{-\eta})$.
+        feedback: >
+          $\eta=-1+0.4(5)=1$, so $p=1/(1+e^{-1})\approx 0.7311$.
+      - teach: >
+          Equivalently, the log-odds $\ln\frac{p}{1-p}=\eta(x)$ are linear,
+          so a unit rise in $x_j$ multiplies the *odds* of $Y=1$ by
+          $e^{\beta_j}$ — not the probability by a fixed amount, since the
+          sigmoid's slope changes across its range.
+      - ask: >
+          With $\beta_1=0.4$, a one-unit increase in $x$ multiplies the
+          odds of $Y=1$ by what factor?
+        expects: "1.4918"
+        tolerance: 0.0005
+        hint: >
+          The odds multiplier is $e^{\beta_1}$.
+        feedback: >
+          $e^{0.4}\approx 1.4918$ — the odds, not the probability, scale
+          multiplicatively.
+      - teach: >
+          Fitting maximizes the log-likelihood, equivalently minimizes log
+          loss — an objective convex in $\beta$, unlike squared error
+          applied directly to a sigmoid output. There's still no closed
+          form: it's solved by gradient descent or Newton steps.
+      - ask: >
+          Why is gradient descent a reliable way to fit logistic
+          regression, in a way it might not be for an arbitrary nonconvex
+          loss?
+        choices:
+          - text: >
+              The log-likelihood is convex in $\beta$, so any local minimum
+              found is automatically the global one
+            correct: true
+            feedback: >
+              Convexity in $\beta$ is exactly what rules out separate local
+              minima — there's only one basin, so gradient descent can't
+              get stuck away from the global optimum.
+          - text: >
+              Logistic regression always has a closed-form solution like
+              OLS's normal equations
+            feedback: >
+              It doesn't — there's no closed form here, which is precisely
+              why gradient descent or Newton steps are needed at all.
+          - text: >
+              The sigmoid function guarantees convergence regardless of the
+              loss paired with it
+            feedback: >
+              The sigmoid alone guarantees nothing about convexity — it's
+              specifically the *log-likelihood* objective, not the
+              sigmoid, that is convex in $\beta$.
+        feedback: >
+          Convexity of the log-likelihood in $\beta$ means no local minima
+          to worry about — the reason gradient-based fitting is trustworthy
+          here.
+      - teach: >
+          Perfectly (or nearly) separable classes push the coefficients
+          toward infinity, since the likelihood keeps improving as
+          predictions push closer to exactly $0$ or $1$ — no maximum
+          likelihood estimate exists there without a penalty.
+      - ask: >
+          Training data for a binary classifier turns out to be perfectly
+          separable by one feature. What happens to unpenalized logistic
+          regression's coefficients as fitting continues?
+        choices:
+          - text: >
+              They converge to a finite, well-defined optimum
+            feedback: >
+              No such optimum exists under perfect separability — the
+              likelihood keeps improving without bound as the coefficients
+              grow.
+          - text: >
+              They grow without bound, since predictions can keep pushing
+              closer to exactly $0$ or $1$
+            correct: true
+            feedback: >
+              With perfect separation, every increase in $|\beta|$ pushes
+              predicted probabilities closer to the correct $0$ or $1$,
+              raising the likelihood forever — the fix is a penalty term.
+          - text: >
+              They converge to exactly zero, since the model has nothing
+              left to learn
+            feedback: >
+              Zero coefficients would predict $p=0.5$ everywhere, the worst
+              possible fit on separable data — the opposite of what
+              happens.
+        feedback: >
+          Separable data has no finite maximum-likelihood estimate;
+          coefficients diverge unless a penalty (ridge or lasso) is added.
 
   - node: quant-statistics.learning.classification-metrics
     hook: >
@@ -621,6 +1608,85 @@ lessons:
       Precision is the hit rate of positive calls, recall is the share of
       positives caught, and accuracy is meaningless once the classes are
       imbalanced.
+    steps:
+      - teach: >
+          A fitted probability isn't itself a decision; a threshold turns
+          it into a call, and every call lands in one of four buckets:
+          true/false positive, true/false negative.
+      - teach: >
+          Precision asks "when I call positive, how often am I right";
+          recall asks "of all the actual positives, how many did I catch."
+          Raising the threshold makes positive calls rarer but more
+          selective, so precision rises and recall falls — an explicit
+          dial, not two independent numbers.
+      - ask: >
+          A model flags $50$ transactions as fraud; $30$ are truly fraud
+          ($\mathrm{TP}=30$, $\mathrm{FP}=20$). What is the precision?
+        expects: "0.6"
+        hint: >
+          Precision is $\mathrm{TP}/(\mathrm{TP}+\mathrm{FP})$.
+        feedback: >
+          $30/(30+20) = 30/50 = 0.6$.
+      - ask: >
+          Of $45$ truly-fraud transactions in that same batch, $30$ were
+          caught ($\mathrm{FN}=45-30=15$). What is the recall?
+        expects: "0.6667"
+        tolerance: 0.0005
+        hint: >
+          Recall is $\mathrm{TP}/(\mathrm{TP}+\mathrm{FN})$.
+        feedback: >
+          $30/(30+15) = 30/45 \approx 0.6667$.
+      - teach: >
+          $F_1$, the harmonic mean $2PR/(P+R)$, is used instead of an
+          arithmetic average because it punishes imbalance harshly: if
+          either precision or recall is near zero, $F_1$ stays near zero,
+          while an arithmetic average of the same pair can still look
+          moderate.
+      - ask: >
+          With precision $0.6$ and recall $0.6667$ from above, what is
+          $F_1 = 2PR/(P+R)$?
+        expects: "0.6316"
+        tolerance: 0.0005
+        hint: >
+          Multiply $P$ and $R$, double it, and divide by their sum.
+        feedback: >
+          $F_1 = 2(0.6)(0.6667)/(0.6+0.6667) \approx 0.8/1.2667 \approx
+          0.6316$.
+      - teach: >
+          Accuracy is the trap under imbalance: with a $1\%$ positive rate,
+          calling every case negative scores $99\%$ accuracy and exactly
+          $0\%$ recall. Precision also moves with the base rate — the same
+          classifier applied to a different positive fraction reports a
+          different precision.
+      - ask: >
+          A detector operates on a population with a $2\%$ true positive
+          rate. If it calls every single case negative, what are its
+          accuracy and recall?
+        choices:
+          - text: >
+              $98\%$ accuracy and $0\%$ recall
+            correct: true
+            feedback: >
+              Calling everything negative is right exactly on the $98\%$
+              that are truly negative, and catches none of the $2\%$ that
+              are positive — accuracy looks great while recall is exactly
+              zero.
+          - text: >
+              $2\%$ accuracy and $100\%$ recall
+            feedback: >
+              This has the roles reversed: accuracy tracks how often the
+              call matches the true label overall, and a call of "always
+              negative" is wrong only on the $2\%$ that are positive.
+          - text: >
+              $98\%$ accuracy and $98\%$ recall, since both track the
+              majority class
+            feedback: >
+              Recall only ever concerns the positive class — with zero
+              positive calls made, recall is exactly $0\%$, regardless of
+              how accuracy looks.
+        feedback: >
+          High accuracy under imbalance can hide a detector that catches
+          nothing at all — recall and precision are what expose it.
 
   - node: quant-statistics.learning.roc-auc
     hook: >
@@ -670,6 +1736,101 @@ lessons:
     recap: >
       AUC is the probability a random positive outranks a random negative —
       blind to threshold and to class balance, unlike precision.
+    steps:
+      - teach: >
+          Where precision and recall fix one threshold, sweeping the
+          threshold across its entire range and plotting true positive
+          rate against false positive rate traces the ROC curve from
+          $(0,0)$ to $(1,1)$; its area is the AUC.
+      - teach: >
+          The clean reading is a probability: $\mathrm{AUC} =
+          \Pr(\text{random positive scores above random negative})$,
+          counting ties as half. Because it only depends on relative
+          ranking, AUC is unchanged by any strictly increasing transform of
+          the score.
+      - ask: >
+          Two positives score $0.75, 0.55$ and three negatives score
+          $0.65, 0.45, 0.15$. Checking every positive-negative pair, what
+          is the AUC?
+        expects: "5/6"
+        hint: >
+          There are $2\times 3=6$ pairs — count how many have the positive
+          scoring above the negative.
+        feedback: >
+          $0.75$ beats all three negatives ($3$ wins); $0.55$ beats $0.45$
+          and $0.15$ but not $0.65$ ($2$ wins). Total $5$ of $6$ pairs, so
+          $\mathrm{AUC}=5/6\approx 0.833$.
+      - teach: >
+          That same ranking-only property means AUC is blind to class
+          balance: true and false positive rates are each normalized
+          within their own class, so changing the mix of positives and
+          negatives in the evaluation set doesn't move the curve at all —
+          the opposite of precision, which does move with the base rate.
+      - ask: >
+          You double the number of negatives in your test set, keeping the
+          same underlying score distributions for positives and negatives.
+          Does the AUC change?
+        choices:
+          - text: >
+              Yes — more negatives means more chances for a false positive
+            feedback: >
+              AUC's false positive rate is normalized *within* the negative
+              class (a fraction of negatives), so adding more negatives
+              with the same score distribution doesn't shift that fraction.
+          - text: >
+              No — AUC is a ranking statistic normalized within each class,
+              unaffected by the mix
+            correct: true
+            feedback: >
+              True and false positive rates are each computed as a fraction
+              of their own class, so resampling how many negatives appear
+              leaves both rates, and the curve, unchanged.
+          - text: >
+              Yes, but only if the added negatives score higher than the
+              positives
+            feedback: >
+              Even then, TPR and FPR are fractions within each class — the
+              curve traced is the same regardless of how many negatives are
+              added, as long as their score distribution matches.
+        feedback: >
+          AUC only depends on within-class rank statistics, so it's
+          invariant to the class mix — precision would move here, AUC
+          would not.
+      - teach: >
+          That blindness is also the trap: a model at AUC $0.8$ under a
+          $1\%$ positive rate can rank well overall while still producing a
+          flood of false alarms in absolute count at any usable threshold —
+          read a precision-recall curve alongside it.
+      - ask: >
+          A model scores $\mathrm{AUC}=0.8$ on a population with a $1\%$
+          positive rate. What can you conclude about its precision at some
+          chosen threshold?
+        choices:
+          - text: >
+              Precision there is also roughly $0.8$
+            feedback: >
+              AUC says nothing about any single threshold's precision — it
+              averages ranking quality across every threshold at once.
+          - text: >
+              Nothing specific — AUC ignores both threshold and base rate,
+              so precision must be checked directly
+            correct: true
+            feedback: >
+              A high AUC is compatible with poor precision at a $1\%$
+              positive rate, since even good ranking still produces many
+              false positives in absolute count — precision needs its own
+              check.
+          - text: >
+              Precision is guaranteed to be high, since $0.8$ is well above
+              the $0.5$ coin-flip baseline
+            feedback: >
+              Being well above $0.5$ only says ranking beats chance — it
+              guarantees nothing about precision at any specific threshold
+              under heavy imbalance.
+        feedback: >
+          AUC $0.8$ describes ranking quality only — under a $1\%$ positive
+          rate it can still pair with unusable precision at any threshold
+          you'd actually deploy.
 
   - node: quant-statistics.learning.trees-ensembles
     hook: >
@@ -721,6 +1882,79 @@ lessons:
       Deep trees are low-bias, high-variance; bagging and random forests
       average that variance away up to a correlation floor, while boosting
       attacks bias and needs early stopping.
+    steps:
+      - teach: >
+          A regression tree splits recursively to most reduce squared
+          error and predicts each leaf's mean, with depth as its complexity
+          dial. A deep tree is nearly unbiased but high-variance, since a
+          small change in training data can reshuffle an early split and
+          cascade into a completely different partition.
+      - teach: >
+          Bagging averages $B$ trees fit to bootstrap resamples. For
+          identically distributed fits with pairwise correlation $\rho$,
+          the variance of the average is $\rho\sigma^{2}+(1-\rho)\sigma^{2}/B$
+          — the second term vanishes as $B$ grows, but $\rho\sigma^{2}$
+          remains as a floor no additional trees remove.
+      - ask: >
+          With per-tree variance $\sigma^{2}=0.16$ and pairwise correlation
+          $\rho=0.2$, what is the variance of the average of $B=5$ bagged
+          trees?
+        expects: "0.0576"
+        tolerance: 0.0005
+        hint: >
+          Use $\rho\sigma^{2}+(1-\rho)\sigma^{2}/B$.
+        feedback: >
+          $0.2(0.16) + 0.8(0.16)/5 = 0.032 + 0.0256 = 0.0576$.
+      - teach: >
+          Random forests lower the correlation floor itself by sampling a
+          random subset of features at each split, decorrelating the trees
+          — rather than by growing more of them.
+      - ask: >
+          Same $\sigma^{2}=0.16$ and $\rho=0.2$, but now $B=50$ trees. What
+          is the variance of the average?
+        expects: "0.03456"
+        tolerance: 0.0005
+        hint: >
+          Same formula — only $B$ changed.
+        feedback: >
+          $0.2(0.16) + 0.8(0.16)/50 = 0.032 + 0.00256 = 0.03456$ — barely
+          below the $B=5$ answer, since it's approaching the floor
+          $\rho\sigma^{2}=0.032$ that ten times as many trees can't clear.
+      - teach: >
+          Boosting works the opposite axis: small, shallow (biased) trees
+          grown sequentially on residuals, each round attacking whatever
+          bias remains. Because it keeps reducing bias every round, it
+          eventually overfits unless stopped early.
+      - ask: >
+          Which statement correctly places bagging and boosting on the
+          bias-variance map?
+        choices:
+          - text: >
+              Bagging reduces bias by averaging; boosting reduces variance
+              by growing sequentially
+            feedback: >
+              Reversed — bagging never touches bias, it only averages away
+              variance; boosting is the one attacking bias round by round.
+          - text: >
+              Bagging reduces variance and leaves bias untouched; boosting
+              reduces bias each round and needs early stopping to control
+              variance
+            correct: true
+            feedback: >
+              Bagging averages $B$ high-variance, low-bias trees, driving
+              variance toward the correlation floor. Boosting starts biased
+              and chips away at it every round, so unlimited rounds
+              eventually overfit.
+          - text: >
+              Both reduce bias and variance equally, differing only in
+              compute cost
+            feedback: >
+              They attack opposite terms of the decomposition — that's the
+              whole reason both exist as distinct techniques rather than
+              one dominating the other.
+        feedback: >
+          Bagging is a variance tool; boosting is a bias tool that must be
+          stopped before it overfits.
 
   - node: quant-statistics.learning.leakage
     hook: >
@@ -767,6 +2001,112 @@ lessons:
       Using information a trade could not have had — same-close signals,
       full-sample preprocessing — inflates a backtest to a level nobody has
       ever earned live.
+    steps:
+      - teach: >
+          A feature leaks when it carries information not available at the
+          instant the decision it feeds is taken. A backtest built on
+          leaked features doesn't overstate performance a little — it
+          measures nothing real at all.
+      - teach: >
+          The canonical case: a signal computed from today's closing price,
+          applied to a trade filled at that same close. The signal can't be
+          evaluated until the close prints, so the backtest is silently
+          assuming a fill at a price the strategy already knew before
+          deciding to trade. The fix is to lag the signal at least one bar
+          and fill at the next tradable price.
+      - ask: >
+          A strategy computes its signal from today's closing price and,
+          in the backtest, fills the trade at that same close. What's
+          wrong with this?
+        choices:
+          - text: >
+              Nothing — the close is a valid, observable price to trade at
+            feedback: >
+              It's observable only *after* it prints, but the signal that
+              decides the trade is computed from that same price — the
+              trade can't actually be placed before the close it's based
+              on.
+          - text: >
+              The signal can't be evaluated until the close exists, so
+              filling at that close assumes a price the strategy already
+              knew before deciding to trade
+            correct: true
+            feedback: >
+              This is exactly the same-bar-fill trap: the backtest lets the
+              strategy trade on information — the very close price — that
+              wasn't available at decision time.
+          - text: >
+              It's fine as long as the position is held for more than one
+              day afterward
+            feedback: >
+              Holding longer doesn't fix the entry — the entry fill itself
+              used a price unavailable at the moment the decision was
+              made, regardless of how long the position is later held.
+        feedback: >
+          The rule is the fill has to happen after the signal could
+          actually be known — lag by at least one bar and fill at the next
+          tradable price.
+      - teach: >
+          Leakage also enters through the pipeline: standardizing,
+          winsorizing, or selecting features on the full sample before
+          splitting lets statistics computed partly from held-out points
+          influence the fit.
+      - ask: >
+          A team standardizes every feature — subtracting the mean,
+          dividing by the standard deviation — using the *entire* dataset,
+          then splits into cross-validation folds. What's the leak?
+        choices:
+          - text: >
+              None — standardizing doesn't touch the label $Y$, so it can't
+              affect the fit
+            feedback: >
+              It doesn't need to touch $Y$: the mean and standard deviation
+              used inside a training fold were computed partly from rows
+              that fold is supposed to never see, which is enough to leak.
+          - text: >
+              The mean and standard deviation used inside each training
+              fold were influenced by rows that fold is supposed to never
+              see
+            correct: true
+            feedback: >
+              Every fold's "training-only" statistics were secretly
+              computed using some of its own held-out points — the fix is
+              to refit standardization inside each fold, not once on
+              everything.
+          - text: >
+              Standardizing should happen after fitting the model instead
+              of before
+            feedback: >
+              The order relative to fitting isn't the issue — the issue is
+              *which data* the standardization statistics were computed
+              from; they must come from the training fold alone.
+        feedback: >
+          The general test: if any number in the pipeline was computed
+          using data the strategy wouldn't have had at decision time, it's
+          leakage — refit every such step inside each fold.
+      - teach: >
+          The same-bar-fill trap inflates a backtest mechanically: scoring
+          a trade on a move it could only have known about after the fact
+          turns every day into an artificial win.
+      - ask: >
+          Prices over five days: $50, 51, 49, 52, 53$. A signal
+          $=\operatorname{sgn}(\text{close}_t - \text{close}_{t-1})$ is
+          computed and, wrongly, backtested as filled at $\text{close}_t$
+          itself. Summing the four daily returns this produces (each day's
+          signed percentage move), what is the total return over the four
+          days?
+        expects: "0.1397"
+        tolerance: 0.0005
+        hint: >
+          Each day's contribution is $\operatorname{sgn}(\text{close}_t -
+          \text{close}_{t-1}) \times (\text{close}_t -
+          \text{close}_{t-1})/\text{close}_{t-1}$ — and since the sign
+          always matches the move's own direction, every term is positive.
+        feedback: >
+          Day $2$: $+0.0200$; day $3$: $+0.0392$; day $4$: $+0.0612$; day
+          $5$: $+0.0192$; summing gives about $0.1397$ — a $14\%$ return
+          from four days, entirely because the trade was scored on
+          information it could only have had after the fact.
 
   - node: quant-statistics.learning.walk-forward
     hook: >
@@ -815,6 +2155,104 @@ lessons:
     recap: >
       Train on the past, test on the block that follows, and embargo at
       least the label horizon so no label can straddle the split.
+    steps:
+      - teach: >
+          Random $k$-fold applied to a time series is a leakage machine of
+          its own making: a fold can train on data chronologically after
+          the point being predicted, training on the future to predict the
+          past.
+      - teach: >
+          A second, separate failure persists even among folds that stay in
+          the past: autocorrelated observations mean neighboring points are
+          near-duplicates, so a shuffled split can place a training point
+          right beside its almost-identical test twin.
+      - ask: >
+          A fold is constructed so that every training point chronologically
+          precedes every test point — the future-leakage problem is fixed.
+          Can this fold still fail on time-series data, and why?
+        choices:
+          - text: >
+              No — respecting chronological order is the only requirement
+            feedback: >
+              Order alone doesn't fix autocorrelation: a training point
+              immediately before the test block can still be a
+              near-duplicate of the test points right after it.
+          - text: >
+              Yes — autocorrelated neighbors mean a training point right
+              before the boundary can be a near-duplicate of a test point
+              right after it
+            correct: true
+            feedback: >
+              Serial dependence is a separate failure from future-leakage:
+              even with correct chronological order, adjacent points can
+              carry almost the same information across the split.
+          - text: >
+              No — autocorrelation only matters for random $k$-fold, not
+              for chronologically ordered splits
+            feedback: >
+              Autocorrelation is a property of the data, not of how the
+              split is ordered — it affects any split with points close
+              together on either side of the boundary.
+        feedback: >
+          Two distinct failures: training on the future, and near-duplicate
+          neighbors straddling the split even when order is respected. An
+          embargo gap addresses the second.
+      - teach: >
+          Walk-forward enforces the arrow of time directly: fit on
+          everything up to $t$, test on the block $(t, t+h]$, roll forward,
+          average the block losses — using an expanding window (all
+          history) or a rolling one (fixed lookback, faster to adapt under
+          regime change).
+      - ask: >
+          A test block starts at day $36$, and the label horizon is
+          $h=5$ (a label at day $t$ uses returns through day $t+h$).
+          Through which day should training stop to embargo correctly?
+        expects: "30"
+        hint: >
+          Training must stop at least $h$ days before the test block
+          starts: $\text{train\_end} = \text{test\_start} - 1 - h$.
+        feedback: >
+          $36 - 1 - 5 = 30$: train through day $30$, leave days $31$–$35$
+          unused, so no training label reaches into the test block starting
+          at day $36$.
+      - teach: >
+          The costs of doing this properly are real: fewer effective test
+          points once you've rolled forward and embargoed, and thin
+          training data in the earliest blocks before much history has
+          accumulated.
+      - ask: >
+          You set up walk-forward correctly — fit on everything up to $t$,
+          test on $(t, t+h]$, roll forward — but skip the embargo gap. Does
+          this still prevent a label from straddling the train/test split?
+        choices:
+          - text: >
+              Yes — walk-forward's chronological ordering already prevents
+              that
+            feedback: >
+              Chronological ordering stops training on future *data*, but a
+              label computed from returns up to $h$ days ahead can still
+              reach past the boundary into the test block even when every
+              row is correctly time-ordered.
+          - text: >
+              No — walk-forward alone stops training on the future, but a
+              label that looks $h$ steps forward can still straddle the
+              boundary without an embargo
+            correct: true
+            feedback: >
+              These are separate fixes: the rolling split handles ordering,
+              while the embargo specifically closes the gap a
+              forward-looking label can otherwise cross.
+          - text: >
+              No — walk-forward has nothing to do with label horizons at
+              all
+            feedback: >
+              Walk-forward directly determines where the split falls; it's
+              exactly the piece the embargo gap is added onto, not an
+              unrelated concern.
+        feedback: >
+          Walk-forward fixes chronological ordering; the embargo is a
+          separate, necessary fix for labels that look forward past the
+          split.
 
   - node: quant-statistics.learning.backtest-overfitting
     hook: >
@@ -866,3 +2304,113 @@ lessons:
       Search $1000$ zero-edge strategies over four years and the best shows a
       Sharpe near $1.9$ from noise alone — the number of trials is part of
       the result, not a footnote to it.
+    steps:
+      - teach: >
+          Search $N$ strategies that all have genuinely zero edge. Over $T$
+          years each in-sample Sharpe estimate behaves like a standard
+          normal scaled by $1/\sqrt{T}$, and the expected maximum of $N$
+          independent standard normals grows like $\sqrt{2\ln N}$.
+          Combining the two, the best backtest Sharpe out of pure noise is
+          about $\sqrt{2\ln N}/\sqrt{T}$.
+      - ask: >
+          With $N=500$ strategies searched over $T=5$ years, what is the
+          noise benchmark $\sqrt{2\ln N}/\sqrt{T}$?
+        expects: "1.5767"
+        tolerance: 0.0005
+        hint: >
+          Compute $\sqrt{2\ln 500}$ first, then divide by $\sqrt{5}$.
+        feedback: >
+          $\sqrt{2\ln 500} = \sqrt{12.429} \approx 3.526$, divided by
+          $\sqrt5 \approx 2.236$ gives about $1.5767$ — a strong-looking
+          Sharpe from $500$ strategies with zero real edge anywhere.
+      - teach: >
+          The winner's in-sample Sharpe is a selection statistic — the
+          maximum over $N$ draws — not an unconditional estimate of that
+          one strategy's edge the way a single pre-registered backtest's
+          Sharpe would be.
+      - ask: >
+          With a smaller search, $N=50$ strategies over $T=2$ years, what
+          is the noise benchmark?
+        expects: "1.9779"
+        tolerance: 0.0005
+        hint: >
+          Same formula: $\sqrt{2\ln 50}/\sqrt{2}$.
+        feedback: >
+          $\sqrt{2\ln 50} = \sqrt{7.824} \approx 2.797$, divided by
+          $\sqrt2 \approx 1.414$ gives about $1.9779$ — even a modest
+          search over few years produces an eye-catching noise Sharpe.
+      - teach: >
+          The defenses mirror multiple-testing exactly, applied to a
+          maximum instead of a rejection count: log every configuration
+          tried, including the abandoned ones, since the correction is
+          impossible without $N$; deflate the reported Sharpe by the noise
+          benchmark; and reserve a period of data no variant has ever
+          touched.
+      - ask: >
+          A researcher tried $500$ strategy variants in total but reports a
+          noise benchmark computed using only the $N=5$ variants presented
+          in the final writeup. What's wrong?
+        choices:
+          - text: >
+              Nothing — only the finalists need to be corrected for
+            feedback: >
+              The correction is impossible without the true $N$: using
+              $N=5$ instead of $500$ makes the noise benchmark far too
+              small, understating how easy the reported Sharpe was to find
+              by chance.
+          - text: >
+              The benchmark should use every configuration ever tried,
+              abandoned ones included, not just the finalists presented
+            correct: true
+            feedback: >
+              The maximum-of-$N$ argument is about the whole search, not
+              the subset that survived to be written up — undisclosed
+              trials make the correction impossible to apply honestly.
+          - text: >
+              The benchmark should use $N=1$, since only one strategy is
+              ultimately traded
+            feedback: >
+              $N=1$ would erase the correction entirely — the whole point
+              is that searching many variants and keeping the best is a
+              form of fitting, no matter how many end up traded.
+        feedback: >
+          Every configuration tried has to be counted, not just the ones
+          that made it into the final presentation — otherwise the
+          reported Sharpe can't be honestly deflated at all.
+      - teach: >
+          Clearing the noise bar is necessary, not sufficient: a Sharpe
+          above $\sqrt{2\ln N}/\sqrt{T}$ merely fails to look like pure
+          noise. A genuinely reserved out-of-sample period the search never
+          touched is still the real test of edge.
+      - ask: >
+          A strategy's in-sample Sharpe clears the noise benchmark
+          $\sqrt{2\ln N}/\sqrt{T}$ for the $N$ and $T$ it was found under.
+          Does this prove the strategy has real edge?
+        choices:
+          - text: >
+              Yes — clearing the benchmark is exactly the proof that its
+              performance isn't explained by search alone
+            feedback: >
+              Clearing the bar only means the Sharpe is *unlikely* under
+              the pure-noise null — it doesn't rule out edge being smaller
+              than reported, or the bar being cleared by chance despite the
+              correction.
+          - text: >
+              No — clearing the bar is necessary but not sufficient; a
+              reserved out-of-sample period is still the real test
+            correct: true
+            feedback: >
+              The noise benchmark rules out the easiest explanation, pure
+              search luck, but genuine confirmation still needs data the
+              selection process never touched.
+          - text: >
+              No — the noise benchmark is purely theoretical and says
+              nothing useful about any real strategy
+            feedback: >
+              It says something specific and useful — it's just not
+              sufficient on its own; combined with a held-out test it's the
+              standard defense against backtest overfitting.
+        feedback: >
+          Clearing $\sqrt{2\ln N}/\sqrt{T}$ is a necessary filter, not
+          proof of edge — the reserved, never-touched period is what
+          actually confirms it.

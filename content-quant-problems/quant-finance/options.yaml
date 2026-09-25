@@ -1,0 +1,1436 @@
+# Problems targeting quant-finance.options — option pricing, from payoff
+# diagrams to Black–Scholes.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson has just handed over. Every instance is fresh: no
+# problem here reuses a lesson's worked example or a card's numbers, and none
+# reuses the unit's running example ($S = K = 100$, $\sigma = 25\%$). Every
+# `work` and `decide` problem is machine-checked. See ../README.md.
+
+problems:
+  # --- payoff and P&L diagrams ------------------------------------------------
+
+  - id: qopt-payoff-diagrams-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You own one share bought at $62$, you buy a $60$-strike put for $3.10$,
+      and you sell a $70$-strike call for $1.40$. All three expire together.
+      What is the total P&L of the package if the stock finishes at
+      $S_T = 74$?
+    answer: >
+      $6.30$. Draw the three legs and add them vertically at $S_T = 74$. The
+      share is worth $74 - 62 = +12.00$. The long put finishes out of the
+      money, $(60 - 74)^{+} = 0$, so it contributes only its premium,
+      $-3.10$. The short call finishes in the money: you are assigned and pay
+      $-(74 - 70) = -4.00$, against the $+1.40$ you collected, for $-2.60$.
+      Adding, $12.00 - 3.10 - 2.60 = 6.30$. The cap is worth checking
+      independently, because a collar's payoff is flat above the call strike:
+      once $S_T \ge 70$ the total is $(70 - 62) - 3.10 + 1.40 = 6.30$ for
+      every finishing price, so the answer had to be this number and not
+      something that keeps growing with $S_T$. Answering $12.00$ forgets both
+      premiums; answering $8.90$ forgets that the short call is exercised
+      against you.
+    expects: "6.30"
+    rubric:
+      - >
+        Adds the three legs vertically at one finishing price rather than
+        reasoning about the shape in words.
+      - >
+        Charges the short call its intrinsic loss $-(S_T - K)$ *and* credits
+        its premium, instead of treating the premium as pure profit.
+      - >
+        Notices that the total is flat above $70$, which is the independent
+        check on the number.
+    targets:
+      - quant-finance.options.payoff-diagrams
+
+  - id: qopt-payoff-diagrams-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A trader sells a put struck at $K = 45$ and collects a premium of
+      $2.75$. At what stock price at expiry is the trade's P&L exactly zero?
+    answer: >
+      $42.25$. The short put's P&L is the premium received minus what the put
+      pays out: $2.75 - (45 - S_T)^{+}$. Above $45$ the payout is zero and the
+      P&L is a flat $+2.75$, so the zero crossing is on the left branch, where
+      the P&L is $2.75 - (45 - S_T)$. Setting that to zero gives
+      $S_T = 45 - 2.75 = 42.25$. The general rule is worth carrying: a short
+      put breaks even at $K$ minus the premium, and a short call at $K$ plus
+      the premium — the premium always shifts the diagram in the direction that
+      helps the seller. Answering $47.75$ shifts it the wrong way, which is the
+      long put's mirror image rather than this trade.
+    expects: "42.25"
+    rubric:
+      - >
+        Works on the branch where the put is in the money, since the flat
+        branch never crosses zero.
+      - >
+        Subtracts the premium from the strike rather than adding it.
+    targets:
+      - quant-finance.options.payoff-diagrams
+
+  # --- moneyness, intrinsic value and time value -------------------------------
+
+  - id: qopt-intrinsic-time-value-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A stock trades at $S = 88$. A *European* put on it struck at $K = 120$,
+      with two years to expiry, trades at $26.40$. What is the put's time
+      value?
+    answer: >
+      $-5.60$. Intrinsic value is the payoff if expiry were now,
+      $(K - S)^{+} = (120 - 88)^{+} = 32.00$, and time value is price minus
+      intrinsic value, so $26.40 - 32.00 = -5.60$. A negative number is not an
+      arithmetic slip and not an arbitrage: this is a European put, so the
+      $120$ cannot be collected today, only in two years, and its present value
+      at any positive rate is less than $120$. The honest lower bound for a
+      European put is $Ke^{-rT} - S$, not $K - S$; here that bound is met
+      comfortably. The same statement is impossible for a European *call* on a
+      non-dividend stock, whose bound $C \ge (S - Ke^{-rT})^{+}$ discounts the
+      strike in the direction that keeps time value nonnegative. Answering
+      $+5.60$ takes the absolute value and hides exactly the effect the
+      question is about.
+    expects: "-5.60"
+    rubric:
+      - >
+        Computes intrinsic value as $(K - S)^{+}$ and subtracts it from the
+        quoted price, in that order.
+      - >
+        Reports the negative sign and explains it by the deferred strike —
+        the European put's bound is $Ke^{-rT} - S$, not $K - S$.
+    targets:
+      - quant-finance.options.intrinsic-time-value
+
+  - id: qopt-intrinsic-time-value-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A stock trades at $S = 53$. A put struck at $K = 58$ trades at $6.90$.
+      What is the put's time value?
+    answer: >
+      $1.90$. The put is in the money, since $K > S$, so its intrinsic value is
+      $(58 - 53)^{+} = 5.00$ — the payoff you would collect if expiry were this
+      instant. Time value is the rest of the price, what you are paying for the
+      remaining uncertainty: $6.90 - 5.00 = 1.90$. Two neighbouring wrong
+      answers mark the two halves of the split: $6.90$ reports the whole price
+      as time value and forgets that most of it is already intrinsic, and
+      $5.00$ reports the intrinsic value and answers the wrong question.
+    expects: "1.90"
+    rubric:
+      - >
+        Identifies the put as in the money and computes $(K - S)^{+} = 5$
+        before subtracting.
+      - >
+        Reports price minus intrinsic value, not the price or the intrinsic
+        value alone.
+    targets:
+      - quant-finance.options.intrinsic-time-value
+
+  # --- one-step binomial pricing by replication --------------------------------
+
+  - id: qopt-binomial-pricing-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      One period. A stock trades at $S = 90$ and moves to $108$ or $72$. Cash
+      grows by the factor $e^{r\Delta t} = 1.02$ over the period. Price the
+      call struck at $K = 84$ by building the replicating portfolio. Give the
+      call's value today, to the nearest cent.
+    answer: >
+      $12.94$. The call pays $C_u = (108 - 84)^{+} = 24$ up and
+      $C_d = (72 - 84)^{+} = 0$ down. Hold $\Delta$ shares and $B$ in cash. The
+      share count is the ratio of the two spreads,
+      $\Delta = (C_u - C_d)/(uS - dS) = 24/36 = 2/3$. Now match one state, say
+      the up state, remembering that cash grows:
+      $(2/3)(108) + 1.02\,B = 24$, so $72 + 1.02\,B = 24$ and
+      $B = -48/1.02 = -47.0588$ — you borrow. Check the down state, which the
+      construction guarantees: $(2/3)(72) - 47.0588(1.02) = 48 - 48 = 0$. The
+      portfolio's cost today is the price:
+      $\Delta S + B = 60 - 47.0588 = 12.9412$, so $12.94$. The commonest error
+      is writing $B = -48$, forgetting that the cash leg is discounted at
+      $1/1.02$; that gives $12.00$ and understates the call.
+    expects: "12.94"
+    tolerance: 0.005
+    rubric:
+      - >
+        Computes $\Delta$ as the payoff spread over the stock's own spread,
+        $24/36$, and not as anything involving a probability.
+      - >
+        Discounts the cash leg — solves $\Delta uS + e^{r\Delta t}B = C_u$, so
+        $B = -48/1.02$ rather than $-48$.
+      - >
+        Prices the call as the hedge's cost today, $\Delta S + B$.
+    targets:
+      - quant-finance.options.binomial-pricing
+    exercises:
+      - quant-finance.arbitrage.replication
+
+  - id: qopt-binomial-pricing-02
+    kind: work
+    difficulty: standard
+    statement: >
+      One period. A stock trades at $S = 40$ and moves to $52$ or $32$. What is
+      the replicating $\Delta$ for a put struck at $K = 44$?
+    answer: >
+      $-0.6$. Write down the put's two payoffs first:
+      $P_u = (44 - 52)^{+} = 0$ up and $P_d = (44 - 32)^{+} = 12$ down. The
+      hedge ratio is the payoff spread divided by the stock's spread,
+      $\Delta = (P_u - P_d)/(uS - dS) = (0 - 12)/(52 - 32) = -12/20 = -0.6$.
+      The sign is the content of the answer: a put gains when the stock falls,
+      so the portfolio that reproduces it is *short* stock, and the cash leg
+      $B$ is positive to compensate. Answering $+0.6$ subtracts the payoffs in
+      the wrong order and describes a portfolio that moves against the option
+      in both states.
+    expects: "-0.6"
+    rubric:
+      - >
+        Evaluates both payoffs before dividing, rather than assuming the put
+        is in the money in both states.
+      - >
+        Keeps the negative sign — the replicating portfolio is short stock.
+    targets:
+      - quant-finance.options.binomial-pricing
+
+  - id: qopt-binomial-pricing-03
+    kind: decide
+    difficulty: demanding
+    statement: >
+      One period, $r = 0$ so cash does not grow. A stock trades at $S = 80$ and
+      moves to $96$ or $64$. Which portfolio replicates a long put struck at
+      $K = 80$?
+    answer: >
+      Short $0.5$ shares plus $48$ in cash. The put pays
+      $P_u = (80 - 96)^{+} = 0$ and $P_d = (80 - 64)^{+} = 16$, so
+      $\Delta = (0 - 16)/(96 - 64) = -0.5$: short half a share. Matching the up
+      state, $-0.5(96) + B = 0$ gives $B = 48$; the down state then checks out
+      on its own, $-0.5(64) + 48 = -32 + 48 = 16$, which is exactly $P_d$. The
+      portfolio's cost today is $-0.5(80) + 48 = 8$, so the put is worth $8$.
+      Note what never appeared: the probability of an up move. Two of the wrong
+      rows are the standard slips — flipping the sign of $\Delta$ (a long-stock
+      portfolio cannot rise when the option does) and halving $B$ along with
+      $\Delta$, which matches neither state.
+    choices:
+      - text: >
+          Short $0.5$ shares plus $48$ in cash.
+        correct: true
+        feedback: >
+          Right: $\Delta = -16/32 = -0.5$, and $-0.5(96) + B = 0$ forces
+          $B = 48$. Both states check, and the cost today, $8$, is the put's
+          price.
+      - text: >
+          Long $0.5$ shares and borrow $48$.
+        feedback: >
+          This is the sign-flipped hedge. It pays $48 - 48 = 0$ in the up state
+          by coincidence but $32 - 48 = -16$ in the down state, the negative of
+          what the put pays.
+      - text: >
+          Short $0.25$ shares plus $24$ in cash.
+        feedback: >
+          Halving both legs halves the payoff: this pays $0$ up and $8$ down,
+          not $16$. $\Delta$ is pinned by the payoff spread over the stock
+          spread, $16/32$, and $B$ then follows from one state.
+      - text: >
+          Short $0.5$ shares plus $40$ in cash, since the up-move probability
+          is one half.
+        feedback: >
+          The probability of an up move plays no part in replication. $B$ is
+          whatever makes the up state match, $-0.5(96) + B = 0$, which is $48$.
+    rubric:
+      - >
+        Computes $\Delta$ from the two payoffs and the two stock prices, with
+        the correct sign.
+      - >
+        Fixes $B$ by matching one state and verifies the other, rather than
+        guessing it from a probability.
+    targets:
+      - quant-finance.options.binomial-pricing
+
+  # --- risk-neutral probability -------------------------------------------------
+
+  - id: qopt-risk-neutral-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A one-period model has $u = 1.25$, $d = 0.9$, and a riskless growth
+      factor $e^{r\Delta t} = 1.04$. Give the risk-neutral probability $q$ as
+      an exact fraction in lowest terms.
+    answer: >
+      $2/5$. The definition is $q = (e^{r\Delta t} - d)/(u - d)$, so
+      $q = (1.04 - 0.9)/(1.25 - 0.9) = 0.14/0.35$. Clear the decimals by
+      multiplying top and bottom by $100$: $14/35 = 2/5$. The no-arbitrage
+      condition $d < e^{r\Delta t} < u$ holds here, $0.9 < 1.04 < 1.25$, which
+      is exactly what puts $q$ strictly inside $(0,1)$ — so a value outside
+      that range would have been a signal of an arbitrage, not of a rounding
+      slip. The martingale reading confirms the number: with $S = 1$,
+      $q(1.25) + (1 - q)(0.9) = 0.4(1.25) + 0.6(0.9) = 0.5 + 0.54 = 1.04$,
+      which is the riskless growth factor, as required.
+    expects: "2/5"
+    rubric:
+      - >
+        Uses $(e^{r\Delta t} - d)/(u - d)$, with the growth factor in the
+        numerator rather than the rate $r$ itself.
+      - >
+        Checks $d < e^{r\Delta t} < u$, or equivalently that $q$ lands inside
+        $(0,1)$.
+      - >
+        Verifies by the martingale condition
+        $q\,u + (1-q)\,d = e^{r\Delta t}$.
+    targets:
+      - quant-finance.options.risk-neutral
+    exercises:
+      - quant-finance.options.binomial-pricing
+
+  - id: qopt-risk-neutral-02
+    kind: work
+    difficulty: standard
+    statement: >
+      In a one-period model the risk-neutral probability is $q = 0.6$ and the
+      one-period discount factor is $e^{-r\Delta t} = 0.98$. A derivative pays
+      $V_u = 30$ in the up state and $V_d = 5$ in the down state. What is it
+      worth today?
+    answer: >
+      $19.60$. Price is the discounted risk-neutral expectation,
+      $V_0 = e^{-r\Delta t}\,(q V_u + (1 - q) V_d)$. Take the expectation
+      first: $0.6(30) + 0.4(5) = 18 + 2 = 20$. Then discount:
+      $0.98(20) = 19.60$. Order matters only for arithmetic comfort, not for
+      the answer, but the discount itself is not optional — answering $20$
+      prices the payoff as if it arrived today. The other standard slip is to
+      weight the payoffs by a real-world probability someone quoted; $q$ is the
+      only weight that reproduces the replicating portfolio's cost.
+    expects: "19.60"
+    rubric:
+      - >
+        Weights the two payoffs by $q$ and $1 - q$ and then multiplies by the
+        discount factor.
+      - >
+        Does not skip the discounting.
+    targets:
+      - quant-finance.options.risk-neutral
+
+  - id: qopt-risk-neutral-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      In the one-period model, show that the replicating portfolio's cost
+      equals $e^{-r\Delta t}\,(q V_u + (1 - q) V_d)$ with
+      $q = (e^{r\Delta t} - d)/(u - d)$, for *any* payoff taking values $V_u$
+      and $V_d$. Say in one sentence what this makes $q$, and what it does not
+      make it.
+    answer: >
+      Hold $\Delta$ shares and $B$ in cash. Matching both states gives
+      $\Delta\,uS + e^{r\Delta t}B = V_u$ and
+      $\Delta\,dS + e^{r\Delta t}B = V_d$. Subtracting,
+      $\Delta = (V_u - V_d)/(S(u - d))$; substituting back into the up
+      equation, $e^{r\Delta t}B = V_u - u(V_u - V_d)/(u - d)$. The cost is
+      $V_0 = \Delta S + B$, and collecting terms over the common denominator
+      $u - d$ gives
+      $V_0 = e^{-r\Delta t}\left(\frac{e^{r\Delta t} - d}{u - d}V_u +
+      \frac{u - e^{r\Delta t}}{u - d}V_d\right)$. The two coefficients are
+      $q$ and $1 - q$, since they sum to $1$ by inspection. So $q$ is a
+      bookkeeping weight forced by the algebra of hedging — equivalently, the
+      current price of a security paying $1$ in the up state, rescaled by the
+      bond — and it is *not* a forecast of anything: the real-world probability
+      $p$ never entered either equation.
+    rubric:
+      - >
+        Solves the two matching equations for $\Delta$ and $B$ in general, not
+        on a numeric instance.
+      - >
+        Collects the terms over $u - d$ and identifies the coefficients as
+        $q$ and $1 - q$, checking that they sum to $1$.
+      - >
+        States that $q$ is a price, not a probability forecast, and notes that
+        $p$ appears nowhere in the derivation.
+    targets:
+      - quant-finance.options.risk-neutral
+
+  # --- why the real-world probability drops out ---------------------------------
+
+  - id: qopt-risk-neutral-vs-real-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      One period, $r = 0$. A stock trades at $S = 200$ and moves to $260$ with
+      real-world probability $0.8$, or to $160$ with probability $0.2$. What is
+      the arbitrage-free price of the call struck at $K = 200$?
+    answer: >
+      $24$. The real-world probabilities are a distraction, deliberately placed
+      to make $0.8(60) + 0.2(0) = 48$ look like an answer. Price by hedging
+      instead. The call pays $C_u = 60$ and $C_d = 0$, so
+      $\Delta = 60/(260 - 160) = 0.6$ shares, and matching the up state with
+      $r = 0$ gives $0.6(260) + B = 60$, so $B = -96$. The hedge costs
+      $0.6(200) - 96 = 120 - 96 = 24$ today and reproduces the call in both
+      states, so the call is worth $24$. Equivalently
+      $q = (1 - 0.8)/(1.3 - 0.8) = 0.4$, and $0.4(60) = 24$ — note that $q$ is
+      $0.4$ while $p$ is $0.8$, and the two have nothing to do with each other.
+      If the call traded at $48$ you would sell it, buy the hedge for $24$, and
+      bank $24$ per option with no residual exposure in either state, which is
+      why $48$ cannot be a price.
+    expects: "24"
+    rubric:
+      - >
+        Prices from the replicating portfolio (or from $q$), not from the
+        stated real-world probability.
+      - >
+        Computes $q = 0.4$ and notes that it differs from $p = 0.8$ without
+        that being a contradiction.
+      - >
+        Names the arbitrage that would follow from the $p$-weighted number.
+    targets:
+      - quant-finance.options.risk-neutral-vs-real
+
+  - id: qopt-risk-neutral-vs-real-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A one-period model is fully specified: $S$, $u$, $d$ and $r$ are fixed,
+      and a call on the stock has been priced. New information arrives that
+      raises the real-world probability of the up move from $0.5$ to $0.9$,
+      leaving $S$, $u$, $d$ and $r$ exactly as they were. What happens to the
+      arbitrage-free price of the call?
+    answer: >
+      It does not change. The price is the cost of the portfolio $\Delta$
+      shares plus $B$ cash that reproduces the call's payoff in both states,
+      and $\Delta = (C_u - C_d)/(S(u-d))$ and $B$ are determined entirely by
+      $S$, $u$, $d$, $r$ and the payoff — no probability appears in either
+      formula. So the hedge costs what it always cost, and if the quoted option
+      moved you could trade it against the hedge for a riskless profit. The
+      thing that is genuinely odd here is the premise: in a real market such
+      news would move $S$ itself, and *that* is how optimism reaches the option
+      price. Holding $S$ fixed while $p$ moves is exactly the experiment that
+      isolates the point.
+    choices:
+      - text: >
+          It is unchanged, because the replicating portfolio's cost has not
+          changed.
+        correct: true
+        feedback: >
+          Right: $\Delta$ and $B$ depend on $S$, $u$, $d$, $r$ and the payoffs
+          only. A price that moved with $p$ would be arbitrageable against the
+          hedge.
+      - text: >
+          It rises, because the call is now much more likely to finish in the
+          money.
+        feedback: >
+          This weights the payoff by the real-world probability. That number
+          prices no portfolio: hedge the call and the up-probability cancels
+          out of your P&L in both states.
+      - text: >
+          It rises in proportion to $q$, which has risen from $0.5$ to $0.9$.
+        feedback: >
+          $q = (e^{r\Delta t} - d)/(u - d)$ is built from $u$, $d$ and $r$
+          alone. None of those moved, so $q$ did not move either.
+      - text: >
+          It cannot be determined without knowing the market's risk aversion.
+        feedback: >
+          Risk aversion is exactly what replication removes. The hedge matches
+          the payoff state by state, so its cost pins the price for every
+          investor regardless of preferences.
+    rubric:
+      - >
+        Points at the replicating portfolio, whose inputs do not include any
+        probability.
+      - >
+        Distinguishes $q$ from $p$ and notes that $q$ is unchanged because
+        $u$, $d$ and $r$ are unchanged.
+    targets:
+      - quant-finance.options.risk-neutral-vs-real
+
+  # --- multi-step trees and dynamic replication ---------------------------------
+
+  - id: qopt-multi-step-binomial-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A two-step recombining tree has $S_0 = 100$, $u = 1.25$, $d = 0.8$ and a
+      one-period riskless growth factor of $1.025$, so $q = 1/2$ and the
+      one-period discount factor is $1/1.025$. Price the *American* put struck
+      at $K = 110$, to the nearest cent.
+    answer: >
+      $17.01$. Terminal prices are $156.25$, $100$ and $64$, with put payoffs
+      $0$, $10$ and $46$. Sweep backwards, taking
+      $\max(\text{continuation}, \text{intrinsic})$ at every interior node. At
+      the up node the stock is $125$: continuation is
+      $(0.5(0) + 0.5(10))/1.025 = 5/1.025 = 4.878$, intrinsic is
+      $(110 - 125)^{+} = 0$, so the node is worth $4.878$ and you hold. At the
+      down node the stock is $80$: continuation is
+      $(0.5(10) + 0.5(46))/1.025 = 28/1.025 = 27.317$, intrinsic is
+      $110 - 80 = 30$, so you *exercise* and the node is worth $30$. At the
+      root, $(0.5(4.878) + 0.5(30))/1.025 = 17.439/1.025 = 17.0137$, and
+      immediate exercise is worth $(110 - 100)^{+} = 10$, so the root is
+      $17.01$. Pricing it as European instead gives
+      $(0.25(0) + 0.5(10) + 0.25(46))/1.025^{2} = 16.5/1.050625 = 15.70$; the
+      difference of about $1.31$ is the early-exercise premium, and it is
+      strictly positive here precisely because the deep in-the-money branch
+      pays you the strike early at a positive rate.
+    expects: "17.01"
+    tolerance: 0.005
+    rubric:
+      - >
+        Rolls back node by node rather than discounting the terminal
+        distribution in one step — the American feature is invisible to the
+        one-shot formula.
+      - >
+        Takes $\max(\text{continuation}, \text{intrinsic})$ at *both* interior
+        nodes and finds that only the down node exercises.
+      - >
+        Discounts by $1/1.025$ once per step, and compares against the
+        European value to see a positive early-exercise premium.
+    targets:
+      - quant-finance.options.multi-step-binomial
+    exercises:
+      - quant-finance.options.risk-neutral
+
+  - id: qopt-multi-step-binomial-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A two-step recombining tree has $S_0 = 45$, $u = 1.2$, $d = 0.8$ and
+      $r = 0$, so $q = 1/2$. What is the price of the European call struck at
+      $K = 40$?
+    answer: >
+      $7.80$. The three terminal prices are $u^{2}S_0 = 64.8$,
+      $udS_0 = 43.2$ and $d^{2}S_0 = 28.8$, with call payoffs $24.8$, $3.2$ and
+      $0$. Because the tree recombines, the middle node is reached by two
+      paths, so the risk-neutral weights are $q^{2} = 0.25$, $2q(1-q) = 0.5$
+      and $(1-q)^{2} = 0.25$. With $r = 0$ there is nothing to discount:
+      $0.25(24.8) + 0.5(3.2) + 0.25(0) = 6.2 + 1.6 = 7.8$. Backward induction
+      gives the same number and is the safer habit: the up node is worth
+      $0.5(24.8) + 0.5(3.2) = 14$, the down node $0.5(3.2) + 0.5(0) = 1.6$, and
+      the root $0.5(14) + 0.5(1.6) = 7.8$. Weighting the middle path once
+      instead of twice gives $6.6$ and is the standard slip.
+    expects: "7.80"
+    rubric:
+      - >
+        Uses the binomial weights $q^{2}$, $2q(1-q)$, $(1-q)^{2}$ — the middle
+        terminal node is reached by two paths.
+      - >
+        Evaluates the payoffs at the terminal prices, not at the strike.
+    targets:
+      - quant-finance.options.multi-step-binomial
+
+  - id: qopt-multi-step-binomial-03
+    kind: justify
+    difficulty: standard
+    statement: >
+      On a tree with $r > 0$ and no dividends, explain why the backward sweep
+      never exercises an American *call* early, at any node — while, as the
+      previous problem showed, it does exercise an American put early.
+    answer: >
+      At any interior node with stock price $S$ and strike $K$, exercising pays
+      $S - K$. Holding instead is worth at least the value of the European call
+      from that node on, and that value is bounded below by
+      $S - Ke^{-r\tau}$ where $\tau$ is the remaining time — the standard
+      no-arbitrage bound, provable by comparing the portfolio "long call plus
+      $Ke^{-r\tau}$ in cash" with "long stock". Since $r > 0$ and $\tau > 0$,
+      $Ke^{-r\tau} < K$, so $S - Ke^{-r\tau} > S - K$: continuation is worth
+      strictly more than exercise, and $\max$ always picks continuation. The
+      economic content is that exercising early hands over the strike sooner
+      than you must and throws away the remaining insurance, with nothing
+      received in exchange on a non-dividend stock. The put is the mirror image
+      and the asymmetry is the whole point: there you *receive* $K$ on
+      exercise, so getting it early earns interest, and deep in the money that
+      interest can outweigh the insurance you give up. Dividends restore the
+      call's incentive, since holding the stock instead of the call forgoes
+      them.
+    rubric:
+      - >
+        Compares exercise value $S - K$ with the lower bound
+        $S - Ke^{-r\tau}$ on continuation, rather than arguing only from
+        "time value is positive".
+      - >
+        Uses $r > 0$ and no dividends explicitly, and says where each
+        hypothesis is needed.
+      - >
+        Explains why the put is different — the strike is received rather than
+        paid, so early receipt earns interest.
+    targets:
+      - quant-finance.options.multi-step-binomial
+
+  # --- the tree's lognormal limit -----------------------------------------------
+
+  - id: qopt-binomial-convergence-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A Cox–Ross–Rubinstein tree is calibrated with $u = e^{\sigma\sqrt{\Delta
+      t}}$ and $d = 1/u$, using $\sigma = 0.4$, $r = 0.05$ and a step of
+      $\Delta t = 0.01$ years. Use the small-step expansion $q \approx 1/2 +
+      \frac{r - \sigma^{2}/2}{2\sigma}\sqrt{\Delta t}$ to give the risk-neutral
+      probability of an up move, to five decimal places.
+    answer: >
+      $0.49625$. Compute the drift term first:
+      $r - \sigma^{2}/2 = 0.05 - 0.08 = -0.03$. Divide by
+      $2\sigma = 0.8$: $-0.03/0.8 = -0.0375$. Multiply by
+      $\sqrt{\Delta t} = \sqrt{0.01} = 0.1$: $-0.00375$. So
+      $q \approx 0.5 - 0.00375 = 0.49625$. Two things are worth reading off
+      this number. First, $q$ sits *below* one half even though the rate is
+      positive, because $\sigma^{2}/2 = 0.08$ exceeds $r = 0.05$ — the same
+      $-\sigma^{2}/2$ that makes the median lag the mean. Second, the
+      correction is of order $\sqrt{\Delta t}$, so as the step shrinks $q$
+      approaches $1/2$ and $\ln(S_T/S_0)$ becomes a sum of many nearly
+      symmetric $\pm\sigma\sqrt{\Delta t}$ steps: a central limit theorem then
+      makes the limit normal, which is exactly why $S_T$ comes out lognormal
+      and the tree price converges to Black–Scholes. Answering $0.50625$ drops
+      the $-\sigma^{2}/2$ and reverses the sign of the whole correction.
+    expects: "0.49625"
+    tolerance: 0.000005
+    rubric:
+      - >
+        Subtracts $\sigma^{2}/2$ from $r$ before dividing, and gets a negative
+        drift term here.
+      - >
+        Scales by $\sqrt{\Delta t}$, not by $\Delta t$.
+      - >
+        Names the central limit theorem as the reason the many-step limit is
+        normal in the log, hence lognormal in the price.
+    targets:
+      - quant-finance.options.binomial-convergence
+      - quant-probability.limits.clt
+    connects:
+      - quant-finance.options.binomial-convergence ~ quant-probability.limits.clt
+
+  - id: qopt-binomial-convergence-02
+    kind: work
+    difficulty: standard
+    statement: >
+      In the many-step limit of a CRR tree, $\ln(S_T/S_0)$ is normal with mean
+      $(r - \sigma^{2}/2)T$ and variance $\sigma^{2}T$. With $r = 0.06$,
+      $\sigma = 0.3$ and $T = 4$ years, what is that mean?
+    answer: >
+      $0.06$. The variance drag is $\sigma^{2}/2 = 0.09/2 = 0.045$, so the
+      log-drift per year is $r - \sigma^{2}/2 = 0.06 - 0.045 = 0.015$.
+      Multiply by the horizon: $0.015(4) = 0.06$. That the answer coincides
+      numerically with $r$ is a coincidence of these inputs, not a rule — the
+      rule is that the log grows at $r - \sigma^{2}/2$ while the price itself
+      grows in expectation at $r$. Answering $0.24$ uses $rT$ and forgets the
+      drag entirely; answering $0.015$ reports the annual rate and forgets to
+      scale by $T$.
+    expects: "0.06"
+    rubric:
+      - >
+        Halves $\sigma^{2}$, not $\sigma$, before subtracting.
+      - >
+        Multiplies by $T$ — the mean of the log accumulates linearly in time.
+    targets:
+      - quant-finance.options.binomial-convergence
+
+  # --- risk-neutral dynamics of the stock ---------------------------------------
+
+  - id: qopt-risk-neutral-dynamics-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Under the risk-neutral measure,
+      $S_T = S_0\exp\left((r - \sigma^{2}/2)T + \sigma\sqrt{T}\,Z\right)$ with
+      $Z$ standard normal. Take $S_0 = 50$, $r = 0.06$, $\sigma = 0.4$ and
+      $T = 3$ years. What is $\mathbb{E}^{Q}[\ln(S_T/S_0)]$?
+    answer: >
+      $-0.06$. Since $\mathbb{E}^{Q}[Z] = 0$, the mean of the log is the
+      deterministic part: $(r - \sigma^{2}/2)T$. Here
+      $\sigma^{2}/2 = 0.16/2 = 0.08$, so $r - \sigma^{2}/2 = 0.06 - 0.08 =
+      -0.02$ per year, and over three years $-0.02(3) = -0.06$. The sign is the
+      lesson. The stock's *price* still has mean growth $r$ —
+      $\mathbb{E}^{Q}[S_T] = S_0e^{rT} = 50e^{0.18}$, comfortably above $50$ —
+      but its *median*, $S_0e^{-0.06} \approx 47.09$, sits below today's spot.
+      Both are true at once because the lognormal is right-skewed: a thin tail
+      of large outcomes carries the mean while the typical path drifts down.
+      This gap is exactly the compounding drag $-\sigma^{2}/2$, and it grows
+      with volatility, which is why a high-vol stock can have a positive
+      expected return and a median that loses money. Answering $+0.18$ reports
+      $rT$ and confuses the mean of the price with the mean of the log.
+    expects: "-0.06"
+    rubric:
+      - >
+        Takes the expectation of the log, so the $\sigma\sqrt{T}\,Z$ term
+        vanishes and $-\sigma^{2}/2$ survives.
+      - >
+        Reports a negative number and explains it without contradicting
+        $\mathbb{E}^{Q}[S_T] = S_0e^{rT}$.
+      - >
+        Names the drag as the reason median and mean separate, and says the
+        gap widens with $\sigma$.
+    targets:
+      - quant-finance.options.risk-neutral-dynamics
+      - quant-processes.ito.vol-drag
+    connects:
+      - quant-finance.options.risk-neutral-dynamics ~ quant-processes.ito.vol-drag
+
+  - id: qopt-risk-neutral-dynamics-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A stock trades at $S_0 = 30$ with $r = 0.04$ and $T = 2$ years. Given
+      $e^{0.08} \approx 1.0833$, what is $\mathbb{E}^{Q}[S_T]$?
+    answer: >
+      $32.50$. Under the pricing measure the stock's expected price is the
+      forward price, $\mathbb{E}^{Q}[S_T] = S_0e^{rT}$: the drift is $r$,
+      whatever the stock's real expected return happens to be. Here
+      $rT = 0.04(2) = 0.08$, so $\mathbb{E}^{Q}[S_T] = 30(1.0833) = 32.499$,
+      which is $32.50$ to the cent. Note that this is the mean, not the typical
+      outcome — the median is $S_0e^{(r - \sigma^{2}/2)T}$, strictly smaller
+      once $\sigma > 0$, and the question did not even need $\sigma$ because
+      the mean does not depend on it.
+    expects: "32.50"
+    tolerance: 0.01
+    rubric:
+      - >
+        Applies $\mathbb{E}^{Q}[S_T] = S_0e^{rT}$, using the risk-free rate and
+        not any stated real-world drift.
+      - >
+        Does not subtract $\sigma^{2}/2$ — that belongs to the median and to
+        the log, not to the mean of the price.
+    targets:
+      - quant-finance.options.risk-neutral-dynamics
+
+  # --- Black–Scholes -------------------------------------------------------------
+
+  - id: qopt-black-scholes-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Price the European call with $S_0 = 45$, $K = 50$, $r = 0.04$,
+      $\sigma = 0.35$ and $T = 0.5$ years. You are given
+      $d_1 \approx -0.2212$, $d_2 \approx -0.4687$,
+      $\Phi(-0.2212) \approx 0.4125$, $\Phi(-0.4687) \approx 0.3197$ and
+      $e^{-0.02} \approx 0.9802$. Give the price to the nearest cent.
+    answer: >
+      $2.89$. The formula is $C = S_0\Phi(d_1) - Ke^{-rT}\Phi(d_2)$, and the
+      discipline that prevents errors is to evaluate the two terms separately.
+      Asset term: $45(0.4125) = 18.5625$. Strike term: discount first,
+      $Ke^{-rT} = 50(0.9802) = 49.01$, then weight,
+      $49.01(0.3197) = 15.6685$. Subtracting,
+      $18.5625 - 15.6685 = 2.8940$, so $2.89$. Two sanity checks. The call is
+      out of the money, so its intrinsic value is zero and the entire $2.89$ is
+      time value — consistent with both $d$'s being negative. And the price
+      must sit above the zero-vol bound $(S_0 - Ke^{-rT})^{+} = (45 -
+      49.01)^{+} = 0$ and below $S_0 = 45$, which it does. The commonest slip
+      is failing to discount the strike, which gives
+      $18.5625 - 50(0.3197) = 2.58$ and understates the call.
+    expects: "2.89"
+    tolerance: 0.02
+    rubric:
+      - >
+        Discounts the strike by $e^{-rT}$ before multiplying by $\Phi(d_2)$.
+      - >
+        Pairs $\Phi(d_1)$ with $S_0$ and $\Phi(d_2)$ with the discounted
+        strike, not the other way round.
+      - >
+        Checks the answer against the bounds $(S_0 - Ke^{-rT})^{+} \le C \le
+        S_0$.
+    targets:
+      - quant-finance.options.black-scholes
+    exercises:
+      - quant-finance.options.risk-neutral-dynamics
+
+  - id: qopt-black-scholes-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A European call has $S_0 = 120$, $K = 110$, $r = 0.03$, $\sigma = 0.25$
+      and $T = 1$ year. Given $\ln(120/110) \approx 0.0870$, what is $d_1$, to
+      three decimal places?
+    answer: >
+      $0.593$. Build the numerator of
+      $d_1 = \frac{\ln(S_0/K) + (r + \sigma^{2}/2)T}{\sigma\sqrt{T}}$ in two
+      pieces. The moneyness piece is $\ln(120/110) = 0.0870$. The drift piece
+      is $(r + \sigma^{2}/2)T = (0.03 + 0.03125)(1) = 0.06125$, where
+      $\sigma^{2}/2 = 0.0625/2 = 0.03125$. The numerator is
+      $0.0870 + 0.06125 = 0.14826$. The denominator is
+      $\sigma\sqrt{T} = 0.25(1) = 0.25$. So $d_1 = 0.14826/0.25 = 0.5930$. The
+      sign check is free: the call is in the money and the drift is positive,
+      so $d_1$ had to come out positive. Note that $d_1$ carries $+\sigma^{2}/2$
+      while $d_2 = d_1 - \sigma\sqrt{T} = 0.343$ effectively carries
+      $-\sigma^{2}/2$; using the minus sign in $d_1$ is the standard slip and
+      gives $0.343$ here, the value of the *other* argument.
+    expects: "0.593"
+    tolerance: 0.005
+    rubric:
+      - >
+        Uses $r + \sigma^{2}/2$ in $d_1$, and squares $\sigma$ before halving
+        it.
+      - >
+        Divides by $\sigma\sqrt{T}$, not by $\sigma T$ or $\sqrt{T}$.
+    targets:
+      - quant-finance.options.black-scholes
+
+  - id: qopt-black-scholes-03
+    kind: decide
+    difficulty: demanding
+    statement: >
+      Four facts are reported about a market in which someone is about to apply
+      the Black–Scholes call formula. Which of them, on its own, does *not*
+      violate an assumption of the formula?
+    answer: >
+      The stock's expected return exceeding the risk-free rate is not a
+      violation — it is the normal case, and the formula never asked about it.
+      The derivation replaces the real drift $\mu$ by $r$ because the
+      delta-hedged portfolio is riskless, so $\mu$ appears nowhere in
+      $C = S_0\Phi(d_1) - Ke^{-rT}\Phi(d_2)$; a stock expected to return
+      $15\%$ and one expected to return $4\%$ price identically if their spots
+      and volatilities agree. The other three are genuine breaches of the
+      listed hypotheses: a dividend before expiry breaks "no dividends" (and
+      also makes early exercise of an American call possible), American
+      exercise breaks "European exercise", and stochastic volatility breaks
+      "constant $\sigma$" — the last being the one the smile is evidence for.
+    choices:
+      - text: >
+          The stock's expected return is $15\%$ a year while the risk-free rate
+          is $4\%$.
+        correct: true
+        feedback: >
+          Right: the real drift is not an input. Hedging removes it, which is
+          why $\mu$ is absent from the formula while $\sigma$ is not.
+      - text: >
+          The stock pays a cash dividend two months before the option expires.
+        feedback: >
+          This breaks the no-dividend assumption. The stock drops on the
+          ex-date, and the plain formula overprices the call unless the
+          dividend's present value is subtracted from $S_0$.
+      - text: >
+          The option may be exercised at any time up to expiry, not only at
+          expiry.
+        feedback: >
+          This breaks the European-exercise assumption. For a call on a
+          non-dividend stock the two values happen to coincide, but the
+          formula is not entitled to that on its own.
+      - text: >
+          The stock's volatility is itself random and moves with the spot.
+        feedback: >
+          This breaks the constant-$\sigma$ assumption — and it is precisely
+          the failure the implied volatility smile reports back to you.
+    rubric:
+      - >
+        Separates the inputs the formula uses ($S_0$, $K$, $r$, $\sigma$, $T$)
+        from the real-world drift, which it does not.
+      - >
+        Names each of the other three as the specific hypothesis it breaks.
+    targets:
+      - quant-finance.options.black-scholes
+
+  # --- reading the formula: what Φ(d₁) and Φ(d₂) are ----------------------------
+
+  - id: qopt-exercise-probability-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A European call has $S_0 = 80$, $K = 95$, $r = 0.05$, $\sigma = 0.3$ and
+      $T = 2$ years, so $d_1 \approx 0.0428$ and $d_2 \approx -0.3815$. Given
+      $\Phi(0.0428) \approx 0.5171$ and $\Phi(-0.3815) \approx 0.3514$, what is
+      the risk-neutral probability that this call finishes in the money?
+    answer: >
+      $0.351$. The quantity asked for is $\Pr^{Q}(S_T > K)$, and in the
+      lognormal representation
+      $S_T = S_0\exp((r - \sigma^{2}/2)T + \sigma\sqrt{T}Z)$ the event
+      $S_T > K$ rearranges to $Z > -d_2$, whose probability is
+      $\Phi(d_2) = 0.3514$. So $\Phi(d_2)$, not $\Phi(d_1)$, is the exercise
+      probability. Reading $0.5171$ instead answers a different question:
+      $\Phi(d_1)$ is the hedge ratio, the share count in the replicating
+      portfolio, and it is always the larger of the two because
+      $d_1 = d_2 + \sigma\sqrt{T}$. There is a second trap in the phrase
+      "risk-neutral": this is not the real-world chance of exercise, which
+      would use the stock's actual drift in place of $r$ and would be larger
+      here if the stock is expected to outperform cash. Sanity check on the
+      magnitude: the call is well out of the money with only a modest
+      $\sigma\sqrt{T} = 0.424$ of log-uncertainty, so a probability
+      comfortably below one half is what you should expect.
+    expects: "0.351"
+    tolerance: 0.005
+    rubric:
+      - >
+        Selects $\Phi(d_2)$ and justifies it by rearranging $S_T > K$ into an
+        event about $Z$.
+      - >
+        Does not report $\Phi(d_1)$, and says what $\Phi(d_1)$ is instead —
+        the hedge ratio.
+      - >
+        Flags that this is the risk-neutral probability, not the real-world
+        one.
+    targets:
+      - quant-finance.options.exercise-probability
+
+  - id: qopt-exercise-probability-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A European call is worth $12.40$, and the first Black–Scholes term,
+      $S_0\Phi(d_1)$, equals $41.30$. What is the value of the second term,
+      $Ke^{-rT}\Phi(d_2)$?
+    answer: >
+      $28.90$. The formula is a difference of exactly two terms,
+      $C = S_0\Phi(d_1) - Ke^{-rT}\Phi(d_2)$, so
+      $Ke^{-rT}\Phi(d_2) = 41.30 - 12.40 = 28.90$. It is worth naming what the
+      two pieces are rather than treating this as subtraction practice: the
+      first is the present value of the stock you receive if you exercise, the
+      second the present value of the strike you pay if you exercise, each
+      already weighted by the chance of exercising. The formula reads "asset if
+      exercised, minus strike if exercised", and the option's value is the
+      residual between them. Answering $53.70$ adds instead of subtracting and
+      would make the second term exceed the first, which cannot happen for a
+      call with positive value.
+    expects: "28.90"
+    rubric:
+      - >
+        Rearranges the two-term formula rather than trying to recover
+        $\Phi(d_2)$ and the discounted strike separately.
+      - >
+        States what each term means — asset received on exercise, strike paid
+        on exercise.
+    targets:
+      - quant-finance.options.exercise-probability
+
+  # --- implied volatility ---------------------------------------------------------
+
+  - id: qopt-implied-vol-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You are inverting the Black–Scholes price for implied volatility by
+      Newton's method. At the trial value $\sigma = 0.25$ the model price is
+      $5.60$ and the derivative of price with respect to $\sigma$ is $28.0$ per
+      unit of volatility. The option trades at $6.16$. What is the next Newton
+      iterate for $\sigma$?
+    answer: >
+      $0.27$. Newton's step solves the linearised equation
+      $C(\sigma) + C'(\sigma)(\sigma_{new} - \sigma) = C_{market}$, so
+      $\sigma_{new} = \sigma + (C_{market} - C(\sigma))/C'(\sigma)$. The price
+      gap is $6.16 - 5.60 = 0.56$, and dividing by the sensitivity gives
+      $0.56/28.0 = 0.02$, so $\sigma_{new} = 0.25 + 0.02 = 0.27$. The direction
+      is the check: the market price is above the model price and Black–Scholes
+      is strictly increasing in $\sigma$, so the implied volatility must lie
+      above $0.25$, not below. That monotonicity — the price rising from the
+      zero-vol bound $(S_0 - Ke^{-rT})^{+}$ up towards $S_0$ — is exactly what
+      makes the implied volatility unique and makes any root-finder safe here.
+      Watch the units: $28.0$ is per unit of $\sigma$, so a quoted
+      "vega of $0.28$ per volatility point" is the same number and must be
+      scaled by $100$ before use.
+    expects: "0.27"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides the price gap by the sensitivity and *adds* to the current
+        iterate, giving a volatility above $0.25$.
+      - >
+        Justifies the direction by the strict monotonicity of the
+        Black–Scholes price in $\sigma$, which is also why the root is unique.
+    targets:
+      - quant-finance.options.implied-vol
+
+  - id: qopt-implied-vol-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Which statement about implied volatility is correct?
+    answer: >
+      It is the unique $\sigma$ at which the Black–Scholes formula reproduces
+      the quoted market price. Uniqueness is not an accident: the formula's
+      price is strictly increasing in $\sigma$, running continuously from the
+      zero-vol bound $(S_0 - Ke^{-rT})^{+}$ up to $S_0$, so every quote strictly
+      inside that interval is hit exactly once and bisection or Newton finds
+      it. What it is not is a forecast. Calling it "the market's expected
+      volatility" ignores that it is the wrong number put into a model everyone
+      knows is wrong, chosen so the model spits out the right price — which is
+      why one underlying has many implied volatilities at once, one per strike
+      and maturity, and why traders treat the quote as a change of units rather
+      than a prediction.
+    choices:
+      - text: >
+          It is the unique $\sigma$ making the Black–Scholes price equal the
+          market price, unique because that price is strictly increasing in
+          $\sigma$.
+        correct: true
+        feedback: >
+          Right, and the monotonicity is what licenses bisection or Newton —
+          there is exactly one root between the zero-vol bound and $S_0$.
+      - text: >
+          It is the market's consensus forecast of the volatility the stock
+          will realize before expiry.
+        feedback: >
+          If it were a forecast, one underlying would have one implied
+          volatility. It has a whole surface, which is the model's error being
+          absorbed strike by strike.
+      - text: >
+          It is the volatility estimated from the stock's recent daily returns.
+        feedback: >
+          That is realized (historical) volatility, computed from the
+          underlying's own data. Implied volatility is backed out of option
+          prices and is generally different.
+      - text: >
+          It can be computed in closed form by inverting the Black–Scholes
+          formula for $\sigma$.
+        feedback: >
+          There is no closed-form inverse: $\sigma$ enters through
+          $\Phi(d_1)$ and $\Phi(d_2)$. The inversion is numerical, by
+          bisection or Newton.
+    rubric:
+      - >
+        Defines implied volatility as the price-matching $\sigma$, and gives
+        monotonicity as the reason it is unique.
+      - >
+        Separates it from both a forecast and a historical estimate.
+    targets:
+      - quant-finance.options.implied-vol
+
+  # --- smile, skew and the implied surface ----------------------------------------
+
+  - id: qopt-vol-smile-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      An equity index is at $100$. Using a single flat volatility of $20\%$
+      across all strikes, your model prices the $85$-strike put at $1.90$, and
+      reports that the put's sensitivity to volatility is $9.5$ per unit of
+      $\sigma$. The market's implied volatility for that strike is actually
+      $27\%$. Estimate the market price of the put.
+    answer: >
+      About $2.565$. Reprice by a first-order correction along $\sigma$: the
+      volatility gap is $0.27 - 0.20 = 0.07$, and multiplying by the
+      sensitivity gives $9.5(0.07) = 0.665$. So the market price is
+      approximately $1.90 + 0.665 = 2.565$. The size of the miss is the point:
+      a flat-vol model underprices this downside strike by about $35\%$ of its
+      value, and the further out of the money you go the worse it gets. That is
+      the equity skew — implied volatility falls as strike rises — and it is
+      the market pricing a risk-neutral density with a fatter left tail and
+      more negative skew than the lognormal allows, because prices gap, because
+      volatility rises when the index falls, and because downside insurance
+      carries a demand premium. The practical rule follows: price each strike
+      with its own volatility, never one flat number for the whole book.
+    expects: "2.565"
+    tolerance: 0.01
+    rubric:
+      - >
+        Multiplies the volatility *gap* by the sensitivity, rather than
+        multiplying the level of $\sigma$ by it.
+      - >
+        Adds the correction, since implied volatility is higher than the flat
+        volatility used and the put's value rises with $\sigma$.
+      - >
+        Names the shape as the equity skew and attributes it to a fatter left
+        tail than the lognormal.
+    targets:
+      - quant-finance.options.vol-smile
+
+  - id: qopt-vol-smile-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Implied volatilities on a major equity index are $28\%$ at the
+      $85$ strike, $21\%$ at the $100$ strike and $18\%$ at the $115$ strike,
+      with the index at $100$. Which reading of this pattern is correct?
+    answer: >
+      Implied volatility falls as strike rises, and the risk-neutral density
+      backed out of these prices has a fatter left tail than a lognormal with
+      any single volatility. That downward slope is the equity skew, and its
+      content is that the market charges more for downside protection than a
+      one-volatility model can express — the same statistical picture as
+      returns that are fat-tailed and volatility that clusters and rises in
+      falling markets. It is not an arbitrage: nothing here says a butterfly is
+      priced negatively, and different strikes are different contracts, so
+      different implied volatilities are perfectly consistent. Nor does it
+      forecast direction; it is a statement about the *shape* of the density,
+      not its mean, which risk-neutral pricing pins to the forward regardless.
+    choices:
+      - text: >
+          The pattern is the equity skew: the implied density has a fatter left
+          tail than any single lognormal, so downside strikes price at higher
+          volatility.
+        correct: true
+        feedback: >
+          Right, and it is the model's own confession — one $\sigma$ cannot
+          price every strike, so the surface is where the lognormal's error
+          gets absorbed.
+      - text: >
+          The three quotes are mutually inconsistent and admit an arbitrage.
+        feedback: >
+          Different strikes are different contracts; a sloped smile is normal.
+          Arbitrage would need something like a negatively priced butterfly,
+          which these quotes do not imply.
+      - text: >
+          The market is forecasting that the index will fall.
+        feedback: >
+          The skew is about the shape of the risk-neutral density, not its
+          mean. Under the pricing measure the mean is the forward whatever the
+          smile looks like.
+      - text: >
+          One should average the three to $22.3\%$ and use that flat volatility
+          for every strike.
+        feedback: >
+          Averaging discards exactly the information the surface carries and
+          systematically underprices the wings. Price each strike with its own
+          volatility.
+    rubric:
+      - >
+        Reads the downward slope as a statement about the implied density's
+        tails, not about direction.
+      - >
+        Connects the shape to fat-tailed, volatility-clustering return
+        behaviour rather than to a mispricing.
+    targets:
+      - quant-finance.options.vol-smile
+      - quant-statistics.time-series.vol-clustering
+    connects:
+      - quant-finance.options.vol-smile ~ quant-statistics.time-series.vol-clustering
+
+  # --- straddles and strangles ------------------------------------------------------
+
+  - id: qopt-straddle-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      With the stock at $200$, a trader buys a strangle: the $190$-strike put
+      at $6.40$ and the $215$-strike call at $4.90$, same expiry. What is the
+      position's P&L if the stock finishes at $S_T = 178$?
+    answer: >
+      $0.70$. Add the legs at $S_T = 178$. The put is in the money and pays
+      $(190 - 178)^{+} = 12.00$; the call is far out of the money and pays
+      $0$. Total payoff $12.00$, against a total premium of
+      $6.40 + 4.90 = 11.30$, so the P&L is $12.00 - 11.30 = 0.70$. The
+      breakevens make the number legible: the lower one is
+      $190 - 11.30 = 178.70$ and the upper is $215 + 11.30 = 226.30$, so a
+      finish at $178$ is just past the lower breakeven and the position is
+      barely profitable — a $22$-point move on a $200$ stock only just paid for
+      the structure. That is the strangle's bargain: it costs less than the
+      straddle and demands a bigger move, since between the two strikes both
+      legs expire worthless and the whole premium is lost. Answering $12.00$
+      forgets the premiums; answering $-11.30$ forgets that the put finished in
+      the money.
+    expects: "0.70"
+    rubric:
+      - >
+        Evaluates both legs at the given finishing price, including the one
+        that expires worthless.
+      - >
+        Subtracts the *total* premium of both legs, not just the exercised
+        one's.
+      - >
+        Locates the answer against the two breakevens, $178.70$ and $226.30$.
+    targets:
+      - quant-finance.options.straddle
+
+  - id: qopt-straddle-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A long straddle is struck at $K = 64$, and the call and put together cost
+      $5.60$. What is the position's lower breakeven price?
+    answer: >
+      $58.40$. A long straddle's payoff at expiry is $|S_T - K|$, since exactly
+      one of the two legs is in the money away from the strike, so the P&L is
+      $|S_T - 64| - 5.60$. Setting that to zero gives $|S_T - 64| = 5.60$, so
+      $S_T = 64 \pm 5.60$: the breakevens are $58.40$ below and $69.60$ above,
+      one total premium either side of the strike. The lower one is $58.40$.
+      Two checks on the shape: the worst case is a pin at $64$, where both legs
+      expire worthless and the whole $5.60$ is lost, and the position needs a
+      move of about $8.75\%$ in either direction just to break even, which is
+      the implied move you are buying against. Answering $61.20$ splits the
+      premium across the two legs, which is not how the payoff adds up.
+    expects: "58.40"
+    rubric:
+      - >
+        Writes the straddle's payoff as $|S_T - K|$ and sets P&L to zero.
+      - >
+        Subtracts the full combined premium from the strike, not half of it.
+    targets:
+      - quant-finance.options.straddle
+
+  # --- vertical spreads ---------------------------------------------------------------
+
+  - id: qopt-vertical-spreads-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A trader sells the $75$-strike call at $5.30$ and buys the $85$-strike
+      call at $1.80$, same expiry — a bear call spread. What is the position's
+      P&L if the stock finishes at $S_T = 79$?
+    answer: >
+      $-0.50$. This is a credit spread: you collect $5.30$ and pay $1.80$, for
+      a net credit of $3.50$ received up front. At $S_T = 79$ the short $75$
+      call is assigned and costs you $-(79 - 75) = -4.00$; the long $85$ call
+      finishes out of the money and pays $0$. So the P&L is
+      $3.50 - 4.00 = -0.50$. Read the whole shape to see the number in
+      context: the maximum profit is the credit $3.50$, kept in full at or
+      below $75$; the breakeven is $75 + 3.50 = 78.50$, so a finish at $79$ is
+      just past it; and the maximum loss is capped at
+      $(85 - 75) - 3.50 = 6.50$ at or above $85$, which is what the long $85$
+      call is bought for. Answering $+3.50$ treats a collected credit as
+      unconditional income and ignores assignment on the short strike.
+    expects: "-0.50"
+    rubric:
+      - >
+        Computes the net credit first, then applies the short strike's
+        intrinsic loss at the stated finishing price.
+      - >
+        Notes that the long $85$ call contributes nothing at $79$ but caps the
+        loss at $6.50$ further up.
+      - >
+        Places $79$ relative to the breakeven $78.50$, which explains the small
+        negative.
+    targets:
+      - quant-finance.options.vertical-spreads
+
+  - id: qopt-vertical-spreads-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A bull call spread buys the $40$-strike call at $3.60$ and sells the
+      $48$-strike call at $1.10$. What is the breakeven stock price at expiry?
+    answer: >
+      $42.50$. The net debit is $3.60 - 1.10 = 2.50$, paid today. Between the
+      two strikes only the long call has value, so the P&L there is
+      $(S_T - 40) - 2.50$; setting that to zero gives
+      $S_T = 40 + 2.50 = 42.50$, which does lie between $40$ and $48$ as the
+      branch assumed. The rest of the shape follows from the same debit: the
+      maximum loss is the $2.50$ paid, at or below $40$, and the maximum profit
+      is the strike gap minus the debit, $8 - 2.50 = 5.50$, at or above $48$.
+      Answering $40$ ignores the premium; answering $48 - 2.50 = 45.50$ works
+      from the wrong strike, which is the short leg the position is capped by,
+      not the leg that first turns the P&L positive.
+    expects: "42.50"
+    rubric:
+      - >
+        Computes the net debit and adds it to the *long* strike.
+      - >
+        Verifies that the breakeven lands between the two strikes, where the
+        assumed branch of the payoff is valid.
+    targets:
+      - quant-finance.options.vertical-spreads
+
+  # --- butterfly spreads ----------------------------------------------------------------
+
+  - id: qopt-butterfly-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A long call butterfly buys the $30$-strike call at $6.30$, sells two
+      $35$-strike calls at $2.90$ each, and buys the $40$-strike call at
+      $0.90$. What is the position's P&L if the stock finishes at $S_T = 37$?
+    answer: >
+      $1.60$. The net debit is $6.30 - 2(2.90) + 0.90 = 6.30 - 5.80 + 0.90 =
+      1.40$. At $S_T = 37$ the payoff is
+      $(37 - 30) - 2(37 - 35) + (37 - 40)^{+} = 7 - 4 + 0 = 3.00$, so the P&L
+      is $3.00 - 1.40 = 1.60$. The tent is worth sketching: the payoff is $0$
+      at or below $30$, rises to a peak of $5$ at the middle strike $35$, falls
+      back to $0$ at $40$ and stays there, so $37$ sits on the descending side,
+      three-fifths of the way down. Breakevens are $30 + 1.40 = 31.40$ and
+      $40 - 1.40 = 38.60$, and the maximum profit is $5 - 1.40 = 3.60$ at a pin
+      on $35$. The trap is forgetting to double the short premium, which turns
+      the debit into $4.30$ and the answer negative.
+    expects: "1.60"
+    rubric:
+      - >
+        Doubles the middle leg in both the debit and the payoff — the position
+        is short *two* calls.
+      - >
+        Evaluates each leg's payoff at $37$, noticing the $40$ call is
+        worthless there.
+      - >
+        Locates $37$ on the descending side of the tent, between the peak at
+        $35$ and the upper breakeven $38.60$.
+    targets:
+      - quant-finance.options.butterfly
+
+  - id: qopt-butterfly-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A long call butterfly on strikes $30/35/40$ was put on for a net debit of
+      $1.40$. What is its lower breakeven stock price at expiry?
+    answer: >
+      $31.40$. Below the lowest strike every leg expires worthless and the P&L
+      is a flat $-1.40$, so the crossing is on the rising side, just above
+      $30$. There the payoff is $S_T - 30$, and the P&L is
+      $(S_T - 30) - 1.40$; setting it to zero gives
+      $S_T = 30 + 1.40 = 31.40$. By the symmetry of the tent the upper
+      breakeven is $40 - 1.40 = 38.60$, and the peak profit is
+      $(35 - 30) - 1.40 = 3.60$ at a pin on $35$. Note the general fact behind
+      the shape: the payoff is a nonnegative tent, so its price
+      $e^{-rT}\mathbb{E}^{Q}$ is strictly positive — a butterfly quoted at zero
+      or below would be an arbitrage in the quoted smile.
+    expects: "31.40"
+    rubric:
+      - >
+        Works on the rising branch between the low and middle strikes, since
+        the flat branch never crosses zero.
+      - >
+        Adds the debit to the lowest strike, and gets $38.60$ on the other side
+        by symmetry.
+    targets:
+      - quant-finance.options.butterfly
+
+  # --- synthetic positions from parity ---------------------------------------------------
+
+  - id: qopt-synthetics-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A stock trades at $S = 74$. European options struck at $K = 80$ expire in
+      $T = 1.5$ years, and $r = 0.06$, so $e^{-rT} \approx 0.91393$. The $80$
+      put is quoted at $11.40$. What call price does put–call parity require?
+    answer: >
+      $12.29$. Parity says $C - P = S - Ke^{-rT}$, so
+      $C = P + S - Ke^{-rT}$. Discount the strike first:
+      $Ke^{-rT} = 80(0.91393) = 73.1144$. Then
+      $C = 11.40 + 74 - 73.1144 = 12.2856$, which is $12.29$ to the cent. The
+      identity is not a model — it is a replication argument, so it holds
+      whatever the volatility or the distribution of $S_T$: long call plus
+      $Ke^{-rT}$ in cash and long put plus one share both pay
+      $\max(S_T, K)$ at expiry, so they must cost the same today. The
+      arithmetic sanity check is that $C > P$ here even though the options are
+      out of the money for the call, because $S - Ke^{-rT} = 0.8856 > 0$: the
+      forward is above the strike once the strike is discounted. Using an
+      undiscounted $K = 80$ gives $C = 5.40$ and is the standard error — it
+      throws away $6.89$ of interest on the strike.
+    expects: "12.29"
+    tolerance: 0.01
+    rubric:
+      - >
+        Rearranges $C - P = S - Ke^{-rT}$ for $C$ with the signs right.
+      - >
+        Discounts the strike by the given $e^{-rT}$ rather than using $K$ raw.
+      - >
+        Notes that parity is model-free, holding whatever $\sigma$ is.
+    targets:
+      - quant-finance.options.synthetics
+      - quant-finance.arbitrage.synthetics
+    connects:
+      - quant-finance.arbitrage.synthetics ~ quant-finance.options.synthetics
+
+  - id: qopt-synthetics-02
+    kind: justify
+    difficulty: standard
+    statement: >
+      Prove put–call parity, $C - P = S - Ke^{-rT}$, for European options on a
+      non-dividend-paying stock, by exhibiting two portfolios. Then read the
+      identity as a statement about positions and say why a covered call is the
+      same trade as a short put plus a bond.
+    answer: >
+      Portfolio A: one call plus $Ke^{-rT}$ in cash. Portfolio B: one put plus
+      one share. At expiry, A is worth $(S_T - K)^{+} + K$, which is $S_T$ when
+      $S_T > K$ and $K$ otherwise — that is $\max(S_T, K)$. B is worth
+      $(K - S_T)^{+} + S_T$, which is $K$ when $S_T < K$ and $S_T$ otherwise —
+      also $\max(S_T, K)$. The two portfolios have identical payoffs in every
+      state, and neither can be exercised early, so by no arbitrage they cost
+      the same today: $C + Ke^{-rT} = P + S$, i.e. $C - P = S - Ke^{-rT}$. If
+      the left side were cheaper you would buy A, sell B, and pocket the
+      difference with no residual exposure. Reading it as positions, move terms
+      about: $S - C = -P + Ke^{-rT}$, so long stock plus a short call — the
+      covered call — has exactly the payoff of a short put plus a bond. The
+      practical consequence is that a covered call's risk profile is a naked
+      short put's, unbounded on the downside and capped above, however
+      conservative the name sounds.
+    rubric:
+      - >
+        Exhibits two portfolios and shows both pay $\max(S_T, K)$ in every
+        state, rather than checking a single numeric example.
+      - >
+        Invokes no arbitrage to equate today's costs, and says which trade
+        enforces it if the equality fails.
+      - >
+        Rearranges to $S - C = -P + Ke^{-rT}$ and draws the covered-call
+        conclusion.
+    targets:
+      - quant-finance.options.synthetics
+
+  # --- options are bets on volatility -------------------------------------------------------
+
+  - id: qopt-options-as-vol-bets-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      One-month options on a stock trade at an implied volatility of $18\%$ a
+      year; you forecast that the stock will realize $30\%$ over the same
+      month. Using $\sigma\sqrt{T}$ as the one-standard-deviation move over a
+      horizon and $\sqrt{1/12} \approx 0.28868$, by how much does your
+      forecast one-month move exceed the implied one-month move, as a fraction
+      of spot? Give four decimal places.
+    answer: >
+      $0.0346$. The implied one-month move is
+      $0.18(0.28868) = 0.05196$, about $5.20\%$ of spot; your forecast move is
+      $0.30(0.28868) = 0.08660$, about $8.66\%$. The difference is
+      $0.08660 - 0.05196 = 0.03464$, so $0.0346$ — you think the stock will
+      travel about three and a half percent of spot further than the option
+      market is charging for. Equivalently, scale the volatility gap once:
+      $(0.30 - 0.18)(0.28868) = 0.12(0.28868) = 0.03464$. Two things this
+      number is and is not. It *is* the edge you are trying to harvest, and the
+      trade that harvests it is a delta-hedged long option position, whose P&L
+      over the life is essentially realized variance minus implied variance. It
+      is *not* a directional view: you have said nothing about which way the
+      stock goes, which is why an unhedged long call would be the wrong
+      expression — that bundles this volatility bet with a direction bet you do
+      not have. The commonest slip is subtracting the annual volatilities and
+      reporting $0.12$, forgetting that a one-month horizon scales by
+      $\sqrt{T}$, not by $T$ and not at all.
+    expects: "0.0346"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Scales each volatility by $\sqrt{T}$ with $T = 1/12$, not by $T$.
+      - >
+        Reports the difference of the two moves, or equivalently the
+        volatility gap scaled once.
+      - >
+        Says that the view is on the size of the move, not its direction, and
+        names the delta-hedged option as the expression.
+    targets:
+      - quant-finance.options.options-as-vol-bets
+
+  - id: qopt-options-as-vol-bets-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      An interviewer says: "I think this stock is going to move a lot more than
+      the market thinks over the next quarter, but I have no idea which way."
+      Which position expresses exactly that view, and nothing else?
+    answer: >
+      Buy the at-the-money straddle. Its two legs have deltas of roughly
+      $+0.5$ and $-0.5$ near the money, which cancel, so the position starts
+      with almost no directional exposure and profits from the size of the
+      move: the payoff is $|S_T - K|$ against the premium paid, symmetric about
+      the strike. That is the clean expression of "realized volatility will
+      exceed implied volatility", which is what the interviewer said. A long
+      call is the classic wrong answer because it bundles two bets, one on
+      volatility and one on direction, and the second is a view the speaker
+      explicitly disclaims. Selling a straddle takes the opposite side of the
+      volatility view entirely, and a bull call spread is a capped directional
+      bet with the volatility exposure largely spread away. The vocabulary
+      follows the mathematics: traders say they buy and sell volatility, not
+      calls and puts.
+    choices:
+      - text: >
+          Buy the at-the-money straddle.
+        correct: true
+        feedback: >
+          Right: the two deltas cancel near the money, so what is left is a
+          bet on the magnitude of the move — realized against implied
+          volatility.
+      - text: >
+          Buy the at-the-money call.
+        feedback: >
+          This is two bets at once, on volatility *and* on direction. The
+          speaker disclaimed the second, so the call carries exposure they did
+          not ask for.
+      - text: >
+          Sell the at-the-money straddle.
+        feedback: >
+          That is the opposite view: a short straddle collects premium and
+          profits when the stock *fails* to move, with unbounded risk if it
+          does.
+      - text: >
+          Buy a bull call spread.
+        feedback: >
+          A capped directional bet. Selling the higher strike gives back most
+          of the volatility exposure, so it expresses neither half of the
+          stated view cleanly.
+    rubric:
+      - >
+        Chooses a position whose net delta is near zero at the money, so the
+        remaining exposure is to the size of the move.
+      - >
+        Says explicitly why a long call is the wrong answer — it bundles a
+        directional bet the speaker does not hold.
+    targets:
+      - quant-finance.options.options-as-vol-bets

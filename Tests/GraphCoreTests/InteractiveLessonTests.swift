@@ -46,9 +46,10 @@ struct InteractiveLessonTests {
         #expect(exact.form == .typed)
         #expect(exact.isCorrect(typed: "7/15"))
         #expect(exact.isCorrect(typed: "$\\frac{7}{15}$"))
-        // Rounded to four places is *not* 7/15, and with no authored tolerance the
-        // check says so rather than guessing how much rounding was intended.
-        #expect(!exact.isCorrect(typed: "0.4667"))
+        // Rounded to four places *is* 7/15, correctly rounded (D15.4); rounded
+        // to two it is a guess, and with no authored tolerance the check says so.
+        #expect(exact.isCorrect(typed: "0.4667"))
+        #expect(!exact.isCorrect(typed: "0.47"))
         #expect(!exact.isCorrect(typed: "8/15"))
         #expect(!exact.isCorrect(typed: "who knows"))
 
@@ -57,6 +58,30 @@ struct InteractiveLessonTests {
         #expect(rounded.isCorrect(typed: "0.4667"))
         #expect(rounded.isCorrect(typed: "46.67%"))
         #expect(!rounded.isCorrect(typed: "0.46"))
+    }
+
+    /// D15.4: a reader who rounds to three or more places is right when the
+    /// expected value rounds to what they typed; fewer places stay exact.
+    @Test("A typed rounding to three or more places is honoured; fewer are exact")
+    func aTypedRoundingIsHonoured() throws {
+        let check = try #require(AnswerCheck(expects: "7/15", feedback: "Because."))
+        #expect(check.isCorrect(typed: "7/15"))
+        #expect(check.isCorrect(typed: "0.4667"))
+        #expect(check.isCorrect(typed: "0.467"))
+        #expect(check.isCorrect(typed: "46.67%"))
+        #expect(check.isCorrect(typed: "0.46666667"))
+        // Wrong roundings are still wrong…
+        #expect(!check.isCorrect(typed: "0.4666"))
+        #expect(!check.isCorrect(typed: "0.468"))
+        // …and two places is a guess, not a rounding.
+        #expect(!check.isCorrect(typed: "0.47"))
+        // A fraction is exact.
+        #expect(!check.isCorrect(typed: "7/16"))
+        // An authored tolerance replaces the rule rather than adding to it.
+        let strict = try #require(
+            AnswerCheck(expects: "7/15", tolerance: 0.00001, feedback: "Because."))
+        #expect(!strict.isCorrect(typed: "0.4667"))
+        #expect(strict.isCorrect(typed: "0.466667"))
     }
 
     @Test("A choice check is right on exactly the row marked correct")

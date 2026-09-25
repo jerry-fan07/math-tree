@@ -1,0 +1,1627 @@
+# Problems targeting quant-finance.greeks — sensitivities as risk language.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. Every spot, strike and Greek here
+# is a fresh instance: no lesson worked example or card number is reused, and
+# the canonical S = K = 100, sigma = 20%, T = 0.25 book of the content nodes is
+# deliberately avoided. Contract multipliers are stated, and money is written in
+# dollars, never with a currency sign. See ../README.md.
+
+problems:
+  # --- the Greeks as partial derivatives --------------------------------------
+
+  - id: qgrk-greeks-overview-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A book holds two options on the same underlying, each contract covering
+      100 shares. It is long 30 contracts of option A, quoted at a vega of
+      $0.18$ per volatility point per share and a theta of $-0.021$ per share
+      per calendar day. It is short 45 contracts of option B, quoted on the same
+      conventions at a vega of $0.11$ and a theta of $-0.014$. Overnight one
+      calendar day passes, spot is unchanged, and the implied volatility of both
+      options falls by $0.8$ volatility points. What is the book's P&L, in
+      dollars?
+    answer: >
+      A loss of $36$ dollars. Greeks add across a book, so read each Greek off
+      the two legs and sum with the position sign and the multiplier. Vega: the
+      long leg is $30(100)(0.18) = 540$ per volatility point and the short leg
+      is $-45(100)(0.11) = -495$, so the book is long $45$ of vega. A fall of
+      $0.8$ points gives $45(-0.8) = -36$. Theta: the long leg is
+      $3000(-0.021) = -63$ per day and the short leg is
+      $-4500(-0.014) = +63$, so the book's theta is exactly $0$ and the day
+      costs nothing in decay. Total P&L is $-36$ dollars — a book that is
+      theta-flat and long vega, which is precisely the position that a naive
+      "I am short more contracts than I am long, so I collect decay" reading
+      gets backwards. Two traps sit here. Dropping the $100$ multiplier answers
+      $-0.36$; flipping the sign on the short leg's theta makes it
+      $-63 - 63 = -126$ per day and turns a flat book into one that appears to
+      bleed $126$ a day.
+    expects: "-36"
+    rubric:
+      - >
+        Sums each Greek across the two legs with the position sign and the
+        $100$-share multiplier applied.
+      - >
+        Finds the book theta-flat, so the whole day's P&L is the vega term
+        $45(-0.8)$.
+    targets:
+      - quant-finance.greeks.greeks-overview
+
+  - id: qgrk-greeks-overview-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A pricing screen reports, for one share of a European call, a theta of
+      $-18.25$ and a vega of $24.50$. The screen shows the raw partial
+      derivatives: theta with respect to calendar time in years, vega per one
+      full unit of $\sigma$. Convert both to the desk conventions — theta per
+      calendar day, vega per volatility point — and then use them: one calendar
+      day passes, spot is unchanged, and implied volatility rises by $0.6$
+      volatility points. What is the change in the option's value per share?
+    answer: >
+      A gain of $0.097$. The conventions are the whole problem. Theta is quoted
+      per calendar day, so divide the annual figure by $365$:
+      $-18.25/365 = -0.05$ per day. Vega is quoted per volatility point, that is
+      per $0.01$ of $\sigma$, so divide by $100$: $24.50/100 = 0.245$ per point.
+      Now the day: $\delta V \approx \Theta_{\text{day}} + \operatorname{Vega}
+      _{\text{point}}(0.6) = -0.05 + 0.245(0.6) = -0.05 + 0.147 = 0.097$. The
+      option gained despite decaying, because six tenths of a point of implied
+      vol was worth about three times a day of theta. The traps are both
+      conversions. Multiplying the raw vega by $0.6$ instead of $0.006$ answers
+      $14.65$, a hundredfold error; dividing theta by $252$ treats it as a
+      trading-day quantity, but theta differentiates calendar time and a weekend
+      decays.
+    expects: "0.097"
+    rubric:
+      - >
+        Divides the annual theta by $365$ and the raw vega by $100$ before
+        using either.
+      - >
+        Adds the two terms with signs, reporting a gain because the vega term
+        outweighs a day of decay.
+    targets:
+      - quant-finance.greeks.greeks-overview
+
+  # --- delta -------------------------------------------------------------------
+
+  - id: qgrk-delta-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      On one non-dividend stock you are long 60 contracts of a European call
+      whose $d_1 = 0.35$, and short 40 contracts of a European put struck lower,
+      whose $d_1 = -0.20$. Each contract covers 100 shares. Given
+      $\Phi(0.35) = 0.6368$ and $\Phi(-0.20) = 0.4207$, what is the position's
+      delta, expressed in shares?
+    answer: >
+      Long $6138$ shares of delta. The call's delta is $N(d_1) = 0.6368$, so the
+      long leg contributes $60(100)(0.6368) = 3820.8$ shares. The put's delta is
+      $N(d_1) - 1 = 0.4207 - 1 = -0.5793$, and you are *short* that leg, so it
+      contributes $-40(100)(-0.5793) = +2317.2$ shares. The total is
+      $3820.8 + 2317.2 = 6138$ shares, and to sit flat you would sell $6138$
+      shares. The point worth carrying away is that a short put is a *long*
+      delta position: you have sold someone the right to hand you stock, so you
+      profit when spot rises. Two traps. Reading $\Phi(-0.20) = 0.4207$ as the
+      put's delta forgets the $-1$ and gives a negative-looking hedge; treating
+      "short" as "subtract" gives $3820.8 - 2317.2 = 1503.6$ and leaves you
+      badly under-hedged in a rally.
+    expects: "6138"
+    rubric:
+      - >
+        Uses $N(d_1)$ for the call and $N(d_1) - 1$ for the put, then applies
+        the $100$-share multiplier.
+      - >
+        Signs the short put leg as long delta, adding rather than subtracting
+        its $2317.2$ shares.
+    targets:
+      - quant-finance.greeks.delta
+
+  - id: qgrk-delta-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A European put on a non-dividend stock is deep in the money — spot sits
+      far below the strike — and it expires in three days. Which value is
+      closest to its delta?
+    answer: >
+      About $-1$. Delta is the S-curve $N(d_1) - 1$ for a put, running from $-1$
+      deep in the money to $0$ deep out of it, and as $T \to 0$ that curve
+      sharpens into a step at the strike. Three days from expiry with spot far
+      below the strike, $d_1$ is large and negative, $N(d_1) \approx 0$, and the
+      delta is $\approx -1$: the option is now behaving like short stock,
+      because it is nearly certain to be exercised and the payoff $K - S_T$
+      moves one-for-one against spot. That is also the hedge-ratio reading — to
+      hold this put flat you buy nearly one share per option. Answering $-0.5$
+      confuses deep in the money with at the money, where a put's delta is
+      roughly $-0.5$; answering $0$ describes a deep *out*-of-the-money put; and
+      $+1$ has the sign of a call, not a put.
+    choices:
+      - text: >
+          $-1$
+        correct: true
+        feedback: >
+          Right — near expiry the delta curve is a step, and deep in the money a
+          put moves one-for-one against spot.
+      - text: >
+          $-0.5$
+        feedback: >
+          That is roughly the delta of an *at-the-money* put; deep in the money
+          it is far steeper.
+      - text: >
+          $0$
+        feedback: >
+          A delta near zero describes a deep out-of-the-money option, one almost
+          certain to expire worthless.
+      - text: >
+          $+1$
+        feedback: >
+          A put gains when spot falls, so its delta is negative — only a call
+          approaches $+1$.
+    rubric:
+      - >
+        Identifies the put's delta as $N(d_1) - 1$ and its deep-in-the-money
+        limit as $-1$.
+      - >
+        Notes that time to expiry sharpens the S-curve toward a step at the
+        strike.
+    targets:
+      - quant-finance.greeks.delta
+
+  - id: qgrk-delta-03
+    kind: work
+    difficulty: routine
+    statement: >
+      You are short 25 contracts of a call whose delta is $0.68$, each contract
+      covering 100 shares, and you already hold 900 shares of the stock. How
+      many shares must you buy to bring the position's delta to zero?
+    answer: >
+      $800$ shares. The short call carries $-25(100)(0.68) = -1700$ shares of
+      delta: you are short the option, so you are short its delta. The stock
+      position adds $+900$, leaving the book at $-1700 + 900 = -800$ shares.
+      Buying $800$ shares takes it to zero. Read as a hedge ratio, this is the
+      same statement as "one long call is neutralized by shorting $\Delta$
+      shares", run backwards for a short option. The trap is arithmetic on
+      contracts rather than shares: $25(0.68) = 17$ is the delta in *contracts*,
+      and netting it against 900 shares mixes two units and answers $883$.
+    expects: "800"
+    rubric:
+      - >
+        Converts the option leg to shares with the $100$ multiplier and signs it
+        negative for the short position.
+      - >
+        Nets the stock against it and states the trade that flattens the
+        remaining $-800$.
+    targets:
+      - quant-finance.greeks.delta
+
+  # --- delta is N(d₁) ----------------------------------------------------------
+
+  - id: qgrk-delta-n-d1-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A European call has $d_1 = 0.28$ on an option whose $\sigma\sqrt{T} =
+      0.36$. A trader on the desk says, "it prints a $61$-delta, so it is
+      $61\%$ to expire in the money." Given $\Phi(0.28) = 0.6103$ and
+      $\Phi(-0.08) = 0.4681$, by how much does that shorthand overstate the
+      risk-neutral probability of exercise?
+    answer: >
+      By $0.1422$. The delta is exactly $N(d_1) = \Phi(0.28) = 0.6103$ — that
+      is a theorem, not an approximation, because the extra terms from
+      differentiating the pricing formula cancel. The risk-neutral probability
+      of finishing in the money is a different number, $N(d_2)$ with
+      $d_2 = d_1 - \sigma\sqrt{T} = 0.28 - 0.36 = -0.08$, so
+      $N(d_2) = \Phi(-0.08) = 0.4681$. The overstatement is
+      $0.6103 - 0.4681 = 0.1422$, nearly fourteen percentage points, and it is
+      not a rounding artifact: the gap widens with $\sigma\sqrt{T}$, so it is
+      worst exactly where traders lean on the shorthand hardest, in high-vol
+      names and long tenors. Two refinements the answer should name. The gap
+      shrinks to nothing as $\sigma\sqrt{T} \to 0$, which is why the shorthand
+      survives on short-dated quiet names; and even $N(d_2)$ is a *risk-neutral*
+      probability, so the real-world chance of exercise differs again, running
+      off the true drift rather than $r$.
+    expects: "0.1422"
+    tolerance: 0.0005
+    connects:
+      - quant-finance.greeks.delta-n-d1 ~ quant-finance.options.risk-neutral
+    rubric:
+      - >
+        Computes $d_2 = d_1 - \sigma\sqrt{T}$ and reads the exercise
+        probability as $N(d_2)$, not $N(d_1)$.
+      - >
+        Notes the gap grows with $\sigma\sqrt{T}$ and that $N(d_2)$ is itself
+        the risk-neutral, not the real-world, probability.
+    targets:
+      - quant-finance.greeks.delta-n-d1
+      - quant-finance.options.risk-neutral
+
+  - id: qgrk-delta-n-d1-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A one-year European call on a non-dividend stock has $\sigma = 50\%$ and
+      $r = 0$, so $\sigma\sqrt{T} = 0.50$. Its risk-neutral probability of
+      finishing in the money is $0.6554$, which corresponds to $d_2 = 0.40$.
+      Given $\Phi(0.90) = 0.8159$, what is the call's delta?
+    answer: >
+      $0.8159$. The two arguments differ by exactly one $\sigma\sqrt{T}$:
+      $d_1 = d_2 + \sigma\sqrt{T} = 0.40 + 0.50 = 0.90$, so the delta is
+      $N(d_1) = \Phi(0.90) = 0.8159$. Notice how far apart the two numbers are
+      here — a $0.82$-delta call that is only $66\%$ to finish in the money —
+      because $\sigma\sqrt{T} = 0.5$ is large. Delta exceeds the exercise
+      probability because it prices not just *whether* the option lands in the
+      money but *how deep*: the paths that finish far in the money pull the
+      hedge ratio up. The trap is answering $0.6554$, reading delta off the
+      exercise probability; the other is subtracting rather than adding
+      $\sigma\sqrt{T}$, giving $d_1 = -0.10$ and a delta below one half for a
+      call that is already favoured to pay.
+    expects: "0.8159"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Recovers $d_1 = d_2 + \sigma\sqrt{T} = 0.90$ before reading any normal
+        value.
+      - >
+        Reports $N(d_1) = 0.8159$ and explains why it exceeds the exercise
+        probability.
+    targets:
+      - quant-finance.greeks.delta-n-d1
+
+  # --- parity ties the Greeks together ----------------------------------------
+
+  - id: qgrk-put-call-delta-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      A European call and put share a non-dividend underlying, a strike $K$ and
+      an expiry $T$. Starting from put–call parity $C - P = S - Ke^{-rT}$, show
+      that $\Delta_C - \Delta_P = 1$ and that $\Gamma_C = \Gamma_P$, and say
+      what those two facts mean for hedging a long call against a short put at
+      the same strike.
+    answer: >
+      Parity is an identity in $S$, not a single-point equality, so it may be
+      differentiated term by term. Differentiate once with respect to $S$: the
+      left side gives $\Delta_C - \Delta_P$, and on the right
+      $\partial S/\partial S = 1$ while $Ke^{-rT}$ has no $S$ in it at all, so
+      $\Delta_C - \Delta_P = 1$. Differentiate a second time: the right side is
+      linear in $S$, so its second derivative vanishes and
+      $\Gamma_C - \Gamma_P = 0$, that is $\Gamma_C = \Gamma_P$. Gamma is
+      therefore a property of the strike and expiry, not of call-versus-put; the
+      same argument in $\sigma$, which does not appear on the right at all,
+      gives $\operatorname{Vega}_C = \operatorname{Vega}_P$. Now the hedging
+      consequence. Long the call and short the put is, by parity, exactly a
+      forward: its delta is $\Delta_C - \Delta_P = 1$ and its gamma is
+      $\Gamma_C - \Gamma_P = 0$. So one share short hedges it *permanently* — no
+      re-hedging, because there is no convexity left to make the hedge go stale,
+      and no vega, because the two vegas cancel. The arithmetic trap this kills:
+      a $0.62$-delta call pairs with a $-0.38$-delta put, not a $-0.62$-delta
+      one, and any quoted Greek set that violates these identities is
+      arbitrageable, which makes them the fastest consistency check on a screen.
+    exercises:
+      - quant-finance.arbitrage.put-call-parity
+    rubric:
+      - >
+        Differentiates the parity identity in $S$ once and twice, using that
+        $Ke^{-rT}$ is free of $S$ and the right side is linear.
+      - >
+        Concludes long call plus short put is a forward — delta $1$, gamma $0$ —
+        so a single share hedges it once and for all.
+    targets:
+      - quant-finance.greeks.put-call-delta
+
+  - id: qgrk-put-call-delta-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A market maker quotes the put on one strike and expiry at a delta of
+      $-0.37$. There are no dividends and the call and put share that strike and
+      expiry. You buy 50 contracts of the call and 50 contracts of the put,
+      each contract covering 100 shares. What is the position's delta, in
+      shares?
+    answer: >
+      Long $1300$ shares of delta. Parity fixes the call's delta from the put's:
+      $\Delta_C = 1 + \Delta_P = 1 - 0.37 = 0.63$. A straddle is one call plus
+      one put, so its delta per share pair is
+      $0.63 + (-0.37) = 0.26$, and $50$ contracts of each gives
+      $0.26(50)(100) = 1300$ shares. The number is worth a sanity check: a
+      straddle at a strike where the put is $-0.37$ is not at the money — the
+      call is the further-in one — so the position leans long, and $0.26$ is
+      exactly how far. Two traps. Taking the call's delta as $+0.37$ by symmetry
+      gives a delta-neutral straddle, which is only true at the strike where
+      $\Delta_C = 0.5$; and dropping the multiplier answers $13$ rather than
+      $1300$ shares.
+    expects: "1300"
+    rubric:
+      - >
+        Recovers $\Delta_C = 1 + \Delta_P = 0.63$ from parity rather than
+        assuming symmetry.
+      - >
+        Sums the two legs to $0.26$ per share pair and scales by $50$ contracts
+        of $100$ shares.
+    targets:
+      - quant-finance.greeks.put-call-delta
+
+  # --- gamma -------------------------------------------------------------------
+
+  - id: qgrk-gamma-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You are long 200 contracts of a call, each covering 100 shares, with
+      $\Delta = 0.44$ and $\Gamma = 0.032$, and you are currently delta-flat
+      against it. Spot then rises 3 points; treat gamma as constant over the
+      move. How many shares must you trade to be flat again?
+    answer: >
+      $1920$ shares, and you sell them. Gamma is $\partial\Delta/\partial S$, so
+      after a $3$-point rise the option's delta is
+      $0.44 + 0.032(3) = 0.536$. The position covers $200(100) = 20000$ shares,
+      so the required hedge is now short $0.536(20000) = 10720$ shares against
+      the $0.44(20000) = 8800$ you were already short — a further $1920$ shares
+      to sell. The shortcut is the same number in one step:
+      $\Gamma\,\delta S \times 20000 = 0.032(3)(20000) = 1920$. This is the
+      hedger's reading of gamma — it measures how fast your hedge goes stale —
+      and it is also why long gamma is a selling program in a rally: the
+      rebalance is forced, and it sells into strength. The trap is answering
+      $10720$, the new hedge size rather than the trade, or dropping the
+      multiplier and selling $19$ shares against a $20000$-share book.
+    expects: "1920"
+    rubric:
+      - >
+        Updates the delta to $0.44 + \Gamma(3) = 0.536$ and converts both
+        hedges to shares.
+      - >
+        Reports the incremental trade $\Gamma\,\delta S \times 20000 = 1920$
+        shares sold, not the new hedge size.
+    targets:
+      - quant-finance.greeks.gamma
+
+  - id: qgrk-gamma-02
+    kind: decide
+    difficulty: routine
+    statement: >
+      Which of these positions is short gamma?
+    answer: >
+      The short straddle. Gamma is signed by whether you are long or short
+      options, and nothing else: a long option has $\Gamma > 0$ because its
+      value curve sits above its tangent, so against a delta hedge it gains on a
+      move in either direction. Selling ten at-the-money straddles is selling
+      twenty options, so it is short convexity twice over — the position loses
+      on any move, up or down, and the losses accelerate as the move grows.
+      Long five calls against short $300$ shares is long gamma: the share leg is
+      linear in spot and carries no gamma at all, so it changes the delta and
+      leaves the convexity untouched. Long ten puts is long gamma too — puts and
+      calls at the same strike have *identical* gamma, so buying a put is buying
+      convexity exactly as buying a call is. And long $100$ shares has
+      $\Gamma = 0$ exactly, since the value is linear in spot; a zero is not a
+      negative.
+    choices:
+      - text: >
+          Short 10 at-the-money straddles.
+        correct: true
+        feedback: >
+          Right — you have sold twenty options, so the position loses on a move
+          in either direction.
+      - text: >
+          Long 5 calls against a short position of 300 shares.
+        feedback: >
+          The shares are linear in spot and carry no gamma; the long calls leave
+          the position long gamma.
+      - text: >
+          Long 10 puts.
+        feedback: >
+          A long put has positive gamma — identical to the call's at the same
+          strike and expiry.
+      - text: >
+          Long 100 shares.
+        feedback: >
+          Stock is linear in spot, so its gamma is exactly zero, not negative.
+    rubric:
+      - >
+        Signs gamma by long-versus-short options alone, noting stock carries
+        none.
+      - >
+        States that a put's gamma equals the call's at the same strike, so a
+        long put is long convexity.
+    targets:
+      - quant-finance.greeks.gamma
+
+  # --- where gamma lives -------------------------------------------------------
+
+  - id: qgrk-gamma-profile-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two names, both quoted at the money. A trades at $20$ with a gamma of
+      $0.050$ per share; B trades at $200$ with a gamma of $0.005$ per share. A
+      trader glances at the two and says B's options carry a tenth of the gamma
+      risk. Compute the dollar gamma $\tfrac{1}{2}\Gamma S^{2}$ of each and give
+      the ratio of B's to A's.
+    answer: >
+      $10$ — B carries ten times A's convexity per share, not a tenth of it. The
+      dollar gammas are $\tfrac{1}{2}(0.050)(20^{2}) = \tfrac{1}{2}(0.050)(400)
+      = 10$ for A and $\tfrac{1}{2}(0.005)(200^{2}) =
+      \tfrac{1}{2}(0.005)(40000) = 100$ for B, so the ratio is
+      $100/10 = 10$. Raw gamma is not comparable across underlyings, because it
+      is a second derivative in *points* and a point means something different
+      on a $20$ stock than on a $200$ one. The quantity that enters P&L is
+      $\tfrac{1}{2}\Gamma(\delta S)^{2}$, and if both names move $1\%$ then
+      $\delta S = 0.2$ for A and $2$ for B: A earns
+      $\tfrac{1}{2}(0.050)(0.04) = 0.001$ per share and B earns
+      $\tfrac{1}{2}(0.005)(4) = 0.01$, the same factor of ten. The trader's
+      error is reading a per-point sensitivity as a per-percent one. Note also
+      what would move both together: at-the-money gamma runs like
+      $0.4/(S\sigma\sqrt{T})$, so cutting the tenor from a year to about a week
+      multiplies each by roughly $\sqrt{52} \approx 7$.
+    expects: "10"
+    rubric:
+      - >
+        Computes $\tfrac{1}{2}\Gamma S^{2}$ for both and divides, rather than
+        comparing raw gammas.
+      - >
+        Explains that dollar gamma is the comparable quantity because P&L runs
+        on $\tfrac{1}{2}\Gamma(\delta S)^{2}$ and a percent move scales with
+        $S$.
+    targets:
+      - quant-finance.greeks.gamma-profile
+
+  - id: qgrk-gamma-profile-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      You are short an at-the-money straddle with three days to expiry, on a
+      name with no earnings before then. Which sensitivity now dominates the
+      position's risk?
+    answer: >
+      Gamma. All four Greeks scale with maturity, and they scale in opposite
+      directions. At-the-money gamma is about $0.4/(S\sigma\sqrt{T})$, which
+      blows up like $1/\sqrt{T}$ as $T \to 0$ — three days from expiry it is
+      enormous, and it is the reason a short book's risk concentrates into the
+      last days at the strikes carrying open interest, which is pin risk. Vega,
+      by contrast, is $S\varphi(d_1)\sqrt{T}$ and *shrinks* like $\sqrt{T}$: a
+      three-day option barely reprices when implied vol moves, so a short
+      straddle here is nearly vega-flat. Rho scales with $T$ and is negligible
+      at any short tenor. Delta is not the answer either: an at-the-money
+      straddle starts near delta-neutral, and what threatens it is not its
+      current delta but how violently that delta moves — which is gamma again.
+    choices:
+      - text: >
+          Gamma.
+        correct: true
+        feedback: >
+          Right — at-the-money gamma runs like $1/\sqrt{T}$, so three days out
+          it dwarfs everything else.
+      - text: >
+          Vega.
+        feedback: >
+          Vega scales like $\sqrt{T}$, so it is nearly gone at three days; the
+          vol risk lives in the long-dated options.
+      - text: >
+          Rho.
+        feedback: >
+          Rho scales with $T$ and is immaterial for anything short-dated.
+      - text: >
+          Delta.
+        feedback: >
+          An at-the-money straddle starts near delta-flat; the danger is how
+          fast that delta moves, which is gamma.
+    rubric:
+      - >
+        Contrasts the $1/\sqrt{T}$ growth of at-the-money gamma with vega's
+        $\sqrt{T}$ decay and rho's proportionality to $T$.
+      - >
+        Names pin risk, or the concentration of short-book risk into the final
+        days at the strike.
+    targets:
+      - quant-finance.greeks.gamma-profile
+
+  # --- theta -------------------------------------------------------------------
+
+  - id: qgrk-theta-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A European call on a non-dividend stock has $S = K = 40$, $\sigma = 25\%$,
+      $T = 1$ and $r = 0$, so $d_1 = \sigma\sqrt{T}/2 = 0.125$. With $r = 0$ the
+      theta reduces to $\Theta = -S\varphi(d_1)\sigma/(2\sqrt{T})$; take
+      $\varphi(0.125) = 0.3958$. You are long 100 contracts, each covering 100
+      shares. What is the position's decay over one calendar day, in dollars?
+    answer: >
+      About $-54.22$ dollars. Per share and per year,
+      $\Theta = -40(0.3958)(0.25)/(2\sqrt{1}) = -3.958/2 = -1.979$. Theta is
+      quoted per calendar day, so divide by $365$:
+      $-1.979/365 = -0.005422$ per share per day. The position covers
+      $100(100) = 10000$ shares, so the day costs
+      $10000(-0.005422) = -54.22$ dollars. Two conventions carry the whole
+      problem. Theta differentiates *calendar* time, so the divisor is $365$ and
+      not $252$ — a weekend decays even though nothing trades; using $252$ would
+      overstate the daily bleed by nearly half, at $-78.53$. And the multiplier
+      turns a per-share number that looks like rounding error into a real
+      position cost. Worth noticing where this money goes: at $r = 0$ this decay
+      is exactly $-\tfrac{1}{2}\sigma^{2}S^{2}\Gamma$ per year, the rent paid for
+      the convexity the position owns.
+    expects: "-54.22"
+    tolerance: 0.05
+    rubric:
+      - >
+        Evaluates $-S\varphi(d_1)\sigma/(2\sqrt{T})$ to $-1.979$ per share per
+        year.
+      - >
+        Divides by $365$ calendar days, not $252$, and scales by the
+        $10000$-share position.
+    targets:
+      - quant-finance.greeks.theta
+
+  - id: qgrk-theta-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Rates are positive, $r = 4\%$. For which of these long European positions
+      on a non-dividend stock is theta *positive* — that is, the position gains
+      from the mere passage of time with spot, vol and rates held fixed?
+    answer: >
+      The deep in-the-money put. Write the put's theta as
+      $\Theta_P = -S\varphi(d_1)\sigma/(2\sqrt{T}) + rKe^{-rT}N(-d_2)$. The
+      first term is the decay of optionality and is always negative; the second
+      is the carry on the strike the put will receive, and it is positive when
+      $r > 0$. Deep in the money, $d_1$ is far from zero so $\varphi(d_1)
+      \approx 0$ and the optionality term nearly vanishes, while
+      $N(-d_2) \approx 1$ leaves $\Theta_P \approx rKe^{-rT} > 0$. The
+      economics: such a put is almost certainly going to be exercised for $K$,
+      and waiting only delays receipt of that cash, so time passing brings the
+      payment closer and the position gains. Every other choice is long
+      optionality at or near the money, where $\varphi(d_1)$ is at its largest
+      and decay dominates: an at-the-money call, an at-the-money straddle and a
+      deep out-of-the-money call all have $\Theta < 0$. For the call the rate
+      term is $-rKe^{-rT}N(d_2)$, negative as well, so both terms push the same
+      way and no call on a non-dividend stock has positive theta.
+    choices:
+      - text: >
+          A long deep in-the-money put.
+        correct: true
+        feedback: >
+          Right — the optionality term is nearly zero and the carry term
+          $rKe^{-rT}N(-d_2)$ survives, so waiting brings the strike closer.
+      - text: >
+          A long at-the-money call.
+        feedback: >
+          Both of a call's theta terms are negative on a non-dividend stock, and
+          at the money the decay is at its largest.
+      - text: >
+          A long at-the-money straddle.
+        feedback: >
+          A straddle is two long options at the strike where $\varphi(d_1)$
+          peaks — the most negative theta available.
+      - text: >
+          A long deep out-of-the-money call.
+        feedback: >
+          Its theta is small, because there is little premium left to lose, but
+          it is still negative.
+    rubric:
+      - >
+        Splits the put's theta into the optionality term and the
+        $rKe^{-rT}N(-d_2)$ carry term and signs each.
+      - >
+        Argues the optionality term vanishes deep in the money, leaving positive
+        theta, and that no call on a non-dividend stock qualifies.
+    targets:
+      - quant-finance.greeks.theta
+
+  # --- who pays theta ----------------------------------------------------------
+
+  - id: qgrk-theta-carry-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A book is short options: its theta is $+410$ dollars per calendar day and
+      its gamma is $-1800$ shares per point, meaning the book's delta falls by
+      $1800$ shares for each one-point rise in spot. Over one trading week spot
+      is unchanged on four of the five days, and on the fifth it moves 2 points.
+      Counting decay on all five days and pricing the move with the second-order
+      term, what is the week's P&L, in dollars?
+    answer: >
+      A loss of $1550$ dollars. Decay first: $5(410) = 2050$ dollars collected,
+      the rent this book earns for being short convexity. Now the move. The
+      convexity term is $\tfrac{1}{2}\Gamma(\delta S)^{2}$ with the book's gamma
+      already expressed in shares per point, so it is
+      $\tfrac{1}{2}(-1800)(2^{2}) = -900(4) = -3600$ dollars. Note the sign is
+      the position's alone: $(\delta S)^{2} \ge 0$, so a short-gamma book loses
+      on a move up or down alike. The week nets
+      $2050 - 3600 = -1550$ dollars. That arithmetic is the whole of the
+      theta–gamma bargain seen from the short side: four quiet days of income
+      look like a steady stream, and a single 2-point day gives back nearly two
+      weeks of it. Two traps. Dropping the one half answers
+      $2050 - 7200 = -5150$ and overstates the damage; counting theta only on
+      the four quiet days answers $1640 - 3600 = -1960$, but decay accrues on a
+      day whether or not spot moves — the two terms are separate entries in the
+      same expansion, not alternatives.
+    expects: "-1550"
+    rubric:
+      - >
+        Accrues theta on all five days and prices the move as
+        $\tfrac{1}{2}\Gamma(\delta S)^{2}$ with the one half kept.
+      - >
+        Signs the gamma term negative regardless of the move's direction and
+        nets the two to $-1550$.
+    targets:
+      - quant-finance.greeks.theta-carry
+
+  - id: qgrk-theta-carry-02
+    kind: decide
+    difficulty: routine
+    statement: >
+      A seminar describes systematic option selling as "harvesting a steady
+      income stream from time decay." Which statement best names the risk that
+      description leaves out?
+    answer: >
+      The seller is short convexity, so the income is the premium paid for
+      taking a tail. Theta is rent and gamma is what the rent buys: the long
+      side pays every day and owns the right to profit from any move, up or
+      down, against a delta hedge; the short side collects the rent and is on
+      the other side of that convexity. The consequence is an asymmetric P&L
+      shape — many small gains on quiet days, punctuated by losses that grow
+      like $(\delta S)^{2}$ and can take back weeks of collected premium in one
+      session. It is not that the income is fake, and it is not a directional
+      bet: a delta-hedged short book has no view on which way spot goes, only on
+      how far. Nor is the seller exempt at the model level — Black–Scholes sets
+      the rent so that, at the implied volatility, the expected gamma cost
+      exactly offsets the decay collected, so the whole exercise is a bet that
+      realized volatility will come in below implied.
+    choices:
+      - text: >
+          The seller is short convexity: quiet days pay a little and a single
+          large move can take back weeks of premium, so the "income" is
+          compensation for a tail.
+        correct: true
+        feedback: >
+          Right — the losses grow like $(\delta S)^{2}$, which is what makes the
+          smooth-looking stream a short-tail position.
+      - text: >
+          The seller is taking a directional bet that spot will fall.
+        feedback: >
+          A delta-hedged short book has no directional view; the exposure is to
+          the size of moves, not their sign.
+      - text: >
+          The theta collected is only an accounting entry and is never actually
+          realized.
+        feedback: >
+          Decay is realized daily and is real cash; the question is whether the
+          gamma cost exceeds it.
+      - text: >
+          The risk is that implied volatility falls, since the seller is long
+          vega.
+        feedback: >
+          A short option position is *short* vega, and it profits when implied
+          volatility falls.
+    rubric:
+      - >
+        Identifies the seller as short convexity and the payoff as many small
+        gains against occasional large losses.
+      - >
+        Notes the exposure is to the size of moves, not their direction, so it
+        is a bet on realized against implied volatility.
+    targets:
+      - quant-finance.greeks.theta-carry
+
+  # --- vega --------------------------------------------------------------------
+
+  - id: qgrk-vega-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A European call on a stock at $90$ has $T = 0.16$, so $\sqrt{T} = 0.4$,
+      and $d_1 = 0.30$; take $\varphi(0.30) = 0.3814$. Vega is
+      $S\varphi(d_1)\sqrt{T}$ per one unit of $\sigma$. You are short 120
+      contracts, each covering 100 shares, and implied volatility rises by
+      $0.75$ volatility points. What is the P&L, in dollars?
+    answer: >
+      A loss of about $1235.7$ dollars. The raw vega is
+      $90(0.3814)(0.4) = 13.7304$ per share per unit of $\sigma$, which on the
+      desk convention is $0.1373$ per volatility point. The position covers
+      $120(100) = 12000$ shares and is *short*, so a rise in implied volatility
+      hurts: a long option is long vega — calls and puts alike, since
+      $S\varphi(d_1)\sqrt{T} > 0$ for both — and selling one sells that
+      exposure. The P&L is
+      $-12000(13.7304)(0.0075) = -12000(0.102978) = -1235.74$ dollars. The
+      decimal trap is the one that actually costs money on a desk: $0.75$
+      volatility points is $\delta\sigma = 0.0075$, not $0.75$, and using the
+      latter answers $-123574$, a hundredfold error. The sign trap is reading a
+      positive vega as a positive P&L without applying the position's sign.
+    expects: "-1235.7"
+    tolerance: 1
+    rubric:
+      - >
+        Computes vega as $S\varphi(d_1)\sqrt{T} = 13.73$ per unit of $\sigma$
+        and converts $0.75$ points to $\delta\sigma = 0.0075$.
+      - >
+        Applies the short position's sign and the $12000$-share multiplier to
+        reach a loss.
+    targets:
+      - quant-finance.greeks.vega
+
+  - id: qgrk-vega-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Two at-the-money European options on the same underlying and the same
+      strike, one expiring in twelve months and one in three, with the same
+      implied volatility. The twelve-month option carries a vega of $0.34$ per
+      volatility point per share. What is the three-month option's vega, on the
+      same convention?
+    answer: >
+      $0.17$ per volatility point. Vega is $S\varphi(d_1)\sqrt{T}$, and at the
+      money $\varphi(d_1)$ is nearly the same for both, so vega scales with
+      $\sqrt{T}$. The ratio is $\sqrt{3/12} = \sqrt{1/4} = 1/2$, giving
+      $0.34/2 = 0.17$. This is the shape worth memorising: the vol risk of a
+      book lives in its long-dated options, not its near-dated ones, and a
+      one-year option carries twice the vega of a three-month one on the same
+      name. It is also the exact opposite of gamma, which runs like
+      $1/\sqrt{T}$ and concentrates in the front month — the same $\sqrt{T}$
+      appearing in the numerator instead of the denominator. Note the answer
+      does not depend on call versus put: parity makes their vegas identical.
+      The trap is scaling linearly in $T$, answering $0.34/4 = 0.085$.
+    expects: "0.17"
+    tolerance: 0.005
+    rubric:
+      - >
+        Scales vega by $\sqrt{T}$, giving a ratio of $1/2$ rather than $1/4$.
+      - >
+        Notes vega is identical for the call and the put and that its tenor
+        profile is the mirror of gamma's.
+    targets:
+      - quant-finance.greeks.vega
+
+  # --- rho ---------------------------------------------------------------------
+
+  - id: qgrk-rho-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A two-year European call has $K = 150$, $r = 4\%$ and $N(d_2) = 0.55$.
+      Take $e^{-rT} = e^{-0.08} = 0.9231$. Rho is
+      $\rho_C = KTe^{-rT}N(d_2)$ per one full unit of rate. Rates rise by 25
+      basis points. What is the change in the option's value, per share?
+    answer: >
+      A gain of about $0.381$. First the rho itself:
+      $\rho_C = 150(2)(0.9231)(0.55) = 300(0.9231)(0.55) = 152.31$ per unit of
+      rate — a big-looking number only because "one unit of rate" means a move
+      from $4\%$ to $104\%$. Per percentage point it is $1.523$, and $25$ basis
+      points is a quarter of a point, so
+      $152.31(0.0025) = 0.381$ per share. The sign is positive for a call: a
+      higher rate discounts the strike the call must pay at exercise, making the
+      option more valuable. Two things to say out loud. Rho scales with $T$,
+      which is why a two-year contract is where it becomes visible at all and
+      why short-dated interview options can ignore it. And the comparison that
+      settles its rank: a $0.5$-delta option makes $0.5$ on a one-point move in
+      spot, which a stock does routinely in a day, against $0.38$ for a rate
+      move of $25$ basis points, which is a policy event. That ratio is why rho
+      is the Greek nobody hedges first. The trap is entering $0.25$ rather than
+      $0.0025$ for the rate change.
+    expects: "0.381"
+    tolerance: 0.003
+    rubric:
+      - >
+        Evaluates $KTe^{-rT}N(d_2) = 152.31$ per unit of rate before scaling.
+      - >
+        Converts $25$ basis points to $0.0025$ of a unit and notes rho grows
+        with $T$, so it matters only for long-dated contracts.
+    targets:
+      - quant-finance.greeks.rho
+
+  - id: qgrk-rho-02
+    kind: decide
+    difficulty: routine
+    statement: >
+      Which of these positions has negative rho?
+    answer: >
+      Long a European put. Its rho is $\rho_P = -KTe^{-rT}N(-d_2) < 0$: the put
+      holder expects to *receive* the strike at exercise, and a higher rate
+      discounts that receipt more heavily, so the option is worth less. The call
+      runs the other way, $\rho_C = KTe^{-rT}N(d_2) > 0$, because the call
+      holder expects to *pay* the strike and a higher rate makes that future
+      payment cheaper in present value. Long stock has no rho at all in this
+      model — the spot price is an input, not a discounted quantity, so
+      $\partial S/\partial r = 0$. And short a European put simply flips the
+      put's sign, giving positive rho. A useful cross-check is parity:
+      differentiating $C - P = S - Ke^{-rT}$ in $r$ gives
+      $\rho_C - \rho_P = KTe^{-rT} > 0$, so the call's rho always exceeds the
+      put's by exactly that amount.
+    choices:
+      - text: >
+          Long a European put.
+        correct: true
+        feedback: >
+          Right — $\rho_P = -KTe^{-rT}N(-d_2) < 0$: a higher rate discounts the
+          strike the holder expects to receive.
+      - text: >
+          Long a European call.
+        feedback: >
+          The call's rho is positive: a higher rate cheapens the strike it will
+          have to pay.
+      - text: >
+          Long the underlying stock.
+        feedback: >
+          Spot is a model input, not a discounted cash flow, so the stock's rho
+          is zero.
+      - text: >
+          Short a European put.
+        feedback: >
+          Shorting the put flips its sign, so this position has *positive* rho.
+    rubric:
+      - >
+        Signs the put's rho negative from $-KTe^{-rT}N(-d_2)$ and explains it as
+        discounting a receipt.
+      - >
+        Notes the stock carries no rho and that shorting the put reverses the
+        sign.
+    targets:
+      - quant-finance.greeks.rho
+
+  # --- P&L attribution ---------------------------------------------------------
+
+  - id: qgrk-pnl-expansion-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      One option, quoted per share: $\Delta = 0.41$, $\Gamma = 0.028$,
+      $\Theta = -6.57$ per year, $\operatorname{Vega} = 17.4$ per one unit of
+      $\sigma$. You are long 40 contracts, each covering 100 shares. Over three
+      calendar days spot falls $2.5$ points and implied volatility rises by
+      $1.2$ volatility points. Using the four-term expansion, what is the
+      position's P&L, in dollars?
+    answer: >
+      About $-3130.8$ dollars. Take the four terms of
+      $\delta V \approx \Delta\,\delta S + \tfrac{1}{2}\Gamma(\delta S)^{2}
+      + \Theta\,\delta t + \operatorname{Vega}\,\delta\sigma$ per share.
+      Direction: $0.41(-2.5) = -1.025$. Convexity:
+      $\tfrac{1}{2}(0.028)(2.5^{2}) = \tfrac{1}{2}(0.028)(6.25) = +0.0875$ —
+      positive even though spot fell, because $(\delta S)^{2} \ge 0$ and this
+      book is long gamma. Decay: $-6.57(3/365) = -0.054$. Volatility:
+      $17.4(0.012) = +0.2088$. The sum is
+      $-1.025 + 0.0875 - 0.054 + 0.2088 = -0.7827$ per share, and the position
+      covers $40(100) = 4000$ shares, so the P&L is
+      $4000(-0.7827) = -3130.8$ dollars. Read as an attribution: the direction
+      lost $4100$, convexity returned $350$, three days cost $216$, and the vol
+      rally added $835$. Traps: signing the gamma term with the direction of the
+      move, entering $\delta\sigma = 1.2$ rather than $0.012$, and using
+      $\delta t = 3/252$ when theta is a calendar-time derivative.
+    expects: "-3130.8"
+    tolerance: 2
+    rubric:
+      - >
+        Evaluates all four terms per share with correct signs, keeping the gamma
+        term positive on a down move.
+      - >
+        Converts $1.2$ volatility points to $0.012$ and three calendar days to
+        $3/365$, then scales by $4000$ shares.
+    targets:
+      - quant-finance.greeks.pnl-expansion
+
+  - id: qgrk-pnl-expansion-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A risk system attributes each day's P&L with the four terms — delta,
+      gamma, theta, vega — on a book of short-dated equity options. On most days
+      the attribution closes to within a rounding error. On a day when spot fell
+      $4\%$ and implied volatility jumped 3 points, it leaves a large
+      unexplained residual. What is the most likely source?
+    answer: >
+      The cross terms in spot and volatility, vanna and volga, which the
+      four-term expansion drops. The expansion is a Taylor series truncated at
+      second order in spot and first order in everything else, so it keeps
+      $\tfrac{1}{2}\Gamma(\delta S)^{2}$ but omits
+      $\partial^{2}V/\partial S\,\partial\sigma$ — vanna, how delta changes when
+      vol moves — and $\partial^{2}V/\partial\sigma^{2}$ — volga, the convexity
+      of value in vol. Both are multiplied by products of the increments, so
+      they are invisible on a quiet day and large exactly when spot and vol move
+      together and move far, which is the day described. Rho is not the culprit
+      on short-dated options, where it is negligible and, in any case, small
+      unless rates moved. A model failure is possible but is not the *first*
+      explanation for a residual that appears only on a large joint move — and
+      neither is a mis-signed theta, which would leave a residual of the same
+      size every day rather than one.
+    choices:
+      - text: >
+          The dropped cross terms — vanna and volga — which are second order in
+          the joint move of spot and volatility.
+        correct: true
+        feedback: >
+          Right — they are products of increments, so they vanish on quiet days
+          and blow up on a day when both move hard.
+      - text: >
+          The omitted $\rho\,\delta r$ term.
+        feedback: >
+          Rho is negligible for short-dated options and the day described was
+          not a rate event.
+      - text: >
+          A sign error in the theta input.
+        feedback: >
+          That would leave a residual of similar size *every* day, not only on a
+          large joint move.
+      - text: >
+          The gamma term, which should have been negative because spot fell.
+        feedback: >
+          The gamma term carries $(\delta S)^{2} \ge 0$; its sign comes from the
+          position, not the direction of the move.
+    rubric:
+      - >
+        Names the expansion as truncated and identifies vanna and volga as the
+        dropped second-order cross terms.
+      - >
+        Explains why they are invisible on quiet days and large when spot and
+        vol move together.
+    targets:
+      - quant-finance.greeks.pnl-expansion
+
+  # --- delta hedging -----------------------------------------------------------
+
+  - id: qgrk-delta-hedging-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Explain why an option's delta is exactly the number of shares that
+      replicates it locally, arguing from the one-step binomial hedge ratio
+      $\Delta = (C_u - C_d)/(S_u - S_d)$, and say what continuous delta hedging
+      is doing in that light. Then name the two frictions that stop a real desk
+      from hedging continuously, and what each does to the policy.
+    answer: >
+      Start in the binomial, where the claim is exact rather than local. Hold
+      $h$ shares and $B$ in cash; over one step the portfolio is worth
+      $hS_u + B$ in the up state and $hS_d + B$ in the down state. Demand that
+      it match the option in both states and subtract the two equations: the
+      cash cancels, leaving $h(S_u - S_d) = C_u - C_d$, so
+      $h = (C_u - C_d)/(S_u - S_d)$. That is a difference quotient of option
+      value in spot — the discrete delta — and it is forced, not chosen: it is
+      the only share count for which the two unknowns can both be matched. As
+      the step shrinks the quotient becomes $\partial V/\partial S$, so delta
+      *is* the replicating share count, and the option's price is the cost of
+      that portfolio, which is why no probability of the up move appears
+      anywhere. Continuous delta hedging is this computation repeated: at each
+      instant hold $-\Delta$ shares per long option, so the portfolio has zero
+      first-order exposure to spot, and re-trade because gamma has already moved
+      $\Delta$. Two frictions break the idealisation. Hedging at $n$ discrete
+      times leaves a replication error that shrinks only like $1/\sqrt{n}$, so
+      halving the error costs four times the rebalances — the error is never
+      driven out, only paid down slowly. And every rebalance crosses the spread,
+      a cost that grows linearly in the number of trades. Put together, the
+      optimal policy is not continuous perfection but a no-trade band around
+      flat: let delta drift within a tolerance and trade only at its edges,
+      where the marginal hedging error just outweighs the marginal spread.
+    rubric:
+      - >
+        Derives $h = (C_u - C_d)/(S_u - S_d)$ by matching both states and
+        cancelling the cash, and identifies it as a difference quotient that
+        becomes $\partial V/\partial S$.
+      - >
+        Names discreteness, with error falling like $1/\sqrt{n}$, and
+        transaction costs, and concludes the optimal policy is a no-trade band.
+    targets:
+      - quant-finance.greeks.delta-hedging
+
+  - id: qgrk-delta-hedging-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A one-step binomial with $r = 0$: the stock is at $36$ and moves either to
+      $45$ or to $30$ over the step. A European call struck at $36$ is worth $9$
+      in the up state and $0$ in the down state. How many shares replicate one
+      call?
+    answer: >
+      $0.6$ shares. The hedge ratio is the difference quotient
+      $\Delta = (C_u - C_d)/(S_u - S_d) = (9 - 0)/(45 - 30) = 9/15 = 0.6$.
+      Check the replication explicitly. Hold $0.6$ shares and borrow $18$: in
+      the up state the portfolio is $0.6(45) - 18 = 27 - 18 = 9$, matching the
+      call; in the down state it is $0.6(30) - 18 = 18 - 18 = 0$, matching
+      again. Since it matches in every state, its cost is the call's value:
+      $0.6(36) - 18 = 21.6 - 18 = 3.6$. Two things to notice. No probability of
+      an up move entered the calculation at any point — replication prices the
+      option off the two states alone, which is exactly why the risk-neutral
+      measure and not the real-world one governs pricing. And the answer is a
+      *share count*, so a desk long one call sells $0.6$ shares to sit flat, the
+      same instruction the continuous hedge gives, evaluated once instead of
+      continuously.
+    expects: "0.6"
+    rubric:
+      - >
+        Computes $(C_u - C_d)/(S_u - S_d) = 0.6$ and verifies it replicates in
+        both states with the borrowing of $18$.
+      - >
+        Notes that no probability of the up move is used, and reads $0.6$ as the
+        shares sold against one long call.
+    targets:
+      - quant-finance.greeks.delta-hedging
+
+  - id: qgrk-delta-hedging-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      A book of long options is delta-hedged to exactly zero at the close, and
+      the hedge is left untouched overnight. What is the book still exposed to?
+    answer: >
+      Everything in the expansion except the first term. Hedging to zero delta
+      removes only the $\Delta\,\delta S$ term of
+      $\delta V \approx \Delta\,\delta S + \tfrac{1}{2}\Gamma(\delta S)^{2}
+      + \Theta\,\delta t + \operatorname{Vega}\,\delta\sigma$. What remains is
+      real and, for a long book, mostly favourable in one direction and costly
+      in another: gamma, which pays $\tfrac{1}{2}\Gamma(\delta S)^{2}$ on a move
+      in *either* direction and simultaneously makes the hedge stale, so the
+      book is no longer flat the moment spot ticks; theta, which is charged for
+      the night whether or not anything happens; and vega, so a gap in implied
+      volatility at the open reprices the book even if spot is unchanged. Delta
+      neutrality is emphatically not risklessness — it is neutrality to the
+      *first order in spot only*, at one instant. The one thing the book is not
+      exposed to is a small first-order move in spot, and even that protection
+      degrades as soon as gamma has moved the delta away from zero.
+    choices:
+      - text: >
+          Moves in either direction through gamma, the passage of time through
+          theta, and a repricing of implied volatility through vega.
+        correct: true
+        feedback: >
+          Right — hedging removes only the $\Delta\,\delta S$ term; the other
+          three survive untouched.
+      - text: >
+          Nothing — a position with zero delta is riskless until it is
+          re-hedged.
+        feedback: >
+          Delta neutrality is first order in spot at one instant; gamma, theta
+          and vega are all still live.
+      - text: >
+          Only theta, since the spot and volatility exposures have both been
+          hedged away.
+        feedback: >
+          Only the spot exposure was hedged, and only to first order — vega was
+          never touched.
+      - text: >
+          Only the direction of the next move, since gamma has made the hedge
+          stale.
+        feedback: >
+          Gamma's P&L carries $(\delta S)^{2}$, so it is signed by the position,
+          not by direction — and theta and vega remain.
+    rubric:
+      - >
+        States that hedging cancels only the first-order spot term and lists
+        gamma, theta and vega as surviving.
+      - >
+        Notes the gamma term is signed by the position rather than the direction
+        of the move, and that neutrality holds only at an instant.
+    targets:
+      - quant-finance.greeks.delta-hedging
+
+  # --- one rebalance, worked ---------------------------------------------------
+
+  - id: qgrk-rebalance-example-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You buy 150 contracts of at-the-money calls on a stock at $60$, each
+      contract covering 100 shares, with $\Delta = 0.55$, $\Gamma = 0.030$ and
+      $\Theta = -0.018$ per share per calendar day, and you short $8250$ shares
+      to sit flat. Over the next four calendar days spot rises to $63$, where
+      you re-hedge to flat, and then returns to $60$, where you re-hedge again.
+      Treating gamma as constant, what is the position's total P&L over the four
+      days, in dollars?
+    answer: >
+      About $+2970$ dollars. Take the two legs separately; the position covers
+      $150(100) = 15000$ options. Up to $63$: the options gain
+      $15000[0.55(3) + \tfrac{1}{2}(0.030)(9)] = 15000(1.785) = 26775$ and the
+      short $8250$ shares lose $8250(3) = 24750$, for a net
+      $+2025$, which is exactly the dollar gamma term
+      $15000 \cdot \tfrac{1}{2}\Gamma(\delta S)^{2}$. Re-hedge: the new delta is
+      $0.55 + 0.030(3) = 0.64$, so you sell a further
+      $(0.64 - 0.55)(15000) = 1350$ shares at $63$, now short $9600$. Back down
+      to $60$: the options give back
+      $15000[0.64(-3) + \tfrac{1}{2}(0.030)(9)] = -26775$ while the short
+      $9600$ shares gain $9600(3) = 28800$, a net $+2025$ again. The round trip
+      is $2025 + 2025 = 4050$, which is $15000\,\Gamma(\delta S)^{2}$ — twice
+      the one-way mark, because the second leg realizes the scalp instead of
+      reversing it. Against that, decay runs for four calendar days:
+      $15000(0.018)(4) = 1080$. Net: $4050 - 1080 = 2970$ dollars. The trap is
+      answering $2025 - 1080$, treating the return to $60$ as if it simply
+      unwound the first leg's mark — the $1350$ shares sold at $63$ and bought
+      back at $60$ are what makes the round trip pay twice the one-way move.
+    expects: "2970"
+    rubric:
+      - >
+        Prices each leg against the hedge in force for it, re-hedging $1350$
+        shares at $63$ before the second leg.
+      - >
+        Reaches $15000\,\Gamma(\delta S)^{2} = 4050$ for the round trip and
+        subtracts four calendar days of decay.
+    targets:
+      - quant-finance.greeks.rebalance-example
+
+  - id: qgrk-rebalance-example-02
+    kind: work
+    difficulty: standard
+    statement: >
+      You are long 20 contracts of a call on a stock at $25$, each contract
+      covering 100 shares, with $\Delta = 0.48$ and $\Gamma = 0.050$, hedged
+      flat by shorting $960$ shares. Spot moves to $26$ and you have not
+      re-hedged. Ignoring decay, what is the P&L of the combined position, in
+      dollars?
+    answer: >
+      $+50$ dollars. The position covers $20(100) = 2000$ options. The options
+      gain $2000[0.48(1) + \tfrac{1}{2}(0.050)(1^{2})] = 2000(0.505) = 1010$;
+      the short $960$ shares lose $960(1) = 960$; the net is $+50$. That is
+      precisely the convexity term,
+      $2000 \cdot \tfrac{1}{2}\Gamma(\delta S)^{2} =
+      \tfrac{1}{2}(0.050)(1)(2000) = 50$: the hedge was built to cancel the
+      delta term exactly, so whatever survives is second order. Two readings
+      follow. The gain would have been the same $50$ had spot fallen to $24$,
+      because $(\delta S)^{2}$ does not care about direction — that is what
+      being long gamma buys. And the hedge is now stale: the delta has risen to
+      $0.48 + 0.050(1) = 0.53$, so $100$ more shares must be sold to sit flat
+      again.
+    expects: "50"
+    rubric:
+      - >
+        Prices the option leg to second order and nets the $960$-share hedge
+        against it.
+      - >
+        Identifies the residual as $\tfrac{1}{2}\Gamma(\delta S)^{2}$ scaled to
+        the position, and notes it is the same for a down move.
+    targets:
+      - quant-finance.greeks.rebalance-example
+
+  # --- the gamma–theta balance -------------------------------------------------
+
+  - id: qgrk-gamma-theta-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      For a delta-hedged European option with $r = 0$, show that
+      $\Theta = -\tfrac{1}{2}\sigma^{2}S^{2}\Gamma$, and explain what that
+      identity means for a risk report that lists theta and gamma as two
+      separate exposures.
+    answer: >
+      Let $S$ follow $dS = \mu S\,dt + \sigma S\,dB$ and apply Itô's lemma to
+      $V(S,t)$: $dV = (\Theta + \mu S\Delta +
+      \tfrac{1}{2}\sigma^{2}S^{2}\Gamma)\,dt + \sigma S\Delta\,dB$, where the
+      second-order term survives because $(dS)^{2} = \sigma^{2}S^{2}\,dt$ is of
+      order $dt$, not $dt^{2}$. Now form the hedged portfolio: long the option,
+      short $\Delta$ shares. The share leg contributes
+      $-\Delta\,dS = -\Delta(\mu S\,dt + \sigma S\,dB)$, which cancels *both*
+      the $dB$ term and the $\mu S\Delta$ drift, leaving
+      $(\Theta + \tfrac{1}{2}\sigma^{2}S^{2}\Gamma)\,dt$ — a change with no
+      random part at all. A portfolio with no risk must earn the riskless rate
+      on its value, and with $r = 0$ that rate is zero, so
+      $\Theta + \tfrac{1}{2}\sigma^{2}S^{2}\Gamma = 0$, that is
+      $\Theta = -\tfrac{1}{2}\sigma^{2}S^{2}\Gamma$. Any other value is an
+      arbitrage: a riskless portfolio drifting upward is free money, and one
+      drifting downward is free money reversed. Note the drift $\mu$ has
+      vanished — the identity does not depend on any view about direction.
+      What it means for the risk report: theta and gamma are not two exposures
+      but one quantity written twice, with opposite signs and a conversion
+      factor of $\tfrac{1}{2}\sigma^{2}S^{2}$. You cannot buy convexity and
+      decline to pay for it, and you cannot collect decay without being short
+      convexity; a book that appears long gamma and long theta at the same
+      implied volatility has a data error. The only genuine degree of freedom is
+      *which* volatility the conversion uses — the identity holds at implied,
+      and the whole P&L of a hedged book is the difference between the variance
+      that actually arrives and the one that was charged for.
+    rubric:
+      - >
+        Applies Itô, showing the $\tfrac{1}{2}\sigma^{2}S^{2}\Gamma$ term
+        survives, and cancels both the $dB$ and $\mu$ terms with the
+        $-\Delta$-share hedge.
+      - >
+        Invokes no-arbitrage on the resulting riskless drift and concludes that
+        theta and gamma are one quantity, so they cannot be managed
+        independently.
+    targets:
+      - quant-finance.greeks.gamma-theta
+
+  - id: qgrk-gamma-theta-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A delta-hedged European option on a stock at $45$ has $\Gamma = 0.042$ per
+      share and is priced at an implied volatility of $36\%$, with $r = 0$. What
+      is its theta, per share per year?
+    answer: >
+      $-5.51$ per year. Apply
+      $\Theta = -\tfrac{1}{2}\sigma^{2}S^{2}\Gamma$ directly:
+      $\sigma^{2} = 0.36^{2} = 0.1296$ and $S^{2} = 45^{2} = 2025$, so
+      $\sigma^{2}S^{2} = 262.44$, and
+      $\Theta = -\tfrac{1}{2}(262.44)(0.042) = -\tfrac{1}{2}(11.022) = -5.511$.
+      Per calendar day that is $-5.511/365 = -0.0151$. The identity says this is
+      not an independent input: the convexity of $0.042$ *forces* a decay of
+      $5.51$ a year at $36\%$ vol, and if a screen quoted this gamma with a
+      theta of, say, $-3$, either the two are computed at different volatilities
+      or one of them is wrong. Sanity check the magnitude the other way: over
+      one trading day $\sigma^{2}\delta t = 0.1296/252 = 0.000514$, so the daily
+      break-even move is $S\sqrt{0.000514} = 45(0.0227) \approx 1.02$ points —
+      about a point, which is what a $36\%$-vol name does in a day. The trap is
+      dropping the one half, answering $-11.02$.
+    expects: "-5.51"
+    tolerance: 0.01
+    rubric:
+      - >
+        Substitutes into $\Theta = -\tfrac{1}{2}\sigma^{2}S^{2}\Gamma$, keeping
+        both the square on $S$ and the one half.
+      - >
+        Reports the sign as negative and reads the result as the rent forced by
+        the stated gamma at that implied volatility.
+    targets:
+      - quant-finance.greeks.gamma-theta
+
+  - id: qgrk-gamma-theta-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      A delta-hedged long option position has $\Gamma = 0.060$ per share and
+      $\Theta = -0.021$ per share per calendar day. Over a single day, how large
+      a move in spot, in points, exactly pays for the decay? Give the magnitude.
+    answer: >
+      About $0.837$ points. Set the convexity gain against the day's rent:
+      $\tfrac{1}{2}\Gamma(\delta S)^{2} = |\Theta|$, so
+      $(\delta S)^{2} = 2(0.021)/0.060 = 0.042/0.060 = 0.7$ and
+      $\delta S = \sqrt{0.7} = 0.8367$. The magnitude is what matters: a move of
+      $+0.84$ and a move of $-0.84$ pay identically, because the gamma term
+      carries $(\delta S)^{2}$, so this is a break-even in *size*, not in
+      direction. Below about $0.84$ points the day loses money and above it the
+      day makes money, which is the long-gamma trader's daily scoreboard. The
+      identity behind it says the break-even is not arbitrary: since
+      $\Theta = -\tfrac{1}{2}\sigma^{2}S^{2}\Gamma$ per year, the break-even
+      move is $S\sigma\sqrt{\delta t}$, precisely the one-standard-deviation
+      daily move at the implied volatility the option was priced at. Owning
+      gamma is a bet that the stock moves more than its implied daily move, day
+      after day. The trap is forgetting the one half and answering
+      $\sqrt{0.021/0.060} = 0.59$, which understates the move needed by nearly
+      thirty percent.
+    expects: "0.837"
+    tolerance: 0.002
+    rubric:
+      - >
+        Solves $\tfrac{1}{2}\Gamma(\delta S)^{2} = |\Theta|$, keeping the factor
+        of two, to get $\sqrt{0.7}$.
+      - >
+        States that the break-even is in magnitude, either direction, and
+        identifies it as the implied one-day move $S\sigma\sqrt{\delta t}$.
+    targets:
+      - quant-finance.greeks.gamma-theta
+
+  # --- realized versus implied -------------------------------------------------
+
+  - id: qgrk-vol-pnl-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You are long 500 contracts, each covering 100 shares, delta-hedged, of an
+      option with $\Gamma = 0.048$ per share on a stock at $30$, priced at an
+      implied volatility of $22\%$. Over one trading day, $\delta t = 1/252$,
+      spot moves $0.55$ points. What is the day's hedged P&L, in dollars?
+    answer: >
+      About $+155.6$ dollars. One period of a delta-hedged long option earns
+      $\tfrac{1}{2}\Gamma S^{2}[(\delta S/S)^{2} - \sigma_{\text{imp}}^{2}
+      \,\delta t]$: you collect the squared return that actually happened and
+      pay for the variance the price charged you. The scale factor is
+      $\tfrac{1}{2}\Gamma S^{2} = \tfrac{1}{2}(0.048)(900) = 21.6$ per share.
+      Realized: $(0.55/30)^{2} = (0.018333)^{2} = 0.000336$. Implied:
+      $\sigma^{2}\delta t = 0.0484/252 = 0.000192$. The difference is
+      $0.000144$, so per share the day earns $21.6(0.000144) = 0.003111$, and
+      over $500(100) = 50000$ shares that is $155.6$ dollars. Read the two
+      numbers as moves rather than variances and the day is obvious: the stock
+      moved $0.55/30 = 1.83\%$ against an implied daily move of
+      $\sqrt{0.000192} = 1.39\%$, so realized beat implied and a long-gamma book
+      is paid. Traps: annualising the realized move, or comparing $0.55$ points
+      with a percentage; and dropping the one half in $\tfrac{1}{2}\Gamma S^{2}$,
+      which doubles the answer.
+    expects: "155.6"
+    tolerance: 1.5
+    exercises:
+      - quant-finance.greeks.gamma-theta
+    rubric:
+      - >
+        Forms $\tfrac{1}{2}\Gamma S^{2}$ and compares the squared *return*
+        $(\delta S/S)^{2}$ with $\sigma^{2}\delta t$ on the same footing.
+      - >
+        Scales the per-share figure by $50000$ shares and interprets the sign as
+        realized beating implied.
+    targets:
+      - quant-finance.greeks.vol-pnl
+
+  - id: qgrk-vol-pnl-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Over one month a trader is long gamma and delta-hedges once a day. The
+      options were bought at an implied volatility of $18\%$; realized
+      volatility over the month, measured on those same daily closes, also comes
+      in at $18\%$. The hedged book nevertheless loses money. Which explanation
+      is consistent with all of that?
+    answer: >
+      The variance arrived when the book had little gamma. The total is
+      $\tfrac{1}{2}\int \Gamma_t S_t^{2}(\sigma_{\text{real}}^{2}
+      - \sigma_{\text{imp}}^{2})\,dt$, so each day's contribution is weighted by
+      that day's dollar gamma $\tfrac{1}{2}\Gamma_t S_t^{2}$ — it is not the
+      unweighted realized variance that is being compared with implied, but a
+      gamma-weighted one. Gamma peaks with spot near the strike and decays to
+      nearly nothing deep in or out of the money, so a month whose big days
+      happened after spot had drifted away from the strike, and whose quiet days
+      happened while spot sat on it, pays for variance it never collected. This
+      is the ordinary case, not a freak one: realized volatility arrives in
+      clusters rather than spread evenly, so the moves bunch into a few sessions
+      and *where spot is standing during those sessions* decides the month.
+      A realized–implied tie is therefore never a break-even by construction.
+      The delta term is not the answer — the book is hedged, and in any case
+      that term is first order and symmetric; and vega cannot be it, since
+      implied volatility is stated to have been the entry level throughout.
+    choices:
+      - text: >
+          The variance arrived in a burst while spot had drifted far from the
+          strike, where dollar gamma is small, and the quiet days fell where
+          gamma was large — the P&L is weighted by $\tfrac{1}{2}\Gamma_t
+          S_t^{2}$, not by unweighted realized variance.
+        correct: true
+        feedback: >
+          Right — clustered moves plus a gamma weighting mean a realized–implied
+          tie is not a break-even.
+      - text: >
+          The trader should have broken even; a realized–implied tie is a wash
+          by construction, so the loss must be a bookkeeping error.
+        feedback: >
+          The integral weights each day by dollar gamma, so equal realized and
+          implied volatility does not imply zero P&L.
+      - text: >
+          The loss came from the delta term, since a hedged book is still long
+          spot.
+        feedback: >
+          A delta-hedged book has no first-order spot exposure, and the month's
+          direction is not what a gamma position is betting on.
+      - text: >
+          Vega, since being long gamma means being long implied volatility.
+        feedback: >
+          Implied volatility is stated to be unchanged at $18\%$, so the vega
+          term contributes nothing here.
+    rubric:
+      - >
+        Identifies the P&L as dollar-gamma weighted, so days near the strike
+        count far more than days away from it.
+      - >
+        Notes that realized volatility clusters, so the moves concentrate in a
+        few sessions and their timing relative to the strike decides the month.
+    targets:
+      - quant-finance.greeks.vol-pnl
+      - quant-statistics.time-series.vol-clustering
+    connects:
+      - quant-finance.greeks.vol-pnl ~ quant-statistics.time-series.vol-clustering
+
+  # --- gamma scalping ----------------------------------------------------------
+
+  - id: qgrk-gamma-scalping-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You are long 80 contracts, each covering 100 shares, delta-hedged, with
+      $\Gamma = 0.045$ per share and $\Theta = -0.028$ per share per calendar
+      day. Over five calendar days spot completes five clean round trips of
+      $1.2$ points each — up $1.2$, then back — and ends the week exactly where
+      it began. Treating gamma as constant and re-hedging at every turning
+      point, what is the week's P&L, in dollars?
+    answer: >
+      About $+1472$ dollars. Each completed round trip of size $\delta S$ takes
+      $\Gamma(\delta S)^{2}$ per option — the full round trip, not the one-way
+      half, because the shares sold at the top are bought back at the bottom.
+      Here that is $0.045(1.2^{2}) = 0.045(1.44) = 0.0648$ per option, and the
+      position covers $80(100) = 8000$ options, so each round trip scalps
+      $8000(0.0648) = 518.4$ dollars. Five of them give
+      $5(518.4) = 2592$. The subscription fee is theta:
+      $8000(0.028)(5) = 1120$ dollars over the five days. The week nets
+      $2592 - 1120 = 1472$ dollars. The lesson is in the last clause of the
+      setup: spot ended exactly where it started, and the book still made money,
+      because what pays is accumulated squared movement, not net direction. A
+      short-gamma book with the same numbers would have run the machine
+      backwards — buying each top and selling each bottom — and lost the same
+      $2592$ while collecting the $1120$. The trap is using
+      $\tfrac{1}{2}\Gamma(\delta S)^{2}$ per round trip, which prices only the
+      one-way leg and answers $1296 - 1120 = 176$.
+    expects: "1472"
+    rubric:
+      - >
+        Uses $\Gamma(\delta S)^{2}$ per option per completed round trip, without
+        the one half, and multiplies by five trips and $8000$ options.
+      - >
+        Subtracts five calendar days of decay and notes the P&L comes from
+        squared movement, not net direction.
+    targets:
+      - quant-finance.greeks.gamma-scalping
+
+  - id: qgrk-gamma-scalping-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A trader is short gamma and hedges back to flat after every move. What
+      does that hedging program force them to do?
+    answer: >
+      Buy after a rally and sell after a decline — buy high and sell low. Short
+      gamma means delta falls as spot rises, so after a rally the book's delta
+      has gone *more negative* and flattening it requires buying stock at the
+      new, higher price; after a decline the delta has risen and flattening
+      requires selling at the new, lower price. That is the long-gamma machine
+      run backwards: a long-gamma hedger sells into rallies and buys into dips,
+      collecting $\Gamma(\delta S)^{2}$ per round trip and paying theta for the
+      privilege, while the short-gamma hedger pays that amount out and collects
+      the theta instead. It is also why a short book's losses accelerate exactly
+      when the market is moving: every rebalance locks in a loss, and the
+      rebalances come faster the more spot oscillates. Doing nothing is not an
+      alternative — an unhedged short-gamma book simply converts the scalping
+      loss into an unhedged directional one, which is generally worse.
+    choices:
+      - text: >
+          Buy after a rally and sell after a decline — buy high, sell low.
+        correct: true
+        feedback: >
+          Right — a short-gamma delta moves against you, so flattening always
+          trades in the direction the market just went.
+      - text: >
+          Sell after a rally and buy after a decline — buy low, sell high.
+        feedback: >
+          That is the *long*-gamma program, the buy-low-sell-high machine funded
+          by theta.
+      - text: >
+          Nothing — a short-gamma book's delta does not change as spot moves.
+        feedback: >
+          Gamma is exactly the rate at which delta changes; short gamma means it
+          changes against you.
+      - text: >
+          Trade only when implied volatility changes, since the exposure is a
+          vega one.
+        feedback: >
+          The rehedging schedule is driven by spot moving, not by implied
+          volatility repricing.
+    rubric:
+      - >
+        Reasons from $\Gamma < 0$ that delta moves against the hedger, so
+        flattening chases the market.
+      - >
+        Contrasts it with the long-gamma buy-low-sell-high program and notes the
+        losses accelerate as movement increases.
+    targets:
+      - quant-finance.greeks.gamma-scalping
+
+  # --- the 0.4 sigma S root-T rule ---------------------------------------------
+
+  - id: qgrk-atm-approx-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A one-month at-the-money-forward European call on a stock at $90$ trades
+      at $2.15$. Using $C \approx 0.4\,\sigma S\sqrt{T}$ with $T = 1/12$, what
+      implied volatility is that price quoting? Give it as a decimal.
+    answer: >
+      About $0.207$, that is roughly $20.7\%$. Run the rule backwards:
+      $\sigma \approx C/(0.4 S\sqrt{T})$. The only real work is
+      $\sqrt{1/12} = \sqrt{0.08333}$, which is a linearization off the nearest
+      easy square: $\sqrt{0.09} = 0.3$, and
+      $\sqrt{0.08333} \approx 0.3 - 0.006667/(2 \cdot 0.3)
+      = 0.3 - 0.0111 = 0.2889$, against a true $0.28868$ — accurate to four
+      decimals, which is far better than the option rule it feeds. Then
+      $0.4(90)(0.2887) = 10.39$, and $\sigma \approx 2.15/10.39 = 0.207$. The
+      $0.4$ is $1/\sqrt{2\pi} = 0.3989$, and the approximation is good to about
+      $1\%$ while $\sigma\sqrt{T} \le 0.3$; here $\sigma\sqrt{T} = 0.06$, so it
+      is very safe. A cross-check to say out loud: at $20.7\%$ vol the implied
+      one-month move is $\sigma S\sqrt{T} = 0.207(90)(0.2887) = 5.38$ points,
+      and the call costs $2.15$, about $0.4$ of that move — which is the rule
+      restated. The trap is using $T = 1$ month rather than $1/12$ of a year.
+    expects: "0.207"
+    tolerance: 0.003
+    connects:
+      - quant-finance.greeks.atm-approx ~ quant-mental.approximation.sqrt-estimate
+    rubric:
+      - >
+        Rearranges to $\sigma \approx C/(0.4 S\sqrt{T})$ and evaluates
+        $\sqrt{1/12} \approx 0.289$ by linearizing off $\sqrt{0.09} = 0.3$.
+      - >
+        Expresses $T$ in years and sanity-checks the result against the implied
+        one-month move.
+    targets:
+      - quant-finance.greeks.atm-approx
+      - quant-mental.approximation.sqrt-estimate
+
+  - id: qgrk-atm-approx-02
+    kind: work
+    difficulty: routine
+    statement: >
+      A three-month at-the-money-forward European call on a stock at $250$ has
+      an implied volatility of $16\%$, with $r = 0$. What is it worth per share,
+      by the $0.4\,\sigma S\sqrt{T}$ rule?
+    answer: >
+      About $8$ per share. Substitute directly:
+      $\sqrt{T} = \sqrt{0.25} = 0.5$, so
+      $C \approx 0.4(0.16)(250)(0.5) = 0.4(0.16)(125) = 8.00$. The structure of
+      the rule is worth keeping in view — the price is a fixed fraction of the
+      implied move over the option's life, since
+      $\sigma S\sqrt{T} = 0.16(250)(0.5) = 20$ is the one-standard-deviation
+      move and $0.4$ of it is $8$. The accuracy: the constant is
+      $1/\sqrt{2\pi} = 0.3989$ and the error stays under about $1\%$ for
+      $\sigma\sqrt{T} \le 0.3$; here $\sigma\sqrt{T} = 0.08$, so $8.00$ is good
+      to a cent or two against a full Black–Scholes valuation. The trap is
+      putting $T = 3$ into the square root instead of $0.25$, or forgetting the
+      square root altogether and answering $4$.
+    expects: "8"
+    rubric:
+      - >
+        Converts three months to $T = 0.25$ and evaluates
+        $0.4\,\sigma S\sqrt{T}$.
+      - >
+        Reads the price as $0.4$ of the implied move $\sigma S\sqrt{T} = 20$ and
+        notes where the approximation is accurate.
+    targets:
+      - quant-finance.greeks.atm-approx
+
+  # --- the straddle rule -------------------------------------------------------
+
+  - id: qgrk-straddle-approx-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A three-month at-the-money-forward straddle on a stock at $140$ is priced
+      at an implied volatility of $24\%$, with $r = 0$. Using
+      $0.8\,\sigma S\sqrt{T}$, what is the upper expiry break-even price?
+    answer: >
+      $153.44$. The straddle costs about
+      $0.8(0.24)(140)(0.5) = 0.8(0.24)(70) = 13.44$, twice the at-the-money call
+      because it is a call plus a put at the same strike. At expiry it pays
+      $|S_T - K|$, so it breaks even where that payoff equals the premium: at
+      $140 \pm 13.44$, giving $126.56$ and $153.44$. Now the reading that makes
+      this an interview answer rather than an arithmetic one. The implied
+      one-standard-deviation move over the life is
+      $\sigma S\sqrt{T} = 0.24(140)(0.5) = 16.8$, and the straddle costs
+      $13.44 = 0.8(16.8)$ — the constant $0.8$ is $\sqrt{2/\pi} = 0.798$, which
+      is $\mathbb{E}|Z|$ for a standard normal, exactly right for a payoff of
+      $|S_T - K|$ against a terminal move of roughly $S\sigma\sqrt{T}\,Z$. So
+      the break-even is only $0.8$ standard deviations away, which happens with
+      probability about $42\%$: buying a straddle is not a long-shot bet, it is
+      a slightly-worse-than-even one whose value comes from the size of the tail
+      rather than the chance of clearing the strike. The trap is using $0.4$,
+      the *call* constant, and quoting break-evens at $133.28$ and $146.72$.
+    expects: "153.44"
+    tolerance: 0.02
+    exercises:
+      - quant-finance.options.straddle
+    rubric:
+      - >
+        Prices the straddle as $0.8\,\sigma S\sqrt{T} = 13.44$ and places the
+        break-evens at $K$ plus and minus the premium.
+      - >
+        Relates $0.8$ to $\mathbb{E}|Z| = \sqrt{2/\pi}$ and the premium to the
+        implied one-sigma move of $16.8$.
+    targets:
+      - quant-finance.greeks.straddle-approx
+
+  - id: qgrk-straddle-approx-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A three-month at-the-money-forward straddle on a stock at $64$ is offered
+      at $6.40$, with $r = 0$. What implied volatility is that offer quoting?
+      Give it as a decimal.
+    answer: >
+      $0.25$, that is $25\%$. Invert the straddle rule:
+      $\sigma \approx \text{straddle}/(0.8 S\sqrt{T})$. With $\sqrt{T} = 0.5$
+      the denominator is $0.8(64)(0.5) = 25.6$, so
+      $\sigma \approx 6.40/25.6 = 0.25$. A straddle price *is* a volatility
+      quote, which is why traders often make markets in straddles rather than in
+      single options: the position is delta-neutral at the money, so the number
+      being negotiated is the vol and nothing else. Cross-check the answer
+      against the move it implies: at $25\%$ vol the three-month one-sigma move
+      is $\sigma S\sqrt{T} = 0.25(64)(0.5) = 8$, and $0.8$ of $8$ is $6.40$,
+      which is the offer. Break-evens sit at $57.60$ and $70.40$. The trap is
+      dividing by the call constant $0.4$ instead of $0.8$, which doubles the
+      answer to $50\%$ — a quote no one would recognise on the name described.
+    expects: "0.25"
+    exercises:
+      - quant-finance.options.straddle
+    rubric:
+      - >
+        Rearranges the straddle rule to $\sigma \approx \text{straddle}/(0.8
+        S\sqrt{T})$ with $T$ in years.
+      - >
+        Checks the result against the implied one-sigma move of $8$, of which
+        the straddle is $0.8$.
+    targets:
+      - quant-finance.greeks.straddle-approx

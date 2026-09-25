@@ -139,13 +139,34 @@ test that had to be weakened.
 Landmark and high-traffic nodes carry two problems, so a session that spends a
 problem on one node can still probe it again later.
 
+## Since Phase 15: mastery-first, machine-checked
+
+The bank now serves §6.7's mastery sets and the course's unit tests as well as
+placement, which raises the bar `content-quant-problems/README.md` set for the
+quant tree to this bank too: **every content node carries at least two
+problems, one `demanding` and one `standard` or `routine`**; every `work` and
+`decide` problem carries a check (`expects` for a number, `choices` for
+anything else — in a mathematics course that is most answers: a derivative, a
+subgroup, a negated quantifier, a hypothesis that fails); only `justify`
+self-grades, and its rubric is the whole instrument. The worked `answer` shows
+the computation. Landmark nodes carry three problems.
+
+Existing problems keep their ids (evidence logs reference them) and gain
+`expects`/`choices` where their answer admits one. The author's pre-flight
+check is `python3 Scripts/check-problem-file.py <unit-id>`; `ContentBuild
+validate` remains the authority.
+
 ## Current contents
 
-32 problems over the 22 content nodes of design.md Appendix A — which *is* the
-single-variable-calculus content; the M2 authoring track never ran separately, see
-the Phase 8 decision log. `mvc-leibniz-01` is the bank's one `connects` problem,
-and the only thing in the system that can score a `relates` edge.
+706 problems over all 322 content nodes of the fifteen authored units (Phase
+15): every node carries at least two, one `demanding` and one `standard` or
+`routine`, and every `work`/`decide` problem is machine-checked. The files
+mirror `content/`: `foundations/` (nine units), `analysis/{svc,mvc,sequences}`,
+`linear-algebra/systems`, `number-theory/divisibility`, `algebra/groups`.
+`mvc-leibniz-01` and `ind-ex-sum-of-squares-01` are the `connects` problems —
+the only things in the system that can score a `relates` edge.
 
-Placement-ready: `foundations.real`, `analysis.svc`, `analysis.mvc`. Every other
-subbranch in the outline is content-only for now; the bank is the long pole of
-Phase 9's remaining work and the manifest is where it is tracked.
+Placement-ready: all fifteen authored subbranches; `PlacementFixtureTests`'
+manifest lists them and asserts it equals the fully covered set in both
+directions, so a new unit's bank must add itself there. Every other subbranch
+in the outline is content-only until it is authored.

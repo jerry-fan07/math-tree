@@ -58,6 +58,8 @@ public enum DiagnosticRule: String, Codable, Hashable, Sendable, CaseIterable {
     case duplicateProgramUnit = "duplicate-program-unit"
     case programMissingSubbranch = "program-missing-subbranch"
     case programOrderViolation = "program-order-violation"
+    case programForwardStale = "program-forward-stale"
+    case programForwardUnexplained = "program-forward-unexplained"
     case emptyProgramPartTitle = "empty-program-part-title"
     case lessonUnitNotInProgram = "lesson-unit-not-in-program"
     case lessonUnitMissingOpening = "lesson-unit-missing-opening"
@@ -83,6 +85,18 @@ public enum DiagnosticRule: String, Codable, Hashable, Sendable, CaseIterable {
     case checkUnparsableAnswer = "check-unparsable-answer"
     case checkNonPositiveTolerance = "check-non-positive-tolerance"
     case checkMissingFeedback = "check-missing-feedback"
+
+    // Socratic dialogues (§6.9). A reflection's rules hold wherever the card
+    // appears; the `dialogue-` rules hold the dialogue contract, which binds only
+    // a lesson that opted into it by authoring `dialogue` instead of `steps`.
+    case lessonReflectionMissingAnswer = "lesson-reflection-missing-answer"
+    case lessonStrayAnswer = "lesson-stray-answer"
+    case lessonStepsAndDialogue = "lesson-steps-and-dialogue"
+    case dialogueOpensWithoutPart = "dialogue-opens-without-part"
+    case dialogueLecture = "dialogue-lecture"
+    case dialogueThin = "dialogue-thin"
+    case dialogueNoReflection = "dialogue-no-reflection"
+    case dialogueChoiceWithoutWhy = "dialogue-choice-without-why"
 }
 
 /// One invariant violation. Typed rather than pass/fail so `ContentBuild` can group,

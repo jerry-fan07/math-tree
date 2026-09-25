@@ -18,16 +18,72 @@ public struct ProgramSpine: Codable, Hashable, Sendable {
         }
     }
 
-    public let parts: [Part]
+    /// A cross-unit `requires` edge the spine *accepts* pointing forward (D15.2).
+    ///
+    /// The linear-extension rule is the load-bearing one (D12.1), and it stays an
+    /// error — but a corpus whose subbranches genuinely need each other (the
+    /// math tree's relations ↔ functions, cardinality ↔ number systems) has no
+    /// order that satisfies it. Rather than weaken the rule or re-home nodes
+    /// whose ids are permanent, the author names each forward edge here with a
+    /// note saying why the order is right anyway. The validator holds the list
+    /// exactly: an undeclared forward edge is still `program-order-violation`,
+    /// and a declared one that is no longer forward is `program-forward-stale`,
+    /// so the list can neither hide a mistake nor rot.
+    public struct ForwardReference: Codable, Hashable, Sendable {
+        /// The node that requires something taught later.
+        public let node: NodeID
+        /// The prerequisite, which lives in a later unit.
+        public let requires: NodeID
+        /// The reviewer's sign-off — what the reader is expected to bring to the
+        /// earlier step, or why the reference is benign there.
+        public let note: String
 
-    public init(parts: [Part]) {
+        public init(node: NodeID, requires: NodeID, note: String) {
+            self.node = node
+            self.requires = requires
+            self.note = note
+        }
+    }
+
+    /// The course's name — "Undergraduate Mathematics", "Quant Interview
+    /// Preparation". Authored, because a program is a course and a course has a
+    /// name; `nil` on a spine authored before Phase 15, and the app falls back
+    /// to the window's.
+    public let title: String?
+    public let parts: [Part]
+    /// Accepted forward references, usually empty. See `ForwardReference`.
+    public let forward: [ForwardReference]
+
+    public init(title: String? = nil, parts: [Part], forward: [ForwardReference] = []) {
+        self.title = title
         self.parts = parts
+        self.forward = forward
     }
 
     /// Every unit in program order — the flattened spine.
     public var units: [NodeID] { parts.flatMap(\.units) }
 
     public var isEmpty: Bool { parts.allSatisfy(\.units.isEmpty) }
+
+    enum CodingKeys: String, CodingKey {
+        case title, parts, forward
+    }
+
+    // Hand-written so a spine with no title and no forward references encodes
+    // without either key (ground rule 5's `encodeIfPresent` discipline).
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        title = try c.decodeIfPresent(String.self, forKey: .title)
+        parts = try c.decode([Part].self, forKey: .parts)
+        forward = try c.decodeIfPresent([ForwardReference].self, forKey: .forward) ?? []
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(title, forKey: .title)
+        try c.encode(parts, forKey: .parts)
+        if !forward.isEmpty { try c.encode(forward, forKey: .forward) }
+    }
 }
 
 /// §6.6's lesson: authored *teaching* text for one content node. The node's
@@ -62,6 +118,12 @@ public struct Lesson: Codable, Hashable, Sendable, Identifiable {
     /// `cards` then derives a paging from the prose above (D13.1) — so this being
     /// empty changes how good the lesson is, never whether it works.
     public let steps: [LessonCard]
+    /// §6.9's Socratic dialogue: the lesson rebuilt as questions that lead the
+    /// reader to the idea before it is named. Replaces `steps` where authored —
+    /// a lesson carries one or the other, never both (`lesson-steps-and-dialogue`)
+    /// — and is held to the dialogue contract (at most two beats between
+    /// questions, parts, a reflection) that `steps` never was.
+    public let dialogue: [LessonCard]
 
     public var id: NodeID { node }
 
@@ -73,7 +135,8 @@ public struct Lesson: Codable, Hashable, Sendable, Identifiable {
         interview: String? = nil,
         pitfalls: String? = nil,
         recap: String,
-        steps: [LessonCard] = []
+        steps: [LessonCard] = [],
+        dialogue: [LessonCard] = []
     ) {
         self.node = node
         self.hook = hook
@@ -83,10 +146,11 @@ public struct Lesson: Codable, Hashable, Sendable, Identifiable {
         self.pitfalls = pitfalls
         self.recap = recap
         self.steps = steps
+        self.dialogue = dialogue
     }
 
     enum CodingKeys: String, CodingKey {
-        case node, hook, explanation, worked, interview, pitfalls, recap, steps
+        case node, hook, explanation, worked, interview, pitfalls, recap, steps, dialogue
     }
 
     // Hand-written for the same reason `Node`'s is: absent sections decode as nil
@@ -101,6 +165,7 @@ public struct Lesson: Codable, Hashable, Sendable, Identifiable {
         pitfalls = try c.decodeIfPresent(String.self, forKey: .pitfalls)
         recap = try c.decode(String.self, forKey: .recap)
         steps = try c.decodeIfPresent([LessonCard].self, forKey: .steps) ?? []
+        dialogue = try c.decodeIfPresent([LessonCard].self, forKey: .dialogue) ?? []
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -113,6 +178,7 @@ public struct Lesson: Codable, Hashable, Sendable, Identifiable {
         try c.encodeIfPresent(pitfalls, forKey: .pitfalls)
         try c.encode(recap, forKey: .recap)
         if !steps.isEmpty { try c.encode(steps, forKey: .steps) }
+        if !dialogue.isEmpty { try c.encode(dialogue, forKey: .dialogue) }
     }
 }
 
@@ -173,6 +239,11 @@ public struct Program: Sendable {
     /// split D12.4 made for lesson coverage itself, for the same reason.
     public var interactiveLessonCount: Int {
         lessonsByNode.values.count(where: \.isInteractive)
+    }
+
+    /// §6.9 coverage: lessons taught as Socratic dialogues.
+    public var dialogueLessonCount: Int {
+        lessonsByNode.values.count(where: \.isDialogue)
     }
 
     public func lesson(for node: NodeID) -> Lesson? { lessonsByNode[node] }

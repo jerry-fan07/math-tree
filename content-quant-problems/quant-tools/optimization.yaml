@@ -1,0 +1,1489 @@
+# Problems targeting quant-tools.optimization — convexity, first- and
+# second-order conditions, quadratic minimization, Lagrange and KKT.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over, and every instance here is fresh
+# (no lesson worked example, no card's numbers). See ../README.md.
+
+problems:
+  # --- convex sets -----------------------------------------------------------
+
+  - id: qoptim-convex-set-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A convex set $C \subseteq \mathbb{R}^{2}$ is known to contain the three
+      points $(0,0)$, $(6,0)$ and $(0,9)$. What is the smallest possible area
+      of $C$?
+    answer: >
+      $27$. Convexity is a segment condition, and applying it twice fills the
+      triangle: first, $C$ contains the whole segment from $(0,0)$ to $(6,0)$;
+      second, for each point $p$ of that segment, $C$ contains the segment from
+      $(0,9)$ to $p$. Sweeping $p$ along the base sweeps out the entire filled
+      triangle with vertices $(0,0)$, $(6,0)$, $(0,9)$, whose area is
+      $\tfrac{1}{2} \cdot 6 \cdot 9 = 27$. That is a lower bound; it is attained
+      because the triangle is itself convex, so no smaller convex set contains
+      the three points. The trap is answering $0$ from the three edges alone —
+      the boundary contains its vertices but not the segments between opposite
+      sides, so it is not convex.
+    expects: "27"
+    rubric:
+      - >
+        Applies the segment property twice — base first, then apex to base — to
+        conclude the *filled* triangle lies in $C$, not just its edges.
+      - >
+        Says why $27$ is attained and not merely a lower bound: the triangle is
+        convex, so it is itself a legitimate $C$.
+    targets:
+      - quant-tools.optimization.convex-set
+
+  - id: qoptim-convex-set-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Which of these subsets of $\mathbb{R}^{2}$ is *not* convex?
+    answer: >
+      The region below the parabola, $\{(x,y) : y \le x^{2}\}$. Take
+      $(-1, 1)$ and $(1, 1)$: both satisfy $y \le x^{2}$ with equality. Their
+      midpoint is $(0,1)$, which needs $1 \le 0$ — false — so the segment
+      leaves the set and the definition fails. The other three are convex for
+      the standard reasons: $\{y \ge x^{2}\}$ is the epigraph of the convex
+      function $x^{2}$; $\{|x| + |y| \le 3\}$ is the intersection of the four
+      halfspaces $\pm x \pm y \le 3$; and the third is an intersection of three
+      halfspaces. Any intersection of convex sets is convex, which is how a
+      real feasible region — a budget line plus no-short constraints plus a
+      leverage cap — is certified without touching the definition.
+    choices:
+      - text: >
+          $\{(x,y) : y \ge x^{2}\}$
+        feedback: >
+          Convex — it is the epigraph of $x^{2}$, and a function is convex
+          exactly when its epigraph is.
+      - text: >
+          $\{(x,y) : y \le x^{2}\}$
+        correct: true
+        feedback: >
+          The segment joining $(-1,1)$ and $(1,1)$ passes through $(0,1)$,
+          which fails $y \le x^{2}$.
+      - text: >
+          $\{(x,y) : |x| + |y| \le 3\}$
+        feedback: >
+          Convex — an intersection of the four halfspaces $\pm x \pm y \le 3$,
+          and intersections of convex sets are convex.
+      - text: >
+          $\{(x,y) : x \ge 0,\ y \ge 0,\ x + 2y \le 4\}$
+        feedback: >
+          Convex — three halfspaces intersected, the shape every linear
+          feasible region has.
+    rubric:
+      - >
+        Exhibits two points of the chosen set whose midpoint leaves it, rather
+        than arguing from the shape of the boundary curve.
+    targets:
+      - quant-tools.optimization.convex-set
+
+  # --- convex functions ------------------------------------------------------
+
+  - id: qoptim-convexity-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      For which real $a$ is $f(x) = x^{4} + a x^{3} + 6x^{2}$ convex on all of
+      $\mathbb{R}$? Give the largest such $a$.
+    answer: >
+      $a = 4$. In one variable convexity on an interval is exactly
+      $f'' \ge 0$ throughout, and
+      $f''(x) = 12x^{2} + 6ax + 12$. A quadratic with positive leading
+      coefficient is nonnegative everywhere precisely when its discriminant is
+      $\le 0$: $(6a)^{2} - 4 \cdot 12 \cdot 12 = 36a^{2} - 576 \le 0$, so
+      $a^{2} \le 16$ and $-4 \le a \le 4$. At the endpoint $a = 4$ the second
+      derivative is $12x^{2} + 24x + 12 = 12(x+1)^{2} \ge 0$, which vanishes
+      only at the single point $x = -1$ — still convex (just not strictly). For
+      $a$ slightly above $4$ the discriminant is positive, so $f''$ is negative
+      on an interval and the chord test fails there.
+    expects: "4"
+    rubric:
+      - >
+        Reduces convexity to $f'' \ge 0$ *for every* $x$, and turns that into a
+        discriminant condition rather than checking a few sample points.
+      - >
+        Keeps the endpoint $a = 4$: an $f''$ that touches zero at one point is
+        still convex, so the inequality on the discriminant is not strict.
+    targets:
+      - quant-tools.optimization.convexity
+
+  - id: qoptim-convexity-02
+    kind: work
+    difficulty: standard
+    statement: >
+      For which $k$ is $f(x,y) = x^{2} + 6xy + k y^{2}$ convex on
+      $\mathbb{R}^{2}$? Give the smallest such $k$.
+    answer: >
+      $k = 9$. The Hessian is constant with rows $(2, 6)$ and $(6, 2k)$, and
+      convexity on $\mathbb{R}^{2}$ is exactly positive semidefiniteness
+      everywhere. For a symmetric $2 \times 2$ matrix that means both diagonal
+      entries $\ge 0$ and $\det \ge 0$: here $4k - 36 \ge 0$, so $k \ge 9$. At
+      $k = 9$ the function is $(x + 3y)^{2}$ — convex, though not strictly,
+      since it is constant along the line $x + 3y = 0$. For $k = 8$ the
+      determinant is $-4 < 0$ and the chord test fails concretely: $f(3,-1) =
+      9 - 18 + 8 = -1$ and $f(-3,1) = -1$, while their midpoint $(0,0)$ gives
+      $f = 0$, which is *above* the chord value $-1$.
+    expects: "9"
+    rubric:
+      - >
+        Uses the semidefinite (not definite) test, so the boundary case $k = 9$
+        counts as convex.
+      - >
+        Reads the Hessian with the correct factor of $2$ on the cross term: the
+        off-diagonal entry is $6$, not $3$.
+    targets:
+      - quant-tools.optimization.convexity
+
+  - id: qoptim-convexity-03
+    kind: work
+    difficulty: routine
+    statement: >
+      Verify convexity of $f(x) = e^{2x}$ directly from the chord definition at
+      $x = 0$, $y = 1$, $t = \tfrac{1}{2}$: compute the chord gap
+      $\tfrac{1}{2}f(0) + \tfrac{1}{2}f(1) - f(\tfrac{1}{2})$, to four decimal
+      places.
+    answer: >
+      $1.4762$. The chord definition compares the average of the endpoint
+      values with the value at the average point:
+      $\tfrac{1}{2}f(0) + \tfrac{1}{2}f(1) = \tfrac{1}{2}(1) +
+      \tfrac{1}{2}e^{2} = 0.5 + 3.6945 = 4.1945$, while
+      $f(\tfrac{1}{2}) = e^{2 \cdot 0.5} = e \approx 2.7183$. The gap is
+      $4.1945 - 2.7183 = 1.4762 > 0$, so the chord lies strictly above the
+      graph at the midpoint, as convexity requires. The common slip is
+      evaluating $f$ at $\tfrac{1}{2}$ as $e^{1/2} \approx 1.6487$ instead of
+      $e^{1}$ — the exponent is $2x$, not $x$.
+    expects: "1.4762"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Evaluates $f$ at the midpoint of the *inputs*, $f(0.5) = e$, rather
+        than averaging $f$ values a second time.
+      - >
+        Reports a positive gap and reads it as the chord lying above the graph.
+    targets:
+      - quant-tools.optimization.convexity
+
+  # --- operations preserving convexity ---------------------------------------
+
+  - id: qoptim-convex-operations-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A candidate certifies $f(x) = e^{-x^{2}}$ as convex like this: "$e^{u}$ is
+      convex and nondecreasing, so $e^{g(x)}$ is convex for any $g$ — in
+      particular for $g(x) = -x^{2}$." The conclusion is false. Find the
+      smallest $c > 0$ such that $f$ really is convex on $[c, \infty)$, to four
+      decimal places.
+    answer: >
+      $c \approx 0.7071$, that is $1/\sqrt{2}$. The composition rule says
+      $h(u(x))$ is convex when $h$ is convex *and nondecreasing* and $u$ is
+      convex. Here $h(u) = e^{u}$ passes both of its tests, but the inner
+      function $u(x) = -x^{2}$ is concave, not convex, so the rule was never
+      applicable — no hypothesis of it holds for the inside. Checking directly,
+      $f'(x) = -2x e^{-x^{2}}$ and
+      $f''(x) = e^{-x^{2}}(4x^{2} - 2)$. Since $e^{-x^{2}} > 0$ always, the
+      sign is that of $4x^{2} - 2$, so $f'' \ge 0$ exactly when
+      $x^{2} \ge \tfrac{1}{2}$. On the positive side that is
+      $x \ge 1/\sqrt{2} \approx 0.70711$: the Gaussian bump is concave across
+      its peak and convex out in the tails, which is where its inflection
+      points sit.
+    expects: "0.7071"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Names the failing hypothesis as the *inner* function being concave, not
+        as $e^{u}$ failing to be convex or nondecreasing.
+      - >
+        Solves $4x^{2} - 2 \ge 0$ after factoring out the strictly positive
+        $e^{-x^{2}}$, rather than sign-checking $f''$ numerically at a point.
+    targets:
+      - quant-tools.optimization.convex-operations
+
+  - id: qoptim-convex-operations-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Let $f(x) = \max(x^{2} - 2x,\ 3 - x)$ on $\mathbb{R}$. What is
+      $\min_{x} f(x)$, to four decimal places?
+    answer: >
+      $\approx 0.6972$, exactly $(5 - \sqrt{13})/2$. The pointwise maximum of
+      convex functions is convex, so $f$ is convex and a single local minimum
+      settles the problem. The two pieces cross where
+      $x^{2} - 2x = 3 - x$, i.e. $x^{2} - x - 3 = 0$, at
+      $x = (1 \pm \sqrt{13})/2 \approx -1.3028$ and $2.3028$. Between the roots
+      $3 - x$ is the larger piece and is strictly decreasing; outside them
+      $x^{2} - 2x$ is the larger piece, and it increases to the right of its
+      vertex $x = 1$. So $f$ decreases up to $x = (1+\sqrt{13})/2$ and
+      increases after, and the minimum is at that crossing:
+      $f = 3 - (1+\sqrt{13})/2 = (5 - \sqrt{13})/2 \approx 0.69722$. Note the
+      minimizer is a kink, where $f$ has no derivative at all — setting
+      $f' = 0$ would have found nothing.
+    expects: "0.6972"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Certifies convexity from the pointwise-maximum rule instead of
+        differentiating a piecewise formula and hoping.
+      - >
+        Locates the minimum at the crossing of the two pieces and checks it is
+        the *right-hand* crossing, not the left one.
+    targets:
+      - quant-tools.optimization.convex-operations
+
+  # --- strict convexity, uniqueness and existence ----------------------------
+
+  - id: qoptim-strict-convexity-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Minimize $f(x) = x^{2} + \dfrac{16}{x}$ over $x \in (0, \infty)$. What is
+      the minimum value?
+    answer: >
+      $12$. Two separate arguments are needed before the calculus counts.
+      Uniqueness: $f''(x) = 2 + 32/x^{3} > 0$ on $(0,\infty)$, so $f$ is
+      strictly convex there and has at most one minimizer. Existence:
+      $f(x) \to \infty$ as $x \to 0^{+}$ (the $16/x$ term) and as
+      $x \to \infty$ (the $x^{2}$ term), so $f$ is coercive on the open
+      interval and a minimizer exists. Then
+      $f'(x) = 2x - 16/x^{2} = 0$ gives $2x^{3} = 16$, $x^{*} = 2$, and
+      $f(2) = 4 + 8 = 12$. The trap is solving $2x^{3} = 16$ over all of
+      $\mathbb{R}$ and reporting a stationary point outside the domain, or
+      quoting strict convexity as though it also delivered existence — it does
+      not, as $e^{x}$ on $\mathbb{R}$ shows.
+    expects: "12"
+    rubric:
+      - >
+        Argues existence separately from uniqueness — coercivity at both ends
+        of the open interval, not strict convexity alone.
+      - >
+        Solves the first-order condition inside $(0,\infty)$ and evaluates $f$
+        there, giving a value rather than only a minimizer.
+    targets:
+      - quant-tools.optimization.strict-convexity
+
+  - id: qoptim-strict-convexity-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Consider $f(x,y) = (x + 2y - 3)^{2}$ on $\mathbb{R}^{2}$. Which statement
+      is correct?
+    answer: >
+      $f$ is convex but not strictly, and its minimizers form a whole line. The
+      Hessian is constant with rows $(2, 4)$ and $(4, 8)$: both diagonal
+      entries are positive and $\det = 16 - 16 = 0$, so it is positive
+      semidefinite but singular — convexity yes, strict convexity no. The
+      failure is visible directly: along the line $x + 2y = 3$ the function is
+      identically $0$, so for two points $x \ne y$ of that line the chord
+      inequality holds with equality, not strictly. Since $f \ge 0$ everywhere
+      and $f = 0$ exactly on that line, the minimum value $0$ is attained at
+      every one of its points, and $\arg\min f$ is a line rather than a point.
+      Strict convexity is what buys uniqueness; without it, a convex problem
+      can perfectly well have infinitely many optima.
+    choices:
+      - text: >
+          $f$ is strictly convex, so it has a unique minimizer
+        feedback: >
+          The Hessian has determinant $0$: positive semidefinite but singular,
+          so the chord inequality is an equality along $x + 2y = 3$.
+      - text: >
+          $f$ is convex but not strictly, and its minimizers form a line — so
+          there is no unique minimizer
+        correct: true
+        feedback: >
+          A singular positive-semidefinite Hessian is exactly the
+          convex-but-not-strictly case, and the flat direction is where the
+          optima spread out.
+      - text: >
+          $f$ is not convex, since its Hessian is singular
+        feedback: >
+          Singular is not indefinite. Positive semidefinite everywhere is the
+          definition of convexity for a smooth function.
+      - text: >
+          $f$ is convex but attains no minimum
+        feedback: >
+          The value $0$ is attained at every point of $x + 2y = 3$; this is a
+          uniqueness failure, not an existence failure.
+    rubric:
+      - >
+        Separates the two claims — convex (Hessian PSD) from strictly convex
+        (Hessian PD) — and pins the failure on the zero determinant.
+      - >
+        Identifies the set of minimizers as the line $x + 2y = 3$, not as a
+        single point or the empty set.
+    targets:
+      - quant-tools.optimization.strict-convexity
+
+  - id: qoptim-strict-convexity-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Show that $f(x) = x^{4}$ is strictly convex on $\mathbb{R}$, even though
+      $f''(0) = 0$ — so a positive second derivative is sufficient for strict
+      convexity but not necessary.
+    answer: >
+      $f'(x) = 4x^{3}$ is strictly increasing on $\mathbb{R}$, since
+      $a < b$ implies $a^{3} < b^{3}$. That alone forces strict convexity. Fix
+      $x < y$ and $t \in (0,1)$, and let $z = tx + (1-t)y$, so $x < z < y$ with
+      $z - x = (1-t)(y-x)$ and $y - z = t(y-x)$. By the mean value theorem
+      there are $\xi_1 \in (x,z)$ and $\xi_2 \in (z,y)$ with
+      $f(z) - f(x) = f'(\xi_1)(z-x)$ and $f(y) - f(z) = f'(\xi_2)(y-z)$, and
+      $\xi_1 < \xi_2$ gives $f'(\xi_1) < f'(\xi_2)$. Then
+      $t f(x) + (1-t) f(y) - f(z) = (1-t)\left(f(y) - f(z)\right) -
+      t\left(f(z) - f(x)\right) = t(1-t)(y-x)\left(f'(\xi_2) -
+      f'(\xi_1)\right) > 0$, which is the strict chord inequality. The
+      second-derivative test misses this only because $f''(x) = 12x^{2}$
+      vanishes at the isolated point $0$; $f'' > 0$ everywhere is a sufficient
+      condition, and a single zero of $f''$ does not flatten $f'$ anywhere.
+    rubric:
+      - >
+        Derives strictness from the strict monotonicity of $f'$ (or from a
+        direct algebraic chord computation), not from $f'' \ge 0$, which gives
+        only convexity.
+      - >
+        States that $f'' > 0$ everywhere is sufficient but not necessary, and
+        that $f''$ vanishing at one isolated point is no obstruction.
+    targets:
+      - quant-tools.optimization.strict-convexity
+
+  # --- stationary points -----------------------------------------------------
+
+  - id: qoptim-stationary-points-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Let $f(x) = x^{4} - 8x^{2} + 5$ on $\mathbb{R}$. What is
+      $\min_{x} f(x)$?
+    answer: >
+      $-11$. Stationarity: $f'(x) = 4x^{3} - 16x = 4x(x-2)(x+2)$, so the
+      critical points are $x = -2, 0, 2$. Values: $f(\pm 2) = 16 - 32 + 5 =
+      -11$ and $f(0) = 5$. The sign of $f'$ runs negative, positive, negative,
+      positive across those three points, so $\pm 2$ are local minima and $0$
+      is a local maximum. Since $f(x) \to +\infty$ as $|x| \to \infty$, the
+      global minimum exists and equals the smaller of the local values, so
+      $\min_{x} f(x) = -11$. Keep the two objects apart: the minimum *value* is
+      the single number $-11$, while $\arg\min_{x} f(x) = \{-2, 2\}$ is a
+      two-element set — the minimizer here is not unique even though the
+      minimum is.
+    expects: "-11"
+    rubric:
+      - >
+        Finds all three stationary points and classifies each, rather than
+        stopping at the first solution of $f' = 0$.
+      - >
+        Reports the minimum value as a number and notes that the argmin is a
+        two-element set.
+    targets:
+      - quant-tools.optimization.stationary-points
+
+  - id: qoptim-stationary-points-02
+    kind: work
+    difficulty: standard
+    statement: >
+      The function $f(x,y) = 2x^{3} - 6xy + 3y^{2}$ has exactly two stationary
+      points, one of them the origin. What is the value of $f$ at the other
+      one?
+    answer: >
+      $-1$. Set both partials to zero: $\partial f/\partial x = 6x^{2} - 6y =
+      0$ gives $y = x^{2}$, and $\partial f/\partial y = -6x + 6y = 0$ gives
+      $y = x$. Substituting, $x^{2} = x$, so $x = 0$ or $x = 1$, and the
+      stationary points are $(0,0)$ and $(1,1)$ — confirming there are exactly
+      two. At the second, $f(1,1) = 2 - 6 + 3 = -1$. Note that stationarity
+      alone says nothing about which kind of point this is: the Hessian has
+      rows $(12x, -6)$ and $(-6, 6)$, so at $(1,1)$ it is $(12,-6),(-6,6)$ with
+      $12 > 0$ and $72 - 36 = 36 > 0$, a local minimum, while at the origin it
+      is $(0,-6),(-6,6)$ with determinant $-36 < 0$, a saddle.
+    expects: "-1"
+    rubric:
+      - >
+        Solves the two partial-derivative equations simultaneously, obtaining
+        both roots $x = 0$ and $x = 1$ rather than dividing by $x$.
+      - >
+        Evaluates $f$ at the point rather than reporting the point itself.
+    targets:
+      - quant-tools.optimization.stationary-points
+
+  # --- local versus global ---------------------------------------------------
+
+  - id: qoptim-local-global-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A descent routine minimizing $f(x) = 3x^{4} - 16x^{3} + 18x^{2}$ is
+      started at $x = -1$ and stops at $x = 0$, where no nearby point is
+      better. What is the global minimum of $f$ over $\mathbb{R}$?
+    answer: >
+      $-27$. The routine did not malfunction — it found a genuine local
+      minimum, and $f$ simply is not convex, so local does not mean global
+      here. Stationarity: $f'(x) = 12x^{3} - 48x^{2} + 36x = 12x(x-1)(x-3)$,
+      vanishing at $0$, $1$ and $3$. Values: $f(0) = 0$,
+      $f(1) = 3 - 16 + 18 = 5$, and $f(3) = 243 - 432 + 162 = -27$. The sign
+      pattern of $f'$ makes $0$ and $3$ local minima and $1$ a local maximum,
+      and $f \to +\infty$ in both directions, so the global minimum is $-27$ at
+      $x = 3$. Non-convexity is confirmed by
+      $f''(1) = 36 - 96 + 36 = -24 < 0$. Under convexity the stopping rule
+      would have been valid: a local minimizer of a convex function is global,
+      and no second basin can exist.
+    expects: "-27"
+    rubric:
+      - >
+        Finds all three stationary points and compares values, instead of
+        accepting the point the descent stopped at.
+      - >
+        Says explicitly that convexity is what would have licensed stopping,
+        and exhibits a point where $f'' < 0$ to show it fails.
+    targets:
+      - quant-tools.optimization.local-global
+
+  - id: qoptim-local-global-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Minimize $f(x,y) = x^{2} + 3y^{2} + 2xy - 8x - 12y$ over $\mathbb{R}^{2}$.
+      What is the minimum value?
+    answer: >
+      $-18$. First certify convexity, so that one stationary point finishes the
+      job: the Hessian is constant with rows $(2,2)$ and $(2,6)$, and
+      $a = 2 > 0$ with $ac - b^{2} = 12 - 4 = 8 > 0$, so it is positive
+      definite everywhere and $f$ is strictly convex. Then any local minimizer
+      is the unique global one. Setting
+      $\nabla f = (2x + 2y - 8,\ 2x + 6y - 12) = 0$ gives $x + y = 4$ and
+      $x + 3y = 6$; subtracting, $2y = 2$, so $y = 1$ and $x = 3$. The value is
+      $f(3,1) = 9 + 3 + 6 - 24 - 12 = -18$. No other candidate needs checking,
+      and no boundary exists to check — that is exactly what convexity on all
+      of $\mathbb{R}^{2}$ buys.
+    expects: "-18"
+    rubric:
+      - >
+        Certifies convexity before treating the stationary point as the answer,
+        with the $a > 0$ and $ac - b^{2} > 0$ test on the constant Hessian.
+      - >
+        Reads the cross term with its factor of $2$: the off-diagonal Hessian
+        entry is $2$, not $1$.
+    targets:
+      - quant-tools.optimization.local-global
+
+  - id: qoptim-local-global-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Let $f$ be convex on a convex set $C$, and suppose the minimum value
+      $m = \min_{x \in C} f(x)$ is attained. Prove that the set of minimizers
+      $M = \{x \in C : f(x) = m\}$ is convex.
+    answer: >
+      Take $x, y \in M$ and $t \in [0,1]$, and set $z = tx + (1-t)y$. Because
+      $C$ is convex, $z \in C$, so $f(z)$ is defined and $m$ is a lower bound
+      for it. Because $f$ is convex,
+      $f(z) \le t f(x) + (1-t) f(y) = tm + (1-t)m = m$. Combining the two,
+      $m \le f(z) \le m$, so $f(z) = m$ and $z \in M$. Since $x$, $y$ and $t$
+      were arbitrary, $M$ is convex. Two consequences are worth stating. A
+      convex problem never has two isolated optima: if it has two distinct
+      minimizers it has the whole segment between them. And if $f$ is strictly
+      convex the same computation gives $f(z) < m$ for $x \ne y$ and
+      $t \in (0,1)$, contradicting minimality — so $M$ is empty or a single
+      point, which is the uniqueness statement.
+    rubric:
+      - >
+        Uses convexity of $C$ to know the blend $z$ is feasible *before*
+        applying the chord inequality to $f$.
+      - >
+        Closes with the reverse inequality $f(z) \ge m$ from minimality, rather
+        than stopping at $f(z) \le m$.
+    targets:
+      - quant-tools.optimization.local-global
+
+  # --- the first-order condition ---------------------------------------------
+
+  - id: qoptim-foc-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You may stake a fraction $f \in [0,1)$ of your bankroll, repeatedly, on a
+      bet that pays $2$ to $1$ with probability $0.4$ and loses the stake
+      otherwise. The long-run growth rate of the bankroll is
+      $g(f) = 0.4\ln(1 + 2f) + 0.6\ln(1 - f)$. Which stake maximizes it?
+    answer: >
+      $f^{*} = 0.1$. Differentiate and set to zero:
+      $g'(f) = \dfrac{0.8}{1 + 2f} - \dfrac{0.6}{1 - f} = 0$, so
+      $0.8(1 - f) = 0.6(1 + 2f)$, giving $0.8 - 0.8f = 0.6 + 1.2f$, then
+      $0.2 = 2f$ and $f^{*} = 0.1$. Now certify it rather than asserting it:
+      $g''(f) = -\dfrac{1.6}{(1+2f)^{2}} - \dfrac{0.6}{(1-f)^{2}} < 0$
+      throughout $[0,1)$, so $g$ is strictly concave and the stationary point is
+      the global maximum; the left endpoint $f = 0$ is not a competitor because
+      $g'(0) = 0.8 - 0.6 = 0.2 > 0$. The general form of this answer is
+      $f^{*} = (pb - q)/b = (0.4 \cdot 2 - 0.6)/2 = 0.1$: edge over odds. The
+      achieved growth rate is
+      $g(0.1) = 0.4\ln 1.2 + 0.6 \ln 0.9 \approx 0.0097$ per bet — positive,
+      and much smaller than the $8\%$ edge suggests.
+    expects: "0.1"
+    rubric:
+      - >
+        Differentiates the log-growth objective and clears the denominators
+        correctly, keeping the chain-rule factors $2$ and $-1$.
+      - >
+        Certifies the maximum by concavity ($g'' < 0$) rather than assuming a
+        stationary point is optimal.
+    targets:
+      - quant-tools.optimization.foc
+
+  - id: qoptim-foc-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Minimize $f(x) = x - 4\sqrt{x}$ over $x \in (0, \infty)$. What is the
+      minimum value?
+    answer: >
+      $-4$. Write $f(x) = x - 4x^{1/2}$, so
+      $f'(x) = 1 - 2x^{-1/2}$. Setting this to zero gives
+      $x^{-1/2} = \tfrac{1}{2}$, so $\sqrt{x} = 2$ and $x^{*} = 4$. The
+      first-order condition is only necessary, so certify:
+      $f''(x) = x^{-3/2} > 0$ on all of $(0,\infty)$, so $f$ is convex there
+      and the interior stationary point is the global minimizer. The value is
+      $f(4) = 4 - 4 \cdot 2 = -4$. A useful sanity check is that $f$ is
+      negative wherever $\sqrt{x} < 4$, so a negative minimum is expected, and
+      $f \to \infty$ as $x \to \infty$ while $f(0^{+}) \to 0$, so the optimum
+      is genuinely interior.
+    expects: "-4"
+    rubric:
+      - >
+        Differentiates $\sqrt{x}$ as $\tfrac{1}{2}x^{-1/2}$ and solves for $x$,
+        not for $\sqrt{x}$ reported as the answer.
+      - >
+        Justifies the minimum by convexity or a second-derivative check, then
+        reports the value $f(4)$ rather than the minimizer.
+    targets:
+      - quant-tools.optimization.foc
+
+  - id: qoptim-foc-03
+    kind: decide
+    difficulty: routine
+    statement: >
+      You differentiate a smooth $f : \mathbb{R} \to \mathbb{R}$ and find a
+      stationary point $x^{*} = 2$. Which single extra fact certifies that
+      $x^{*}$ is the *global* minimizer?
+    answer: >
+      That $f$ is convex on its domain. Convexity plus stationarity is exactly
+      the sufficient version of the first-order condition: the tangent
+      underestimates $f$, so
+      $f(y) \ge f(x^{*}) + f'(x^{*})(y - x^{*}) = f(x^{*})$ for every $y$, with
+      no further checking. Every other candidate is local. Take
+      $f(x) = x^{3} - 3x$: at $x = 1$ it is stationary, $f''(1) = 6 > 0$, and
+      $f'$ changes sign from negative to positive — so all the local tests
+      pass — yet $f$ is unbounded below, and the local minimum value $-2$ is
+      nowhere near a global minimum. Comparing $f(2)$ with one other point is
+      weaker still: it rules out exactly one competitor.
+    choices:
+      - text: >
+          $f''(2) > 0$
+        feedback: >
+          This certifies a strict *local* minimum only. $f(x) = x^{3} - 3x$
+          satisfies it at $x = 1$ and is unbounded below.
+      - text: >
+          $f$ is convex on its domain
+        correct: true
+        feedback: >
+          The tangent-underestimator inequality then gives
+          $f(y) \ge f(x^{*})$ for every $y$ at once.
+      - text: >
+          $f(2) < f(0)$
+        feedback: >
+          This compares $x^{*}$ with a single other point and says nothing
+          about the rest of the line.
+      - text: >
+          $f'$ changes sign from negative to positive at $x = 2$
+        feedback: >
+          A sign change is the definition of a local minimum, not a global one;
+          a second basin elsewhere is untouched by it.
+    rubric:
+      - >
+        Distinguishes a local certificate (curvature or a sign change at the
+        point) from a global one (a structural property of $f$ everywhere).
+    targets:
+      - quant-tools.optimization.foc
+
+  # --- boundaries, kinks and unboundedness -----------------------------------
+
+  - id: qoptim-boundary-check-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Minimize $f(x) = x^{3} - 6x^{2} + 9x + 1$ over the interval $[-1, 2]$.
+      What is the minimum value?
+    answer: >
+      $-15$, at the left endpoint. Stationarity gives
+      $f'(x) = 3x^{2} - 12x + 9 = 3(x-1)(x-3)$, so the critical points are
+      $x = 1$ and $x = 3$ — but $x = 3$ lies outside $[-1,2]$ and is not a
+      candidate at all. The one interior candidate is $x = 1$, and
+      $f''(1) = 6 \cdot 1 - 12 = -6 < 0$, so it is a local *maximum*, with
+      $f(1) = 1 - 6 + 9 + 1 = 5$. The minimum therefore has to sit on the
+      boundary, and the candidate list is completed by the two endpoints:
+      $f(-1) = -1 - 6 - 9 + 1 = -15$ and $f(2) = 8 - 24 + 18 + 1 = 3$.
+      Comparing $5$, $-15$ and $3$, the minimum is $-15$ at $x = -1$. Two
+      traps: quoting the out-of-range critical point, and treating the only
+      stationary point in range as the answer without checking its type or the
+      endpoints.
+    expects: "-15"
+    rubric:
+      - >
+        Discards $x = 3$ as outside the interval instead of evaluating $f$
+        there.
+      - >
+        Builds the full candidate list — in-range stationary points plus both
+        endpoints — and compares the numbers.
+    targets:
+      - quant-tools.optimization.boundary-check
+
+  - id: qoptim-boundary-check-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Minimize $h(x) = 3|x + 2| + (x - 4)^{2}$ over all of $\mathbb{R}$. What
+      is the minimum value?
+    answer: >
+      $15.75$. The absolute value puts a kink at $x = -2$, so treat the two
+      branches separately and add the kink itself to the candidate list. For
+      $x > -2$: $h(x) = 3(x+2) + (x-4)^{2}$, so $h'(x) = 3 + 2(x-4) = 2x - 5$,
+      which vanishes at $x = 2.5$ — inside that branch, so it is a genuine
+      candidate, with
+      $h(2.5) = 3(4.5) + (-1.5)^{2} = 13.5 + 2.25 = 15.75$. For $x < -2$:
+      $h(x) = -3(x+2) + (x-4)^{2}$, so $h'(x) = 2x - 11 < 0$ throughout that
+      branch — the root $x = 5.5$ is not in it — so $h$ is strictly decreasing
+      there and contributes no stationary candidate. At the kink,
+      $h(-2) = 0 + 36 = 36$. Comparing $15.75$ and $36$ gives $15.75$; and
+      since $h$ is convex (a sum of a convex absolute value and a convex
+      square) that local minimum is global.
+    expects: "15.75"
+    rubric:
+      - >
+        Checks that each branch's stationary point actually lies in that
+        branch, discarding $x = 5.5$.
+      - >
+        Includes the kink $x = -2$ as a candidate even though $h$ is not
+        differentiable there.
+    targets:
+      - quant-tools.optimization.boundary-check
+
+  # --- gradient and Hessian --------------------------------------------------
+
+  - id: qoptim-gradient-hessian-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Let $A$ be the matrix with rows $(2, 5)$ and $(1, 3)$ — note it is *not*
+      symmetric — and let $f(x) = x'Ax$ for $x \in \mathbb{R}^{2}$. What is the
+      first component of $\nabla f(1, 2)$?
+    answer: >
+      $16$. The general rule is $\nabla(x'Ax) = (A + A')x$, which collapses to
+      $2Ax$ only when $A$ is symmetric. Here $A + A'$ has rows $(4, 6)$ and
+      $(6, 6)$, so
+      $\nabla f(1,2) = (4 \cdot 1 + 6 \cdot 2,\ 6 \cdot 1 + 6 \cdot 2) =
+      (16, 18)$. Cross-check by expanding the form first:
+      $f(x_1, x_2) = 2x_1^{2} + 5x_1x_2 + x_2x_1 + 3x_2^{2} = 2x_1^{2} +
+      6x_1x_2 + 3x_2^{2}$, so
+      $\partial f/\partial x_1 = 4x_1 + 6x_2 = 4 + 12 = 16$ — the same answer,
+      and it shows why only the symmetric part of $A$ can matter. Applying
+      $2Ax$ blindly would have given
+      $2(2 \cdot 1 + 5 \cdot 2) = 24$, which is wrong.
+    expects: "16"
+    rubric:
+      - >
+        Uses $(A + A')x$ rather than $2Ax$, or equivalently replaces $A$ by its
+        symmetric part before differentiating.
+      - >
+        Verifies by expanding the quadratic form into $2x_1^{2} + 6x_1x_2 +
+        3x_2^{2}$ and differentiating directly.
+    targets:
+      - quant-tools.optimization.gradient-hessian
+
+  - id: qoptim-gradient-hessian-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Let $f(x,y) = 3x^{2} - 2xy + 4y^{2}$ and expand $f$ to second order about
+      the point $(1,1)$. For the step $h = (0.1, -0.2)$, what is the value of
+      the second-order term $\tfrac{1}{2}h'Hh$?
+    answer: >
+      $0.23$. The Hessian is constant, with rows $(6, -2)$ and $(-2, 8)$: read
+      off $\partial^{2}f/\partial x^{2} = 6$,
+      $\partial^{2}f/\partial x \partial y = -2$ and
+      $\partial^{2}f/\partial y^{2} = 8$, the cross term carrying no factor of
+      $2$ in the matrix. Then
+      $h'Hh = 6(0.1)^{2} + 2(-2)(0.1)(-0.2) + 8(-0.2)^{2} =
+      0.06 + 0.08 + 0.32 = 0.46$ — the off-diagonal entry appears twice, once
+      from each side — so the second-order term is $0.23$. Because $f$ is
+      quadratic the expansion is exact, which gives a free check:
+      $f(1,1) = 5$, $\nabla f = (6x - 2y,\ -2x + 8y) = (4, 6)$ so
+      $\nabla f'h = 0.4 - 1.2 = -0.8$, and
+      $5 - 0.8 + 0.23 = 4.43$, matching
+      $f(1.1, 0.8) = 3.63 - 1.76 + 2.56 = 4.43$ exactly.
+    expects: "0.23"
+    rubric:
+      - >
+        Doubles the cross term when evaluating $h'Hh$ but not when writing the
+        Hessian entry itself.
+      - >
+        Keeps the factor $\tfrac{1}{2}$ in front of the quadratic form.
+    targets:
+      - quant-tools.optimization.gradient-hessian
+
+  # --- second-order conditions -----------------------------------------------
+
+  - id: qoptim-soc-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      The function $f(x,y) = x^{3} + y^{3} - 3xy$ has exactly two stationary
+      points. What is the value of $f$ at the one that is a local minimum?
+    answer: >
+      $-1$. Stationarity: $\nabla f = (3x^{2} - 3y,\ 3y^{2} - 3x) = 0$ gives
+      $y = x^{2}$ and $x = y^{2}$, so $x = x^{4}$, i.e. $x(x^{3} - 1) = 0$ and
+      the real solutions are $x = 0$ and $x = 1$ — the points $(0,0)$ and
+      $(1,1)$. The Hessian has rows $(6x, -3)$ and $(-3, 6y)$. At $(0,0)$ it
+      has rows $(0,-3)$ and $(-3,0)$, so $ac - b^{2} = 0 - 9 = -9 < 0$:
+      indefinite, a saddle. At $(1,1)$ it has rows $(6,-3)$ and $(-3,6)$, so
+      $a = 6 > 0$ and $ac - b^{2} = 36 - 9 = 27 > 0$: positive definite, a
+      strict local minimum, with $f(1,1) = 1 + 1 - 3 = -1$. It is only local —
+      $f(x, 0) = x^{3} \to -\infty$ — which is the reminder that the
+      second-order conditions are a local instrument.
+    expects: "-1"
+    rubric:
+      - >
+        Classifies *both* stationary points from the definiteness of the
+        Hessian, rather than assuming the non-origin one is the minimum.
+      - >
+        Evaluates $ac - b^{2}$ with $b = -3$ (so $b^{2} = 9$), not with the
+        sign of the off-diagonal entry carried through.
+    targets:
+      - quant-tools.optimization.soc
+
+  - id: qoptim-soc-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      At a stationary point of a twice continuously differentiable
+      $f : \mathbb{R}^{2} \to \mathbb{R}$, the Hessian has rows $(5, 0)$ and
+      $(0, 0)$. What follows about that point?
+    answer: >
+      Nothing: the test is inconclusive. The eigenvalues are $5$ and $0$, so
+      the Hessian is positive semidefinite but singular. That clears the
+      *necessary* condition for a local minimum — a local minimum must have a
+      positive semidefinite Hessian — while failing the *sufficient* one, which
+      wants positive definiteness. Along the flat direction $(0,1)$ the
+      quadratic term vanishes entirely and higher-order terms decide the
+      question. Two functions with exactly this Hessian at the origin settle it
+      in opposite directions: $\tfrac{5}{2}x^{2} + y^{4}$ has a strict local
+      minimum there, and $\tfrac{5}{2}x^{2} - y^{4}$ has a saddle. This is the
+      two-variable version of the $x^{4}$ versus $-x^{4}$ ambiguity.
+    choices:
+      - text: >
+          It is a strict local minimum, since the diagonal entry $5$ is
+          positive
+        feedback: >
+          $a > 0$ is only half the $2 \times 2$ test; here
+          $ac - b^{2} = 0$, so definiteness is not established.
+      - text: >
+          It is a saddle point
+        feedback: >
+          A saddle needs eigenvalues of both signs. These are $5$ and $0$ —
+          neither is negative.
+      - text: >
+          Nothing — the Hessian is positive semidefinite but singular, so the
+          second-order test is inconclusive
+        correct: true
+        feedback: >
+          $\tfrac{5}{2}x^{2} + y^{4}$ and $\tfrac{5}{2}x^{2} - y^{4}$ share
+          this Hessian and disagree about the answer.
+      - text: >
+          It is a local maximum
+        feedback: >
+          That would need a negative semidefinite Hessian; the entry $5 > 0$
+          rules it out immediately.
+    rubric:
+      - >
+        Separates the necessary condition (positive semidefinite at a local
+        minimum) from the sufficient one (positive definite), and places this
+        Hessian between them.
+      - >
+        Explains the verdict by the flat eigen-direction, where the quadratic
+        term contributes nothing.
+    targets:
+      - quant-tools.optimization.soc
+
+  # --- minimizing a quadratic ------------------------------------------------
+
+  - id: qoptim-quadratic-min-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Minimize $q(x_1, x_2) = 2x_1^{2} + x_1x_2 + x_2^{2} - 6x_1 - 3x_2$ over
+      $\mathbb{R}^{2}$. What is the minimum value?
+    answer: >
+      $-36/7 \approx -5.1429$. Put $q$ in the template
+      $q(x) = \tfrac{1}{2}x'Ax - b'x$. The bookkeeping is that
+      $\tfrac{1}{2}x'Ax$ contributes $\tfrac{1}{2}A_{11}x_1^{2}$ and the full
+      $A_{12}x_1x_2$, so $A$ has rows $(4, 1)$ and $(1, 2)$, and $b = (6,3)$.
+      $A$ is positive definite: $4 > 0$ and $\det A = 8 - 1 = 7 > 0$. Hence the
+      unique global minimizer is
+      $x^{*} = A^{-1}b = \tfrac{1}{7}(2 \cdot 6 - 1 \cdot 3,\ -1 \cdot 6 +
+      4 \cdot 3) = \tfrac{1}{7}(9, 6)$, and the minimum value is
+      $-\tfrac{1}{2}b'A^{-1}b = -\tfrac{1}{2}b'x^{*} =
+      -\tfrac{1}{2}\left(6 \cdot \tfrac{9}{7} + 3 \cdot \tfrac{6}{7}\right) =
+      -\tfrac{1}{2} \cdot \tfrac{72}{7} = -\tfrac{36}{7}$. Direct check:
+      $q(9/7, 6/7) = (162 + 54 + 36)/49 - 72/7 = 36/7 - 72/7 = -36/7$.
+    expects: "-36/7"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Recovers $A$ with the right factors — diagonal entries doubled, the
+        cross coefficient kept as is — before applying $x^{*} = A^{-1}b$.
+      - >
+        Reaches the value through $-\tfrac{1}{2}b'x^{*}$ (or by direct
+        substitution) rather than reporting the minimizer.
+    targets:
+      - quant-tools.optimization.quadratic-min
+
+  - id: qoptim-quadratic-min-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Let $q(x) = \tfrac{1}{2}x'Ax - b'x$ on $\mathbb{R}^{2}$ with
+      $A = \operatorname{diag}(2, 0)$ and $b = (4, 1)$. What is
+      $\inf_{x} q(x)$?
+    answer: >
+      It is $-\infty$: $q$ is unbounded below. Written out,
+      $q(x_1, x_2) = x_1^{2} - 4x_1 - x_2$. The gradient is
+      $\nabla q = Ax - b = (2x_1 - 4,\ -1)$, whose second component is never
+      zero, so there is no stationary point at all. Structurally, $A$ is
+      positive semidefinite but singular, and in that case minimizers exist
+      exactly when $b$ lies in the range of $A$ — here the range is the
+      $x_1$-axis, and $b = (4,1)$ has a component off it. That leftover
+      component is a direction in which $q$ falls linearly forever: fixing
+      $x_1 = 2$ gives $q = -4 - x_2 \to -\infty$ as $x_2 \to \infty$. Positive
+      semidefiniteness alone never guarantees a minimum.
+    choices:
+      - text: >
+          $-4$, attained at $(2, 0)$
+        feedback: >
+          $(2,0)$ is not stationary: $\nabla q = (2x_1 - 4,\ -1)$ and the
+          second component cannot vanish.
+      - text: >
+          $-4$, attained along the whole line $x_1 = 2$
+        feedback: >
+          That is the picture when $b$ lies in the range of $A$. Here $q$
+          strictly decreases along that line.
+      - text: >
+          $-\infty$ — $q$ is unbounded below, because $b$ is not in the range
+          of the singular matrix $A$
+        correct: true
+        feedback: >
+          The component of $b$ off the range gives a direction of linear
+          descent with no quadratic term to stop it.
+      - text: >
+          $0$, since $A$ is positive semidefinite so $q \ge 0$
+        feedback: >
+          Positive semidefiniteness bounds the quadratic part below, not $q$
+          itself — the linear term $-b'x$ is unbounded both ways.
+    rubric:
+      - >
+        Tests $b$ against the range of $A$, or equivalently observes that
+        $\nabla q = 0$ has no solution.
+      - >
+        Exhibits an explicit direction along which $q \to -\infty$.
+    targets:
+      - quant-tools.optimization.quadratic-min
+
+  # --- completing the square -------------------------------------------------
+
+  - id: qoptim-complete-square-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Evaluate $\int_{-\infty}^{\infty} e^{-3x^{2} + 6x}\,dx$, to four decimal
+      places.
+    answer: >
+      $\approx 20.5541$. Complete the square in the exponent:
+      $-3x^{2} + 6x = -3(x^{2} - 2x) = -3\left[(x-1)^{2} - 1\right] =
+      -3(x-1)^{2} + 3$. The constant comes out of the integral and the shift
+      does not change it, so the integral is
+      $e^{3}\int_{-\infty}^{\infty} e^{-3u^{2}}\,du = e^{3}\sqrt{\pi/3}$, using
+      $\int e^{-\alpha u^{2}}du = \sqrt{\pi/\alpha}$. Numerically
+      $e^{3} = 20.0855$ and $\sqrt{\pi/3} = \sqrt{1.04720} = 1.02333$, so the
+      value is $20.5541$. This is the general identity
+      $\int e^{-\alpha x^{2} + \beta x}dx = \sqrt{\pi/\alpha}\,
+      e^{\beta^{2}/(4\alpha)}$ with $\alpha = 3$, $\beta = 6$ and
+      $\beta^{2}/(4\alpha) = 36/12 = 3$ — the same completion of the square
+      that produces the normal moment generating function.
+    expects: "20.5541"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Factors the leading $-3$ out before halving the linear coefficient, so
+        the shift is $x - 1$ and the bonus constant is $e^{3}$, not $e^{9}$.
+      - >
+        Uses $\sqrt{\pi/\alpha}$ with $\alpha = 3$ rather than $\sqrt{\pi}$.
+    targets:
+      - quant-tools.optimization.complete-square
+
+  - id: qoptim-complete-square-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Complete the square in $-2x^{2} + 14x - 5$. What is the maximum value of
+      this expression?
+    answer: >
+      $19.5$. Factor the leading coefficient out of the $x$ terms first:
+      $-2x^{2} + 14x - 5 = -2(x^{2} - 7x) - 5$. Inside the bracket,
+      $x^{2} - 7x = (x - 3.5)^{2} - 12.25$, so the expression is
+      $-2\left[(x-3.5)^{2} - 12.25\right] - 5 = -2(x-3.5)^{2} + 24.5 - 5 =
+      -2(x - 3.5)^{2} + 19.5$. Because the coefficient in front of the square
+      is negative, the square only ever subtracts, so this is a maximum, not a
+      minimum: the largest value is $19.5$, attained at $x = 3.5$. Cross-check
+      with the vertex formulas $x^{*} = -b/(2a) = -14/(-4) = 3.5$ and
+      $c - b^{2}/(4a) = -5 - 196/(-8) = -5 + 24.5 = 19.5$.
+    expects: "19.5"
+    rubric:
+      - >
+        Factors out the $-2$ before completing the square, so the constant that
+        comes back is multiplied by $-2$.
+      - >
+        Concludes maximum rather than minimum from the sign of the leading
+        coefficient.
+    targets:
+      - quant-tools.optimization.complete-square
+
+  # --- a worked two-variable quadratic ---------------------------------------
+
+  - id: qoptim-quadratic-example-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Minimize $f(x,y) = 4x^{2} + 4xy + 5y^{2} - 12x - 6y$ over
+      $\mathbb{R}^{2}$. What is the minimum value?
+    answer: >
+      $-9$. Set the gradient to zero:
+      $\nabla f = (8x + 4y - 12,\ 4x + 10y - 6) = 0$, i.e. $2x + y = 3$ and
+      $2x + 5y = 3$. Subtracting kills $x$ and leaves $4y = 0$, so $y = 0$ and
+      $x = 3/2$. Certify before answering: the Hessian is constant with rows
+      $(8, 4)$ and $(4, 10)$, and $a = 8 > 0$ with
+      $ac - b^{2} = 80 - 16 = 64 > 0$, so it is positive definite, $f$ is
+      strictly convex, and this stationary point is the unique global minimum.
+      The value is $f(3/2, 0) = 4(9/4) - 12(3/2) = 9 - 18 = -9$. Free
+      cross-check from the matrix formula: with $b = (12, 6)$ the minimum value
+      is $-\tfrac{1}{2}b'x^{*} = -\tfrac{1}{2}(12 \cdot \tfrac{3}{2} + 0) =
+      -9$.
+    expects: "-9"
+    rubric:
+      - >
+        Reads the Hessian from the expanded form with the cross term
+        contributing $4$ off the diagonal and $8$, $10$ on it.
+      - >
+        Checks positive definiteness before declaring the stationary point
+        optimal, then reports the value rather than the minimizer.
+    targets:
+      - quant-tools.optimization.quadratic-example
+
+  - id: qoptim-quadratic-example-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Minimize $g(x,y) = x^{2} + 4xy + 6y^{2} - 6x - 20y$ over
+      $\mathbb{R}^{2}$. What is the minimum value?
+    answer: >
+      $-17$. The gradient is
+      $\nabla g = (2x + 4y - 6,\ 4x + 12y - 20)$; setting it to zero and
+      halving each equation gives $x + 2y = 3$ and $x + 3y = 5$. Subtracting,
+      $y = 2$, and then $x = 3 - 4 = -1$. The Hessian has rows $(2, 4)$ and
+      $(4, 12)$, with $a = 2 > 0$ and $ac - b^{2} = 24 - 16 = 8 > 0$, so it is
+      positive definite and the point is the global minimum. Evaluating,
+      $g(-1, 2) = 1 - 8 + 24 + 6 - 40 = -17$. Matrix cross-check: with
+      $b = (6, 20)$ the minimum value is
+      $-\tfrac{1}{2}b'x^{*} = -\tfrac{1}{2}(6(-1) + 20(2)) =
+      -\tfrac{1}{2}(34) = -17$.
+    expects: "-17"
+    rubric:
+      - >
+        Solves the two linear equations simultaneously rather than substituting
+        a guessed value.
+      - >
+        Verifies the answer a second way — direct substitution against
+        $-\tfrac{1}{2}b'x^{*}$ — instead of trusting one arithmetic pass.
+    targets:
+      - quant-tools.optimization.quadratic-example
+
+  # --- least squares ---------------------------------------------------------
+
+  - id: qoptim-least-squares-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Fit the no-intercept line $y = \beta x$ to the three points $(1,2)$,
+      $(2,3)$ and $(4,9)$ by least squares. What is $\hat\beta$?
+    answer: >
+      $\hat\beta = 44/21 \approx 2.0952$. With no intercept column, $X$ is the
+      single column $(1, 2, 4)'$, so $X'X = 1 + 4 + 16 = 21$ (a $1 \times 1$
+      matrix) and $X'y = 1 \cdot 2 + 2 \cdot 3 + 4 \cdot 9 = 2 + 6 + 36 = 44$.
+      The normal equations $X'X\beta = X'y$ collapse to $21\beta = 44$, giving
+      $\hat\beta = 44/21$. Directly:
+      $S(\beta) = \sum_i (y_i - \beta x_i)^{2}$ has
+      $S'(\beta) = -2\sum_i x_i(y_i - \beta x_i)$, zero at the same place, and
+      $S''(\beta) = 2\sum_i x_i^{2} = 42 > 0$, so $S$ is a strictly convex
+      one-dimensional quadratic and this is the global minimum. The trap is
+      reporting $\bar y/\bar x = (14/3)/(7/3) = 2$: that is the line through
+      the centroid, and without an intercept the residuals are not forced to
+      sum to zero, so it is not the least-squares slope.
+    expects: "44/21"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $\sum x_i y_i / \sum x_i^{2}$, weighting each point by $x_i$,
+        rather than a ratio of averages.
+      - >
+        Names the objective as a convex quadratic in one variable, so that
+        stationarity settles it.
+    targets:
+      - quant-tools.optimization.least-squares
+
+  - id: qoptim-least-squares-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Fit $y = \beta_0 + \beta_1 x$ by least squares to the four points
+      $(1,2)$, $(2,2)$, $(3,5)$ and $(4,8)$. What does the fitted line predict
+      at $x = 5$?
+    answer: >
+      $9.5$. Assemble the sums: $n = 4$, $\sum x_i = 10$, $\sum x_i^{2} = 30$,
+      $\sum y_i = 17$, and $\sum x_i y_i = 2 + 4 + 15 + 32 = 53$. So $X'X$ has
+      rows $(4, 10)$ and $(10, 30)$ and $X'y = (17, 53)$, and the normal
+      equations are $4\beta_0 + 10\beta_1 = 17$ and
+      $10\beta_0 + 30\beta_1 = 53$. From the first,
+      $\beta_0 = 4.25 - 2.5\beta_1$; substituting into the second,
+      $42.5 - 25\beta_1 + 30\beta_1 = 53$, so $5\beta_1 = 10.5$,
+      $\beta_1 = 2.1$, and $\beta_0 = 4.25 - 5.25 = -1$. The prediction is
+      $-1 + 2.1 \cdot 5 = 9.5$. Since $\det(X'X) = 120 - 100 = 20 > 0$, the
+      Gram matrix is positive definite, the sum of squares is strictly convex,
+      and the normal equations have this one solution.
+    expects: "9.5"
+    rubric:
+      - >
+        Builds $X'X$ and $X'y$ from the five sums, with $n$ in the top-left
+        entry.
+      - >
+        Uses both coefficients to answer the question asked — the fitted value
+        at $x = 5$, not the slope.
+    targets:
+      - quant-tools.optimization.least-squares
+
+  # --- Lagrange multipliers --------------------------------------------------
+
+  - id: qoptim-lagrange-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two assets have return variances $0.04$ and $0.09$ and covariance
+      $0.012$. A portfolio holds weights $w_1$ and $w_2$ summing to $1$, with
+      short positions allowed. Which weight $w_1$ minimizes the portfolio
+      variance? Give it to four decimal places.
+    answer: >
+      $w_1 \approx 0.7358$. Minimize $w'\Sigma w$ subject to
+      $w_1 + w_2 = 1$ using
+      $L = w'\Sigma w - \lambda(w_1 + w_2 - 1)$. Stationarity gives
+      $2(\Sigma w)_1 = \lambda = 2(\Sigma w)_2$: at the optimum both assets
+      have the *same* covariance with the portfolio, which is the economic
+      content of the multiplier condition. Writing that out,
+      $\sigma_1^{2}w_1 + \sigma_{12}w_2 = \sigma_{12}w_1 + \sigma_2^{2}w_2$,
+      and substituting $w_2 = 1 - w_1$ gives
+      $w_1\left(\sigma_1^{2} + \sigma_2^{2} - 2\sigma_{12}\right) =
+      \sigma_2^{2} - \sigma_{12}$, so
+      $w_1 = \dfrac{0.09 - 0.012}{0.04 + 0.09 - 0.024} = \dfrac{0.078}{0.106}
+      \approx 0.73585$, and $w_2 \approx 0.26415$. The objective is convex —
+      $\Sigma$ has $\det = 0.0036 - 0.000144 > 0$ and a positive diagonal, so
+      it is positive definite — and the constraint is affine, so this is the
+      global minimum, with variance $\approx 0.03260$, below both $0.04$ and
+      $0.09$.
+    expects: "0.7358"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Writes the stationarity conditions as "equal marginal variance across
+        the two assets" and keeps the covariance term in both.
+      - >
+        Uses $\sigma_1^{2} + \sigma_2^{2} - 2\sigma_{12}$ in the denominator —
+        the covariance enters twice, not once.
+    targets:
+      - quant-tools.optimization.lagrange
+
+  - id: qoptim-lagrange-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Maximize $f(x,y,z) = xyz$ subject to $x + y + z = 12$, with
+      $x, y, z > 0$. What is the maximum value?
+    answer: >
+      $64$. With $L = xyz - \lambda(x + y + z - 12)$ the stationarity
+      conditions are $yz = \lambda$, $xz = \lambda$ and $xy = \lambda$. All
+      three variables are positive, so $yz = xz$ divides down to $y = x$, and
+      $xz = xy$ divides down to $z = y$; the constraint then gives
+      $3x = 12$, so $x = y = z = 4$ and $f = 64$. The conditions are only
+      necessary, so rule out the alternative: as any variable approaches $0$
+      the product approaches $0$, and the feasible set is bounded, so the
+      interior critical point is the maximum rather than a minimum. This is
+      AM–GM in disguise:
+      $xyz \le \left(\dfrac{x+y+z}{3}\right)^{3} = 4^{3} = 64$, with equality
+      exactly when the three are equal.
+    expects: "64"
+    rubric:
+      - >
+        Derives $x = y = z$ from the three multiplier equations rather than
+        assuming symmetry from the start.
+      - >
+        Argues the critical point is a maximum, by the boundary behaviour or by
+        AM–GM, instead of taking the Lagrange conditions as sufficient.
+    targets:
+      - quant-tools.optimization.lagrange
+
+  - id: qoptim-lagrange-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      Minimize $f(x,y) = x$ subject to $g(x,y) = y^{2} - x^{3} = 0$. The
+      constraint forces $x \ge 0$, so the minimum is $f = 0$ at the origin —
+      yet no multiplier $\lambda$ satisfies
+      $\nabla f(0,0) = \lambda \nabla g(0,0)$. What has gone wrong?
+    answer: >
+      The regularity hypothesis fails. Lagrange's theorem requires the
+      constraint gradients at the candidate point to be linearly independent,
+      and here $\nabla g = (-3x^{2},\ 2y)$ is the *zero* vector at the origin —
+      a single zero vector is already a dependent family. Meanwhile
+      $\nabla f = (1, 0)$ is nonzero, and no scalar multiple of $(0,0)$ equals
+      it, so the stationarity equation has no solution even though the point is
+      genuinely optimal. Geometrically the curve $y^{2} = x^{3}$ has a cusp at
+      the origin: it has no well-defined tangent line there, so the picture
+      "the gradient of $f$ is normal to the constraint surface" has nothing to
+      refer to. The optimum has to be found another way — here by noting
+      $x = y^{2/3} \ge 0$ directly.
+    choices:
+      - text: >
+          The Lagrange conditions are sufficient rather than necessary, so a
+          solution need not exist at an optimum
+        feedback: >
+          The direction is reversed: they are necessary under regularity, and
+          not sufficient. Here it is the regularity hypothesis that fails.
+      - text: >
+          Regularity fails: $\nabla g(0,0) = (0,0)$, so no multiplier need
+          exist
+        correct: true
+        feedback: >
+          A vanishing constraint gradient means the constraint has no usable
+          normal direction at that point.
+      - text: >
+          The origin is not actually the minimum
+        feedback: >
+          On the curve $x = y^{2/3} \ge 0$ with equality only at $y = 0$, so
+          the origin is the minimizer.
+      - text: >
+          $f$ is not convex, so the method does not apply
+        feedback: >
+          $f(x,y) = x$ is linear, hence convex; convexity is not the hypothesis
+          that broke.
+    rubric:
+      - >
+        Evaluates $\nabla g$ at the candidate point and observes it vanishes,
+        rather than blaming the objective.
+      - >
+        States that the conclusion of Lagrange's theorem is conditional on
+        regularity, so its failure is not a contradiction.
+    targets:
+      - quant-tools.optimization.lagrange
+
+  # --- the multiplier as a price ---------------------------------------------
+
+  - id: qoptim-shadow-price-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A desk splits capital between two activities to maximize
+      $f(x,y) = \ln x + 2\ln y$ subject to the budget $3x + 4y = c$, with
+      $x, y > 0$. In the convention $L = f - \lambda(3x + 4y - c)$, what is
+      $\lambda$ at $c = 60$?
+    answer: >
+      $\lambda = 0.05$. Stationarity gives $1/x = 3\lambda$ and
+      $2/y = 4\lambda$, so $x = 1/(3\lambda)$ and $y = 1/(2\lambda)$ — both
+      decreasing in the price of the budget, as they should be. Substituting
+      into the constraint,
+      $3 \cdot \dfrac{1}{3\lambda} + 4 \cdot \dfrac{1}{2\lambda} =
+      \dfrac{1}{\lambda} + \dfrac{2}{\lambda} = \dfrac{3}{\lambda} = c$, so
+      $\lambda = 3/c$, which is $0.05$ at $c = 60$; then $x = 20/3$ and
+      $y = 10$, and $3(20/3) + 40 = 60$ checks out. The shadow-price reading
+      confirms it: the value function is
+      $V(c) = \ln(c/9) + 2\ln(c/6) = 3\ln c - \ln 9 - 2\ln 6$, so
+      $V'(c) = 3/c = \lambda$. One more unit of capital is worth about $0.05$
+      of objective — and the price falls as the budget grows.
+    expects: "0.05"
+    rubric:
+      - >
+        Solves each stationarity equation for the variable in terms of
+        $\lambda$ and substitutes into the constraint, rather than eliminating
+        $\lambda$ first.
+      - >
+        Confirms $\lambda = V'(c)$ by differentiating the value function, not
+        by asserting the interpretation.
+    targets:
+      - quant-tools.optimization.shadow-price
+    exercises:
+      - quant-tools.optimization.lagrange
+
+  - id: qoptim-shadow-price-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Let $V(c)$ be the minimum of $x^{2} + 4y^{2}$ subject to $x + y = c$. At
+      $c = 10$ the multiplier is $\lambda = 16$, in the convention
+      $L = f - \lambda(x + y - c)$. Use it to estimate the change in the
+      optimal value when the constraint level rises from $10$ to $10.5$.
+    answer: >
+      About $8$. The envelope result is $V'(c) = \lambda$, so to first order
+      $V(c + \Delta) - V(c) \approx \lambda\,\Delta = 16 \times 0.5 = 8$. Where
+      the $16$ comes from: stationarity gives $2x = \lambda$ and $8y = \lambda$,
+      so $x = \lambda/2$ and $y = \lambda/8$, and $x + y = 5\lambda/8 = c$
+      makes $\lambda = 8c/5$, which is $16$ at $c = 10$. That also produces the
+      exact value function
+      $V(c) = x^{2} + 4y^{2} = \lambda^{2}/4 + \lambda^{2}/16 =
+      5\lambda^{2}/16 = 0.8c^{2}$, whose derivative $1.6c$ is indeed $16$ at
+      $c = 10$. The exact change is $V(10.5) - V(10) = 88.2 - 80 = 8.2$, so the
+      linear estimate is short by exactly the second-order term
+      $\tfrac{1}{2}V''\Delta^{2} = 0.8(0.25) = 0.2$ — the multiplier prices the
+      constraint locally, not globally.
+    expects: "8"
+    rubric:
+      - >
+        Multiplies the multiplier by the *change* in the constraint level, not
+        by the level itself.
+      - >
+        Flags the answer as a first-order estimate and can say which way the
+        exact change differs.
+    targets:
+      - quant-tools.optimization.shadow-price
+    exercises:
+      - quant-tools.optimization.lagrange
+
+  # --- a constrained minimum worked to a number ------------------------------
+
+  - id: qoptim-lagrange-example-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Minimize $f(x,y,z) = x^{2} + y^{2} + z^{2}$ subject to *both*
+      $2x - y + 2z = 18$ and $x + y + z = 9$. What is the minimum value?
+    answer: >
+      $40.5$. With two constraints there are two multipliers:
+      $L = f - \lambda(2x - y + 2z - 18) - \mu(x + y + z - 9)$ gives
+      $2x = 2\lambda + \mu$, $2y = -\lambda + \mu$ and $2z = 2\lambda + \mu$.
+      The first and third are identical, so $x = z$ — that is the whole
+      structural content, and it comes for free from the multiplier equations.
+      Substituting into the constraints: $2x - y + 2x = 18$ gives
+      $4x - y = 18$, and $2x + y = 9$ gives $y = 9 - 2x$; combining,
+      $4x - 9 + 2x = 18$, so $x = 4.5$, $y = 0$ and $z = 4.5$. Both constraints
+      check: $9 - 0 + 9 = 18$ and $4.5 + 0 + 4.5 = 9$. The value is
+      $20.25 + 0 + 20.25 = 40.5$. The multipliers are $\lambda = \mu = 3$, from
+      $9 = 2\lambda + \mu$ and $0 = -\lambda + \mu$ — both nonzero, so each
+      constraint genuinely binds. Geometrically the feasible set is the line
+      where two planes meet, and this is its closest point to the origin.
+    expects: "40.5"
+    rubric:
+      - >
+        Writes one multiplier per constraint and uses the coincidence of two
+        stationarity equations to get $x = z$.
+      - >
+        Verifies the candidate against *both* constraints before reporting a
+        value.
+    targets:
+      - quant-tools.optimization.lagrange-example
+    exercises:
+      - quant-tools.optimization.lagrange
+
+  - id: qoptim-lagrange-example-02
+    kind: work
+    difficulty: standard
+    statement: >
+      What is the *squared* distance from the origin to the plane
+      $3x - 4y + 12z = 26$?
+    answer: >
+      $4$. This is minimize $\lVert x\rVert^{2}$ subject to $a'x = c$ with
+      $a = (3, -4, 12)$ and $c = 26$. Stationarity reads $2x = \lambda a$, so
+      the minimizer is proportional to the constraint normal: write
+      $x^{*} = t a$, and the constraint $a'x^{*} = t\lVert a\rVert^{2} = c$
+      pins $t = c/\lVert a\rVert^{2}$. Hence
+      $x^{*} = c\,a/\lVert a\rVert^{2}$ and the minimum value is
+      $\lVert x^{*}\rVert^{2} = c^{2}/\lVert a\rVert^{2}$. Here
+      $\lVert a\rVert^{2} = 9 + 16 + 144 = 169$, so the squared distance is
+      $676/169 = 4$, attained at
+      $x^{*} = 26(3,-4,12)/169 = (6/13,\ -8/13,\ 24/13)$. The distance itself
+      is $2$; the trap is answering that when the square was asked, or dividing
+      by $\lVert a\rVert$ once where the formula divides by its square.
+    expects: "4"
+    rubric:
+      - >
+        Uses stationarity to conclude the minimizer is a multiple of the
+        constraint normal, then fixes the multiple from the constraint.
+      - >
+        Divides $c^{2}$ by $\lVert a\rVert^{2} = 169$, not by
+        $\lVert a\rVert = 13$.
+    targets:
+      - quant-tools.optimization.lagrange-example
+
+  # --- inequality constraints ------------------------------------------------
+
+  - id: qoptim-kkt-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A two-asset long-only book minimizes the tracking error
+      $f(w_1, w_2) = (w_1 - 1)^{2} + (w_2 + 0.5)^{2}$ subject to
+      $w_1 + w_2 = 1$, $w_1 \ge 0$ and $w_2 \ge 0$. What is the minimum value?
+    answer: >
+      $0.25$. Guess first that only the budget equality is active. Substituting
+      $w_2 = 1 - w_1$ gives $(w_1 - 1)^{2} + (1.5 - w_1)^{2}$, whose derivative
+      $2(w_1 - 1) - 2(1.5 - w_1) = 4w_1 - 5$ vanishes at $w_1 = 1.25$ — so
+      $w_2 = -0.25 < 0$, which is infeasible. The guess is wrong, and the
+      no-short constraint on $w_2$ must be active. Re-solving with $w_2 = 0$
+      forces $w_1 = 1$, and $f(1,0) = 0 + 0.25 = 0.25$. Now verify the guess
+      with KKT, using
+      $L = f + \lambda(w_1 + w_2 - 1) - \mu_1 w_1 - \mu_2 w_2$: stationarity is
+      $2(w_1 - 1) + \lambda - \mu_1 = 0$ and
+      $2(w_2 + 0.5) + \lambda - \mu_2 = 0$. Since $w_1 = 1 > 0$, complementary
+      slackness sets $\mu_1 = 0$, so the first equation gives $\lambda = 0$ and
+      the second gives $\mu_2 = 1$. Dual feasibility $\mu_2 \ge 0$ holds, and
+      $\mu_2 > 0$ against a binding constraint is exactly the expected picture.
+      $f$ is convex and the constraints affine, so KKT is sufficient here and
+      $0.25$ is the global minimum.
+    expects: "0.25"
+    rubric:
+      - >
+        Tries an active set, detects the violation $w_2 < 0$, and revises —
+        rather than reporting the equality-constrained solution.
+      - >
+        Verifies the revised guess by checking $\mu_2 \ge 0$ and complementary
+        slackness on the inactive constraint, not just feasibility.
+    targets:
+      - quant-tools.optimization.kkt
+    exercises:
+      - quant-tools.optimization.lagrange
+
+  - id: qoptim-kkt-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A convex program has the inequality constraint
+      $g(x) = x_1 + x_2 - 5 \le 0$. A candidate reports the solution
+      $x^{*} = (1, 2)$ together with the multiplier $\mu = 0.4$ on that
+      constraint. Which KKT condition does this pair violate?
+    answer: >
+      Complementary slackness. At $x^{*}$ the constraint value is
+      $g(1,2) = 1 + 2 - 5 = -2 < 0$, so the constraint is slack — it is not
+      restricting anything — yet the reported price is positive, and
+      $\mu\,g(x^{*}) = 0.4 \times (-2) = -0.8 \ne 0$. The condition
+      $\mu_i g_i(x^{*}) = 0$ is exactly the statement that each inequality is
+      either binding, with a possibly positive price, or slack, with price
+      zero. The other conditions are fine here: primal feasibility holds
+      because $g(x^{*}) \le 0$, and dual feasibility holds because
+      $\mu = 0.4 \ge 0$. Economically the candidate is charging for a resource
+      that is not scarce; relaxing a constraint that already has room cannot
+      improve the optimum, so its shadow price must be $0$.
+    choices:
+      - text: >
+          Primal feasibility
+        feedback: >
+          $g(1,2) = -2 \le 0$, so the point satisfies the constraint. Primal
+          feasibility is the one condition clearly met.
+      - text: >
+          Dual feasibility
+        feedback: >
+          Dual feasibility asks $\mu \ge 0$, and $0.4 \ge 0$. The sign is not
+          the problem; the pairing with a slack constraint is.
+      - text: >
+          Complementary slackness
+        correct: true
+        feedback: >
+          $\mu g(x^{*}) = -0.8 \ne 0$: a constraint with room to spare must
+          carry multiplier $0$.
+      - text: >
+          Nothing — the reported pair is a valid KKT point
+        feedback: >
+          Then relaxing an already-slack constraint would be worth $0.4$ per
+          unit, which is impossible.
+    rubric:
+      - >
+        Evaluates $g$ at the reported point rather than reasoning from the
+        constraint's form.
+      - >
+        Names complementary slackness specifically, and checks the other three
+        conditions rather than stopping at the first suspicion.
+    targets:
+      - quant-tools.optimization.kkt
+
+  # --- flatness at an optimum ------------------------------------------------
+
+  - id: qoptim-flat-optimum-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A strategy's long-run growth rate at stake $f$ is
+      $g(f) = \mu f - \tfrac{1}{2}\sigma^{2}f^{2}$, with $\mu = 0.08$ and
+      $\sigma^{2} = 0.16$. A desk deliberately bets half the optimal stake.
+      What fraction of the maximum growth rate does it retain?
+    answer: >
+      $0.75$. First the optimum: $g'(f) = \mu - \sigma^{2}f = 0$ gives
+      $f^{*} = \mu/\sigma^{2} = 0.08/0.16 = 0.5$, and
+      $g(f^{*}) = \mu^{2}/(2\sigma^{2}) = 0.0064/0.32 = 0.02$. Half of that
+      stake is $f = 0.25$, and with $\tfrac{1}{2}\sigma^{2} = 0.08$,
+      $g(0.25) = 0.08(0.25) - 0.08(0.0625) = 0.02 - 0.005 = 0.015$. The ratio
+      is $0.015/0.02 = 0.75$. The numbers were not needed: for this objective
+      $g(tf^{*})/g(f^{*}) = 2t - t^{2} = 1 - (1-t)^{2}$, so a fractional stake
+      error $1 - t$ costs $(1-t)^{2}$ of the growth rate whatever $\mu$ and
+      $\sigma$ are — the quadratic flatness of an optimum. Halving the stake
+      gives up a quarter of the growth while halving the volatility of the
+      bankroll path, which is why half-Kelly staking is standard.
+    expects: "0.75"
+    rubric:
+      - >
+        Computes the optimal stake first, then evaluates $g$ at half of it —
+        not at half the growth rate.
+      - >
+        Recognises the loss as second order in the stake error, so the answer
+        does not depend on $\mu$ and $\sigma^{2}$.
+    targets:
+      - quant-tools.optimization.flat-optimum
+
+  - id: qoptim-flat-optimum-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Maximizing $f(x) = x(24 - x)$ gives $x^{*} = 12$. A desk uses $x = 15$
+      instead, an input $25\%$ too high. What fraction of the optimal objective
+      value is lost? Give a decimal.
+    answer: >
+      $0.0625$. The optimal value is $f(12) = 12 \cdot 12 = 144$, and the
+      degraded one is $f(15) = 15 \cdot 9 = 135$, so the loss is $9$ and the
+      fraction is $9/144 = 0.0625$. That is exactly $(0.25)^{2}$, and the
+      reason is the vanishing gradient: at an interior optimum
+      $f(x^{*} + h) - f(x^{*}) = \tfrac{1}{2}f''(x^{*})h^{2}$, so a relative
+      input error of $\varepsilon$ costs order $\varepsilon^{2}$ of the
+      objective — here $25\%$ of error buys only $6.25\%$ of loss. The flip
+      side is the one that hurts in practice: because the objective is so flat,
+      the data barely pin down *where* the optimum is, which is why portfolio
+      optimizers fed noisy covariance estimates produce unstable weights.
+    expects: "0.0625"
+    rubric:
+      - >
+        Reports the loss as a fraction of the optimal value, not the absolute
+        loss $9$.
+      - >
+        Connects the answer to the squared input error rather than treating the
+        coincidence as arithmetic.
+    targets:
+      - quant-tools.optimization.flat-optimum

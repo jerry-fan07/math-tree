@@ -1,0 +1,1744 @@
+# Problems targeting quant-processes.ito — stochastic calculus, from the
+# multiplication table to GBM and OU.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. No problem here reuses a lesson's
+# worked example or a card's instance; every number was recomputed. See
+# ../README.md.
+
+problems:
+  # --- why ordinary calculus fails -------------------------------------------
+
+  - id: qito-calculus-breaks-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A Brownian path is sampled at $n$ equally spaced times across $[0,4]$.
+      The sum of the absolute increments has typical size $\sqrt{tn}$, while
+      the sum of their squares stays at $t$. How large must $n$ be before the
+      absolute-increment sum first reaches $1000$?
+    answer: >
+      $n = 250000$. Each of the $n$ increments spans $\Delta t = 4/n$ and so has
+      typical size $\sqrt{4/n}$; there are $n$ of them, so the total absolute
+      movement is about $n\sqrt{4/n} = \sqrt{4n} = 2\sqrt{n}$. Setting
+      $2\sqrt{n} = 1000$ gives $\sqrt{n} = 500$ and $n = 250000$. The point is
+      not the number but that a number always exists: refine further and the
+      total keeps climbing without bound, which is exactly the statement that a
+      Brownian path has infinite total variation on $[0,4]$. Meanwhile the sum
+      of squared increments is about $n \cdot (4/n) = 4$ at every $n$ — pinned
+      at $t$ forever. The trap is reading the square root as damping. It is the
+      opposite: increments shrink like $\sqrt{\Delta t}$ rather than
+      $\Delta t$, which is too slow for the absolute sum to converge and
+      exactly right for the squared sum to converge, and that mismatch is the
+      whole reason a new integral is needed.
+    expects: "250000"
+    rubric:
+      - >
+        Uses increment size $\sqrt{\Delta t}$, not $\Delta t$, so the absolute
+        sum scales as $\sqrt{tn}$ and grows with $n$.
+      - >
+        Names the consequence: infinite total variation, with the squared sum
+        holding steady at $t$ over the same refinement.
+    targets:
+      - quant-processes.ito.calculus-breaks
+    exercises:
+      - quant-processes.brownian.bm
+
+  - id: qito-calculus-breaks-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A candidate argues that because Brownian paths are continuous,
+      $\int_0^t H_s\,dB_s$ can simply be built path by path as an ordinary
+      Riemann–Stieltjes integral against $B$. Which verdict is right?
+    answer: >
+      Wrong, and for a reason that has nothing to do with continuity. The
+      Riemann–Stieltjes construction needs the *integrator* to have bounded
+      variation on the interval: that is what makes the approximating sums
+      converge to the same limit whatever point of each subinterval the
+      integrand is sampled at. A Brownian path has infinite variation on every
+      interval — the absolute increments over an $n$-piece partition of $[0,t]$
+      total about $\sqrt{tn} \to \infty$ — so the guarantee is simply absent,
+      and the left-endpoint, midpoint and right-endpoint limits are three
+      different numbers. Continuity is real but irrelevant here; the standard
+      counterexample $t\sin(1/t)$ is continuous on $(0,1]$ and still has
+      infinite variation. Because the sampling point must be chosen rather than
+      derived, it becomes a modelling decision, and the Itô integral is the
+      choice of the left endpoint.
+    choices:
+      - text: >
+          Wrong — Riemann–Stieltjes needs the integrator to have bounded
+          variation, which a Brownian path does not, so the limit depends on
+          where $H$ is sampled
+        correct: true
+        feedback: >
+          Exactly: the hypothesis that fails is bounded variation, and its
+          failure is what forces a choice of sampling point.
+      - text: >
+          Right — continuity of the integrator is exactly the Riemann–Stieltjes
+          hypothesis
+        feedback: >
+          The hypothesis is bounded variation, not continuity. $t\sin(1/t)$ is
+          continuous and still fails it.
+      - text: >
+          Wrong — Brownian paths are not continuous, so no pathwise integral can
+          exist
+        feedback: >
+          Brownian paths are continuous everywhere. What they lack is a
+          derivative and finite variation.
+      - text: >
+          Right, provided $H$ is bounded
+        feedback: >
+          Bounding $H$ does not repair an integrator of infinite variation; the
+          three endpoint limits still disagree.
+    rubric:
+      - >
+        Names bounded variation of the integrator, not continuity, as the
+        hypothesis Riemann–Stieltjes needs and Brownian motion fails.
+      - >
+        Draws the consequence that the sampling point becomes a choice, which is
+        what the Itô construction then fixes at the left endpoint.
+    targets:
+      - quant-processes.ito.calculus-breaks
+    exercises:
+      - quant-processes.brownian.bm
+
+  # --- the Itô integral -------------------------------------------------------
+
+  - id: qito-ito-integral-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A five-step walk takes steps $+1,+1,-1,-1,+1$, so
+      $S_0=0, S_1=1, S_2=2, S_3=1, S_4=0, S_5=1$. Compute the *right*-endpoint
+      sum $\sum_{i=0}^{4} S_{i+1}\left(S_{i+1}-S_i\right)$.
+    answer: >
+      $3$. Term by term, the multiplier is the position you land on rather than
+      the one you held: $1(1) + 2(1) + 1(-1) + 0(-1) + 1(1) = 1 + 2 - 1 + 0 + 1
+      = 3$. The left-endpoint sum on the same path is
+      $0(1) + 1(1) + 2(-1) + 1(-1) + 0(1) = -2$, so the two differ by $5$. That
+      gap is no accident: subtracting the two sums leaves
+      $\sum_i \left(S_{i+1}-S_i\right)^{2}$, which for a $\pm 1$ walk is exactly
+      the number of steps, $5$. The same identity in continuous time is the
+      quadratic variation $t$, so left- and right-endpoint limits differ by $t$
+      and only one of them can be the Itô integral. Left endpoints win because
+      $S_i$ is the position held *before* seeing the move, making each term a
+      product of independent factors with mean $0$; the right-endpoint sum
+      peeks, and $\mathbb{E}[3]$-style bias is the result — here it is
+      $(S_5^{2}+5)/2 = 3$ against the left sum's $(S_5^{2}-5)/2 = -2$.
+    expects: "3"
+    rubric:
+      - >
+        Multiplies each increment by the *later* position, giving $3$, and
+        contrasts it with the left-endpoint value $-2$.
+      - >
+        Identifies the difference as the sum of squared increments — the
+        quadratic variation — and not as an arithmetic slip.
+    targets:
+      - quant-processes.ito.ito-integral
+    exercises:
+      - quant-processes.ito.calculus-breaks
+
+  - id: qito-ito-integral-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A desk holds $3$ units of a Brownian-driven position throughout $[0,1]$,
+      then $5$ units throughout $(1,4]$, each size fixed before the period
+      begins. The realized path has $B_1 = 0.6$ and $B_4 = -0.2$, with
+      $B_0 = 0$. What is $\int_0^4 H_s\,dB_s$ for this piecewise-constant $H$?
+    answer: >
+      $-2.2$. For a simple adapted integrand the Itô integral is exactly the
+      finite sum in its definition, with each holding multiplied by the move
+      that follows it: $3\left(B_1 - B_0\right) + 5\left(B_4 - B_1\right)
+      = 3(0.6) + 5(-0.2 - 0.6) = 1.8 + 5(-0.8) = 1.8 - 4 = -2.2$. Two habits are
+      being drilled. First, the second increment is $B_4 - B_1 = -0.8$, not
+      $B_4 = -0.2$: the integral pays the *change* over each holding period, and
+      using the level instead gives $1.8 - 1 = 0.8$, the common slip. Second,
+      each size is locked in before its move, which is what adaptedness means
+      operationally and what makes $\mathbb{E}\left[\int_0^4 H_s\,dB_s\right]
+      = 0$ even though the realized value here is negative.
+    expects: "-2.2"
+    rubric:
+      - >
+        Pairs each holding with the increment *after* it and uses
+        $B_4 - B_1 = -0.8$ rather than the level $B_4$.
+      - >
+        Notes that the sizes are fixed before their moves, so the integral has
+        mean $0$ despite the realized $-2.2$.
+    targets:
+      - quant-processes.ito.ito-integral
+    exercises:
+      - quant-processes.ito.calculus-breaks
+
+  # --- Itô isometry -----------------------------------------------------------
+
+  - id: qito-ito-isometry-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Prove the Itô isometry for a simple adapted integrand: if $H$ is constant
+      at the value $H_{t_i}$ on each $[t_i, t_{i+1})$ of a partition of $[0,t]$,
+      with $\mathbb{E}\left[H_{t_i}^{2}\right] < \infty$, show that
+      $\mathbb{E}\left[\left(\int_0^t H_s\,dB_s\right)^{2}\right]
+      = \mathbb{E}\left[\int_0^t H_s^{2}\,ds\right]$. Say precisely where
+      adaptedness is used.
+    answer: >
+      Write $\Delta_i = B_{t_{i+1}} - B_{t_i}$ and $\Delta t_i = t_{i+1} - t_i$,
+      so the integral is the finite sum $I = \sum_i H_{t_i}\Delta_i$. Squaring,
+      $I^{2} = \sum_i H_{t_i}^{2}\Delta_i^{2}
+      + 2\sum_{i < j} H_{t_i}H_{t_j}\Delta_i\Delta_j$, and the claim is that the
+      cross terms have mean $0$ while the diagonal terms give
+      $\sum_i \mathbb{E}\left[H_{t_i}^{2}\right]\Delta t_i$.
+
+      Cross terms. Fix $i < j$ and condition on the information
+      $\mathcal{F}_{t_j}$ available at time $t_j$. The factors $H_{t_i}$,
+      $\Delta_i$ and $H_{t_j}$ are all determined by that information —
+      $H_{t_j}$ because $H$ is adapted, and this is the only place adaptedness
+      enters — so they pull out of the conditional expectation, leaving
+      $\mathbb{E}\left[H_{t_i}H_{t_j}\Delta_i\Delta_j \mid \mathcal{F}_{t_j}
+      \right] = H_{t_i}H_{t_j}\Delta_i\,\mathbb{E}\left[\Delta_j \mid
+      \mathcal{F}_{t_j}\right]$. The increment $\Delta_j$ is independent of
+      $\mathcal{F}_{t_j}$ with mean $0$, so that inner expectation is $0$ and
+      the whole term has mean $0$ by the tower property. Had $H_{t_j}$ been
+      allowed to look forward — say $H_{t_j} = \Delta_j$ — the factor would not
+      pull out and the cross term would contribute $\Delta t_j$ instead.
+
+      Diagonal terms. Again condition on $\mathcal{F}_{t_i}$: $H_{t_i}$ is known
+      there, and $\Delta_i^{2}$ is independent of it with
+      $\mathbb{E}\left[\Delta_i^{2}\right] = \Delta t_i$, so
+      $\mathbb{E}\left[H_{t_i}^{2}\Delta_i^{2}\right]
+      = \mathbb{E}\left[H_{t_i}^{2}\right]\Delta t_i$. Summing,
+      $\mathbb{E}\left[I^{2}\right]
+      = \sum_i \mathbb{E}\left[H_{t_i}^{2}\right]\Delta t_i
+      = \mathbb{E}\left[\int_0^t H_s^{2}\,ds\right]$, the last equality because
+      $H$ is constant at $H_{t_i}$ across $[t_i,t_{i+1})$. Both sides are
+      continuous in the $L^{2}$ limit that defines the integral for general
+      adapted $H$, so the identity passes to the limit unchanged. The name is
+      earned: the map $H \mapsto \int H\,dB$ carries the $L^{2}$ norm on
+      integrands to the $L^{2}$ norm on random variables, isometrically.
+    rubric:
+      - >
+        Splits the square into diagonal and cross terms and handles the two
+        separately rather than asserting the result.
+      - >
+        Uses adaptedness exactly once and says so — to pull $H_{t_j}$ out of
+        $\mathbb{E}\left[\cdot \mid \mathcal{F}_{t_j}\right]$ before the
+        mean-zero increment kills the cross term.
+      - >
+        Gets the diagonal contribution from
+        $\mathbb{E}\left[\Delta_i^{2}\right] = \Delta t_i$ and reassembles the
+        sum as $\mathbb{E}\int_0^t H_s^{2}\,ds$.
+    targets:
+      - quant-processes.ito.ito-isometry
+    exercises:
+      - quant-processes.ito.ito-integral
+
+  - id: qito-ito-isometry-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Let $H_s = \sqrt{s}$ on $[0,6]$. Compute
+      $\mathbb{E}\left[\left(\int_0^6 \sqrt{s}\,dB_s\right)^{2}\right]$.
+    answer: >
+      $18$. The integrand is deterministic and square-integrable, so the
+      isometry applies with no conditioning to worry about:
+      $\mathbb{E}\left[\left(\int_0^6 \sqrt{s}\,dB_s\right)^{2}\right]
+      = \int_0^6 \left(\sqrt{s}\right)^{2}ds = \int_0^6 s\,ds = 6^{2}/2 = 18$.
+      Because the integral has mean $0$, this second moment is also its
+      variance, and for a deterministic integrand the law is exactly
+      $N(0, 18)$ — normal, not merely mean-zero with variance $18$. The slip to
+      avoid is squaring after integrating rather than before: $\int_0^6
+      \sqrt{s}\,ds = \frac{2}{3}6^{3/2} \approx 9.80$, whose square $96$ is
+      unrelated to anything here. The isometry squares the *integrand*, then
+      integrates in $ds$, and the $dB$ has disappeared by the time you do so.
+    expects: "18"
+    rubric:
+      - >
+        Squares the integrand first and integrates $\int_0^6 s\,ds$, rather than
+        squaring the value of an ordinary integral.
+      - >
+        Notes that a deterministic integrand makes the law exactly $N(0,18)$,
+        not just a variance statement.
+    targets:
+      - quant-processes.ito.ito-isometry
+    exercises:
+      - quant-processes.ito.ito-integral
+
+  - id: qito-ito-isometry-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      Compute $\operatorname{Var}\left(\int_0^2 sB_s\,dB_s\right)$, where $B$ is
+      standard Brownian motion.
+    answer: >
+      $4$. The integrand $H_s = sB_s$ is adapted but random, so the isometry's
+      right-hand side stays inside an expectation:
+      $\mathbb{E}\left[\left(\int_0^2 sB_s\,dB_s\right)^{2}\right]
+      = \mathbb{E}\left[\int_0^2 s^{2}B_s^{2}\,ds\right]
+      = \int_0^2 s^{2}\,\mathbb{E}\left[B_s^{2}\right]ds$, exchanging
+      expectation and the ordinary $ds$ integral. Since
+      $\mathbb{E}\left[B_s^{2}\right] = s$, this is
+      $\int_0^2 s^{3}\,ds = 2^{4}/4 = 4$. The integral has mean $0$, so the
+      second moment *is* the variance. Two traps sit here. Treating $B_s$ as
+      though it were a constant and writing $\int_0^2 s^{2}\,ds = 8/3$ drops the
+      factor $\mathbb{E}\left[B_s^{2}\right] = s$ entirely. And a random
+      integrand is not disqualified from the isometry — only an anticipating one
+      is; $sB_s$ is known at time $s$, which is all that is asked.
+    expects: "4"
+    rubric:
+      - >
+        Keeps the expectation on the right-hand side and substitutes
+        $\mathbb{E}\left[B_s^{2}\right] = s$ before integrating.
+      - >
+        Evaluates $\int_0^2 s^{3}\,ds = 4$ and identifies the second moment with
+        the variance because the integral has mean $0$.
+    targets:
+      - quant-processes.ito.ito-isometry
+    exercises:
+      - quant-processes.ito.ito-integral
+
+  # --- the multiplication table -----------------------------------------------
+
+  - id: qito-db-squared-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Justify the rule $\left(dB\right)^{2} = dt$ by showing that over an
+      $n$-piece partition of $[0,t]$ the sum of squared Brownian increments has
+      mean $t$ and variance $2t^{2}/n$, while the cross sum
+      $\sum_i \Delta t_i\,\Delta B_i$ vanishes in the limit. Then say what the
+      simple symmetric random walk's own squared increments contribute, and why
+      that is the same fact one level down.
+    answer: >
+      Write $\Delta t = t/n$ and $\Delta B_i = B_{t_{i+1}} - B_{t_i}$, so
+      $\Delta B_i = \sqrt{\Delta t}\,Z_i$ with $Z_i$ independent standard
+      normals. Let $Q_n = \sum_{i=1}^{n} \Delta B_i^{2}
+      = \Delta t\sum_i Z_i^{2}$.
+
+      Mean. $\mathbb{E}\left[Z_i^{2}\right] = 1$, so
+      $\mathbb{E}\left[Q_n\right] = n\,\Delta t = t$, at every $n$ — no limit is
+      needed for the mean.
+
+      Variance. $\operatorname{Var}\left(Z_i^{2}\right) = 2$ for a standard
+      normal, and the increments are independent, so
+      $\operatorname{Var}\left(Q_n\right) = n\left(\Delta t\right)^{2}\cdot 2
+      = 2n\left(t/n\right)^{2} = 2t^{2}/n$. This goes to $0$, so $Q_n \to t$ in
+      $L^{2}$: the sum of squared increments is not merely centred at $t$, it
+      concentrates on $t$. That is the precise content of writing
+      $\left(dB\right)^{2} = dt$ — a squared increment is deterministic at
+      leading order, which no first-order increment ever is.
+
+      Cross terms. $\mathbb{E}\left[\left(\sum_i \Delta t\,\Delta B_i\right)^{2}
+      \right] = \left(\Delta t\right)^{2}\sum_i \mathbb{E}\left[\Delta B_i^{2}
+      \right] = \left(\Delta t\right)^{2}t = t^{3}/n^{2} \to 0$, so
+      $dt\,dB = 0$; and $\sum_i \left(\Delta t\right)^{2} = t^{2}/n \to 0$ gives
+      $dt\,dt = 0$. Keeping terms of order $\Delta t$ and discarding those of
+      order $\left(\Delta t\right)^{3/2}$ and smaller is therefore not
+      sloppiness but a theorem.
+
+      The discrete shadow. For a simple symmetric random walk each step is
+      $\pm 1$, so each squared step is exactly $1$ and $\sum_{i=1}^{n}
+      \left(\Delta S_i\right)^{2} = n$ with *zero* variance — the walk's
+      quadratic variation after $n$ steps is $n$, always, on every path. Scaling
+      the walk to Brownian motion sends $n$ steps of size $1$ over time $t$ to
+      steps of size $\sqrt{t/n}$, and the identity $\sum \left(\Delta S_i
+      \right)^{2} = n$ becomes $\sum \left(\Delta B_i\right)^{2} \approx t$. The
+      only thing lost in the limit is exactness: the walk's version holds
+      pathwise, Brownian motion's holds in $L^{2}$ with the $2t^{2}/n$ variance
+      computed above.
+    rubric:
+      - >
+        Computes both the mean $t$ and the variance $2t^{2}/n$, using
+        $\operatorname{Var}\left(Z^{2}\right) = 2$, and concludes $L^{2}$
+        convergence rather than just "the mean is right".
+      - >
+        Shows $dt\,dB$ and $\left(dt\right)^{2}$ vanish by their own order
+        estimates, so the table's three rules are all justified.
+      - >
+        Identifies the walk's exact $\sum\left(\Delta S_i\right)^{2} = n$ as the
+        same statement before the limit, noting the walk's version is pathwise
+        while Brownian motion's is $L^{2}$.
+    targets:
+      - quant-processes.ito.db-squared
+      - quant-processes.random-walks.ssrw
+    exercises:
+      - quant-processes.brownian.quadratic-variation
+    connects:
+      - quant-processes.ito.db-squared ~ quant-processes.random-walks.ssrw
+
+  - id: qito-db-squared-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Using the multiplication table, expand $\left(5\,dt - 3\,dB_t\right)^{2}$
+      and give the coefficient of $dt$ in the result.
+    answer: >
+      $9$. Expanding as an ordinary square gives
+      $25\left(dt\right)^{2} - 30\,dt\,dB_t + 9\left(dB_t\right)^{2}$. Now apply
+      the table term by term: $\left(dt\right)^{2} = 0$ kills the first,
+      $dt\,dB_t = 0$ kills the second, and $\left(dB_t\right)^{2} = dt$ turns
+      the third into $9\,dt$. So the whole square collapses to $9\,dt$ and the
+      coefficient is $9$. Note what survived: only the term that was second
+      order in $dB$, and its coefficient is the *square* of the diffusion
+      coefficient, not the coefficient itself — answering $-3$ or $3$ is the
+      standard slip. Note also that the minus sign vanished, since the square
+      of $-3$ is $+9$; a negative diffusion coefficient generates exactly the
+      same second-order term as its positive twin, which is why only
+      $b_t^{2}$ ever appears in Itô's lemma.
+    expects: "9"
+    rubric:
+      - >
+        Applies all three rules — $\left(dt\right)^{2} = 0$, $dt\,dB = 0$,
+        $\left(dB\right)^{2} = dt$ — rather than only the last.
+      - >
+        Reports the squared coefficient $9$, and notes the sign of the diffusion
+        coefficient does not survive the squaring.
+    targets:
+      - quant-processes.ito.db-squared
+    exercises:
+      - quant-processes.ito.calculus-breaks
+
+  - id: qito-db-squared-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      Two processes are driven by Brownian motions of correlation $\rho = 0.25$:
+      $dX_t = 2\,dt + 3\,dB_t^{(1)}$ and $dY_t = -\,dt + 4\,dB_t^{(2)}$. What is
+      the coefficient of $dt$ in the product $dX_t\,dY_t$?
+    answer: >
+      $3$. Multiply out:
+      $dX_t\,dY_t = -2\left(dt\right)^{2} + 8\,dt\,dB_t^{(2)}
+      - 3\,dB_t^{(1)}dt + 12\,dB_t^{(1)}dB_t^{(2)}$. The first three terms are
+      killed by $\left(dt\right)^{2} = 0$ and $dt\,dB = 0$ — this is where
+      treating $dB\,dt$ as a small but nonzero quantity would leak a spurious
+      term. The survivor uses the correlated rule
+      $dB^{(1)}dB^{(2)} = \rho\,dt$, giving
+      $12\rho\,dt = 12(0.25)\,dt = 3\,dt$, so the coefficient is $3$. Two
+      checks on the structure: the drifts $2$ and $-1$ play no part at all,
+      because every term containing a $dt$ from either process is of order
+      higher than $dt$; and at $\rho = 0$ the answer would be $0$, which is why
+      independently driven processes have no covariation. The general form
+      $b\,e\,\rho$ is exactly the extra term in the Itô product rule.
+    expects: "3"
+    rubric:
+      - >
+        Discards $\left(dt\right)^{2}$ and both $dt\,dB$ cross terms rather than
+        carrying them as small quantities.
+      - >
+        Uses $dB^{(1)}dB^{(2)} = \rho\,dt$ with the product of the two diffusion
+        coefficients, giving $12(0.25) = 3$, and notes the drifts are irrelevant.
+    targets:
+      - quant-processes.ito.db-squared
+    exercises:
+      - quant-processes.brownian.quadratic-variation
+
+  # --- reading an SDE ---------------------------------------------------------
+
+  - id: qito-sde-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A process is specified by
+      $X_t = 3 + \int_0^t 2s\,ds + \int_0^t \sqrt{s}\,dB_s$. What is
+      $\mathbb{E}\left[X_4\right]$?
+    answer: >
+      $19$. The specification is already in the only form an SDE ever really
+      has — an integral identity — so nothing needs to be solved. Take
+      expectations term by term. The constant contributes $3$. The $ds$ integral
+      is deterministic: $\int_0^4 2s\,ds = 4^{2} = 16$. The $dB$ integral has
+      mean $0$, because $\sqrt{s}$ is adapted and square integrable on $[0,4]$,
+      so it contributes nothing at all: $\mathbb{E}\left[X_4\right]
+      = 3 + 16 + 0 = 19$. Written in shorthand the same process is
+      $dX_t = 2t\,dt + \sqrt{t}\,dB_t$ with $X_0 = 3$, drift $a(t) = 2t$ and
+      diffusion coefficient $b(t) = \sqrt{t}$, both functions of time alone.
+      The trap is imagining the noise term must contribute *something* to the
+      mean because $\sqrt{s}$ is positive; it does not, and the sign of the
+      integrand is irrelevant — the integral is a mean-zero martingale whatever
+      the integrand looks like. The noise instead shows up in the spread:
+      $\operatorname{Var}\left(X_4\right) = \int_0^4 s\,ds = 8$.
+    expects: "19"
+    rubric:
+      - >
+        Reads the specification as an integral identity and splits the
+        expectation into constant, $ds$ and $dB$ pieces.
+      - >
+        Assigns the $dB$ integral mean $0$ regardless of the sign of its
+        integrand, and evaluates $\int_0^4 2s\,ds = 16$.
+    targets:
+      - quant-processes.ito.sde
+    exercises:
+      - quant-processes.ito.ito-integral
+
+  - id: qito-sde-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      An interviewer writes $dX_t = \sin\left(X_t\right)dt + X_t^{2}\,dB_t$ on
+      the board and asks what the notation actually means. Which reading is
+      correct?
+    answer: >
+      It is shorthand for the integral equation $X_t = X_0
+      + \int_0^t \sin\left(X_s\right)ds + \int_0^t X_s^{2}\,dB_s$, and that
+      identity is the definition — there is no differential and no derivative
+      anywhere in it. The two wrong readings are instructive. Dividing by $dt$
+      to get a derivative fails immediately, since $dB_t/dt$ does not exist for
+      any $t$: the whole apparatus exists because that quotient is meaningless.
+      And reading the shorthand as an exact finite-difference recipe,
+      $X_{t+\Delta} - X_t = \sin\left(X_t\right)\Delta + X_t^{2}
+      \left(B_{t+\Delta}-B_t\right)$, is right only to leading order in
+      $\Delta$; the coefficients move as $X$ moves within the interval, and the
+      error is precisely what the second-order Itô term later accounts for.
+      Reading off $a\left(t,x\right) = \sin(x)$ and $b\left(t,x\right) = x^{2}$
+      is legitimate — the two coefficients of an Itô process are unique — but
+      that is naming the parts, not defining the object.
+    choices:
+      - text: >
+          Shorthand for $X_t = X_0 + \int_0^t \sin\left(X_s\right)ds
+          + \int_0^t X_s^{2}\,dB_s$, which is the actual definition
+        correct: true
+        feedback: >
+          Right: the differential form is notation, and the integral identity is
+          the process.
+      - text: >
+          It means $X$ is differentiable with
+          $dX_t/dt = \sin\left(X_t\right) + X_t^{2}\,dB_t/dt$
+        feedback: >
+          $dB_t/dt$ does not exist at any $t$, which is the reason the integral
+          form is the definition in the first place.
+      - text: >
+          It means $X_{t+\Delta} - X_t = \sin\left(X_t\right)\Delta
+          + X_t^{2}\left(B_{t+\Delta}-B_t\right)$ exactly, for any $\Delta$
+        feedback: >
+          Exact only in the limit. Over a finite $\Delta$ the coefficients drift
+          with $X$, and the mismatch is what the Itô correction later captures.
+      - text: >
+          It means $X_t$ is normally distributed with mean
+          $\sin\left(X_0\right)t$
+        feedback: >
+          State-dependent coefficients destroy normality; only constant $a$ and
+          $b$ give a normal law.
+    rubric:
+      - >
+        Identifies the integral equation as the definition and the differential
+        as notation.
+      - >
+        Rejects the derivative reading by naming the non-existence of
+        $dB_t/dt$, not by appealing to randomness in general.
+    targets:
+      - quant-processes.ito.sde
+    exercises:
+      - quant-processes.ito.calculus-breaks
+      - quant-processes.ito.ito-integral
+
+  # --- Itô's lemma ------------------------------------------------------------
+
+  - id: qito-ito-lemma-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Let $Y_t = f\left(t, B_t\right)$ with $f(t,x) = tx^{2}$, where $B$ is
+      standard Brownian motion. At the instant $t = 2$ with $B_2 = 3$, what is
+      the drift of $Y$?
+    answer: >
+      $11$. Here $X_t = B_t$, so $a = 0$ and $b = 1$, and the three partials
+      are $\frac{\partial f}{\partial t} = x^{2}$,
+      $\frac{\partial f}{\partial x} = 2tx$ and
+      $\frac{\partial^{2} f}{\partial x^{2}} = 2t$. Itô's lemma assembles the
+      drift as $\frac{\partial f}{\partial t}
+      + a\frac{\partial f}{\partial x}
+      + \frac{1}{2}b^{2}\frac{\partial^{2} f}{\partial x^{2}}
+      = x^{2} + 0 + \frac{1}{2}(1)(2t) = x^{2} + t$. At $t = 2$, $x = 3$ that is
+      $9 + 2 = 11$. Two terms are easy to lose. The explicit time derivative
+      $\frac{\partial f}{\partial t} = x^{2}$ is not an Itô term at all — it is
+      ordinary calculus, and dropping it leaves $2$. The Itô term
+      $\frac{1}{2}b^{2}f_{xx} = t$ is the correction proper, and dropping it
+      leaves $9$; it is present only because $f$ is curved in $x$. For
+      completeness the diffusion coefficient is
+      $bf_x = 2tx = 12$, so $dY_t = \left(B_t^{2}+t\right)dt + 2tB_t\,dB_t$ at
+      that instant.
+    expects: "11"
+    rubric:
+      - >
+        Includes $\frac{\partial f}{\partial t} = x^{2}$ alongside the Itô term,
+        rather than treating the drift as purely the correction.
+      - >
+        Computes $\frac{1}{2}b^{2}f_{xx} = t$ with $b = 1$ and evaluates the sum
+        at $\left(t,x\right) = (2,3)$.
+    targets:
+      - quant-processes.ito.ito-lemma
+    exercises:
+      - quant-processes.ito.db-squared
+      - quant-tools.series-calculus.taylor
+
+  - id: qito-ito-lemma-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Let $dX_t = 0.5\,dt + 2\,dB_t$ and $Y_t = \sqrt{X_t}$. At the instant
+      $X_t = 4$, what is the drift of $Y$?
+    answer: >
+      $0.0625$. With $f(x) = \sqrt{x}$ the derivatives are
+      $f'(x) = \frac{1}{2\sqrt{x}}$ and
+      $f''(x) = -\frac{1}{4}x^{-3/2}$, and $f$ has no explicit $t$ dependence.
+      At $x = 4$: $f'(4) = \frac{1}{4} = 0.25$ and
+      $f''(4) = -\frac{1}{4}\cdot\frac{1}{8} = -0.03125$. The lemma gives drift
+      $af' + \frac{1}{2}b^{2}f''
+      = 0.5(0.25) + \frac{1}{2}(4)(-0.03125) = 0.125 - 0.0625 = 0.0625$.
+      The Itô term is *negative* here, and that is the whole content of the
+      problem: $\sqrt{x}$ is concave, so noise costs drift rather than earning
+      it, exactly opposite to the convex case. Ignoring the correction and
+      reporting the ordinary chain-rule value $0.125$ overstates the drift by a
+      factor of two. Note the correction scales with $b^{2} = 4$, not $b$: halve
+      the volatility and the penalty falls to a quarter of its size.
+    expects: "0.0625"
+    rubric:
+      - >
+        Computes both $f'(4) = 0.25$ and $f''(4) = -0.03125$ and keeps the sign
+        of the second derivative.
+      - >
+        Adds the correction $\frac{1}{2}b^{2}f''$ with $b^{2} = 4$, and notes
+        concavity makes it a subtraction.
+    targets:
+      - quant-processes.ito.ito-lemma
+    exercises:
+      - quant-processes.ito.db-squared
+      - quant-processes.ito.sde
+
+  - id: qito-ito-lemma-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      A process obeys $dX_t = X_t\,dB_t$ with $X_0 > 0$, and a candidate is
+      asked for the dynamics of its reciprocal $Y_t = 1/X_t$. Which SDE does
+      the transformation give?
+    answer: >
+      $dY_t = Y_t\,dt - Y_t\,dB_t$. Take $f(x) = 1/x$, so $f'(x) = -1/x^{2}$
+      and $f''(x) = 2/x^{3}$, and read off $a = 0$, $b = X_t$ from the stated
+      SDE. Itô's lemma gives drift
+      $0 + \frac{1}{2}X_t^{2}\cdot\frac{2}{X_t^{3}} = \frac{1}{X_t} = Y_t$ and
+      diffusion coefficient
+      $X_t\cdot\left(-\frac{1}{X_t^{2}}\right) = -\frac{1}{X_t} = -Y_t$, so
+      $dY_t = Y_t\,dt - Y_t\,dB_t$. The result is worth remembering: $X$ is a
+      driftless martingale, yet its reciprocal has strictly positive drift. The
+      ordinary chain rule would have given $dY_t = -Y_t\,dB_t$ and predicted
+      $\mathbb{E}\left[1/X_t\right] = 1/X_0$, which is false — convexity of
+      $1/x$ makes $\mathbb{E}\left[1/X_t\right]$ grow like $e^{t}$, a fact you
+      can also read straight off Jensen's inequality.
+    choices:
+      - text: >
+          $dY_t = Y_t\,dt - Y_t\,dB_t$
+        correct: true
+        feedback: >
+          Right: $\frac{1}{2}b^{2}f'' = \frac{1}{2}X^{2}\cdot 2/X^{3} = Y$ and
+          $bf' = -Y$.
+      - text: >
+          $dY_t = -Y_t\,dB_t$
+        feedback: >
+          That is the ordinary chain rule. It drops
+          $\frac{1}{2}b^{2}f''$, and with $f'' = 2/x^{3} \ne 0$ that term does
+          not vanish.
+      - text: >
+          $dY_t = -Y_t\,dt - Y_t\,dB_t$
+        feedback: >
+          The sign is wrong: $f'' = 2/x^{3} > 0$ for $x > 0$, so the correction
+          adds drift rather than subtracting it.
+      - text: >
+          $dY_t = Y_t\,dt + Y_t\,dB_t$
+        feedback: >
+          The drift is right but the diffusion coefficient is not:
+          $bf' = X\left(-1/X^{2}\right)$ is negative, so the noise term flips
+          sign.
+    rubric:
+      - >
+        Reads $a = 0$, $b = X_t$ off the SDE and computes $f'$ and $f''$ for
+        $1/x$ before assembling.
+      - >
+        Keeps the positive $\frac{1}{2}b^{2}f''$ drift and the negative
+        $bf'$ diffusion coefficient, and can say why a martingale's reciprocal
+        is not one.
+    targets:
+      - quant-processes.ito.ito-lemma
+    exercises:
+      - quant-processes.ito.db-squared
+
+  # --- the worked classics ----------------------------------------------------
+
+  - id: qito-ito-lemma-worked-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Asked for $\int_0^{12} B_s\,dB_s$, a candidate answers
+      $\frac{1}{2}B_{12}^{2}$. By how much does that overstate the true value?
+    answer: >
+      By $6$. Itô's lemma on $f(x) = x^{2}$ with $X_t = B_t$ gives
+      $d\left(B_t^{2}\right) = 2B_t\,dB_t + dt$, since $f' = 2x$, $f'' = 2$ and
+      $b = 1$. Integrating from $0$ to $12$:
+      $B_{12}^{2} = 2\int_0^{12} B_s\,dB_s + 12$, so
+      $\int_0^{12} B_s\,dB_s = \frac{1}{2}\left(B_{12}^{2} - 12\right)
+      = \frac{1}{2}B_{12}^{2} - 6$. The candidate's answer therefore exceeds the
+      truth by exactly $6 = t/2$, on every path and whatever $B_{12}$ turns out
+      to be — the error is deterministic, which is what makes it so easy to
+      state. The mean-zero property is the cleanest check: $\mathbb{E}\left[
+      \frac{1}{2}B_{12}^{2}\right] = \frac{1}{2}(12) = 6$, which is not $0$, so
+      $\frac{1}{2}B_{12}^{2}$ cannot be an Itô integral; subtracting $6$ fixes
+      it. The candidate's slip is applying the ordinary rule
+      $\int x\,dx = x^{2}/2$, which has no correction because ordinary calculus
+      has no quadratic variation.
+    expects: "6"
+    rubric:
+      - >
+        Derives $d\left(B_t^{2}\right) = 2B_t\,dB_t + dt$ and integrates to get
+        $\left(B_t^{2}-t\right)/2$.
+      - >
+        Reports the gap as the deterministic $t/2 = 6$, and can check it with
+        $\mathbb{E}\left[B_{12}^{2}\right] = 12$ against the integral's mean of
+        $0$.
+    targets:
+      - quant-processes.ito.ito-lemma-worked
+    exercises:
+      - quant-processes.ito.ito-lemma
+
+  - id: qito-ito-lemma-worked-02
+    kind: work
+    difficulty: standard
+    statement: >
+      For which $\sigma > 0$ does the process $Y_t = \exp\left(\sigma B_t\right)$
+      have instantaneous drift equal to $0.125$ times its own current value?
+    answer: >
+      $\sigma = 0.5$. Applying Itô to $f(x) = e^{\sigma x}$ with $X_t = B_t$
+      gives $f' = \sigma e^{\sigma x}$, $f'' = \sigma^{2}e^{\sigma x}$, $a = 0$
+      and $b = 1$, hence $dY_t = \sigma Y_t\,dB_t
+      + \frac{1}{2}\sigma^{2}Y_t\,dt$. The drift is
+      $\frac{1}{2}\sigma^{2}Y_t$, so the proportional drift rate is
+      $\frac{1}{2}\sigma^{2}$. Setting $\frac{1}{2}\sigma^{2} = 0.125$ gives
+      $\sigma^{2} = 0.25$ and $\sigma = 0.5$, taking the positive root. The
+      structural fact underneath is that $B_t$ has no drift whatever, yet
+      $e^{\sigma B_t}$ drifts strictly upward: convexity converts pure noise
+      into growth, and the conversion rate is quadratic in $\sigma$. Reading the
+      rate as $\sigma$ rather than $\sigma^{2}/2$ would give $0.125$; forgetting
+      the $\frac{1}{2}$ would give $\sigma \approx 0.354$.
+    expects: "0.5"
+    rubric:
+      - >
+        Derives the drift $\frac{1}{2}\sigma^{2}Y_t$ from $f'' = \sigma^{2}
+        e^{\sigma x}$ rather than quoting a rate of $\sigma$.
+      - >
+        Solves $\frac{1}{2}\sigma^{2} = 0.125$ and keeps the positive root,
+        noting the rate is quadratic in $\sigma$.
+    targets:
+      - quant-processes.ito.ito-lemma-worked
+    exercises:
+      - quant-processes.ito.ito-lemma
+
+  # --- the product rule -------------------------------------------------------
+
+  - id: qito-product-rule-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Let $dX_t = a_t\,dt + b_t\,dB_t$ and $dY_t = c_t\,dt + e_t\,dB_t$ be
+      driven by the same Brownian motion. Derive
+      $d\left(X_tY_t\right) = X_t\,dY_t + Y_t\,dX_t + b_te_t\,dt$ from Itô's
+      lemma alone, without invoking a two-dimensional version of it, and say
+      what changes when the two drivers have correlation $\rho$ instead.
+    answer: >
+      Use polarization: $X_tY_t = \frac{1}{2}\left[\left(X_t+Y_t\right)^{2}
+      - X_t^{2} - Y_t^{2}\right]$, which reduces the product to three
+      applications of the one-dimensional lemma to $f(x) = x^{2}$.
+
+      For any Itô process $dZ_t = \alpha_t\,dt + \beta_t\,dB_t$, the lemma with
+      $f(x) = x^{2}$, $f' = 2x$, $f'' = 2$ gives
+      $d\left(Z_t^{2}\right) = 2Z_t\,dZ_t + \beta_t^{2}\,dt$. Apply this three
+      times. The sum $S_t = X_t + Y_t$ is itself an Itô process with drift
+      $a_t + c_t$ and diffusion coefficient $b_t + e_t$, so
+      $d\left(S_t^{2}\right) = 2S_t\,dS_t + \left(b_t+e_t\right)^{2}dt$. Also
+      $d\left(X_t^{2}\right) = 2X_t\,dX_t + b_t^{2}\,dt$ and
+      $d\left(Y_t^{2}\right) = 2Y_t\,dY_t + e_t^{2}\,dt$.
+
+      Now take half the difference. The first-order parts give
+      $\frac{1}{2}\left[2\left(X_t+Y_t\right)\left(dX_t+dY_t\right)
+      - 2X_t\,dX_t - 2Y_t\,dY_t\right] = X_t\,dY_t + Y_t\,dX_t$, since the
+      $X\,dX$ and $Y\,dY$ pieces cancel exactly. The second-order parts give
+      $\frac{1}{2}\left[\left(b_t+e_t\right)^{2} - b_t^{2} - e_t^{2}\right]dt
+      = \frac{1}{2}\left(2b_te_t\right)dt = b_te_t\,dt$. Adding,
+      $d\left(X_tY_t\right) = X_t\,dY_t + Y_t\,dX_t + b_te_t\,dt$, as claimed.
+
+      The extra term is the covariation $d\langle X, Y\rangle_t$, and it is
+      forced by the same multiplication table: $dX_t\,dY_t = b_te_t
+      \left(dB_t\right)^{2} = b_te_t\,dt$, every other product being of higher
+      order. Nothing about the derivation used $b_t$ and $e_t$ being constants
+      or deterministic.
+
+      With two drivers of correlation $\rho$ the only change is in the
+      second-order step: the sum process now has diffusion variance
+      $b_t^{2} + 2\rho b_te_t + e_t^{2}$ per unit time rather than
+      $\left(b_t+e_t\right)^{2}$, so half the difference is $\rho b_te_t\,dt$
+      and the rule reads $d\left(X_tY_t\right) = X_t\,dY_t + Y_t\,dX_t
+      + \rho b_te_t\,dt$. Independent drivers give $\rho = 0$ and the Leibniz
+      rule survives intact — the one case in which stochastic and ordinary
+      calculus agree here. Setting $X = Y$ (so $\rho = 1$, $e = b$) recovers
+      $d\left(X^{2}\right) = 2X\,dX + b^{2}\,dt$, the identity the derivation
+      started from, which is the consistency check worth stating out loud.
+    rubric:
+      - >
+        Reduces the product to squares by polarization (or an equivalent device)
+        and applies the one-dimensional lemma to $f(x) = x^{2}$ three times.
+      - >
+        Shows the second-order parts leave exactly $b_te_t\,dt$ via
+        $\frac{1}{2}\left[\left(b+e\right)^{2}-b^{2}-e^{2}\right]$, and
+        identifies the term as covariation.
+      - >
+        Handles the correlated case by replacing the sum's diffusion variance
+        with $b^{2}+2\rho be+e^{2}$, and notes $\rho = 0$ restores Leibniz.
+    targets:
+      - quant-processes.ito.product-rule
+    exercises:
+      - quant-processes.ito.ito-lemma
+      - quant-processes.ito.db-squared
+
+  - id: qito-product-rule-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Two driftless processes start at $0$ and obey $dX_t = 2\,dB_t^{(1)}$ and
+      $dY_t = 3\,dB_t^{(2)}$, where the two Brownian motions have correlation
+      $\rho = -0.5$. Compute $\mathbb{E}\left[X_6Y_6\right]$.
+    answer: >
+      $-18$. The product rule gives $d\left(X_tY_t\right) = X_t\,dY_t
+      + Y_t\,dX_t + \rho\,(2)(3)\,dt$. The first two terms are stochastic
+      integrals with adapted integrands, so each has expectation $0$ and neither
+      contributes to the mean; only the covariation term survives, leaving
+      $d\,\mathbb{E}\left[X_tY_t\right] = 6\rho\,dt = -3\,dt$. Integrating from
+      $0$ with $X_0Y_0 = 0$ gives $\mathbb{E}\left[X_6Y_6\right] = -3(6) = -18$.
+      The lesson is that two individually driftless processes multiply into
+      something with drift: the product is a martingale only when $\rho = 0$.
+      Two slips to avoid — using $\rho = -0.5$ without the diffusion
+      coefficients gives $-3$, and forgetting the sign of $\rho$ gives $+18$,
+      which would say negatively correlated moves accumulate positive
+      covariance.
+    expects: "-18"
+    rubric:
+      - >
+        Kills the two stochastic-integral terms by their mean-zero property and
+        keeps only $\rho b e\,dt$.
+      - >
+        Multiplies both diffusion coefficients into the covariation term,
+        $6\rho = -3$ per unit time, and integrates over $[0,6]$.
+    targets:
+      - quant-processes.ito.product-rule
+    exercises:
+      - quant-processes.ito.ito-lemma
+
+  # --- taking logs ------------------------------------------------------------
+
+  - id: qito-log-transform-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A price obeys $dX_t = 0.09X_t\,dt + 0.3X_t\,dB_t$ with $X_0 > 0$. Find the
+      constant $c$ for which $\ln X_t - ct$ is a martingale.
+    answer: >
+      $c = 0.045$. Apply Itô to $f(x) = \ln x$, valid for $x > 0$, with
+      $f' = 1/x$ and $f'' = -1/x^{2}$, and read $a = 0.09X_t$,
+      $b = 0.3X_t$ off the SDE. The drift is
+      $a f' + \frac{1}{2}b^{2}f''
+      = 0.09X_t\cdot\frac{1}{X_t}
+      + \frac{1}{2}\left(0.3X_t\right)^{2}\left(-\frac{1}{X_t^{2}}\right)
+      = 0.09 - \frac{1}{2}(0.09) = 0.09 - 0.045 = 0.045$, and the diffusion
+      coefficient is $bf' = 0.3$. Every factor of $X$ cancels, which is the
+      whole point of the transform: $d\ln X_t = 0.045\,dt + 0.3\,dB_t$. Then
+      $d\left(\ln X_t - ct\right) = \left(0.045 - c\right)dt + 0.3\,dB_t$, and
+      an Itô process is a martingale exactly when its $dt$ coefficient
+      vanishes, so $c = 0.045$. The trap is answering $c = 0.09$, the drift of
+      $X$ itself: $\ln X$ grows more slowly than $X$ does, by exactly
+      $\sigma^{2}/2 = 0.045$, because $\ln$ is concave and its curvature term
+      carries a minus sign.
+    expects: "0.045"
+    rubric:
+      - >
+        Applies Itô to $\ln x$ with $f'' = -1/x^{2}$, showing every power of $X$
+        cancels to leave constant coefficients.
+      - >
+        Subtracts $\sigma^{2}/2 = 0.045$ from $\mu = 0.09$ and matches $c$ to the
+        resulting $dt$ coefficient, not to $\mu$.
+    targets:
+      - quant-processes.ito.log-transform
+    exercises:
+      - quant-processes.ito.ito-lemma
+
+  - id: qito-log-transform-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A strategy's equity obeys $dX_t = 0.1X_t\,dt + 0.5X_t\,dB_t$. What is
+      $\mathbb{E}\left[\ln\left(X_4/X_0\right)\right]$?
+    answer: >
+      $-0.1$. Taking logs flattens the SDE:
+      $d\ln X_t = \left(0.1 - \frac{0.5^{2}}{2}\right)dt + 0.5\,dB_t
+      = \left(0.1 - 0.125\right)dt + 0.5\,dB_t = -0.025\,dt + 0.5\,dB_t$.
+      Integrating over $[0,4]$ gives
+      $\ln\left(X_4/X_0\right) = -0.025(4) + 0.5B_4$, and the stochastic piece
+      has mean $0$, so $\mathbb{E}\left[\ln\left(X_4/X_0\right)\right]
+      = -0.1$. The expected log return is *negative* even though the drift
+      $\mu = 0.1$ is positive, because $\sigma^{2}/2 = 0.125$ exceeds it — the
+      typical path of this strategy loses ground. Reading $\mu$ off the SDE and
+      answering $0.4$ misses the Itô correction entirely, which is the single
+      most expensive mistake available in this unit. Note also that
+      $\mathbb{E}\left[X_4\right] = X_0e^{0.4}$ is still above $X_0$: the mean
+      and the typical path point in opposite directions here.
+    expects: "-0.1"
+    rubric:
+      - >
+        Subtracts $\sigma^{2}/2 = 0.125$ from $\mu = 0.1$ before integrating,
+        giving a log drift of $-0.025$ per unit time.
+      - >
+        Kills the $0.5B_4$ term by its mean of $0$ and reports $-0.1$, noting the
+        expected log return is negative while $\mathbb{E}\left[X_4\right]$ is not.
+    targets:
+      - quant-processes.ito.log-transform
+    exercises:
+      - quant-processes.ito.ito-lemma
+
+  # --- geometric Brownian motion ----------------------------------------------
+
+  - id: qito-gbm-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Solve $dS_t = \mu S_t\,dt + \sigma S_t\,dB_t$ with $S_0 > 0$: derive
+      $S_t = S_0\exp\left(\left(\mu - \frac{\sigma^{2}}{2}\right)t
+      + \sigma B_t\right)$, then verify the candidate solution by applying Itô's
+      lemma to it and recovering the original SDE.
+    answer: >
+      Derivation. The coefficients are both proportional to the state, so take
+      logs. With $f(x) = \ln x$ on $x > 0$, $f' = 1/x$ and $f'' = -1/x^{2}$, and
+      with $a = \mu S_t$, $b = \sigma S_t$, Itô's lemma gives
+      $d\ln S_t = \left(\mu S_t\cdot\frac{1}{S_t}
+      + \frac{1}{2}\sigma^{2}S_t^{2}\left(-\frac{1}{S_t^{2}}\right)\right)dt
+      + \sigma S_t\cdot\frac{1}{S_t}\,dB_t
+      = \left(\mu - \frac{\sigma^{2}}{2}\right)dt + \sigma\,dB_t$. Every power
+      of $S$ has cancelled, so the right-hand side is a constant plus a constant
+      multiple of a Brownian increment — an equation with no state dependence
+      left in it, which integrates by inspection:
+      $\ln S_t = \ln S_0 + \left(\mu - \frac{\sigma^{2}}{2}\right)t
+      + \sigma B_t$. Exponentiating gives the stated formula, and $S_t > 0$ for
+      every $t$ because the exponential is. Note where the logarithm's domain
+      matters: the transform is legitimate only because $S$ never reaches $0$,
+      and the solution then confirms it never does.
+
+      Verification. Run the argument backwards on the candidate. Write
+      $S_t = g\left(t, B_t\right)$ with
+      $g(t,x) = S_0\exp\left(\left(\mu - \frac{\sigma^{2}}{2}\right)t
+      + \sigma x\right)$, so $\frac{\partial g}{\partial t}
+      = \left(\mu - \frac{\sigma^{2}}{2}\right)g$,
+      $\frac{\partial g}{\partial x} = \sigma g$ and
+      $\frac{\partial^{2} g}{\partial x^{2}} = \sigma^{2}g$. Since the driving
+      process is $B$ itself, $a = 0$ and $b = 1$, so Itô's lemma gives
+      $dS_t = \left(\left(\mu - \frac{\sigma^{2}}{2}\right)g
+      + \frac{1}{2}\sigma^{2}g\right)dt + \sigma g\,dB_t
+      = \mu S_t\,dt + \sigma S_t\,dB_t$. The $-\frac{\sigma^{2}}{2}$ carried in
+      the exponent and the $+\frac{1}{2}\sigma^{2}$ generated by the curvature
+      of the exponential cancel exactly, returning the original SDE. That
+      cancellation is the reason the correction sits in the exponent at all.
+
+      Two consequences drop out. First,
+      $\ln\left(S_t/S_0\right) \sim N\left(\left(\mu
+      - \frac{\sigma^{2}}{2}\right)t,\ \sigma^{2}t\right)$, so $S_t$ is
+      log-normal. Second, the naive answer $S_t = S_0e^{\mu t + \sigma B_t}$ —
+      obtained by treating the SDE as an ordinary separable equation — solves
+      $dS_t = \left(\mu + \frac{\sigma^{2}}{2}\right)S_t\,dt
+      + \sigma S_t\,dB_t$ instead, a different process with the wrong drift.
+    rubric:
+      - >
+        Applies Itô to $\ln S$ and shows the state cancels, leaving constant
+        drift $\mu - \sigma^{2}/2$ and constant diffusion coefficient $\sigma$.
+      - >
+        Verifies by differentiating the candidate with Itô's lemma and showing
+        the exponent's $-\sigma^{2}/2$ cancels the curvature's
+        $+\frac{1}{2}\sigma^{2}$.
+      - >
+        States why the naive $S_0e^{\mu t + \sigma B_t}$ is wrong — it solves an
+        SDE with drift $\mu + \sigma^{2}/2$.
+    targets:
+      - quant-processes.ito.gbm
+    exercises:
+      - quant-processes.ito.log-transform
+      - quant-processes.ito.ito-lemma
+
+  - id: qito-gbm-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A stock follows geometric Brownian motion with $S_0 = 80$, $\mu = 0.05$
+      and $\sigma = 0.4$. Three years pass and the driving path realizes
+      $B_3 = -0.5$. What is $S_3$, to two decimal places?
+    answer: >
+      $59.86$. The solution is
+      $S_3 = S_0\exp\left(\left(\mu - \frac{\sigma^{2}}{2}\right)(3)
+      + \sigma B_3\right)$. The two pieces of the exponent are worth computing
+      separately. Drift piece:
+      $\left(0.05 - \frac{0.16}{2}\right)(3) = \left(0.05 - 0.08\right)(3)
+      = -0.09$ — negative, because the volatility drag $\sigma^{2}/2 = 0.08$
+      already exceeds the drift $\mu = 0.05$. Noise piece:
+      $0.4(-0.5) = -0.2$. Together the exponent is $-0.29$, so
+      $S_3 = 80e^{-0.29} \approx 80(0.74826) = 59.86$. Dropping the
+      $-\sigma^{2}/2$ term would put the exponent at $0.15 - 0.2 = -0.05$ and
+      the price at $76.10$, an error of over sixteen units on an eighty-unit
+      stock — the single correction is doing most of the work here.
+    expects: "59.86"
+    tolerance: 0.005
+    rubric:
+      - >
+        Subtracts $\sigma^{2}/2 = 0.08$ from $\mu$ before multiplying by $t$,
+        giving a drift piece of $-0.09$ rather than $0.15$.
+      - >
+        Adds $\sigma B_3 = -0.2$ and exponentiates once, reporting
+        $80e^{-0.29} \approx 59.86$.
+    targets:
+      - quant-processes.ito.gbm
+    exercises:
+      - quant-processes.ito.log-transform
+
+  - id: qito-gbm-03
+    kind: decide
+    difficulty: demanding
+    statement: >
+      A stock follows $dS_t = \mu S_t\,dt + \sigma S_t\,dB_t$. Which SDE does
+      the squared price $Y_t = S_t^{2}$ obey?
+    answer: >
+      $dY_t = \left(2\mu + \sigma^{2}\right)Y_t\,dt + 2\sigma Y_t\,dB_t$. Apply
+      Itô to $f(x) = x^{2}$ with $a = \mu S_t$ and $b = \sigma S_t$, so
+      $f' = 2x$ and $f'' = 2$. The drift is
+      $\mu S_t\left(2S_t\right) + \frac{1}{2}\sigma^{2}S_t^{2}(2)
+      = 2\mu S_t^{2} + \sigma^{2}S_t^{2} = \left(2\mu+\sigma^{2}\right)Y_t$, and
+      the diffusion coefficient is $\sigma S_t\left(2S_t\right)
+      = 2\sigma S_t^{2} = 2\sigma Y_t$. So $Y$ is again a geometric Brownian
+      motion, with drift $2\mu + \sigma^{2}$ and volatility $2\sigma$ — squaring
+      a GBM keeps you inside the family, which is exactly why
+      $\mathbb{E}\left[S_t^{2}\right] = S_0^{2}e^{\left(2\mu+\sigma^{2}\right)t}$
+      and hence $\operatorname{Var}\left(S_t\right)
+      = S_0^{2}e^{2\mu t}\left(e^{\sigma^{2}t}-1\right)$. The temptation is to
+      double everything and stop: $2\mu$ and $2\sigma$ look symmetric, but
+      squaring is convex and the curvature adds a full $\sigma^{2}$, not half of
+      one, because $f'' = 2$ cancels the $\frac{1}{2}$.
+    choices:
+      - text: >
+          $dY_t = \left(2\mu + \sigma^{2}\right)Y_t\,dt + 2\sigma Y_t\,dB_t$
+        correct: true
+        feedback: >
+          Right: $\frac{1}{2}f''b^{2} = \sigma^{2}S^{2}$ because $f'' = 2$
+          cancels the half.
+      - text: >
+          $dY_t = 2\mu Y_t\,dt + 2\sigma Y_t\,dB_t$
+        feedback: >
+          This is the ordinary chain rule. It omits the curvature term
+          $\frac{1}{2}f''b^{2} = \sigma^{2}Y$, so it would wrongly give
+          $\mathbb{E}\left[S_t^{2}\right] = S_0^{2}e^{2\mu t}$ and a variance of
+          zero.
+      - text: >
+          $dY_t = \left(2\mu + \frac{1}{2}\sigma^{2}\right)Y_t\,dt
+          + 2\sigma Y_t\,dB_t$
+        feedback: >
+          The $\frac{1}{2}$ has been kept but $f'' = 2$ forgotten; the two
+          cancel, leaving a full $\sigma^{2}$.
+      - text: >
+          $dY_t = \left(2\mu - \sigma^{2}\right)Y_t\,dt + 2\sigma Y_t\,dB_t$
+        feedback: >
+          The sign is borrowed from the log transform. $x^{2}$ is convex, so its
+          correction adds drift; only the concave $\ln x$ subtracts it.
+    rubric:
+      - >
+        Uses $f'' = 2$ so the correction is a full $\sigma^{2}Y$, not
+        $\frac{1}{2}\sigma^{2}Y$.
+      - >
+        Recognizes the result as GBM again, and can connect it to
+        $\mathbb{E}\left[S_t^{2}\right]
+        = S_0^{2}e^{\left(2\mu+\sigma^{2}\right)t}$.
+    targets:
+      - quant-processes.ito.gbm
+    exercises:
+      - quant-processes.ito.ito-lemma
+
+  # --- moments and quantiles --------------------------------------------------
+
+  - id: qito-gbm-moments-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A stock follows geometric Brownian motion with $S_0 = 250$,
+      $\mu = 0.06$ and $\sigma = 0.35$. What is $\mathbb{E}\left[S_5\right]$, to
+      two decimal places?
+    answer: >
+      $337.46$. The answer is $S_0e^{\mu t} = 250e^{0.06(5)} = 250e^{0.3}
+      \approx 250(1.349859) = 337.46$, and the volatility never enters. That is
+      the whole point of the problem. Writing
+      $S_5 = S_0\exp\left(\left(\mu - \frac{\sigma^{2}}{2}\right)5
+      + \sigma B_5\right)$ and taking expectations, the log-normal mean formula
+      contributes a factor
+      $\mathbb{E}\left[e^{\sigma B_5}\right] = e^{\sigma^{2}(5)/2}$, which
+      cancels the $-\frac{\sigma^{2}}{2}(5)$ sitting in the exponent exactly.
+      What is left is $e^{\mu t}$. So $\mu$ deserves its name: it is the
+      expected rate of return, not the growth rate of a typical path. The trap
+      is to carry the $-\sigma^{2}/2$ through into the answer and report
+      $250e^{(0.06-0.06125)5} = 250e^{-0.00625} \approx 248.44$ — that number is
+      real, but it is the *median*, and here it sits below $S_0$ while the mean
+      sits well above it.
+    expects: "337.46"
+    tolerance: 0.005
+    rubric:
+      - >
+        Cancels the $-\sigma^{2}t/2$ in the exponent against the log-normal
+        $e^{\sigma^{2}t/2}$ factor, so $\sigma$ drops out of the mean entirely.
+      - >
+        Reports $250e^{0.3} \approx 337.46$, and does not confuse it with the
+        median $250e^{-0.00625} \approx 248.44$.
+    targets:
+      - quant-processes.ito.gbm-moments
+    exercises:
+      - quant-processes.ito.gbm
+      - quant-probability.continuous.lognormal
+
+  - id: qito-gbm-moments-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A stock follows geometric Brownian motion with $S_0 = 60$, $\mu = 0.12$
+      and $\sigma = 0.4$. What is the median of $S_3$, to two decimal places?
+    answer: >
+      $67.65$. Since $\ln\left(S_3/S_0\right)$ is normal, its median equals its
+      mean, $\left(\mu - \frac{\sigma^{2}}{2}\right)t$, and the exponential is
+      increasing, so medians pass through it unchanged: the median of $S_3$ is
+      $S_0e^{\left(\mu - \sigma^{2}/2\right)t}$. Here
+      $\mu - \frac{\sigma^{2}}{2} = 0.12 - 0.08 = 0.04$, so the median is
+      $60e^{0.04(3)} = 60e^{0.12} \approx 60(1.127497) = 67.65$. Compare the
+      mean, $60e^{0.12(3)} = 60e^{0.36} \approx 86.00$: the gap between them is
+      a factor $e^{\sigma^{2}t/2} = e^{0.24} \approx 1.271$, entirely due to the
+      thin right tail of the log-normal pulling the average up. More than half
+      the paths finish below the average path, and confusing the two — reporting
+      $86.00$ as the typical outcome — is the standard error.
+    expects: "67.65"
+    tolerance: 0.005
+    rubric:
+      - >
+        Uses the median formula $S_0e^{\left(\mu-\sigma^{2}/2\right)t}$, keeping
+        the correction that the mean drops.
+      - >
+        Distinguishes it from the mean $60e^{0.36} \approx 86.00$ and names the
+        ratio $e^{\sigma^{2}t/2}$ as the log-normal skew.
+    targets:
+      - quant-processes.ito.gbm-moments
+    exercises:
+      - quant-processes.ito.gbm
+
+  - id: qito-gbm-moments-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      A stock follows geometric Brownian motion with $\mu = 0.03$ and
+      $\sigma = 0.3$. What is $\Pr\left(S_4 > S_0\right)$, to four decimal
+      places? Use $\Phi(-0.10) \approx 0.4602$.
+    answer: >
+      $0.4602$. The event $S_4 > S_0$ is the event
+      $\ln\left(S_4/S_0\right) > 0$, and that log return is
+      $N\left(\left(\mu - \frac{\sigma^{2}}{2}\right)t,\ \sigma^{2}t\right)$.
+      Standardizing, $\Pr\left(S_4 > S_0\right)
+      = \Phi\left(\frac{\left(\mu - \sigma^{2}/2\right)\sqrt{t}}{\sigma}
+      \right)$. Here $\mu - \frac{\sigma^{2}}{2} = 0.03 - 0.045 = -0.015$ and
+      $\sqrt{t} = 2$, so the argument is
+      $\frac{(-0.015)(2)}{0.3} = \frac{-0.03}{0.3} = -0.1$, giving
+      $\Phi(-0.1) \approx 0.4602$. So the stock is *more likely than not* to end
+      lower after four years even though its expected value,
+      $S_0e^{0.12} \approx 1.127S_0$, is nearly thirteen percent higher. The two
+      statements are not in conflict: a minority of paths finish far above
+      $S_0$, and their weight carries the mean. Answering "above one half
+      because $\mu > 0$" is the trap the problem is built around — the
+      threshold for a coin-flip is $\mu = \sigma^{2}/2$, not $\mu = 0$.
+    expects: "0.4602"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Standardizes the log return with mean
+        $\left(\mu-\sigma^{2}/2\right)t$ and standard deviation
+        $\sigma\sqrt{t}$, reaching the argument $-0.1$.
+      - >
+        States the criterion as $\mu$ against $\sigma^{2}/2$, not $\mu$ against
+        $0$, and reconciles the sub-half probability with a mean above $S_0$.
+    targets:
+      - quant-processes.ito.gbm-moments
+    exercises:
+      - quant-processes.ito.gbm
+      - quant-probability.continuous.lognormal
+
+  - id: qito-gbm-moments-04
+    kind: work
+    difficulty: routine
+    statement: >
+      A stock follows geometric Brownian motion with $\mu = 0.07$ and
+      $\sigma = 0.24$. What is $\operatorname{Var}\left(\ln S_{2.5}\right)$?
+    answer: >
+      $0.144$. From the solution,
+      $\ln S_t = \ln S_0 + \left(\mu - \frac{\sigma^{2}}{2}\right)t
+      + \sigma B_t$. The first two pieces are constants at a fixed $t$ and
+      contribute no variance at all; only $\sigma B_t$ is random, and
+      $\operatorname{Var}\left(\sigma B_t\right)
+      = \sigma^{2}\operatorname{Var}\left(B_t\right) = \sigma^{2}t$. So
+      $\operatorname{Var}\left(\ln S_{2.5}\right) = 0.24^{2}(2.5)
+      = 0.0576(2.5) = 0.144$. Note that $\mu$ is entirely absent: the drift
+      shifts the log price but does not spread it, so changing $\mu$ moves the
+      whole distribution without widening it. The standard deviation of the log
+      price is $\sqrt{0.144} \approx 0.3795$, which is $\sigma\sqrt{t}$ — the
+      form worth carrying, since volatility always scales with the square root
+      of the horizon, never with the horizon itself.
+    expects: "0.144"
+    rubric:
+      - >
+        Isolates $\sigma B_t$ as the only random term and treats
+        $\left(\mu-\sigma^{2}/2\right)t$ as a constant shift.
+      - >
+        Computes $\sigma^{2}t = 0.144$ and notes the drift plays no part in the
+        variance.
+    targets:
+      - quant-processes.ito.gbm-moments
+    exercises:
+      - quant-processes.ito.gbm
+
+  # --- volatility drag --------------------------------------------------------
+
+  - id: qito-vol-drag-01
+    kind: justify
+    difficulty: demanding
+    statement: >
+      For geometric Brownian motion, show that
+      $\ln \mathbb{E}\left[S_t\right] - \mathbb{E}\left[\ln S_t\right]
+      = \frac{\sigma^{2}t}{2}$, and identify the left-hand side as the gap in
+      Jensen's inequality for the concave function $\ln$. Explain what this
+      says about a strategy with $\sigma^{2}/2 > \mu$.
+    answer: >
+      Both sides are computable in closed form, so the identity is exact rather
+      than an inequality with a bound.
+
+      The mean. $S_t = S_0\exp\left(\left(\mu - \frac{\sigma^{2}}{2}\right)t
+      + \sigma B_t\right)$, and for a normal variable $N\left(m, v\right)$ the
+      exponential has mean $e^{m + v/2}$. Here $m = \ln S_0
+      + \left(\mu - \frac{\sigma^{2}}{2}\right)t$ and $v = \sigma^{2}t$, so
+      $\mathbb{E}\left[S_t\right] = S_0e^{\left(\mu
+      - \sigma^{2}/2\right)t + \sigma^{2}t/2} = S_0e^{\mu t}$ and
+      $\ln \mathbb{E}\left[S_t\right] = \ln S_0 + \mu t$.
+
+      The mean log. $\ln S_t$ is normal with the mean $m$ above, so
+      $\mathbb{E}\left[\ln S_t\right] = \ln S_0
+      + \left(\mu - \frac{\sigma^{2}}{2}\right)t$, the $\sigma B_t$ term
+      contributing nothing.
+
+      Subtracting, $\ln\mathbb{E}\left[S_t\right]
+      - \mathbb{E}\left[\ln S_t\right] = \mu t
+      - \left(\mu - \frac{\sigma^{2}}{2}\right)t = \frac{\sigma^{2}t}{2}$, as
+      claimed.
+
+      Jensen. Because $\ln$ is concave, Jensen's inequality gives
+      $\mathbb{E}\left[\ln S_t\right] \le \ln\mathbb{E}\left[S_t\right]$ for any
+      positive random variable, with equality only for a degenerate one. The
+      computation above does not merely confirm the inequality — it evaluates
+      the slack, and the slack turns out to be exactly the Itô correction
+      $\sigma^{2}t/2$ that appears when the lemma is applied to $\ln$. The two
+      derivations are the same fact reached from opposite directions: Jensen
+      says curvature separates the mean of a transform from the transform of the
+      mean, and Itô's $\frac{1}{2}f''b^{2}$ term is the instantaneous rate at
+      which that separation accumulates. The gap grows linearly in $t$ and
+      quadratically in $\sigma$, so it is negligible for a quiet asset and
+      dominant for a wild one.
+
+      The consequence. Long-run growth is governed by
+      $\mathbb{E}\left[\ln S_t\right]$, not $\ln\mathbb{E}\left[S_t\right]$,
+      because wealth compounds multiplicatively. By the law of large numbers
+      applied to $\ln S_t/t \to \mu - \frac{\sigma^{2}}{2}$, a strategy with
+      $\sigma^{2}/2 > \mu$ has a log price drifting to $-\infty$, so
+      $S_t \to 0$ almost surely — it goes broke on essentially every path — and
+      yet $\mathbb{E}\left[S_t\right] = S_0e^{\mu t}$ still grows without bound.
+      There is no contradiction: the expectation is carried by an ever thinner
+      set of enormous outcomes. That is why position sizing maximizes expected
+      log growth rather than expected wealth.
+    rubric:
+      - >
+        Computes both $\ln\mathbb{E}\left[S_t\right] = \ln S_0 + \mu t$ and
+        $\mathbb{E}\left[\ln S_t\right] = \ln S_0
+        + \left(\mu-\sigma^{2}/2\right)t$ and subtracts, rather than asserting
+        the gap.
+      - >
+        Names the gap as Jensen's slack for the concave $\ln$, and identifies it
+        with the Itô correction rather than treating them as two separate facts.
+      - >
+        Concludes that $\sigma^{2}/2 > \mu$ sends $S_t \to 0$ almost surely
+        while $\mathbb{E}\left[S_t\right]$ grows, and explains why both hold at
+        once.
+    targets:
+      - quant-processes.ito.vol-drag
+      - quant-probability.inequalities.jensen
+    exercises:
+      - quant-processes.ito.gbm
+    connects:
+      - quant-probability.inequalities.jensen ~ quant-processes.ito.vol-drag
+
+  - id: qito-vol-drag-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A position gains $25\%$ in one period and loses $25\%$ in the next. What
+      is its geometric mean growth factor per period, to four decimal places?
+    answer: >
+      $0.9682$. The two periods multiply, not add: wealth goes
+      $1 \to 1.25 \to 1.25(0.75) = 0.9375$, a net loss of $6.25\%$ over two
+      periods despite an arithmetic average return of exactly $0$. The
+      geometric mean growth factor is the constant factor that would produce the
+      same terminal wealth, $\sqrt{0.9375} \approx 0.9682$ — a loss of about
+      $3.18\%$ per period. Equivalently, the average log return is
+      $\frac{1}{2}\left(\ln 1.25 + \ln 0.75\right)
+      = \frac{1}{2}\ln 0.9375 \approx -0.0323$, and
+      $e^{-0.0323} \approx 0.9682$. The asymmetry is structural: a $25\%$ loss
+      needs a $33.3\%$ gain to undo it, so equal-sized percentage swings never
+      cancel. In continuous time this is the $-\sigma^{2}/2$ term — the drag
+      grows with the *square* of the swing, which is why the $\pm 50\%$ version
+      of this question costs $13.4\%$ per period rather than twice $3.18\%$.
+    expects: "0.9682"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Multiplies the two factors to $0.9375$ rather than averaging the
+        returns to $0$.
+      - >
+        Takes the square root for the per-period geometric mean and connects the
+        shortfall to $-\sigma^{2}/2$, noting it scales with the square of the
+        swing.
+    targets:
+      - quant-processes.ito.vol-drag
+    exercises:
+      - quant-processes.ito.log-transform
+
+  - id: qito-vol-drag-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      A fund's equity follows geometric Brownian motion with arithmetic drift
+      $\mu = 0.045$. At what volatility $\sigma$ does its long-run growth rate
+      fall to exactly zero?
+    answer: >
+      $\sigma = 0.3$. Long-run growth is governed by the log price:
+      $\ln\left(S_t/S_0\right)/t \to \mu - \frac{\sigma^{2}}{2}$ almost surely,
+      so the growth rate vanishes exactly when
+      $\frac{\sigma^{2}}{2} = \mu = 0.045$. Then $\sigma^{2} = 0.09$ and
+      $\sigma = 0.3$, taking the positive root. At that volatility the fund's
+      expected value still grows: $\mathbb{E}\left[S_t\right] = S_0e^{0.045t}$
+      rises steadily, while the median stays pinned at $S_0$ forever and half
+      the paths are below it at every horizon. Push $\sigma$ past $0.3$ and the
+      log price acquires negative drift, so the fund goes broke almost surely
+      while its expectation still climbs. Note the sensitivity: the break-even
+      condition is quadratic, so doubling the drift to $0.09$ raises the
+      tolerable volatility only to $\sqrt{0.18} \approx 0.424$, not to $0.6$ —
+      volatility is expensive out of proportion to its size.
+    expects: "0.3"
+    rubric:
+      - >
+        Sets $\mu - \sigma^{2}/2 = 0$ using the *log* growth rate, not the
+        arithmetic drift.
+      - >
+        Solves $\sigma = \sqrt{2\mu} = 0.3$ and notes the expectation still
+        grows at $\mu$ while the median stands still.
+    targets:
+      - quant-processes.ito.vol-drag
+    exercises:
+      - quant-processes.ito.gbm
+
+  # --- arithmetic vs geometric ------------------------------------------------
+
+  - id: qito-arithmetic-vs-geometric-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A rate spread is modelled as $dS_t = -0.2\,dt + 1.6\,dB_t$ with
+      $S_0 = 4$. What is $\Pr\left(S_4 < 0\right)$, to four decimal places? Use
+      $\Phi(-1) \approx 0.1587$.
+    answer: >
+      $0.1587$. The coefficients are constants, so no Itô correction arises at
+      all and the SDE integrates directly:
+      $S_4 = S_0 + \mu t + \sigma B_4 = 4 - 0.2(4) + 1.6B_4$, which is exactly
+      normal with mean $4 - 0.8 = 3.2$ and standard deviation
+      $\sigma\sqrt{t} = 1.6(2) = 3.2$. Standardizing,
+      $\Pr\left(S_4 < 0\right) = \Phi\left(\frac{0 - 3.2}{3.2}\right)
+      = \Phi(-1) \approx 0.1587$. So roughly one path in six has the spread
+      inverted within four years, which is a feature of the model rather than a
+      defect: a spread legitimately crosses zero, and that is precisely why the
+      arithmetic form is chosen for it over GBM, whose log-normal law puts
+      probability zero on ever reaching $0$. Two slips: reaching for the
+      $-\sigma^{2}/2$ correction here is wrong, because constant coefficients
+      make $\ln$ the wrong transform and the solution needs no exponential; and
+      using $\sigma = 1.6$ as the standard deviation forgets the $\sqrt{t} = 2$.
+    expects: "0.1587"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Integrates the constant-coefficient SDE directly to
+        $S_0 + \mu t + \sigma B_t$, with no Itô correction.
+      - >
+        Uses standard deviation $\sigma\sqrt{t} = 3.2$, reaches $\Phi(-1)$, and
+        treats the positive probability of a negative value as the model's
+        purpose.
+    targets:
+      - quant-processes.ito.arithmetic-vs-geometric
+    exercises:
+      - quant-processes.ito.gbm
+
+  - id: qito-arithmetic-vs-geometric-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Which statement correctly contrasts $dS_t = \mu\,dt + \sigma\,dB_t$ with
+      $dS_t = \mu S_t\,dt + \sigma S_t\,dB_t$?
+    answer: >
+      The arithmetic model needs no Itô correction at all, because its
+      coefficients are constants: $S_t = S_0 + \mu t + \sigma B_t$ solves it
+      exactly, and no transform is required to get there. The geometric model's
+      coefficients are proportional to the state, which is what forces the log
+      transform and produces the $-\sigma^{2}/2$ term. Three consequences follow
+      for the arithmetic model. Its $\sigma$ is an *absolute* volatility, quoted
+      in price units per $\sqrt{\text{time}}$ rather than as a percentage. Its
+      law is normal rather than log-normal, so it assigns positive probability
+      to negative values. And its shocks are additive: a move of a fixed size is
+      equally likely whatever the current level, whereas GBM's shocks scale with
+      the price. Those properties are wrong for equities and right for spreads,
+      rate differences and any quantity that legitimately crosses zero.
+    choices:
+      - text: >
+          The arithmetic model has constant coefficients, so it integrates to
+          $S_0 + \mu t + \sigma B_t$ with no Itô correction, and its $\sigma$ is
+          an absolute volatility in price units
+        correct: true
+        feedback: >
+          Right on both counts, and the two are linked: constants leave nothing
+          for $\frac{1}{2}f''b^{2}$ to act on.
+      - text: >
+          The arithmetic model needs the same $-\sigma^{2}/2$ correction as GBM,
+          since Itô's lemma applies to every SDE
+        feedback: >
+          Itô's lemma applies to any *transform*, but no transform is needed
+          here. The correction appears only when you change variables, and the
+          arithmetic model is already solved.
+      - text: >
+          Both models keep $S_t$ strictly positive; they differ only in whether
+          $\sigma$ is quoted in percent
+        feedback: >
+          The arithmetic model's law is normal, so it reaches negative values
+          with positive probability. That is exactly its use case.
+      - text: >
+          The arithmetic model's $\sigma$ is a percentage volatility, and its
+          shocks scale with the current price
+        feedback: >
+          That describes GBM. In the arithmetic model $\sigma$ is in price units
+          and shocks are additive, independent of the level.
+    rubric:
+      - >
+        Ties the absence of a correction to the constancy of the coefficients,
+        not to the model being simpler.
+      - >
+        Names the normal law, absolute volatility and additive shocks as the
+        package, and says which quantities that package suits.
+    targets:
+      - quant-processes.ito.arithmetic-vs-geometric
+    exercises:
+      - quant-processes.ito.gbm
+
+  # --- reading off the martingale property ------------------------------------
+
+  - id: qito-driftless-martingale-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Find the constant $c$ for which $Y_t = B_t^{3} + ctB_t$ is a martingale,
+      where $B$ is standard Brownian motion.
+    answer: >
+      $c = -3$. Apply Itô's lemma to $f(t,x) = x^{3} + ctx$ with $X_t = B_t$, so
+      $a = 0$ and $b = 1$. The partials are
+      $\frac{\partial f}{\partial t} = cx$,
+      $\frac{\partial f}{\partial x} = 3x^{2} + ct$ and
+      $\frac{\partial^{2} f}{\partial x^{2}} = 6x$, giving
+      $dY_t = \left(cB_t + \frac{1}{2}(1)\left(6B_t\right)\right)dt
+      + \left(3B_t^{2} + ct\right)dB_t
+      = \left(c + 3\right)B_t\,dt + \left(3B_t^{2}+ct\right)dB_t$. An Itô
+      process is a martingale exactly when its $dt$ coefficient vanishes
+      identically, and $\left(c+3\right)B_t = 0$ for all $t$ and all values of
+      $B_t$ forces $c = -3$. So $B_t^{3} - 3tB_t$ is a martingale, the cubic
+      cousin of $B_t^{2} - t$. Two checks. The integrability condition holds
+      because $\mathbb{E}\int_0^T \left(3B_s^{2}-3s\right)^{2}ds < \infty$, so
+      this is a genuine martingale and not merely a local one. And
+      $\mathbb{E}\left[Y_t\right] = \mathbb{E}\left[B_t^{3}\right]
+      - 3t\,\mathbb{E}\left[B_t\right] = 0 = Y_0$, consistent with the claim —
+      though a constant mean alone would not have proved it.
+    expects: "-3"
+    rubric:
+      - >
+        Includes the explicit $\frac{\partial f}{\partial t} = cx$ term
+        alongside the Itô term $\frac{1}{2}f_{xx} = 3x$.
+      - >
+        Sets the whole $dt$ coefficient to zero identically in $B_t$, not just
+        in expectation, giving $c = -3$.
+    targets:
+      - quant-processes.ito.driftless-martingale
+    exercises:
+      - quant-processes.ito.ito-lemma
+
+  - id: qito-driftless-martingale-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Is $X_t = tB_t$ a martingale?
+    answer: >
+      No. Itô's lemma on $f(t,x) = tx$ gives
+      $\frac{\partial f}{\partial t} = x$,
+      $\frac{\partial f}{\partial x} = t$ and
+      $\frac{\partial^{2} f}{\partial x^{2}} = 0$, so
+      $d\left(tB_t\right) = B_t\,dt + t\,dB_t$. The $dt$ coefficient is $B_t$,
+      which is not identically zero, so $X$ is not a martingale — note the
+      second-order term contributes nothing here, since $f$ is linear in $x$;
+      the offending drift comes entirely from the explicit $t$. The instructive
+      part is that $\mathbb{E}\left[tB_t\right] = 0$ for every $t$, so the mean
+      is perfectly constant. A constant mean is necessary for a martingale and
+      nowhere near sufficient: the martingale property is about
+      $\mathbb{E}\left[X_t \mid \mathcal{F}_s\right] = X_s$, and here
+      $\mathbb{E}\left[tB_t \mid \mathcal{F}_s\right] = tB_s \ne sB_s$ whenever
+      $s < t$ and $B_s \ne 0$. Reading the $dt$ coefficient settles it in one
+      line and never depends on this distinction.
+    choices:
+      - text: >
+          No — Itô gives $d\left(tB_t\right) = B_t\,dt + t\,dB_t$, whose $dt$
+          coefficient $B_t$ is not identically zero
+        correct: true
+        feedback: >
+          Right: the explicit time factor generates drift even though $B$ has
+          none.
+      - text: >
+          Yes — $\mathbb{E}\left[tB_t\right] = 0$ for every $t$, so the mean
+          never changes
+        feedback: >
+          Constant mean is necessary but not sufficient. Here
+          $\mathbb{E}\left[tB_t \mid \mathcal{F}_s\right] = tB_s$, which is not
+          $sB_s$.
+      - text: >
+          Yes — $B_t$ is a martingale and $t$ is a deterministic factor, so the
+          product inherits the property
+        feedback: >
+          Scaling a martingale by a *time-varying* deterministic factor breaks
+          it; only a constant multiple is safe.
+      - text: >
+          No — the second-order Itô term $\frac{1}{2}f_{xx}$ contributes a drift
+          of $\frac{1}{2}t$
+        feedback: >
+          The verdict is right but the reason is not: $f(t,x) = tx$ is linear in
+          $x$, so $f_{xx} = 0$ and the Itô term is absent. The drift comes from
+          $f_t = x$.
+    rubric:
+      - >
+        Applies Itô to $tx$ and reads the $dt$ coefficient $B_t$, rather than
+        testing the mean.
+      - >
+        Explains why a constant mean does not settle the question, citing
+        $\mathbb{E}\left[X_t \mid \mathcal{F}_s\right]$.
+    targets:
+      - quant-processes.ito.driftless-martingale
+    exercises:
+      - quant-processes.ito.ito-lemma
+      - quant-processes.martingales.martingale
+
+  - id: qito-driftless-martingale-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      Standard Brownian motion starts at $0$ and runs until it first hits either
+      $-3$ or $7$. What is the probability it hits $7$ first?
+    answer: >
+      $3/10$. Write $dB_t = 0\,dt + 1\,dB_t$: the $dt$ coefficient is
+      identically zero, so $B$ is a martingale, and that single observation is
+      the whole solution. Let $\tau$ be the first time the path reaches $-3$ or
+      $7$. The stopped process $B_{t \wedge \tau}$ stays inside $[-3,7]$ and so
+      is bounded, and $\tau$ is almost surely finite because Brownian motion is
+      recurrent, so optional stopping applies and
+      $\mathbb{E}\left[B_\tau\right] = B_0 = 0$. At $\tau$ the path is at $7$
+      with probability $p$ and at $-3$ with probability $1-p$, giving
+      $7p - 3\left(1-p\right) = 0$, hence $10p = 3$ and $p = 3/10$. In general
+      the probability of reaching $b$ before $-a$ from $0$ is $a/(a+b)$ — the
+      *far* barrier's distance over the total width, which is the ratio people
+      most often invert. The drift check is what licenses all of it: had the
+      process been $dX_t = \mu\,dt + \sigma\,dB_t$ with $\mu \ne 0$, the $dt$
+      coefficient would be nonzero, $X$ would not be a martingale, and the
+      hitting probability would involve exponentials of $2\mu/\sigma^{2}$
+      instead of this ratio of distances.
+    expects: "3/10"
+    rubric:
+      - >
+        Establishes that $B$ is a martingale by reading its zero $dt$
+        coefficient, and checks the stopped process is bounded before applying
+        optional stopping.
+      - >
+        Solves $7p - 3(1-p) = 0$ for $p = 3/10$ and does not invert the ratio to
+        $7/10$.
+    targets:
+      - quant-processes.ito.driftless-martingale
+      - quant-processes.martingales.ost
+    exercises:
+      - quant-processes.martingales.martingale
+    connects:
+      - quant-processes.ito.driftless-martingale ~ quant-processes.martingales.ost
+
+  # --- Ornstein–Uhlenbeck -----------------------------------------------------
+
+  - id: qito-ou-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A spread obeys $dX_t = 3\left(2 - X_t\right)dt + \sigma\,dB_t$ with
+      $X_0 = -1$. At what time $t$ does $\mathbb{E}\left[X_t\right]$ first reach
+      $1$? Give four decimal places.
+    answer: >
+      $t \approx 0.3662$. The OU mean decays exponentially toward the level:
+      $\mathbb{E}\left[X_t\right] = m + \left(X_0 - m\right)e^{-\theta t}$, with
+      $\theta = 3$ and $m = 2$ read straight off the SDE — the noise term
+      contributes nothing to the mean whatever $\sigma$ is, which is why
+      $\sigma$ is not given. Here $X_0 - m = -3$, so
+      $\mathbb{E}\left[X_t\right] = 2 - 3e^{-3t}$. Setting this to $1$ gives
+      $3e^{-3t} = 1$, so $e^{-3t} = 1/3$, $3t = \ln 3$ and
+      $t = \frac{\ln 3}{3} \approx \frac{1.098612}{3} \approx 0.3662$. In words:
+      the gap to the mean shrinks from $3$ to $1$, a factor of three, and the
+      time that takes is $\ln 3$ divided by the reversion speed. The same
+      formula with a factor of two would give the half-life
+      $\ln 2/3 \approx 0.2310$. The trap is treating the approach as linear and
+      answering $2/3$ of the way in $2/3$ of some horizon — reversion is
+      exponential, so the first two thirds of the gap close faster than the
+      last third.
+    expects: "0.3662"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Reads $\theta = 3$ and $m = 2$ off the SDE and writes the mean as
+        $m + \left(X_0-m\right)e^{-\theta t}$, noting $\sigma$ is irrelevant.
+      - >
+        Solves $e^{-3t} = 1/3$ for $t = \ln 3/3$ rather than interpolating
+        linearly between $X_0$ and $m$.
+    targets:
+      - quant-processes.ito.ou
+    exercises:
+      - quant-processes.ito.ito-lemma
+
+  - id: qito-ou-02
+    kind: work
+    difficulty: standard
+    statement: >
+      An Ornstein–Uhlenbeck process has reversion speed $\theta = 0.4$. What
+      fraction of its initial gap to the mean level remains, in expectation, at
+      $t = 5$? Give four decimal places.
+    answer: >
+      $0.1353$. Substituting $Y_t = e^{\theta t}\left(X_t - m\right)$ into
+      Itô's lemma kills the $dt$ term, leaving
+      $dY_t = \sigma e^{\theta t}\,dB_t$, and taking expectations gives
+      $\mathbb{E}\left[Y_t\right] = Y_0$, that is
+      $\mathbb{E}\left[X_t\right] - m = \left(X_0 - m\right)e^{-\theta t}$. The
+      gap therefore decays by the factor $e^{-\theta t}$ alone, independently of
+      $m$, of $X_0$ and of $\sigma$: at $t = 5$ with $\theta = 0.4$ that factor
+      is $e^{-0.4(5)} = e^{-2} \approx 0.1353$, so about $13.5\%$ of the initial
+      displacement is left and $86.5\%$ has decayed away. The quantity that
+      matters is the product $\theta t$, not either alone — the same $0.1353$
+      appears at $\theta = 2$ after one time unit. Answering $e^{-0.4}
+      \approx 0.6703$ uses the speed without the elapsed time; answering
+      $1 - e^{-2} \approx 0.8647$ reports the fraction that has *gone* rather
+      than the fraction remaining.
+    expects: "0.1353"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses $e^{-\theta t}$ with the product $\theta t = 2$, not $\theta$ or
+        $t$ alone.
+      - >
+        Reports the fraction remaining, $0.1353$, rather than its complement,
+        and notes $m$, $X_0$ and $\sigma$ all drop out.
+    targets:
+      - quant-processes.ito.ou
+    exercises:
+      - quant-processes.ito.ito-lemma
+
+  - id: qito-ou-stationary-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A spread sampled once per trading day, $\Delta = 1/252$ years, is fitted
+      as an AR(1) with coefficient $\hat{\varphi} = 0.99$. Treating the spread
+      as an Ornstein–Uhlenbeck process, what is its reversion half-life in
+      trading days? Give two decimal places.
+    answer: >
+      $68.97$ trading days. Sampling OU on a grid of spacing $\Delta$ gives
+      exactly an AR(1) with $\varphi = e^{-\theta\Delta}$, so the fit inverts to
+      $\theta = -\ln\left(\hat{\varphi}\right)/\Delta
+      = -\ln(0.99)(252) \approx 0.0100503(252) \approx 2.5327$ per year. The
+      half-life is $\ln 2/\theta \approx 0.693147/2.5327 \approx 0.27369$ years,
+      which is $0.27369(252) \approx 68.97$ trading days. The units cancel more
+      cleanly if you never leave day-space: half-life in days is
+      $\ln 2 / \left(-\ln\hat{\varphi}\right)
+      \approx 0.693147/0.0100503 \approx 68.97$, and $\Delta$ drops out
+      entirely. That is the form to quote in an interview, because it makes the
+      sampling frequency visibly irrelevant to the answer expressed in periods.
+      The tempting shortcut $\ln 2/\left(1 - \hat{\varphi}\right) = 69.31$ uses
+      $1 - \varphi$ in place of $-\ln\varphi$; the two agree to first order and
+      the gap is small here, but it widens fast as $\hat{\varphi}$ falls away
+      from $1$.
+    expects: "68.97"
+    tolerance: 0.05
+    rubric:
+      - >
+        Inverts $\varphi = e^{-\theta\Delta}$ with a logarithm rather than using
+        $1 - \hat{\varphi}$ as the reversion rate.
+      - >
+        Converts consistently to trading days, reaching
+        $\ln 2/\left(-\ln 0.99\right) \approx 68.97$, and does not leave the
+        answer in years.
+    targets:
+      - quant-processes.ito.ou-stationary
+    exercises:
+      - quant-processes.ito.ou
+
+  - id: qito-ou-stationary-02
+    kind: work
+    difficulty: standard
+    statement: >
+      An Ornstein–Uhlenbeck process has $\theta = 0.5$ and $\sigma = 3$ and
+      starts exactly at its mean level. What is $\operatorname{Var}\left(X_2
+      \right)$, to three decimal places?
+    answer: >
+      $7.782$. From the solution $X_t = m + \left(X_0-m\right)e^{-\theta t}
+      + \sigma\int_0^t e^{-\theta\left(t-s\right)}dB_s$, only the stochastic
+      integral is random, and the Itô isometry turns it into an ordinary
+      integral: $\operatorname{Var}\left(X_t\right)
+      = \sigma^{2}\int_0^t e^{-2\theta\left(t-s\right)}ds
+      = \frac{\sigma^{2}}{2\theta}\left(1 - e^{-2\theta t}\right)$. Here
+      $\frac{\sigma^{2}}{2\theta} = \frac{9}{1} = 9$ and
+      $e^{-2(0.5)(2)} = e^{-2} \approx 0.13534$, so the variance is
+      $9\left(1 - 0.13534\right) \approx 9(0.86466) \approx 7.782$. It is
+      already $86\%$ of the stationary value $\sigma^{2}/(2\theta) = 9$, which
+      the process approaches but never exceeds — noise pumps variance in at rate
+      $\sigma^{2}$ and reversion drains it out at rate $2\theta$, and the two
+      balance at $9$. Reporting $9$ outright ignores the $\left(1
+      - e^{-2\theta t}\right)$ ramp; reporting $\sigma^{2}t = 18$ treats the
+      process as Brownian motion and ignores the mean reversion entirely.
+    expects: "7.782"
+    tolerance: 0.005
+    rubric:
+      - >
+        Applies the isometry to the stochastic integral to get
+        $\frac{\sigma^{2}}{2\theta}\left(1-e^{-2\theta t}\right)$, with $2\theta$
+        in the exponent.
+      - >
+        Evaluates the stationary factor $\sigma^{2}/(2\theta) = 9$ and the ramp
+        $1 - e^{-2}$ separately, and does not report either the limit $9$ or
+        $\sigma^{2}t$.
+    targets:
+      - quant-processes.ito.ou-stationary
+    exercises:
+      - quant-processes.ito.ou
+      - quant-processes.ito.ito-isometry

@@ -1,0 +1,1728 @@
+# Problems targeting quant-statistics.learning — the overfitting discipline:
+# where in-sample numbers come from, what they cost, and the validation
+# machinery that keeps a research result honest.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. Every instance here is fresh: no
+# problem reuses a lesson's worked example or a card's numbers. See ../README.md.
+
+problems:
+  # --- the supervised setup ---------------------------------------------------
+
+  - id: qlearn-supervised-setup-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      An execution desk models fill quantity $Y$ against order size $X$.
+      Conditional on $X = 200$, $Y$ equals $120$ with probability $0.25$, $150$
+      with probability $0.45$ and $190$ with probability $0.30$. A junior
+      quant proposes predicting the most likely outcome, $150$. By how much
+      does that raise the expected squared error at $X = 200$ above the best
+      possible value?
+    answer: >
+      $20.25$. Under squared loss the unbeatable predictor at a point is the
+      conditional mean, $m(200) = \mathbb{E}[Y \mid X = 200] = 0.25(120) +
+      0.45(150) + 0.30(190) = 30 + 67.5 + 57 = 154.5$. For any constant $c$ the
+      expected squared error splits as $\mathbb{E}[(Y - c)^{2} \mid X = 200] =
+      \operatorname{Var}(Y \mid X = 200) + (m(200) - c)^{2}$: the first term is
+      the same whatever you predict, so the whole penalty for using $c$ instead
+      of $m$ is the second term. With $c = 150$ that is $(154.5 - 150)^{2} =
+      4.5^{2} = 20.25$. The trap is treating the *mode* as the target. The mode
+      is what a $0$–$1$ loss asks for; squared loss asks for a mean, and here
+      the mean is dragged above every plausible-looking round number by the
+      $30\%$ chance of a $190$ fill.
+    expects: "20.25"
+    rubric:
+      - >
+        Identifies $\mathbb{E}[Y \mid X = 200]$, not the mode or the median, as
+        the minimiser of expected squared error.
+      - >
+        Uses the shift identity $\mathbb{E}[(Y-c)^{2}] = \operatorname{Var}(Y) +
+        (\mathbb{E}[Y]-c)^{2}$ so the conditional variance cancels out of the
+        comparison, rather than trying to compute it.
+    targets:
+      - quant-statistics.learning.supervised-setup
+    exercises:
+      - quant-probability.joint.joint-law
+
+  - id: qlearn-supervised-setup-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      The supervised setup assumes the $n$ training pairs are independent draws
+      from one fixed joint law $P$, and that the next pair you are scored on is
+      another draw from the same $P$. Four research designs are proposed. Which
+      one breaks that assumption *hardest*?
+    answer: >
+      Predicting the next five-day return from overlapping five-day windows.
+      Two failures compound. First, overlapping windows share four of their five
+      days, so consecutive training labels are near-duplicates and the draws are
+      nowhere near independent — the effective sample size is roughly $n/5$, not
+      $n$. Second, and worse, the training pairs are drawn across a decade in
+      which the joint law itself moved: volatility regimes, market structure and
+      the population of participants all changed, so there is no single fixed
+      $P$ for the fit and the live period to share. The other designs strain the
+      assumption without voiding it — a modest imbalance, a mild measurement
+      error or a handful of missing rows all leave a well-defined $P$ that the
+      sample estimates, just less efficiently. The lesson is that the
+      independence clause and the *same law* clause are separate promises, and
+      market data routinely breaks both.
+    choices:
+      - text: >
+          Predicting the next five-day return from ten years of overlapping
+          five-day windows, then trading it live next quarter.
+        correct: true
+        feedback: >
+          Right on both counts: overlapping windows make consecutive draws
+          near-duplicates, and a decade of regime change means the fit and the
+          live period are not sampling one common $P$ at all.
+      - text: >
+          Predicting default from a loan book where only $3\%$ of loans default.
+        feedback: >
+          Class imbalance makes estimation harder and makes accuracy a useless
+          metric, but the loans are still draws from one law — the setup holds.
+      - text: >
+          Predicting a spread from a feature measured with a small amount of
+          independent noise.
+        feedback: >
+          Measurement noise raises the irreducible error $\sigma^{2}$ and so
+          lowers the ceiling on performance, but the pairs remain independent
+          draws from a fixed joint law.
+      - text: >
+          Predicting a price from a panel where a few rows are missing at
+          random.
+        feedback: >
+          Rows missing at random shrink $n$ and cost precision; the surviving
+          rows are still independent draws from the same $P$.
+    rubric:
+      - >
+        Separates the two clauses of the setup — independent draws, and one
+        fixed joint law $P$ shared by training and scoring — and checks each
+        design against both rather than against a vague notion of messiness.
+      - >
+        Names overlapping windows as the independence failure and a decade of
+        regime change as the fixed-law failure, so the winning option breaks
+        both clauses at once.
+      - >
+        Explains why imbalance, measurement noise and missing-at-random rows
+        make estimation harder without voiding the setup: a well-defined $P$
+        survives all three.
+    targets:
+      - quant-statistics.learning.supervised-setup
+    exercises:
+      - quant-probability.joint.joint-law
+
+  # --- in-sample versus out-of-sample -----------------------------------------
+
+  - id: qlearn-generalization-gap-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A linear factor model is fitted by least squares on $n = 250$ daily
+      observations with residual noise variance $\sigma^{2} = 8$. Risk will
+      accept a model only if the expected optimism of its training error — the
+      amount by which true error exceeds reported training error, on average —
+      is at most $0.64$. What is the largest number of free parameters $p$ the
+      model may carry?
+    answer: >
+      $10$. For a linear fit under squared loss the optimism has the exact form
+      $\mathbb{E}[R - \hat R] = 2p\sigma^{2}/n$, so with $\sigma^{2} = 8$ and
+      $n = 250$ each parameter costs $2(8)/250 = 0.064$ of fake accuracy. The
+      constraint reads $0.064p \le 0.64$, hence $p \le 10$. Check at the
+      boundary: $2(10)(8)/250 = 160/250 = 0.64$ exactly, and $p = 11$ would give
+      $176/250 = 0.704$, over the limit. Two things are worth reading off the
+      formula. The cost is linear in $p$ and inversely proportional to $n$, so
+      doubling the sample buys exactly twice as many parameters at the same
+      optimism — this is the honest version of "more data lets you fit more".
+      And the cost does not depend on how good the model is: a useless
+      eleventh factor inflates the training score by the same $0.064$ as a
+      genuinely predictive one, which is why counting parameters, not admiring
+      them, is what protects the reported number.
+    expects: "10"
+    rubric:
+      - >
+        Uses the optimism formula $2p\sigma^{2}/n$ rather than guessing at a
+        rule of thumb, and solves it for $p$.
+      - >
+        Reports the largest *integer* $p$ satisfying the bound and checks the
+        boundary case rather than leaving a fractional parameter count.
+    targets:
+      - quant-statistics.learning.generalization-gap
+    exercises:
+      - quant-statistics.learning.supervised-setup
+
+  - id: qlearn-generalization-gap-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A linear model with $p = 12$ parameters is fitted on $n = 400$
+      observations whose noise variance is $\sigma^{2} = 5$. By how much does
+      the expected out-of-sample squared error exceed the training error?
+    answer: >
+      $0.3$. The optimism of a linear fit under squared loss is
+      $\mathbb{E}[R - \hat R] = 2p\sigma^{2}/n = 2(12)(5)/400 = 120/400 = 0.3$.
+      So a training MSE of, say, $4.1$ corresponds on average to a true error
+      near $4.4$ — the reported number is biased low, always in the same
+      direction, and by an amount you can compute before seeing any data. The
+      trap is dividing by $2$ instead of multiplying: the factor of $2$ is
+      there because each fitted value is pulled toward its own observation, so
+      the residual shrinks and the true error grows, and the two effects each
+      contribute $p\sigma^{2}/n$.
+    expects: "0.3"
+    rubric:
+      - >
+        Applies $2p\sigma^{2}/n$ with the factor of $2$ in the numerator.
+      - >
+        Reports the *gap*, not the out-of-sample error itself — no training
+        error was given, and none is needed.
+    targets:
+      - quant-statistics.learning.generalization-gap
+    exercises:
+      - quant-statistics.learning.supervised-setup
+
+  # --- overfitting -------------------------------------------------------------
+
+  - id: qlearn-overfitting-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Ten points are generated as $y_i = f(x_i) + \varepsilon_i$ with noise
+      variance $\sigma^{2} = 0.36$, and a degree-nine polynomial — ten free
+      coefficients — is fitted through all ten of them, achieving training error
+      exactly zero. Treating this as a linear fit with $p = 10$ parameters and
+      $n = 10$, what is the expected out-of-sample squared error of the fitted
+      curve?
+    answer: >
+      $0.72$. Training error and true error are linked by the optimism identity
+      $\mathbb{E}[R] = \mathbb{E}[\hat R] + 2p\sigma^{2}/n$. Here
+      $\mathbb{E}[\hat R] = 0$ because the curve interpolates every point, and
+      the optimism is $2(10)(0.36)/10 = 7.2/10 = 0.72$. So the honest expected
+      error is $0.72$ — twice the irreducible floor $\sigma^{2} = 0.36$, from a
+      fit whose scoreboard reads perfect. That ratio is the whole moral: with
+      $p = n$ the model has spent one parameter per observation, the training
+      residuals are structurally zero, and every scrap of information in the
+      sample has gone into memorising noise rather than estimating $f$. The
+      reflex reading — zero training error means a good model — is exactly
+      inverted here, and no amount of staring at the training fit can reveal
+      that, because the training fit is perfect by construction.
+    expects: "0.72"
+    rubric:
+      - >
+        Recognises that zero training error does not make expected true error
+        zero, and uses the optimism identity to convert one into the other.
+      - >
+        Substitutes $p = n = 10$ correctly, so the optimism is $2\sigma^{2}$ —
+        and notices that this exceeds the irreducible floor $\sigma^{2}$.
+    targets:
+      - quant-statistics.learning.overfitting
+    exercises:
+      - quant-statistics.learning.generalization-gap
+
+  - id: qlearn-overfitting-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Four candidate return models are scored on the same data. Model W: train
+      MSE $0.94$, held-out MSE $0.97$. Model X: train MSE $0.88$, held-out MSE
+      $0.90$. Model Y: train MSE $0.31$, held-out MSE $1.42$. Model Z: train MSE
+      $1.20$, held-out MSE $1.19$. Which model is overfitting?
+    answer: >
+      Model Y. The signature of overfitting is not a low training error on its
+      own, nor a high held-out error on its own, but the *gap* between them
+      together with a held-out error that has turned upward. Y's training error
+      is the best of the four by a wide margin, $0.31$ against $0.88$ for the
+      runner-up, while its held-out error is the worst of the four at $1.42$:
+      the flexibility that bought $0.57$ of training accuracy cost $0.52$ of
+      real accuracy. W and X have gaps of $0.03$ and $0.02$, which is what a
+      well-sized model looks like, and X is simply the best model here on the
+      number that counts. Z is the opposite failure — its held-out error is
+      essentially equal to its training error, and both are the worst on offer,
+      which is underfitting: not enough capacity to capture the structure that
+      is really there. The habit worth forming is to rank on held-out error and
+      to read the gap as a diagnosis of *why*, never to rank on the gap itself.
+    choices:
+      - text: >
+          Model Y — the smallest training error of the four and the largest
+          held-out error, a gap of $1.11$.
+        correct: true
+        feedback: >
+          Exactly: training error fell furthest and held-out error rose
+          highest, which is the widening gap that defines overfitting.
+      - text: >
+          Model Z — its errors are the highest of the four.
+        feedback: >
+          Z is *under*fitting: its held-out error nearly equals its training
+          error, so nothing is being memorised — there is simply not enough
+          capacity.
+      - text: >
+          Model X — it has the lowest held-out error, which means it was tuned
+          against the held-out set.
+        feedback: >
+          Winning on held-out error is not evidence of overfitting. X's gap is
+          $0.02$, the healthiest of the four; on this evidence it is the model
+          to pick.
+      - text: >
+          Model W — its training error is close to its held-out error, so it has
+          learned nothing generalisable.
+        feedback: >
+          A small gap is the *good* case. W generalises; it is just slightly
+          worse than X on the number that counts.
+    rubric:
+      - >
+        Diagnoses overfitting from the *pair* of numbers — a training error
+        driven far down together with a held-out error driven up — not from a
+        low training error or a high held-out error on its own.
+      - >
+        Distinguishes Y's failure from Z's: Z has a negligible gap with both
+        errors high, which is underfitting, the opposite complaint.
+      - >
+        Notes that X, the winner on held-out error, is the model to ship, so
+        the gap is read as a diagnosis and never used as the ranking.
+    targets:
+      - quant-statistics.learning.overfitting
+    exercises:
+      - quant-statistics.learning.generalization-gap
+
+  - id: qlearn-overfitting-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Two desks each submit a three-factor linear model of the same return
+      series, fitted on the same $n$ observations, and the two models report
+      *identical* in-sample $R^{2}$. Desk A specified its three factors from
+      economic reasoning before seeing the data. Desk B screened $400$ candidate
+      factors on this very sample and kept the best three. Argue that B's
+      reported $R^{2}$ is the more optimistic of the two, and say what quantity
+      plays the role of "number of parameters" in B's case.
+    answer: >
+      Both models cost three coefficients, so the naive optimism $2p\sigma^{2}/n$
+      with $p = 3$ is the same for each — and that is precisely the accounting
+      error. Optimism measures how much of the fit was chosen using the data,
+      and the exact form $\mathbb{E}[R - \hat R] = \frac{2}{n}\sum_i
+      \operatorname{Cov}(\hat y_i, y_i)$ prices *every* data-dependent decision,
+      not just the ones that end up as fitted coefficients. Desk A made one
+      data-dependent choice: fitting three coefficients to fixed regressors. Desk
+      B made that same choice and, before it, $400$ comparisons that each looked
+      at $y$ — the selection step is a fit, and the three survivors are the three
+      that best matched this sample's noise. The effective capacity is therefore
+      governed by the size of the search, not by the size of the surviving
+      model; a reasonable first-order accounting replaces $p = 3$ with something
+      of order the number of specifications examined. Two consequences follow.
+      B's identical $R^{2}$ corresponds to a strictly worse expected
+      out-of-sample $R^{2}$, so the two reports are not comparable even though
+      the numbers match. And the only clean fix is procedural: score B's
+      *entire* procedure — screening included — on data it has never touched,
+      because there is no way to un-look at the $400$.
+    rubric:
+      - >
+        States that capacity is spent by every data-dependent choice, and that
+        the $400$-way screen is such a choice even though it leaves no
+        coefficient behind.
+      - >
+        Connects this to the exact optimism formula $\frac{2}{n}\sum_i
+        \operatorname{Cov}(\hat y_i, y_i)$, or argues equivalently that the
+        selected factors are correlated with this sample's noise.
+      - >
+        Concludes with the procedural remedy — validate the screening and
+        fitting together on untouched data — rather than proposing to adjust
+        $R^{2}$ by a fudge factor.
+    targets:
+      - quant-statistics.learning.overfitting
+    exercises:
+      - quant-statistics.learning.generalization-gap
+      - quant-statistics.learning.supervised-setup
+
+  # --- bias and variance -------------------------------------------------------
+
+  - id: qlearn-bias-variance-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      At a fixed point $x$ the true value is $f(x) = 6$ and the noise variance
+      is $\sigma^{2} = 4$. An estimator $\hat f(x)$ built from the training set
+      is unbiased for $f(x)$ but has variance $9$. A researcher proposes
+      reporting $c\,\hat f(x)$ instead, for a constant $c$ chosen in advance.
+      Which $c$ minimizes the expected squared prediction error at $x$?
+    answer: >
+      $0.8$. Write the decomposition for the scaled predictor. Its mean over
+      training sets is $c f(x)$, so its squared bias is $(f(x) - c f(x))^{2} =
+      (1-c)^{2}(36)$, and its variance is $c^{2}(9)$. Adding the floor,
+      $\mathbb{E}[(Y - c\hat f(x))^{2}] = 4 + 36(1-c)^{2} + 9c^{2}$.
+      Differentiate in $c$: $-72(1-c) + 18c = 0$, so $90c = 72$ and $c = 0.8$.
+      Notice the general shape — $c^{*} = f^{2}/(f^{2} + \operatorname{Var}) =
+      36/45$ — and that $\sigma^{2}$ drops out entirely, because the
+      irreducible floor is the same whatever the predictor does. The payoff is
+      real: at $c = 1$ the modelling terms cost $0 + 9 = 9$, while at $c = 0.8$
+      they cost $36(0.04) + 9(0.64) = 1.44 + 5.76 = 7.2$. Deliberately biasing
+      an unbiased estimator improved it by $1.8$, and since $c^{*} < 1$
+      whenever the variance is positive, *some* shrinkage always pays.
+    expects: "0.8"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Writes the expected squared error at $x$ as $\sigma^{2} +
+        (1-c)^{2}f(x)^{2} + c^{2}\operatorname{Var}(\hat f(x))$, recognising
+        that scaling by $c$ scales the bias and the standard deviation
+        differently.
+      - >
+        Minimizes over $c$ and reports $c^{*} = f^{2}/(f^{2} +
+        \operatorname{Var})$, noting that the noise floor $\sigma^{2}$ plays no
+        part in the choice.
+      - >
+        Draws the conclusion that $c^{*}$ is strictly below $1$, so the
+        unbiased estimator is beaten by a biased one.
+    targets:
+      - quant-statistics.learning.bias-variance
+    exercises:
+      - quant-statistics.estimation.bias-mse
+
+  - id: qlearn-bias-variance-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A fit is evaluated at a point where the expected squared prediction error
+      is $4.25$. The noise variance there is $\sigma^{2} = 1.6$ and the
+      variance of $\hat f(x)$ across training sets is $0.4$. What is the
+      magnitude of the bias of $\hat f(x)$ at that point?
+    answer: >
+      $1.5$. The decomposition $\mathbb{E}[(Y - \hat f(x))^{2}] = \sigma^{2} +
+      \text{bias}^{2} + \text{variance}$ has three nonnegative pieces, so
+      knowing the total and two of the pieces pins the third: $\text{bias}^{2}
+      = 4.25 - 1.6 - 0.4 = 2.25$, hence $\lvert\text{bias}\rvert = 1.5$. Two
+      cautions the arithmetic makes concrete. Only the magnitude is
+      recoverable — the sign is lost the moment the bias is squared, and both
+      $+1.5$ and $-1.5$ fit the numbers. And the residual $2.25$ is much larger
+      than the variance $0.4$, which reads as a diagnosis: this model is too
+      rigid for the problem, and the fix is to turn the complexity dial *up*,
+      accepting more variance to buy that bias down.
+    expects: "1.5"
+    rubric:
+      - >
+        Rearranges the three-term decomposition rather than guessing, and
+        subtracts both the noise floor and the variance from the total.
+      - >
+        Takes the square root at the end and reports the magnitude, noting that
+        the sign of the bias is not identified by these numbers.
+    targets:
+      - quant-statistics.learning.bias-variance
+    exercises:
+      - quant-statistics.estimation.bias-mse
+
+  - id: qlearn-bias-variance-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      A junior researcher fits one model on one training set, computes the
+      sample variance of its residuals on that training set, and calls the
+      result "the variance term" of the bias–variance decomposition. Explain
+      what quantity the decomposition's variance term actually is, why the
+      residual variance is not it, and describe an experiment that would
+      estimate the real thing.
+    answer: >
+      The variance term is $\operatorname{Var}_D(\hat f(x))$: the variance,
+      *across training sets $D$*, of the number the fitted model predicts at
+      one fixed input $x$. The randomness being averaged over is the draw of
+      the training data, not the noise in any single observation, and the point
+      $x$ is held fixed throughout. Residual variance is a different object
+      entirely — it averages over the training points $x_i$ with $D$ held
+      fixed, so it is an estimate of $\sigma^{2}$ (a biased-low one, since the
+      residuals were shrunk by fitting), and it is exactly the quantity the
+      decomposition says is a floor no modelling choice can move. The
+      confusion has a diagnostic cost: residual variance falls as the model
+      gets more flexible, while $\operatorname{Var}_D(\hat f(x))$ rises, so
+      reading one for the other inverts the very trade-off the decomposition
+      exists to expose. The experiment that estimates the real term is a
+      resampling one: draw $B$ independent training sets from the same law —
+      or, when only one sample exists, $B$ bootstrap resamples of it — refit
+      the whole procedure on each, record the $B$ predictions $\hat f^{(b)}(x)$
+      at the one fixed $x$, and take their sample variance. Their mean
+      estimates $\mathbb{E}_D[\hat f(x)]$, so the same $B$ numbers give the
+      squared bias as $(f(x) - \text{mean})^{2}$ whenever $f(x)$ is known, as
+      it is in a simulation.
+    rubric:
+      - >
+        Identifies the variance term as taken over the random training set $D$
+        at a fixed input $x$, not over the noise or over the training points.
+      - >
+        Explains that residual variance estimates the irreducible floor
+        $\sigma^{2}$, and that it moves in the opposite direction to
+        $\operatorname{Var}_D(\hat f(x))$ as flexibility grows.
+      - >
+        Describes a resampling experiment — refit on $B$ training sets or
+        bootstrap resamples, take the sample variance of the $B$ predictions at
+        one $x$ — and notes that the same runs give the bias term.
+    targets:
+      - quant-statistics.learning.bias-variance
+    exercises:
+      - quant-statistics.estimation.bias-mse
+      - quant-statistics.learning.overfitting
+
+  # --- the complexity dial -----------------------------------------------------
+
+  - id: qlearn-complexity-dial-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Four settings of a complexity dial are profiled on a problem with noise
+      floor $\sigma^{2} = 0.8$. Their squared biases are $0.50$, $0.20$, $0.07$
+      and $0.01$, and their variances are $0.03$, $0.08$, $0.20$ and $0.40$.
+      The desk then collects four times as much data, which quarters the
+      variance at every setting while leaving the squared biases unchanged.
+      Which setting — $1$, $2$, $3$ or $4$ — minimizes held-out error on the
+      larger sample?
+    answer: >
+      Setting $4$. Held-out error is $\sigma^{2} + \text{bias}^{2} +
+      \text{variance}$ at each setting. On the original sample the totals are
+      $0.8 + 0.50 + 0.03 = 1.33$, $0.8 + 0.20 + 0.08 = 1.08$, $0.8 + 0.07 +
+      0.20 = 1.07$ and $0.8 + 0.01 + 0.40 = 1.21$: a U-shape with its minimum
+      at setting $3$. Quartering each variance gives $0.0075$, $0.02$, $0.05$
+      and $0.10$, so the totals become $1.3075$, $1.02$, $0.92$ and $0.91$ —
+      the minimum has moved one notch right, to setting $4$. That is the
+      general law worth carrying: more data shrinks variance at fixed bias, so
+      the optimum drifts toward complexity as $n$ grows, and a dial setting
+      tuned on last year's smaller sample is systematically too simple for this
+      year's larger one. The floor $0.8$ is untouched throughout and never
+      affects *which* setting wins, though it does mean even the best model
+      here explains very little.
+    expects: "4"
+    rubric:
+      - >
+        Totals $\sigma^{2} + \text{bias}^{2} + \text{variance}$ at each setting
+        on both samples rather than reasoning qualitatively about the shape.
+      - >
+        Quarters only the variances, leaving squared bias and the noise floor
+        alone, since more data does not change what a given model family can
+        represent.
+      - >
+        Reports that the minimum moves from setting $3$ to setting $4$, and
+        reads that as the optimum drifting right with $n$.
+    targets:
+      - quant-statistics.learning.complexity-dial
+    exercises:
+      - quant-statistics.learning.bias-variance
+
+  - id: qlearn-complexity-dial-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A desk has a feature-count dial tuned for a daily equity-return model in
+      which the achievable $R^{2}$ is around five percent. It now applies the
+      same family, on a sample of the same size, to monthly returns, where the
+      achievable $R^{2}$ is around half a percent. Which way should the dial
+      move, and why?
+    answer: >
+      It should move left, to fewer features. The signal-to-noise ratio is what
+      sets the position of the optimum, and it has fallen by a factor of ten.
+      In the decomposition, a lower $R^{2}$ means $\sigma^{2}$ takes up more of
+      the total variance while the reducible part — everything bias and
+      variance compete over — has shrunk. The variance cost of an extra
+      feature, on the other hand, has not shrunk at all: it is driven by $n$
+      and by the number of parameters, both unchanged. So each additional
+      feature now buys a tenth as much bias reduction for the same variance
+      price, and the setting where the marginal trade stops paying arrives much
+      sooner. This is the honest reason three features routinely beat three
+      hundred in trading research, and why a dial calibrated on a
+      higher-frequency problem is the wrong dial for a lower-frequency one even
+      when the data volume is identical.
+    choices:
+      - text: >
+          Left — the collapse in signal-to-noise shrinks what bias reduction is
+          worth, while the variance price of complexity is unchanged.
+        correct: true
+        feedback: >
+          Right: the reducible part of the error is ten times smaller, the
+          variance cost per feature is not, so the marginal trade turns
+          unprofitable at a much simpler setting.
+      - text: >
+          Right — a harder problem needs a richer model to find the faint
+          signal.
+        feedback: >
+          A tempting reflex, and backwards. Extra flexibility fits the noise,
+          which now dominates; the faint signal is exactly what more parameters
+          fail to isolate.
+      - text: >
+          It should not move — the optimum depends only on $n$, which has not
+          changed.
+        feedback: >
+          $n$ moves the optimum, but it is not the only thing that does. The
+          noise level sets how much a unit of bias reduction is worth, so
+          changing $\sigma^{2}$ relative to the signal moves it too.
+      - text: >
+          Right — the noise floor $\sigma^{2}$ has grown, so the model needs
+          more capacity to overcome it.
+        feedback: >
+          Nothing overcomes the floor: $\sigma^{2}$ is the one term no model
+          reaches under. Adding capacity only raises the variance stacked on
+          top of it.
+    rubric:
+      - >
+        Argues from the ratio of reducible signal to irreducible noise, not
+        from the difficulty of the problem in the abstract.
+      - >
+        Notes that the variance cost of an extra parameter is unchanged when
+        $n$ is unchanged, so the marginal trade turns unfavourable earlier.
+      - >
+        Concludes that the optimum moves toward simpler models as
+        signal-to-noise falls.
+    targets:
+      - quant-statistics.learning.complexity-dial
+    exercises:
+      - quant-statistics.learning.bias-variance
+
+  # --- train, validation and test ----------------------------------------------
+
+  - id: qlearn-train-val-test-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A researcher will compare two candidate models whose true out-of-sample
+      squared errors differ by $0.1$. Per-observation squared-error losses have
+      variance $4$, so a validation set of size $m$ estimates a model's error
+      with standard error $2/\sqrt{m}$. She wants that standard error down to
+      $0.05$, a twentieth of the gap she is trying to detect. Using a
+      $60/20/20$ split, what is the smallest total sample size $n$ that
+      delivers it?
+    answer: >
+      $8000$. Solve the precision requirement first: $2/\sqrt{m} \le 0.05$
+      gives $\sqrt{m} \ge 40$, so $m \ge 1600$ validation points. The
+      validation set is $20\%$ of the sample, so $0.2n \ge 1600$ and $n \ge
+      8000$. Check the boundary: at $n = 8000$ the split is $4800/1600/1600$
+      and the standard error is $2/40 = 0.05$ exactly. The lesson is in the
+      square root. Halving the standard error costs four times the data, so the
+      demand for precision, not the demand for training points, is usually what
+      sets the size of a study — and a desk that splits a $2000$-row sample
+      $60/20/20$ is scoring its models on $400$ points with a standard error of
+      $0.1$, the same size as the difference it is trying to see. Its
+      validation "winner" is then a coin flip dressed as a decision, which is
+      why the number of configurations compared and the size of the validation
+      set have to be chosen together.
+    expects: "8000"
+    rubric:
+      - >
+        Converts the precision target into a minimum validation size via
+        $2/\sqrt{m} \le 0.05$, rather than sizing the training set.
+      - >
+        Scales that up through the $20\%$ validation share to a total $n$, and
+        checks the boundary case.
+      - >
+        Reads off the square-root law — four times the data for half the
+        standard error — and relates it to whether a validation comparison can
+        resolve the gap at all.
+    targets:
+      - quant-statistics.learning.train-val-test
+    exercises:
+      - quant-statistics.learning.generalization-gap
+
+  - id: qlearn-train-val-test-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A team splits $n = 3500$ observations $60/20/20$ into training,
+      validation and test sets. After the validation set has chosen the winning
+      configuration and that choice is frozen, the team refits the winning
+      configuration on the training and validation data together, leaving the
+      test set untouched. How many observations does that final refit use?
+    answer: >
+      $2800$. The training set holds $0.6(3500) = 2100$ rows and the validation
+      set $0.2(3500) = 700$, so the refit runs on $2100 + 700 = 2800$
+      observations, with the $700$-row test set still sealed. This is a
+      legitimate move, and worth separating from the illegitimate one. The
+      validation set was spent on a *selection* decision, and once that
+      decision is frozen its rows carry no further information about the
+      choice — folding them back in only sharpens the parameter estimates of a
+      configuration already fixed. What would not be legitimate is opening the
+      test set, seeing a disappointing number, and returning to the grid: that
+      spends the test set on a selection decision too, and the reported error
+      then understates the truth by exactly the amount that was tuned against
+      it. The rule is about what a slice has been used to *decide*, not about
+      which pile it was filed in.
+    expects: "2800"
+    rubric:
+      - >
+        Computes both shares of $n$ and adds them, rather than reporting the
+        training share alone.
+      - >
+        Explains why refitting on training plus validation after freezing the
+        configuration is legitimate, while re-tuning after a test-set peek is
+        not.
+    targets:
+      - quant-statistics.learning.train-val-test
+    exercises:
+      - quant-statistics.learning.generalization-gap
+
+  # --- cross-validation --------------------------------------------------------
+
+  - id: qlearn-cross-validation-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      In a $k = 5$ fold cross-validation the five fold losses $e_1, \dots, e_5$
+      each have variance $0.0025$, and because their training sets overlap
+      heavily any two of them have correlation $0.6$. What is the variance of
+      the reported cross-validation error, the average of the five?
+    answer: >
+      $0.0017$. For $k$ identically distributed variables with common variance
+      $\tau^{2}$ and pairwise correlation $\rho$, the average has variance
+      $\operatorname{Var}\!\left(\frac{1}{k}\sum_j e_j\right) = \rho\tau^{2} +
+      \frac{(1-\rho)\tau^{2}}{k}$. Here that is $0.6(0.0025) +
+      0.4(0.0025)/5 = 0.0015 + 0.0002 = 0.0017$. The naive answer, $\tau^{2}/k
+      = 0.0005$, assumes independence and understates the variance by more than
+      a factor of three. Read the two pieces separately: the second shrinks
+      with $k$ and vanishes in the limit, but the first is a floor of
+      $\rho\tau^{2} = 0.0015$ that no number of folds removes. That floor is
+      the whole reason leave-one-out disappoints. Pushing $k$ to $n$ averages
+      $n$ fold losses, but the $n$ training sets differ in a single point
+      apiece, so $\rho$ is driven close to $1$ and the average is barely more
+      stable than one fold — while costing $n$ fits. Choosing $k = 5$ or $10$
+      buys most of the achievable variance reduction at a fraction of the
+      price.
+    expects: "0.0017"
+    rubric:
+      - >
+        Uses the variance of an average of *correlated* terms, $\rho\tau^{2} +
+        (1-\rho)\tau^{2}/k$, rather than $\tau^{2}/k$.
+      - >
+        Separates the correlation floor $\rho\tau^{2}$ from the part that
+        shrinks with $k$, and identifies the floor as what survives as $k$
+        grows.
+      - >
+        Connects the floor to why leave-one-out averages $n$ folds without
+        becoming $n$ times more stable.
+    targets:
+      - quant-statistics.learning.cross-validation
+    exercises:
+      - quant-statistics.learning.train-val-test
+
+  - id: qlearn-cross-validation-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A model is scored by $4$-fold cross-validation on $n = 240$ observations.
+      The four fold losses come out as $0.72$, $0.66$, $0.81$ and $0.61$. What
+      cross-validation error is reported?
+    answer: >
+      $0.7$. The folds are of equal size — $240/4 = 60$ observations each — so
+      the reported figure is the plain average of the fold losses: $(0.72 +
+      0.66 + 0.81 + 0.61)/4 = 2.80/4 = 0.70$. Two features of the procedure are
+      worth naming while the arithmetic is in front of you. Every one of the
+      $240$ observations is predicted exactly once, and always by a model
+      fitted on the other $180$ — so the average is an out-of-sample number,
+      not an in-sample one, even though no data were set aside permanently.
+      And the spread of the fold losses, from $0.61$ to $0.81$, is itself
+      information: it says a single held-out split of $60$ points would have
+      returned anything in that range, which is why one split is too noisy to
+      choose between close models and why the fold-to-fold spread, not just the
+      mean, belongs in the report.
+    expects: "0.7"
+    rubric:
+      - >
+        Averages the $k$ fold losses, noting that the plain average is correct
+        because the folds are of equal size.
+      - >
+        States that every observation is predicted exactly once by a model that
+        never saw it, so the average is an out-of-sample estimate.
+    targets:
+      - quant-statistics.learning.cross-validation
+    exercises:
+      - quant-statistics.learning.train-val-test
+
+  # --- regularization ----------------------------------------------------------
+
+  - id: qlearn-regularization-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A ridge fit uses a single standardized predictor with $X'X = n$, so the
+      ridge coefficient is $\hat\beta_{\text{ridge}} = \frac{n}{n+\lambda}
+      \hat\beta$, where the unpenalized $\hat\beta$ is unbiased for the true
+      $\beta = 0.5$ and has variance $\sigma^{2}/n$ with $\sigma^{2} = 9$.
+      Which penalty strength $\lambda$ minimizes the mean squared error of
+      $\hat\beta_{\text{ridge}}$ as an estimate of $\beta$?
+    answer: >
+      $36$. Write $s = n/(n+\lambda)$ for the shrinkage factor. Then
+      $\mathbb{E}[\hat\beta_{\text{ridge}}] = s\beta$, so the squared bias is
+      $(1-s)^{2}\beta^{2}$ and the variance is $s^{2}\sigma^{2}/n$, giving
+      $\text{MSE}(\lambda) = \frac{\lambda^{2}\beta^{2}}{(n+\lambda)^{2}} +
+      \frac{n\sigma^{2}}{(n+\lambda)^{2}} = \frac{\lambda^{2}\beta^{2} +
+      n\sigma^{2}}{(n+\lambda)^{2}}$. Differentiating, the numerator of the
+      derivative is proportional to $\lambda\beta^{2}n - n\sigma^{2}$, which
+      vanishes at $\lambda^{*} = \sigma^{2}/\beta^{2} = 9/0.25 = 36$. Two
+      readings. The optimum does not depend on $n$ at all — it is set purely by
+      the noise-to-signal ratio, so a weak coefficient in a noisy problem wants
+      heavy shrinkage however much data you have. And $\lambda^{*}$ is strictly
+      positive whenever $\sigma^{2} > 0$, so some penalty always beats none:
+      the derivative at $\lambda = 0$ is negative, meaning the unpenalized fit
+      is never MSE-optimal. That is the same shrinkage argument as for a scaled
+      estimator, now arriving through the penalty rather than through an
+      explicit multiplier.
+    expects: "36"
+    rubric:
+      - >
+        Expresses MSE through the shrinkage factor $s = n/(n+\lambda)$, keeping
+        squared bias and variance as separate terms before combining.
+      - >
+        Minimizes over $\lambda$ and obtains $\lambda^{*} = \sigma^{2}/\beta^{2}$,
+        observing that $n$ cancels.
+      - >
+        Notes that $\lambda^{*} > 0$ whenever there is noise, so the
+        unpenalized fit is never the MSE-optimal one.
+    targets:
+      - quant-statistics.learning.regularization
+    exercises:
+      - quant-statistics.regression.ridge-lasso
+      - quant-statistics.learning.bias-variance
+
+  - id: qlearn-regularization-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A single standardized predictor gives $X'X = 90$, and the unpenalized
+      least-squares coefficient is $\hat\beta = 2.4$. With a ridge penalty
+      $\lambda = 45$, what is $\hat\beta_{\text{ridge}} =
+      \frac{X'X}{X'X + \lambda}\hat\beta$?
+    answer: >
+      $1.6$. The shrinkage factor is $\frac{90}{90+45} = \frac{90}{135} =
+      \frac{2}{3}$, so $\hat\beta_{\text{ridge}} = \frac{2}{3}(2.4) = 1.6$. The
+      factor is what does the teaching here: it lies strictly between $0$ and
+      $1$ for every positive $\lambda$, it approaches $1$ as $\lambda \to 0$
+      (recovering the unpenalized fit) and $0$ as $\lambda \to \infty$, and it
+      never reaches zero exactly — ridge shrinks but does not select. A lasso
+      penalty of comparable strength would instead have a corner at zero and
+      could set the coefficient to exactly $0$. Note also that the factor
+      depends on $\lambda$ only through its ratio to $X'X$, which is why the
+      predictors must be standardized before fitting: on raw, differently
+      scaled columns the same $\lambda$ would penalize a coefficient measured
+      in basis points far more harshly than one measured in percent, and the
+      penalty would be an accident of units rather than a modelling choice.
+    expects: "1.6"
+    rubric:
+      - >
+        Forms the shrinkage factor $X'X/(X'X + \lambda)$ and multiplies the
+        unpenalized coefficient by it.
+      - >
+        Notes that ridge shrinks toward zero without reaching it, unlike lasso,
+        and that standardization is what makes a single $\lambda$ comparable
+        across predictors.
+    targets:
+      - quant-statistics.learning.regularization
+    exercises:
+      - quant-statistics.regression.ridge-lasso
+
+  # --- choosing hyperparameters ------------------------------------------------
+
+  - id: qlearn-hyperparameter-selection-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A desk runs nested cross-validation: an outer loop of $5$ folds, and
+      inside each outer training set an inner $4$-fold cross-validation over a
+      grid of $7$ penalty values. Within each outer fold, the winning value is
+      then refitted once on that whole outer training set before being scored
+      on the outer test fold; when the outer loop finishes, one final model is
+      fitted on all the data. How many model fits does the whole procedure
+      perform?
+    answer: >
+      $146$. Count from the inside out. Within one outer fold, the inner search
+      fits every grid value on every inner fold: $7 \times 4 = 28$ fits. The
+      winner is then refitted once on the full outer training set, making $29$
+      fits per outer fold. Five outer folds give $5 \times 29 = 145$, and the
+      single final fit on all the data brings the total to $146$. The number is
+      the point. Flat $5$-fold selection over the same grid would cost $7
+      \times 5 + 1 = 36$ fits — a quarter as much — and would hand back the
+      minimum of $7$ noisy scores as though it were an error estimate. Nesting
+      costs about four times the compute and buys the one thing the flat
+      procedure cannot give: an error estimate produced by an outer loop that
+      never saw which penalty was chosen, so the selection step is scored along
+      with everything else. When compute makes that unaffordable, the cheap
+      substitute is a test set opened once, after selection is frozen.
+    expects: "146"
+    rubric:
+      - >
+        Counts grid values times inner folds within a single outer fold, and
+        adds the refit of the winner on that outer training set.
+      - >
+        Multiplies by the number of outer folds and adds the final fit on all
+        the data.
+      - >
+        Explains what the extra cost buys — an error estimate from a loop that
+        never saw the selection — rather than treating nesting as ritual.
+    targets:
+      - quant-statistics.learning.hyperparameter-selection
+    exercises:
+      - quant-statistics.learning.cross-validation
+      - quant-statistics.learning.regularization
+
+  - id: qlearn-hyperparameter-selection-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A penalty grid $\lambda \in \{0.05,\ 0.5,\ 5,\ 50\}$ gives
+      cross-validation errors $1.30$, $1.12$, $1.16$ and $1.44$, with standard
+      errors $0.06$, $0.05$, $0.04$ and $0.07$. Which $\lambda$ does the
+      one-standard-error rule select?
+    answer: >
+      $\lambda = 5$. The minimum score is $1.12$, at $\lambda = 0.5$, whose own
+      standard error is $0.05$; the one-standard-error band is therefore
+      $[1.12,\ 1.12 + 0.05] = [1.12,\ 1.17]$. Among the grid values scoring
+      inside that band, the rule takes the most heavily penalized — the
+      simplest model. Here $\lambda = 5$ scores $1.16$, which is inside, and it
+      is more penalized than $\lambda = 0.5$; $\lambda = 50$ scores $1.44$, far
+      outside. So the rule selects $\lambda = 5$, not the naive minimum. The
+      justification is that $1.16$ and $1.12$ are not distinguishable at this
+      noise level — the difference is smaller than the uncertainty in either
+      figure — and when two configurations are statistically tied, the simpler
+      one is the better bet out of sample and the more stable choice if the
+      whole exercise were repeated on a fresh sample. Note that the band is
+      built from the standard error *of the minimum*, $0.05$, not from the
+      standard error of the candidate being considered.
+    expects: "5"
+    rubric:
+      - >
+        Builds the band from the minimum score plus the standard error *of that
+        minimum*, not of some other grid point.
+      - >
+        Selects the most heavily penalized configuration whose score lies
+        inside the band, and says why a statistical tie is broken toward
+        simplicity.
+    targets:
+      - quant-statistics.learning.hyperparameter-selection
+    exercises:
+      - quant-statistics.learning.cross-validation
+      - quant-statistics.learning.regularization
+
+  # --- gradient descent --------------------------------------------------------
+
+  - id: qlearn-gradient-descent-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Gradient descent is run on the quadratic loss $L(\theta_1, \theta_2) =
+      \frac{1}{2}\left(\theta_1^{2} + 20\theta_2^{2}\right)$, whose two
+      coordinates decouple with curvatures $1$ and $20$. The learning rate is
+      set to $\eta = 0.09$, just under the stability limit. How many iterations
+      are needed before $\lvert\theta_1\rvert$ has fallen to at most half its
+      starting value?
+    answer: >
+      $8$. Because the coordinates decouple, each evolves as $\theta_{t+1} =
+      (1 - \eta a)\theta_t$ with its own curvature $a$. The steep coordinate
+      has $a = 20$, so its factor is $1 - 0.09(20) = -0.8$: it flips sign every
+      step and shrinks by $20\%$ in magnitude, which is why $\eta$ cannot go
+      much higher — at $\eta = 0.1$ the factor is exactly $-1$ and the iterates
+      would oscillate forever. The shallow coordinate has $a = 1$ and factor $1
+      - 0.09 = 0.91$, so after $t$ steps $\lvert\theta_1\rvert$ is
+      $0.91^{t}$ times its start. Solve $0.91^{t} \le 0.5$: $t \ge \ln(0.5)/
+      \ln(0.91) = 0.6931/0.0943 \approx 7.35$, so $t = 8$. Confirm at the
+      boundary — $0.91^{7} \approx 0.517$, still above half, and $0.91^{8}
+      \approx 0.470$, below. This is the zig-zag in numbers: the stability of
+      the *steepest* direction caps $\eta$ at $2/a_{\max}$, while progress is
+      set by the *shallowest*, so the iteration count scales with the ratio
+      $a_{\max}/a_{\min} = 20$, the condition number. Rescaling the coordinates
+      so the curvatures match would let a single step finish the job.
+    expects: "8"
+    rubric:
+      - >
+        Treats the two coordinates separately, each with its own contraction
+        factor $1 - \eta a$.
+      - >
+        Solves $0.91^{t} \le 0.5$ with logarithms and rounds *up* to the next
+        whole iteration, checking the boundary.
+      - >
+        Identifies the cap on $\eta$ as coming from the steepest direction
+        while the iteration count is set by the shallowest — the condition
+        number.
+    targets:
+      - quant-statistics.learning.gradient-descent
+    exercises:
+      - quant-tools.optimization.foc
+
+  - id: qlearn-gradient-descent-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Gradient descent is run on $L(\theta) = \frac{1}{2}(6)\theta^{2}$ with
+      learning rate $\eta = 0.2$, starting from $\theta_0 = 12$. What is
+      $\theta_1$ after one step?
+    answer: >
+      $-2.4$. The gradient is $L'(\theta) = 6\theta$, which at $\theta_0 = 12$
+      equals $72$, so $\theta_1 = 12 - 0.2(72) = 12 - 14.4 = -2.4$. The step
+      has overshot the minimum at $\theta = 0$ and landed on the far side —
+      worth noticing, because overshooting is not the same as diverging. In
+      factor form the update is $\theta_{t+1} = (1 - \eta a)\theta_t$ with $1 -
+      0.2(6) = -0.2$, and since $\lvert -0.2 \rvert < 1$ the iterates alternate
+      in sign while shrinking geometrically: $12, -2.4, 0.48, -0.096, \dots$
+      Convergence holds for any $\eta$ in $(0, 2/a) = (0, 1/3)$; the fastest
+      choice is $\eta = 1/a \approx 0.167$, which lands exactly on the minimum
+      in one step, and $\eta > 1/3$ would send the iterates outward without
+      bound. Too small a rate is merely slow, but too large is fatal, which is
+      why the safe habit is to reduce $\eta$ on any sign of growth rather than
+      to push it up for speed.
+    expects: "-2.4"
+    rubric:
+      - >
+        Computes the gradient $a\theta$ at the starting point and applies
+        $\theta_1 = \theta_0 - \eta\,L'(\theta_0)$.
+      - >
+        Recognises the negative result as an overshoot that still converges,
+        because $\lvert 1 - \eta a\rvert < 1$.
+    targets:
+      - quant-statistics.learning.gradient-descent
+    exercises:
+      - quant-tools.optimization.foc
+
+  # --- stochastic and mini-batch gradients -------------------------------------
+
+  - id: qlearn-sgd-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      In one coordinate, the per-example gradient has variance $12$ about the
+      full-batch gradient, and a mini-batch of size $b$ averages $b$
+      independent such examples. A practitioner wants the standard deviation of
+      that coordinate of the mini-batch gradient to be at most $0.5$. What is
+      the smallest mini-batch size $b$ that achieves it?
+    answer: >
+      $48$. The mini-batch gradient is the average of $b$ independent
+      per-example gradients, so it is unbiased for the full-batch gradient and
+      its variance in this coordinate is $12/b$. Requiring the standard
+      deviation to satisfy $\sqrt{12/b} \le 0.5$ squares to $12/b \le 0.25$,
+      hence $b \ge 48$. Check the boundary: at $b = 48$ the variance is
+      $12/48 = 0.25$ and the standard deviation is exactly $0.5$; at $b = 47$
+      it is $\sqrt{0.2553} \approx 0.505$, over the target. The economics are
+      the reason to compute this. Cost grows linearly in $b$ while gradient
+      noise falls only as $1/\sqrt{b}$, so quadrupling the batch quarters the
+      compute efficiency of each unit of noise reduction — and early in
+      training, when any roughly downhill direction improves the loss, that
+      precision is wasted. The unbiasedness is what makes small batches
+      legitimate at all: each step is downhill *on average*, so many cheap
+      noisy steps beat one expensive clean one until the iterates approach the
+      optimum and the noise starts to dominate the signal.
+    expects: "48"
+    rubric:
+      - >
+        Uses that a mini-batch averages $b$ independent per-example gradients,
+        so the variance is $12/b$ — not $12b$ or $12$.
+      - >
+        Converts the standard-deviation target into a variance target by
+        squaring before solving, and rounds *up* to a whole batch size.
+      - >
+        Notes the $1/\sqrt{b}$ return against linear cost, and that
+        unbiasedness is what licenses small batches.
+    targets:
+      - quant-statistics.learning.sgd
+    exercises:
+      - quant-statistics.learning.gradient-descent
+
+  - id: qlearn-sgd-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Stochastic gradient descent converges to the optimum, rather than
+      rattling around it forever, when the step sizes satisfy $\sum_t \eta_t =
+      \infty$ and $\sum_t \eta_t^{2} < \infty$. Which of these schedules
+      satisfies both conditions?
+    answer: >
+      The schedule $\eta_t = 1/t$. Check both conditions on it: the harmonic
+      series $\sum 1/t$ diverges, so the steps stay large enough for long
+      enough to reach any starting distance from the optimum; and $\sum 1/t^{2}$
+      converges to $\pi^{2}/6$, so the accumulated noise is finite and the
+      iterates settle. Each condition rules out a different failure. A constant
+      rate $\eta_t = 0.1$ passes the first — the sum diverges — but fails the
+      second, and that is exactly the familiar behaviour of constant-rate
+      stochastic gradient descent: the iterates reach a noise ball around the
+      optimum whose radius is proportional to the step size and never shrink
+      further. A rapidly decaying $\eta_t = 1/t^{2}$ has the opposite problem:
+      $\sum 1/t^{2}$ is finite, so the total distance the iterates can travel
+      is bounded, and they can stall arbitrarily far from the optimum if it
+      happens to lie beyond that budget. And $\eta_t = 1/\sqrt{t}$ decays too
+      slowly — $\sum 1/t$ diverges, so the squared-step condition fails and
+      the noise never damps out.
+    choices:
+      - text: >
+          $\eta_t = 1/t$
+        correct: true
+        feedback: >
+          Both hold: $\sum 1/t$ diverges, so the iterates can travel any
+          distance, while $\sum 1/t^{2}$ converges, so the injected noise is
+          finite and they settle.
+      - text: >
+          $\eta_t = 0.1$ for every $t$
+        feedback: >
+          The first condition holds but the second fails, and the consequence
+          is concrete: the iterates orbit the optimum in a noise ball of radius
+          proportional to $0.1$ and never enter it.
+      - text: >
+          $\eta_t = 1/t^{2}$
+        feedback: >
+          This decays too fast. $\sum 1/t^{2}$ is finite, so the total distance
+          the iterates can cover is bounded and they may stall short of the
+          optimum.
+      - text: >
+          $\eta_t = 1/\sqrt{t}$
+        feedback: >
+          The first condition holds, but $\sum 1/t$ diverges, so the second
+          fails — the accumulated gradient noise does not damp out.
+    rubric:
+      - >
+        Tests each schedule against *both* conditions rather than checking only
+        that the steps shrink.
+      - >
+        Identifies the divergent-sum condition as what lets the iterates travel
+        far enough, and the square-summable condition as what damps the noise.
+      - >
+        Names the concrete failure of a constant rate — a noise ball whose
+        radius scales with the step size.
+    targets:
+      - quant-statistics.learning.sgd
+    exercises:
+      - quant-statistics.learning.gradient-descent
+
+  # --- logistic regression -----------------------------------------------------
+
+  - id: qlearn-logistic-regression-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A logistic model $\Pr(Y = 1 \mid x) = 1/(1 + e^{-\beta_0 - \beta_1 x})$
+      is fitted to a single feature. It reports a probability of $0.2$ at $x =
+      0$, and its decision boundary — the point where the predicted probability
+      equals $0.5$ — sits at $x = 4$. What probability does it predict at $x =
+      6$?
+    answer: >
+      About $0.6667$. Work on the odds scale, where the model is multiplicative
+      and no exponentials need evaluating. At $x = 0$ the probability is $0.2$,
+      so the odds are $0.2/0.8 = 0.25$, which fixes $e^{\beta_0} = 0.25$. At $x
+      = 4$ the probability is $0.5$, so the odds are $1$; since a unit rise in
+      $x$ multiplies the odds by $e^{\beta_1}$, four units multiply them by
+      $e^{4\beta_1}$, and $0.25\,e^{4\beta_1} = 1$ gives $e^{4\beta_1} = 4$,
+      hence $e^{\beta_1} = 4^{1/4} = \sqrt{2}$. Now step two units further:
+      from odds $1$ at $x = 4$, the odds at $x = 6$ are $(\sqrt{2})^{2} = 2$,
+      and $p = 2/(1 + 2) = 2/3 \approx 0.6667$. The moral is that the
+      *log-odds* are linear, not the probability. Moving from $x = 0$ to $x =
+      4$ raised the probability by $0.3$; moving the same distance again, from
+      $x = 4$ to $x = 8$, would take the odds from $1$ to $4$ and the
+      probability only to $0.8$ — a rise of $0.3$ again here by coincidence of
+      these numbers, but in general the probability increments shrink as the
+      curve saturates toward $1$.
+    expects: "0.6667"
+    tolerance: 0.00005
+    rubric:
+      - >
+        Converts both given probabilities to odds and works multiplicatively,
+        rather than interpolating probabilities linearly in $x$.
+      - >
+        Extracts $e^{\beta_1}$ from the four-unit gap by taking a fourth root,
+        then applies it twice to move from $x = 4$ to $x = 6$.
+      - >
+        Converts the final odds back to a probability with $p = \text{odds}/(1
+        + \text{odds})$.
+    targets:
+      - quant-statistics.learning.logistic-regression
+    exercises:
+      - quant-statistics.learning.gradient-descent
+      - quant-statistics.regression.ols
+
+  - id: qlearn-logistic-regression-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A fitted logistic model is scored on two held-out cases. For the first,
+      whose true label is $Y = 1$, it predicts $p = 0.8$. For the second, whose
+      true label is $Y = 0$, it predicts $p = 0.3$. What is the average log
+      loss over these two cases?
+    answer: >
+      About $0.2899$. Log loss on one case is $-[y\ln p + (1-y)\ln(1-p)]$,
+      which collapses to $-\ln(\text{probability the model assigned to the
+      outcome that actually happened})$. The first case happened with predicted
+      probability $0.8$, contributing $-\ln 0.8 = 0.2231$; the second case was
+      a zero, which the model gave $1 - 0.3 = 0.7$, contributing $-\ln 0.7 =
+      0.3567$. The average is $(0.2231 + 0.3567)/2 = 0.5798/2 = 0.2899$. Two
+      things follow from the shape of $-\ln$. Minimizing this average is
+      exactly maximizing the log-likelihood, which is what fitting a logistic
+      regression does — the loss and the likelihood are the same object with
+      opposite signs. And the penalty is unbounded: a case predicted at $0.001$
+      that then happens costs $-\ln 0.001 \approx 6.9$, so log loss punishes
+      confident errors far more harshly than a $0$–$1$ loss, which would score
+      both of these cases as simply correct and learn nothing from how sure the
+      model was.
+    expects: "0.2899"
+    tolerance: 0.00005
+    rubric:
+      - >
+        Applies $-[y\ln p + (1-y)\ln(1-p)]$ per case, using $1 - p$ for the
+        case whose label is $0$.
+      - >
+        Averages the two contributions, and identifies minimizing log loss with
+        maximizing the log-likelihood.
+    targets:
+      - quant-statistics.learning.logistic-regression
+    exercises:
+      - quant-statistics.learning.gradient-descent
+
+  # --- precision, recall and the confusion matrix ------------------------------
+
+  - id: qlearn-classification-metrics-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A screening model runs over $1000$ cases of which $80$ are genuinely
+      positive. At its current threshold it flags $200$ cases and catches $60$
+      of the positives. Raising the threshold reduces it to $100$ flags, of
+      which $45$ are genuine positives. What is the $F_1$ score at the higher
+      threshold?
+    answer: >
+      $0.5$. At the higher threshold, $\mathrm{TP} = 45$, so $\mathrm{FP} = 100
+      - 45 = 55$ and $\mathrm{FN} = 80 - 45 = 35$. Precision is $45/100 =
+      0.45$ and recall is $45/80 = 0.5625$, so $F_1 = 2PR/(P+R) =
+      2(0.45)(0.5625)/(0.45 + 0.5625) = 0.50625/1.0125 = 0.5$. The equivalent
+      shortcut, $F_1 = 2\mathrm{TP}/(2\mathrm{TP} + \mathrm{FP} + \mathrm{FN})
+      = 90/(90 + 55 + 35) = 90/180$, avoids the intermediate rounding
+      entirely. Compare the lower threshold: there $\mathrm{TP} = 60$,
+      $\mathrm{FP} = 140$, $\mathrm{FN} = 20$, giving precision $0.30$, recall
+      $0.75$ and $F_1 = 120/280 \approx 0.4286$. So tightening the threshold
+      traded $0.1875$ of recall for $0.15$ of precision and still improved
+      $F_1$ — which is the harmonic mean doing its job, punishing the badly
+      lagging component harder than it rewards the leading one. Note that
+      $\mathrm{TN}$ never enters any of these three metrics, which is precisely
+      why they survive the class imbalance that ruins accuracy.
+    expects: "0.5"
+    rubric:
+      - >
+        Recovers $\mathrm{FP}$ from the flag count and $\mathrm{FN}$ from the
+        positive count before computing precision and recall.
+      - >
+        Applies the harmonic mean $2PR/(P+R)$, or equivalently
+        $2\mathrm{TP}/(2\mathrm{TP} + \mathrm{FP} + \mathrm{FN})$.
+      - >
+        Observes that raising the threshold bought precision and sold recall,
+        and that $\mathrm{TN}$ appears in none of the three metrics.
+    targets:
+      - quant-statistics.learning.classification-metrics
+    exercises:
+      - quant-statistics.learning.logistic-regression
+
+  - id: qlearn-classification-metrics-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A detector is run on $10{,}000$ cases with a true positive rate of two
+      percent. It catches $90\%$ of the genuine positives and raises a false
+      alarm on $5\%$ of the genuine negatives. What is its precision?
+    answer: >
+      About $0.2687$. Build the confusion matrix from the base rate. There are
+      $0.02(10{,}000) = 200$ genuine positives and $9800$ genuine negatives.
+      The detector catches $0.9(200) = 180$ of the positives, so $\mathrm{TP} =
+      180$, and flags $0.05(9800) = 490$ of the negatives, so $\mathrm{FP} =
+      490$. Precision is $\mathrm{TP}/(\mathrm{TP} + \mathrm{FP}) = 180/670
+      \approx 0.2687$. Read that against the detector's own operating
+      characteristics: it is $90\%$ sensitive and only $5\%$ prone to false
+      alarms, which sounds excellent, yet fewer than three in ten of its alerts
+      are real. The reason is arithmetic, not incompetence — a $5\%$ error rate
+      applied to $9800$ negatives produces far more false alarms than a $90\%$
+      catch rate applied to $200$ positives produces true ones. Precision
+      therefore describes the *problem* as much as the classifier, and moves
+      whenever the base rate moves, while recall and the false positive rate do
+      not. It is the same conditioning that makes a rare-disease test's
+      positive result far weaker evidence than its accuracy suggests.
+    expects: "0.2687"
+    tolerance: 0.00005
+    rubric:
+      - >
+        Converts the base rate into counts of genuine positives and negatives
+        before applying the catch rate and the false alarm rate.
+      - >
+        Computes $\mathrm{TP}/(\mathrm{TP} + \mathrm{FP})$ and explains why a
+        small false alarm rate on a large negative class swamps the true
+        positives.
+    targets:
+      - quant-statistics.learning.classification-metrics
+    exercises:
+      - quant-statistics.learning.logistic-regression
+
+  # --- ROC and AUC -------------------------------------------------------------
+
+  - id: qlearn-roc-auc-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A model scores four positive cases at $0.90$, $0.55$, $0.55$ and $0.40$,
+      and three negative cases at $0.70$, $0.55$ and $0.30$. Counting a tie as
+      half a win, what is the AUC?
+    answer: >
+      About $0.5833$. AUC is the probability that a randomly chosen positive
+      outscores a randomly chosen negative, ties counting half, so enumerate
+      all $4 \times 3 = 12$ pairs. The positive at $0.90$ beats all three
+      negatives: $3$ wins. Each positive at $0.55$ loses to the negative at
+      $0.70$, ties the negative at $0.55$ and beats the negative at $0.30$,
+      scoring $0 + 0.5 + 1 = 1.5$; there are two such positives, contributing
+      $3$. The positive at $0.40$ beats only the negative at $0.30$: $1$. The
+      total is $3 + 3 + 1 = 7$ out of $12$, so $\mathrm{AUC} = 7/12 \approx
+      0.5833$. Two habits this instance drills. Ties must be scored at half —
+      counting them as wins would give $8/12 \approx 0.667$ and counting them
+      as losses $6/12 = 0.5$, and a model that assigns many identical scores
+      can have its AUC swing by that much on the convention alone. And AUC
+      depends only on the *ordering*: replacing every score $s$ by $s^{3}$, or
+      by any increasing function, leaves all twelve comparisons and hence the
+      AUC untouched, which is why AUC says nothing about whether the scores are
+      calibrated as probabilities.
+    expects: "0.5833"
+    tolerance: 0.00005
+    rubric:
+      - >
+        Enumerates all positive-negative pairs — the count is the product of
+        the two class sizes, not the total number of cases.
+      - >
+        Scores the tied pair at one half rather than as a win or a loss.
+      - >
+        Notes that AUC is a ranking statistic, invariant under any increasing
+        transform of the scores.
+    targets:
+      - quant-statistics.learning.roc-auc
+    exercises:
+      - quant-statistics.learning.classification-metrics
+
+  - id: qlearn-roc-auc-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A classifier's ROC curve is piecewise linear, running in straight
+      segments from $(0, 0)$ to $(0.2, 0.6)$ and then from $(0.2, 0.6)$ to
+      $(1, 1)$, with the false positive rate on the horizontal axis. What is
+      its AUC?
+    answer: >
+      $0.7$. The area under a piecewise linear curve is a sum of trapezoids
+      over the segments. The first segment spans a width of $0.2$ with heights
+      $0$ and $0.6$, contributing $0.2(0 + 0.6)/2 = 0.06$. The second spans a
+      width of $0.8$ with heights $0.6$ and $1$, contributing $0.8(0.6 +
+      1)/2 = 0.64$. The total is $0.06 + 0.64 = 0.70$. Compare the two
+      reference curves: the diagonal from $(0,0)$ to $(1,1)$ encloses $0.5$,
+      the score of a coin flip, and the corner path through $(0,1)$ encloses
+      $1$, a perfect ranking, so $0.7$ sits modestly above chance. The kink at
+      $(0.2, 0.6)$ is the informative part — it is the threshold where the
+      curve stops rising steeply, catching $60\%$ of the positives for only
+      $20\%$ of the negatives, after which each further point of recall costs
+      progressively more false alarms. That kink is the natural operating point
+      to propose, and none of this is visible in the single number $0.7$, which
+      is why the curve is read alongside the area.
+    expects: "0.7"
+    rubric:
+      - >
+        Sums trapezoid areas over the two segments rather than treating the
+        curve as a single triangle or rectangle.
+      - >
+        Places the result against the benchmarks $0.5$ for chance and $1$ for
+        perfect ranking.
+    targets:
+      - quant-statistics.learning.roc-auc
+    exercises:
+      - quant-statistics.learning.classification-metrics
+
+  # --- trees and ensembles -----------------------------------------------------
+
+  - id: qlearn-trees-ensembles-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Bagged trees each have prediction variance $\sigma^{2} = 0.25$ at a fixed
+      point, and any two of them are correlated with $\rho = 0.16$. The
+      variance of the average of $B$ trees is $\rho\sigma^{2} + (1 -
+      \rho)\sigma^{2}/B$. How many trees are needed before that variance is
+      within ten percent of its $B \to \infty$ limit?
+    answer: >
+      $53$. The limit as $B$ grows is the correlation floor $\rho\sigma^{2} =
+      0.16(0.25) = 0.04$; ten percent above it is $0.044$. The shrinking piece
+      is $(1 - \rho)\sigma^{2}/B = 0.21/B$, and the requirement $0.04 + 0.21/B
+      \le 0.044$ becomes $0.21/B \le 0.004$, so $B \ge 52.5$ and the smallest
+      whole number of trees is $53$. Check the boundary: at $B = 53$ the
+      variance is $0.04 + 0.00396 = 0.04396$, inside the target, and at $B =
+      52$ it is $0.04 + 0.00404 = 0.04404$, just outside. The structural point
+      is what the arithmetic exposes about where effort should go. Past a few
+      dozen trees, adding more is nearly free of benefit — the second term is
+      already small and falls only as $1/B$ — while the floor $0.04$ is
+      untouched by any $B$ whatever. The only lever on the floor is $\rho$
+      itself, which is exactly what a random forest attacks by sampling a
+      subset of features at each split: forcing the trees to disagree lowers
+      $\rho$ and drops the floor, where growing the ensemble merely approaches
+      it faster.
+    expects: "53"
+    rubric:
+      - >
+        Identifies the $B \to \infty$ limit as the correlation floor
+        $\rho\sigma^{2}$ and sets the target ten percent above it.
+      - >
+        Solves the inequality for $B$ and rounds *up* to a whole number of
+        trees, checking the boundary.
+      - >
+        Concludes that lowering $\rho$, not raising $B$, is the only way past
+        the floor — the argument for random forests over larger bags.
+    targets:
+      - quant-statistics.learning.trees-ensembles
+    exercises:
+      - quant-statistics.learning.bias-variance
+
+  - id: qlearn-trees-ensembles-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Each tree in a bagged ensemble has prediction variance $\sigma^{2} =
+      0.36$ at a point, and any two trees are correlated with $\rho = 0.5$.
+      What is the variance of the average of $B = 9$ such trees?
+    answer: >
+      $0.2$. Substituting into $\rho\sigma^{2} + (1 - \rho)\sigma^{2}/B$ gives
+      $0.5(0.36) + 0.5(0.36)/9 = 0.18 + 0.02 = 0.20$. Compare that with what
+      independence would have delivered: $\sigma^{2}/B = 0.36/9 = 0.04$, five
+      times smaller. The gap is the price of the trees being fitted to
+      bootstrap resamples of one dataset — they see largely the same rows and
+      make largely the same mistakes, so averaging them cancels much less error
+      than averaging nine independent fits would. Even so, the ensemble has cut
+      variance from $0.36$ to $0.20$ while leaving bias essentially unchanged,
+      since each tree is fitted the same way and the average of nearly unbiased
+      fits is nearly unbiased. That is the bagging trade in one line: it is a
+      variance instrument, which is why it is applied to deep, low-bias,
+      high-variance trees. Boosting sits at the opposite corner, growing small
+      high-bias trees on the residuals of their predecessors to attack bias
+      instead, and overfitting unless stopped early.
+    expects: "0.2"
+    rubric:
+      - >
+        Applies $\rho\sigma^{2} + (1 - \rho)\sigma^{2}/B$ with both terms,
+        rather than $\sigma^{2}/B$.
+      - >
+        Contrasts the result with the independent case and identifies bagging
+        as a variance instrument, with boosting attacking bias instead.
+    targets:
+      - quant-statistics.learning.trees-ensembles
+    exercises:
+      - quant-statistics.learning.bias-variance
+
+  # --- leakage -----------------------------------------------------------------
+
+  - id: qlearn-leakage-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A stock closes at $200$, $196$, $203$, $201$ and $208$ on five
+      consecutive days. A backtest computes the signal
+      $\operatorname{sgn}(\text{close}_t - \text{close}_{t-1})$ and — wrongly —
+      assumes the position is filled at $\text{close}_{t-1}$ and closed at
+      $\text{close}_t$, on the same bar the signal was computed from. What
+      total return does that leaked backtest report over the four tradable
+      days, as a decimal?
+    answer: >
+      About $0.1004$. Because the signal is the sign of the very move it is
+      then paid for, every day earns the absolute value of that day's return.
+      Day two moves from $200$ to $196$, a return of $-0.02$ taken short, worth
+      $0.02$. Day three moves $196 \to 203$: $7/196 = 0.035714$. Day four moves
+      $203 \to 201$: $2/203 = 0.009852$, again taken short. Day five moves $201
+      \to 208$: $7/201 = 0.034826$. Summing, $0.02 + 0.035714 + 0.009852 +
+      0.034826 = 0.100392$, so the backtest reports about $10.04\%$ over four
+      days with a $100\%$ hit rate. No real strategy has a $100\%$ hit rate,
+      and that is the tell: the equity curve has no losing days *by
+      construction*, because the rule cannot be evaluated until the close
+      exists, yet the fill is assumed at a price the rule already knew. The fix
+      is mechanical — lag the signal by at least one bar and fill at the next
+      tradable price, so the day-three signal trades the day-four move. Under
+      that correction the same four days produce a sequence of real bets, and
+      the reported edge collapses toward nothing, which is the honest answer.
+    expects: "0.1004"
+    tolerance: 0.00005
+    rubric:
+      - >
+        Recognises that the leaked rule earns the magnitude of each day's move,
+        so every day is a winner by construction.
+      - >
+        Computes each daily return against the *previous* close as the
+        denominator and sums the four, rather than comparing first and last
+        prices.
+      - >
+        States the fix — lag the signal by at least one bar and fill at the
+        next tradable price — and notes that the perfect hit rate is the
+        diagnostic.
+    targets:
+      - quant-statistics.learning.leakage
+    exercises:
+      - quant-statistics.learning.cross-validation
+
+  - id: qlearn-leakage-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Four research pipelines are proposed for a cross-validated model. Which
+      one leaks held-out information into training?
+    answer: >
+      Ranking all $500$ candidate features by their full-sample correlation
+      with the label and cross-validating only the fit on the survivors. The
+      screen is a fit: it looked at every label in the dataset, including the
+      labels in every fold that will later be held out, and the twenty features
+      it kept are the twenty that best matched *that whole sample*, noise
+      included. Cross-validating afterwards scores only the last step of the
+      procedure, so each held-out fold is being predicted by a model whose
+      inputs were chosen partly on the strength of that fold's own labels. The
+      resulting error is optimistic, sometimes dramatically so — this design
+      will report a respectable score on pure noise. The remedy is to move the
+      screen inside the loop: rank and select on each training fold separately,
+      so a different twenty features may survive in each, and score whatever
+      that produces. The general rule is that everything that touches the label
+      — selection, scaling, winsorizing, imputation, target encoding — is part
+      of the model and must be refitted inside every fold.
+    choices:
+      - text: >
+          Rank all $500$ features by their correlation with the label over the
+          whole dataset, keep the top $20$, then run $5$-fold cross-validation
+          on those $20$.
+        correct: true
+        feedback: >
+          Exactly: the screen read every label, including those of the folds
+          later held out, so the surviving features were chosen partly on the
+          test data's noise.
+      - text: >
+          Fit the standardizing scaler on each training fold and apply it,
+          unchanged, to that fold's held-out block.
+        feedback: >
+          This is the correct discipline. The scaler is refitted inside the
+          loop, so no held-out statistic reaches the training data.
+      - text: >
+          Use a trailing twenty-day mean ending at the previous close as a
+          feature.
+        feedback: >
+          A trailing window ending strictly before the decision point uses only
+          information available at the time, so it introduces no look-ahead.
+      - text: >
+          Impute a missing feature value with the median of the training fold
+          it belongs to.
+        feedback: >
+          The median is computed inside the training fold, so the imputation
+          carries no information from the held-out block.
+    rubric:
+      - >
+        Identifies feature selection as a data-dependent fit, not a
+        preprocessing step exempt from the fold discipline.
+      - >
+        Explains that the screen consumed the labels of the very folds later
+        used for scoring, so the reported error is optimistic.
+      - >
+        States the remedy — refit every label-touching step inside each fold —
+        and recognises the three innocent pipelines as already respecting it.
+    targets:
+      - quant-statistics.learning.leakage
+    exercises:
+      - quant-statistics.learning.cross-validation
+      - quant-statistics.learning.train-val-test
+
+  - id: qlearn-leakage-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      A researcher builds a daily equity model whose features include each
+      company's quarterly reported revenue, attached to every day of the
+      quarter the revenue describes. The backtest is otherwise clean: the
+      signal is lagged a day, fills are at the next open, and the folds are
+      chronological. Explain why the model still leaks, and describe the data
+      discipline that fixes it.
+    answer: >
+      The feature is stamped with the quarter it *describes*, not the moment it
+      became knowable, and those differ by weeks. A quarter ending in March is
+      reported in late April or May, so every trading day from January to
+      roughly late April is carrying a number nobody could have seen — the
+      model spends a third of its life knowing the current quarter's revenue
+      before the market does. Lagging the signal by a day does nothing about
+      this, because the leak is in the *feature's timestamp*, not in the
+      execution assumption: a one-day lag on a forty-day look-ahead still
+      leaves thirty-nine days of it. Chronological folds do not help either,
+      for the same reason — every fold, including the held-out ones, contains
+      rows whose features postdate their own dates. The tell is usually a
+      backtest whose edge concentrates in the days immediately before
+      announcements and evaporates in live trading, precisely when the
+      advantage stops existing. Two disciplines fix it. First, index every
+      feature by its first-publication timestamp, not its reference period, so
+      the March quarter enters the feature set only on the day and time it was
+      released; a point-in-time database exists to do exactly this. Second,
+      apply the same treatment to restatements and to any vendor field that is
+      silently backfilled or revised, since a value later corrected must appear
+      in its original form until the correction was published. The general rule
+      is that a feature's date is the date it became knowable, and every
+      dataset must be interrogated for the gap between that and the date it
+      refers to.
+    rubric:
+      - >
+        Distinguishes the period a datum describes from the moment it was first
+        published, and identifies the reporting lag of several weeks as the
+        leak.
+      - >
+        Explains why a one-day signal lag and chronological folds fail to
+        address it — the corruption is in the feature's timestamp, and is
+        present inside every fold.
+      - >
+        Prescribes point-in-time indexing by first-publication timestamp, and
+        extends the discipline to restatements and silently backfilled or
+        revised vendor fields.
+    targets:
+      - quant-statistics.learning.leakage
+    exercises:
+      - quant-statistics.learning.cross-validation
+      - quant-statistics.learning.train-val-test
+
+  # --- walk-forward validation -------------------------------------------------
+
+  - id: qlearn-walk-forward-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A walk-forward study runs over $500$ trading days. The first fit uses
+      days $1$ to $200$, an embargo of $20$ days follows, and the first test
+      block is days $221$ to $240$. Each subsequent step rolls everything
+      forward by exactly one test block of $20$ days, keeping the same $20$-day
+      embargo. How many test blocks fit inside the $500$ days?
+    answer: >
+      $14$. Testing begins on day $221$ and runs to day $500$, a span of $500 -
+      221 + 1 = 280$ days. Each block consumes $20$ of them and the blocks do
+      not overlap, so there are $280/20 = 14$ blocks: days $221$–$240$,
+      $241$–$260$, and so on to $481$–$500$. Check the last one — its embargo
+      covers days $461$–$480$, so its training data runs to day $460$, which is
+      inside the sample. The accounting is worth doing before a study rather
+      than after, because it prices the design. Of $500$ days, $220$ are
+      consumed by the initial training window and the first embargo and can
+      never be scored, so only $56\%$ of the sample yields test observations,
+      and those $14$ block losses are the entire evidence base — a standard
+      error built on $14$ numbers, not $280$. Shrinking the embargo would buy
+      more blocks but reintroduce the label overlap it exists to prevent, and
+      shrinking the initial window would make the early fits unreliable. The
+      trade between test coverage and training adequacy is the design decision,
+      and there is no setting that avoids it.
+    expects: "14"
+    rubric:
+      - >
+        Computes the testable span from the first test day to the last day of
+        the sample, inclusive, rather than dividing the whole $500$ days by the
+        block length.
+      - >
+        Divides by the block length for non-overlapping blocks and verifies
+        that the final block's training window and embargo lie inside the
+        sample.
+      - >
+        Reads the result as the evidence base — a handful of block losses —
+        and names the coverage-versus-training trade the embargo forces.
+    targets:
+      - quant-statistics.learning.walk-forward
+    exercises:
+      - quant-statistics.learning.leakage
+
+  - id: qlearn-walk-forward-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A walk-forward test block begins on day $201$, and the label horizon is
+      $h = 7$: the label attached to day $t$ is computed from returns through
+      day $t + 7$. The desk embargoes correctly and then trains on a rolling
+      window of exactly $120$ days ending at the embargo. On which day does
+      that training window start?
+    answer: >
+      Day $74$. Work backwards in two steps. The last training day that is safe
+      is the one whose label is fully resolved before the test block opens: a
+      label at day $t$ reaches day $t + 7$, which must be at most day $200$, so
+      $t \le 193$. Training therefore ends on day $193$, with days $194$
+      through $200$ embargoed and unused. A rolling window of $120$ days ending
+      on day $193$ then starts on day $193 - 119 = 74$, and the count checks
+      out: days $74$ through $193$ inclusive number $193 - 74 + 1 = 120$. Two
+      details cause most errors here. The embargo length is the label horizon,
+      not an arbitrary buffer — it exists so that no training label is computed
+      from returns that fall inside the test block. And the window arithmetic
+      subtracts $119$, not $120$, because both endpoints are included. Choosing
+      a rolling window rather than an expanding one is a separate judgement:
+      the fixed lookback discards old data deliberately, which costs precision
+      but protects the fit when the joint law has moved.
+    expects: "74"
+    rubric:
+      - >
+        Sets the last safe training day so its label horizon ends before the
+        test block opens, giving an embargo whose length is the label horizon.
+      - >
+        Counts the rolling window inclusively — subtracting $119$, not $120$ —
+        and verifies the window length.
+    targets:
+      - quant-statistics.learning.walk-forward
+    exercises:
+      - quant-statistics.learning.leakage
+      - quant-statistics.learning.cross-validation
+
+  # --- backtest overfitting ----------------------------------------------------
+
+  - id: qlearn-backtest-overfitting-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A desk will search $N = 2000$ strategy variants, all with genuinely zero
+      edge, and wants the expected best in-sample Sharpe from that search — the
+      noise benchmark $\sqrt{2\ln N}/\sqrt{T}$ — to come out below $1.0$. What
+      is the smallest whole number of years $T$ of backtest history that
+      achieves it?
+    answer: >
+      $16$. The numerator is fixed by the size of the search: $\sqrt{2\ln 2000}
+      = \sqrt{2(7.6009)} = \sqrt{15.2018} \approx 3.899$. Requiring
+      $3.899/\sqrt{T} < 1$ gives $\sqrt{T} > 3.899$, so $T > 15.20$ and the
+      smallest whole number of years is $16$. Check both sides: at $T = 16$ the
+      benchmark is $3.899/4 \approx 0.975$, under the target, and at $T = 15$
+      it is $3.899/3.873 \approx 1.007$, over. Notice how the two levers
+      differ. The search size enters through a logarithm, so cutting the grid
+      from $2000$ variants to $200$ only drops the numerator from $3.899$ to
+      $3.255$ — a search has to shrink by orders of magnitude to matter much.
+      History enters through a square root, so buying down the benchmark by
+      data means quadrupling the years: $16$ years to reach $0.975$, and $64$
+      to reach half of that. Sixteen years of daily history for a
+      two-thousand-variant search is a demanding requirement, and most desks
+      have neither, which is the practical force of the calculation — the
+      defence has to come from counting trials and reserving untouched data,
+      not from waiting for more history.
+    expects: "16"
+    rubric:
+      - >
+        Computes $\sqrt{2\ln N}$ for the given search size and sets the
+        inequality $\sqrt{2\ln N}/\sqrt{T} < 1$.
+      - >
+        Solves for $T$ and rounds *up* to a whole year, checking both sides of
+        the boundary.
+      - >
+        Contrasts the logarithmic dependence on $N$ with the square-root
+        dependence on $T$, and draws the practical conclusion.
+    targets:
+      - quant-statistics.learning.backtest-overfitting
+    exercises:
+      - quant-statistics.testing.multiple-testing
+
+  - id: qlearn-backtest-overfitting-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A researcher backtests $N = 250$ strategy variants over $T = 8$ years of
+      history. If every variant had genuinely zero edge, what in-sample Sharpe
+      ratio would the best of them be expected to show — the noise benchmark
+      $\sqrt{2\ln N}/\sqrt{T}$?
+    answer: >
+      About $1.1749$. Compute the pieces: $\ln 250 \approx 5.5215$, so
+      $\sqrt{2\ln N} = \sqrt{11.0429} \approx 3.3231$, and $\sqrt{T} = \sqrt{8}
+      \approx 2.8284$, giving $3.3231/2.8284 \approx 1.1749$. The formula
+      combines two facts. Over $T$ years a Sharpe estimate has standard error
+      roughly $1/\sqrt{T}$, and the largest of $N$ independent standard normals
+      sits near $\sqrt{2\ln N}$, so the best of $N$ worthless strategies
+      reports about $\sqrt{2\ln N}$ standard errors of pure luck. The
+      consequence for this study is blunt: a winner with an in-sample Sharpe of
+      $1.1$ has produced *less* than a coin-flip search would be expected to
+      produce, and a winner at $1.3$ has cleared the bar by so little that the
+      excess is well inside the noise. The reported Sharpe of a selected
+      strategy is a selection statistic, not an estimate of its edge, and the
+      number that has to be beaten is set by how hard you searched — which is
+      why every abandoned configuration counts toward $N$.
+    expects: "1.1749"
+    tolerance: 0.00005
+    rubric:
+      - >
+        Evaluates $\sqrt{2\ln N}$ and $\sqrt{T}$ separately and divides, rather
+        than mixing the logarithm and the square root.
+      - >
+        Explains the two ingredients — a Sharpe standard error of about
+        $1/\sqrt{T}$, and the maximum of $N$ standard normals near
+        $\sqrt{2\ln N}$ — and notes that abandoned variants count toward $N$.
+    targets:
+      - quant-statistics.learning.backtest-overfitting
+    exercises:
+      - quant-statistics.testing.multiple-testing

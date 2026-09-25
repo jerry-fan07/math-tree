@@ -310,15 +310,15 @@ public enum ContentLint {
                         .init(
                             rule: .lessonStepsNoCheck, subject: lesson.node,
                             message:
-                                "\(lesson.node): \(lesson.steps.count) authored cards and not one "
+                                "\(lesson.node): \(lesson.authoredCards.count) authored cards and not one "
                                 + "`ask` — a paged slideshow still measures nothing"))
                 }
-                if lesson.steps.count < config.lessonStepsFloor {
+                if lesson.authoredCards.count < config.lessonStepsFloor {
                     hints.append(
                         .init(
                             rule: .thinLessonSteps, subject: lesson.node,
                             message:
-                                "\(lesson.node): \(lesson.steps.count) authored card(s) — "
+                                "\(lesson.node): \(lesson.authoredCards.count) authored card(s) — "
                                 + "one idea per screen means more than \(config.lessonStepsFloor)"))
                 }
             }

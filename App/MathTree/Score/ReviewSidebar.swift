@@ -35,6 +35,8 @@ struct ReviewSidebar: View {
     /// §6.6's program, when this tree ships one.
     var program: Program?
     var onOpenProgram: (() -> Void)?
+    /// §6.8: straight into the next lesson, without the course home between.
+    var onContinueLesson: ((NodeID) -> Void)?
     var onClose: () -> Void
 
     private static let upcomingLimit = 8
@@ -88,33 +90,63 @@ struct ReviewSidebar: View {
         }
     }
 
-    // MARK: - Program
+    // MARK: - Course
 
-    /// §6.6's entry point: where the program's bookmark sits, and one click back
-    /// into the reader. A heading, a sentence, one underlined action — the same
-    /// shape placement takes.
+    /// §6.8's entry point: where the bookmark sits, the course's measure, and
+    /// two actions — the next lesson directly, or the course home. A heading, a
+    /// sentence, the underlined actions — the same shape placement takes.
     @ViewBuilder
     private var programSection: some View {
         if let program, let onOpenProgram {
             let plan = ProgramPlan.compute(
                 spine: program.spine, graph: scores.graph, state: scores.state,
                 at: scores.evaluatedAt, config: scores.config)
+            let summary = scores.masterySummary(of: plan.steps.map(\.id))
             VStack(alignment: .leading, spacing: 9) {
-                Eyebrow(title: "Program")
+                Eyebrow(title: "Course")
                 if let resume = plan.resume, let unit = plan.unit(resume.unit) {
-                    note("Unit \(unit.index + 1) of \(plan.units.count) — \(title(of: unit.id)).")
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(scores.state.nodes.isEmpty ? "Start with" : "Next up")
+                            .font(Typeface.mono(10))
+                            .foregroundStyle(ThemeStore.shared.theme.eyebrowCount.color)
+                        MathTextView(
+                            source: title(of: resume.id), size: 12.5,
+                            color: ThemeStore.shared.theme.rowTitle.color)
+                        .lineLimit(2)
+                        Text("unit \(unit.index + 1) of \(plan.units.count) · \(title(of: unit.id))")
+                            .font(Typeface.mono(10))
+                            .foregroundStyle(ThemeStore.shared.theme.rowTrailing.color)
+                            .lineLimit(1)
+                    }
                 } else if plan.stepCount > 0 {
-                    note("Every step learned. Open it to reread anything.")
+                    note("Every lesson learned once. Reopen any unit from the course.")
                 }
-                HStack(alignment: .firstTextBaseline, spacing: 14) {
-                    TextAction(
-                        title: plan.resume == nil ? "Open" : "Continue",
-                        size: 11.5,
-                        accessibilityHint: "Opens §6.6's program at the bookmark",
-                        action: onOpenProgram)
-                    Text("\(plan.metCount) / \(plan.stepCount)")
+                HStack(spacing: 8) {
+                    MasteryBar(summary: summary, height: 2)
+                    Text(MasteryFormat.percent(summary))
                         .font(Typeface.mono(10))
                         .foregroundStyle(ThemeStore.shared.theme.eyebrowCount.color)
+                        .fixedSize()
+                }
+                .help(MasteryFormat.points(summary))
+                HStack(alignment: .firstTextBaseline, spacing: 14) {
+                    if let resume = plan.resume, let onContinueLesson {
+                        TextAction(
+                            title: scores.state.nodes.isEmpty ? "Start" : "Continue",
+                            size: 11.5,
+                            accessibilityHint: "Plays the next lesson of the course",
+                            action: { onContinueLesson(resume.id) })
+                        TextAction(
+                            title: "Open the course", size: 11, weight: .regular, isQuiet: true,
+                            accessibilityHint: "The course home: every unit and its progress",
+                            action: onOpenProgram)
+                    } else {
+                        TextAction(
+                            title: "Open the course",
+                            size: 11.5,
+                            accessibilityHint: "The course home: every unit and its progress",
+                            action: onOpenProgram)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -348,7 +380,7 @@ private struct SubjectRow: View {
                         .font(Typeface.sans(10.5, .medium))
                         .foregroundStyle(theme.action.color)
                 } else {
-                    // Compact on purpose: "3 / 195 mastered" does not fit the rail,
+                    // Compact on purpose: "3 / 195 proficient" does not fit the rail,
                     // so the bar carries the proportion and the digits stay bare.
                     HStack(spacing: 6) {
                         MeasureBar(
@@ -370,8 +402,8 @@ private struct SubjectRow: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
-        .help("\(summary.met) of \(summary.total) nodes mastered — open the guided path")
-        .accessibilityLabel("Learn \(title), \(summary.met) of \(summary.total) mastered")
+        .help("\(summary.met) of \(summary.total) nodes proficient — open the guided path")
+        .accessibilityLabel("Learn \(title), \(summary.met) of \(summary.total) proficient")
     }
 }
 

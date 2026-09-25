@@ -279,16 +279,19 @@ extension MathText {
                             samples.append(
                                 Sample(id: lesson.node.rawValue, field: field, source: source))
                         }
-                        // §6.7's cards. `steps` rather than `cards` on purpose:
-                        // derived cards are slices of the prose already sampled
-                        // above, so checking them again would double every
-                        // finding and report the same defect twice.
-                        for (index, card) in lesson.steps.enumerated() {
-                            for (field, source) in card.renderableFields {
-                                samples.append(
-                                    Sample(
-                                        id: lesson.node.rawValue,
-                                        field: "steps[\(index)].\(field)", source: source))
+                        // §6.7's cards and §6.9's dialogue. The authored lists
+                        // rather than `cards` on purpose: derived cards are
+                        // slices of the prose already sampled above, so checking
+                        // them again would double every finding and report the
+                        // same defect twice.
+                        for (list, cards) in [("steps", lesson.steps), ("dialogue", lesson.dialogue)] {
+                            for (index, card) in cards.enumerated() {
+                                for (field, source) in card.renderableFields {
+                                    samples.append(
+                                        Sample(
+                                            id: lesson.node.rawValue,
+                                            field: "\(list)[\(index)].\(field)", source: source))
+                                }
                             }
                         }
                     }

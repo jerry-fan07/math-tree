@@ -1,0 +1,1566 @@
+# Problems targeting quant-statistics.descriptive — sample summaries and the
+# ways a single print breaks them.
+#
+# Authored mastery-first (§6.7): every node carries a `demanding` problem, so
+# `masterySet(for:)` — which reads hardest-first — never opens a lesson's ending
+# with something the lesson just handed over. No problem here reuses a lesson's
+# worked example or a card's instance. See ../README.md.
+
+problems:
+  # --- the sample mean and its standard error ---------------------------------
+
+  - id: qdesc-sample-mean-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A signal is measured over $256$ fills: mean edge $1.8$ basis points,
+      sample standard deviation $s = 24$ basis points. Risk will fund nothing
+      whose measured mean sits fewer than $3$ standard errors above zero. If the
+      mean and $s$ both hold up as data accumulates, how many fills in total do
+      you need?
+    answer: >
+      $1600$. The requirement is $\bar{x}/\operatorname{SE} \ge 3$, so with
+      $\bar{x}$ pinned at $1.8$ you need $\operatorname{SE} \le 1.8/3 = 0.6$.
+      Since $\operatorname{SE} = s/\sqrt{n} = 24/\sqrt{n}$, that reads
+      $24/\sqrt{n} \le 0.6$, or $\sqrt{n} \ge 40$, so $n \ge 1600$. Sanity
+      check at the answer: $24/\sqrt{1600} = 24/40 = 0.6$ and $1.8/0.6 = 3$
+      exactly. Note what the $\sqrt{n}$ costs. Today $\operatorname{SE} =
+      24/16 = 1.5$ and the mean is only $1.2$ standard errors out; buying a
+      factor of $2.5$ in that ratio takes $2.5^{2} = 6.25$ times the data, not
+      $2.5$ times it. Quadrupling to $1024$ fills — the reflex answer — only
+      reaches $\operatorname{SE} = 0.75$ and $2.4$ standard errors, still short.
+    expects: "1600"
+    rubric:
+      - >
+        Converts the "three standard errors" requirement into a bound on
+        $\operatorname{SE}$ first, rather than on $n$ directly.
+      - >
+        Inverts $\operatorname{SE} = s/\sqrt{n}$ correctly: the required $n$
+        scales with the *square* of the improvement wanted, so $n = (24/0.6)^{2}$.
+    targets:
+      - quant-statistics.descriptive.sample-mean
+    exercises:
+      - quant-probability.expectation.variance
+
+  - id: qdesc-sample-mean-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A market-making desk logs $121$ round trips. The mean capture is $9$ basis
+      points with sample standard deviation $s = 33$ basis points. How many
+      standard errors from zero is the measured mean?
+    answer: >
+      $3$. The standard error of the mean is $\operatorname{SE} = s/\sqrt{n} =
+      33/\sqrt{121} = 33/11 = 3$ basis points, and the measured mean sits
+      $9/3 = 3$ standard errors above zero — comfortably real rather than
+      noise around nothing. The trap is quoting $s = 33$ as the uncertainty in
+      the mean and concluding that $9$ is well inside the noise: $s$ is the
+      spread of *individual* round trips, while $s/\sqrt{n}$ is the spread of
+      their average, and the two differ here by the factor $\sqrt{121} = 11$.
+    expects: "3"
+    rubric:
+      - >
+        Divides $s$ by $\sqrt{n}$, not by $n$ — $33/121$ would be a factor of
+        $11$ too small.
+      - >
+        Reports the answer as a ratio of the mean to $\operatorname{SE}$, not as
+        the raw mean or the raw $s$.
+    targets:
+      - quant-statistics.descriptive.sample-mean
+    exercises:
+      - quant-probability.expectation.variance
+
+  - id: qdesc-sample-mean-03
+    kind: decide
+    difficulty: demanding
+    statement: >
+      Daily P&L on a trend book is *positively* autocorrelated: good days
+      cluster with good days. You take $n$ days, compute $\bar{x}$ and $s$, and
+      quote $s/\sqrt{n}$ as the standard error. What is wrong with the quoted
+      number?
+    answer: >
+      It understates the true noise in $\bar{x}$. The derivation of
+      $\operatorname{Var}(\bar{x}) = \sigma^{2}/n$ writes
+      $\operatorname{Var}(\sum x_i)$ as a double sum of covariances and then
+      throws away every off-diagonal term, which is legitimate only when the
+      draws are uncorrelated. With positive autocorrelation those cross terms
+      are positive and there are $n(n-1)$ of them against $n$ diagonal terms,
+      so the variance of the sum exceeds $n\sigma^{2}$ and the honest standard
+      error is larger — sometimes several times larger — than $s/\sqrt{n}$. Note
+      which half survives: $\mathbb{E}[\bar{x}] = \mu$ needs only a common mean
+      and is untouched by dependence, so the estimate stays unbiased while its
+      error bar is quietly too tight. That asymmetry is why an autocorrelated
+      backtest produces confident-looking Sharpe ratios that do not survive
+      out of sample.
+    choices:
+      - text: >
+          It understates the noise: the cross-covariance terms dropped in
+          deriving $\sigma^{2}/n$ are positive here, so the true spread of
+          $\bar{x}$ is larger.
+        correct: true
+        feedback: >
+          Right — $\operatorname{Var}(\sum x_i) = n\sigma^{2}$ only after
+          discarding $n(n-1)$ covariance terms, and positive autocorrelation
+          makes every one of them positive.
+      - text: >
+          It overstates the noise, since positive correlation means the days
+          reinforce each other and the average is more stable.
+        feedback: >
+          Reinforcement is exactly what makes the average *less* stable:
+          positive covariances add to the variance of the sum, they do not
+          cancel within it.
+      - text: >
+          Nothing is wrong — $\mathbb{E}[\bar{x}] = \mu$ holds whether or not
+          the draws are correlated.
+        feedback: >
+          Unbiasedness does survive, and that is the trap: the point estimate is
+          fine while its error bar is too tight. The variance formula, not the
+          mean formula, is the one that assumed uncorrelated draws.
+      - text: >
+          The divisor is wrong — with dependent data the standard error should
+          use $n-1$ rather than $n$.
+        feedback: >
+          Wrong denominator question. The $n-1$ convention belongs to $s^{2}$
+          and is about having estimated $\bar{x}$ from the same data; it says
+          nothing about the dependence structure, and it would change
+          $\operatorname{SE}$ by a negligible factor here.
+    rubric:
+      - >
+        Locates the failure in the variance step, not the mean step: says that
+        $\mathbb{E}[\bar{x}] = \mu$ survives dependence while
+        $\operatorname{Var}(\bar{x}) = \sigma^{2}/n$ does not.
+      - >
+        Gets the direction right — positive autocorrelation makes the true
+        standard error *larger* than $s/\sqrt{n}$, so the quoted edge looks
+        more significant than it is.
+    targets:
+      - quant-statistics.descriptive.sample-mean
+    exercises:
+      - quant-probability.expectation.variance
+
+  # --- the sample as a distribution -------------------------------------------
+
+  - id: qdesc-empirical-distribution-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      You intend to read a probability off the empirical CDF at a fixed point
+      $t$ where the true $F(t)$ is close to $0.5$. Treating the observations as
+      iid draws, how many of them do you need before the standard deviation of
+      $\hat{F}_n(t)$ is at most $0.01$?
+    answer: >
+      $2500$. At a fixed $t$, $n\hat{F}_n(t)$ counts how many draws landed at or
+      below $t$, so it is binomial with success probability $F(t)$, giving
+      $\operatorname{Var}(\hat{F}_n(t)) = F(t)(1-F(t))/n$. At $F(t) = 0.5$ that
+      is $0.25/n$, and requiring the standard deviation to satisfy
+      $\sqrt{0.25/n} \le 0.01$ means $0.25/n \le 0.0001$, so $n \ge 2500$.
+      Check: $\sqrt{0.25/2500} = \sqrt{0.0001} = 0.01$ exactly. Two remarks
+      worth carrying. First, $F(t) = 0.5$ is the worst case — $F(t)(1-F(t))$ is
+      largest there — so $2500$ is a bound that covers every other point of the
+      staircase. Second, this is the same $1/\sqrt{n}$ tax the sample mean pays,
+      because $\hat{F}_n(t)$ *is* a sample mean: the average of the indicators
+      $\mathbf{1}\{x_i \le t\}$.
+    expects: "2500"
+    rubric:
+      - >
+        Uses the binomial variance $F(t)(1-F(t))/n$ and squares the target
+        standard deviation before solving, rather than setting the variance
+        itself to $0.01$.
+      - >
+        Notes that $F(t) = 0.5$ maximises $F(t)(1-F(t))$, so the answer is a
+        worst case over $t$.
+    targets:
+      - quant-statistics.descriptive.empirical-distribution
+    exercises:
+      - quant-probability.expectation.variance
+
+  - id: qdesc-empirical-distribution-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Eight fill sizes, in lots: $2, 3, 3, 6, 9, 9, 9, 14$. What is
+      $\hat{F}_8(9)$?
+    answer: >
+      $7/8 = 0.875$. The empirical CDF is
+      $\hat{F}_n(t) = \frac{1}{n}\sum_{i=1}^{n}\mathbf{1}\{x_i \le t\}$, so
+      count the observations at or below $9$: the values $2, 3, 3, 6, 9, 9, 9$
+      qualify and only $14$ does not, giving $7$ of $8$. The three ties at $9$
+      are the whole point — $\hat{F}_n$ is right-continuous, so the staircase
+      jumps by $3/8$ *at* $9$ and the jump is included at $t = 9$ itself.
+      Counting strictly below $9$ instead gives $4/8 = 0.5$, which is the
+      left-hand limit $\hat{F}_8(9^{-})$ and not the CDF value.
+    expects: "7/8"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Counts observations at or below $t$, including every tie at $t$ itself.
+      - >
+        Divides by $n = 8$, the full sample size, rather than by the number of
+        distinct values.
+    targets:
+      - quant-statistics.descriptive.empirical-distribution
+    exercises:
+      - quant-probability.random-variables.cdf
+
+  - id: qdesc-empirical-distribution-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      Five settlement breaks, in lots: $1, 4, 4, 7, 9$. The plug-in principle
+      says a sample statistic is the population formula evaluated under
+      $\hat{F}_5$, the law putting mass $1/5$ on each observation. Compute the
+      variance of that distribution — the plug-in variance, not $s^{2}$.
+    answer: >
+      $7.6$. Under $\hat{F}_5$ every observation carries probability $1/5$, so
+      the mean of that law is $\bar{x} = (1+4+4+7+9)/5 = 25/5 = 5$ and its
+      variance is the *population* formula $\frac{1}{n}\sum(x_i-\bar{x})^{2}$
+      — probability-weighted, hence a plain average with weights $1/5$. The
+      deviations are $-4, -1, -1, 2, 4$, squaring to $16, 1, 1, 4, 16$ and
+      summing to $38$, so the plug-in variance is $38/5 = 7.6$. The contrast is
+      the point of the exercise: the sample variance of the same data is
+      $s^{2} = 38/4 = 9.5$. The plug-in quantity divides by $n$ because
+      $\hat{F}_5$ is a genuine probability law and nothing is being estimated
+      inside it; $s^{2}$ divides by $n-1$ because it is aimed at $\sigma^{2}$
+      and pays for having estimated $\bar{x}$ from the same five numbers. Both
+      are correct answers to different questions.
+    expects: "7.6"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides the sum of squared deviations by $n = 5$, not $n-1$ — the
+        plug-in variance is the variance *of* $\hat{F}_n$, with no estimation
+        correction.
+      - >
+        States the resulting gap against $s^{2} = 9.5$ and says which
+        denominator belongs to which question.
+    targets:
+      - quant-statistics.descriptive.empirical-distribution
+      - quant-statistics.descriptive.sample-variance
+    exercises:
+      - quant-statistics.descriptive.sample-mean
+
+  # --- the sample variance ----------------------------------------------------
+
+  - id: qdesc-sample-variance-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A risk report hands you only summary sums for $12$ daily returns:
+      $\sum_i x_i = 96$ and $\sum_i x_i^{2} = 908$. The raw observations are
+      gone. Compute the sample variance $s^{2}$.
+    answer: >
+      $140/11 \approx 12.7273$. The computational form is
+      $s^{2} = \frac{1}{n-1}\left(\sum_i x_i^{2} - n\bar{x}^{2}\right)$, which
+      is exactly what raw sums are good for. Here $\bar{x} = 96/12 = 8$, so
+      $n\bar{x}^{2} = 12 \cdot 64 = 768$ and the corrected sum of squares is
+      $908 - 768 = 140$. Dividing by $n - 1 = 11$ gives
+      $s^{2} = 140/11 \approx 12.7273$. Two slips are worth naming. Dividing by
+      $n = 12$ gives $140/12 \approx 11.6667$, the population-style number, and
+      systematically understates $\sigma^{2}$. Forgetting the $n\bar{x}^{2}$
+      subtraction entirely gives $908/11 \approx 82.5$, which measures spread
+      about zero rather than about $\bar{x}$ — a number that would be right only
+      if the mean happened to be zero.
+    expects: "140/11"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Subtracts $n\bar{x}^{2}$, not $\bar{x}^{2}$, from $\sum_i x_i^{2}$.
+      - >
+        Divides the corrected sum of squares by $n-1 = 11$.
+    targets:
+      - quant-statistics.descriptive.sample-variance
+    exercises:
+      - quant-statistics.descriptive.sample-mean
+
+  - id: qdesc-sample-variance-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Five order-book depths, in lots: $2, 5, 6, 6, 11$. Report the sample
+      standard deviation $s$, rounded to four decimal places.
+    answer: >
+      $s \approx 3.2404$. The mean is $\bar{x} = (2+5+6+6+11)/5 = 30/5 = 6$, so
+      the deviations are $-4, -1, 0, 0, 5$, squaring to $16, 1, 0, 0, 25$ and
+      summing to $42$. Then $s^{2} = 42/4 = 10.5$ and
+      $s = \sqrt{10.5} \approx 3.2404$. Note that the standard deviation, unlike
+      the variance, carries the units of the data — it is $3.24$ lots, a number
+      you can compare with the depths themselves, while $10.5$ is in squared
+      lots and comparable with nothing. The habitual error is the divisor:
+      $\sqrt{42/5} = \sqrt{8.4} \approx 2.8983$ uses $n$ and is about $10\%$ too
+      small at this sample size.
+    expects: "3.2404"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides the sum of squared deviations by $n - 1 = 4$ before taking the
+        square root.
+      - >
+        Takes the square root last, reporting a spread in the units of the data
+        rather than the variance $10.5$.
+    targets:
+      - quant-statistics.descriptive.sample-variance
+    exercises:
+      - quant-statistics.descriptive.sample-mean
+
+  - id: qdesc-sample-variance-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Prove that for any real numbers $x_1,\dots,x_n$ with mean $\bar{x}$,
+      $\sum_{i=1}^{n}(x_i-\bar{x})^{2} = \sum_{i=1}^{n}x_i^{2} - n\bar{x}^{2}$.
+      Then say precisely when you should refuse to evaluate the left side using
+      the right side, and what to do instead.
+    answer: >
+      Expand the square termwise:
+      $\sum_i (x_i - \bar{x})^{2} = \sum_i x_i^{2} - 2\bar{x}\sum_i x_i +
+      \sum_i \bar{x}^{2}$. The middle sum is where the mean earns its keep:
+      $\sum_i x_i = n\bar{x}$ by the definition of $\bar{x}$, so the cross term
+      is $-2\bar{x}\cdot n\bar{x} = -2n\bar{x}^{2}$. The last sum adds the
+      constant $\bar{x}^{2}$ to itself $n$ times, giving $n\bar{x}^{2}$.
+      Collecting, $\sum_i x_i^{2} - 2n\bar{x}^{2} + n\bar{x}^{2} =
+      \sum_i x_i^{2} - n\bar{x}^{2}$. The identity is exact, holds for every
+      data set, and uses no probability at all — only the algebraic fact that
+      the deviations sum to zero. It also proves that
+      $\sum_i x_i^{2} \ge n\bar{x}^{2}$ always, since the left side is a sum of
+      squares, which is the finite-sample form of $\mathbb{E}[X^{2}] \ge
+      (\mathbb{E}[X])^{2}$. The refusal is numerical, not algebraic. When
+      $\bar{x}$ dwarfs the spread — daily notionals near ten million with a
+      spread of a few hundred — $\sum_i x_i^{2}$ and $n\bar{x}^{2}$ are both
+      enormous and agree to many leading digits, so their difference is
+      computed by cancelling away almost every significant digit you had, and
+      floating point returns a badly corrupted, sometimes negative, result.
+      The fix is to centre first: compute $\bar{x}$ in one pass, then sum
+      $(x_i - \bar{x})^{2}$ directly, so every quantity handled stays on the
+      scale of the spread you are actually measuring.
+    rubric:
+      - >
+        Uses $\sum_i x_i = n\bar{x}$ to collapse the cross term, and counts the
+        constant term as $n\bar{x}^{2}$ rather than $\bar{x}^{2}$.
+      - >
+        Separates the algebra, which is exact, from the numerics: names
+        catastrophic cancellation when $\bar{x}$ is large relative to the
+        spread, and prescribes centring first.
+    targets:
+      - quant-statistics.descriptive.sample-variance
+    exercises:
+      - quant-statistics.descriptive.sample-mean
+
+  - id: qdesc-sample-variance-04
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Let $x_1,\dots,x_n$ be iid with mean $\mu$ and variance $\sigma^{2}$.
+      Show that $\mathbb{E}\left[\sum_{i=1}^{n}(x_i-\bar{x})^{2}\right] =
+      (n-1)\sigma^{2}$, and conclude why the sample variance divides by $n-1$.
+      Say which hypothesis each step needs.
+    answer: >
+      Work from the shortcut identity $\sum_i (x_i-\bar{x})^{2} =
+      \sum_i x_i^{2} - n\bar{x}^{2}$ and take expectations term by term, which
+      linearity permits with no independence assumption. For a single
+      observation, $\mathbb{E}[x_i^{2}] = \operatorname{Var}(x_i) +
+      (\mathbb{E}[x_i])^{2} = \sigma^{2} + \mu^{2}$, so
+      $\mathbb{E}\left[\sum_i x_i^{2}\right] = n\sigma^{2} + n\mu^{2}$. For the
+      mean, $\mathbb{E}[\bar{x}] = \mu$ and
+      $\operatorname{Var}(\bar{x}) = \sigma^{2}/n$ — this second fact is the
+      only place independence is used, since it needs the covariances between
+      distinct draws to vanish — so $\mathbb{E}[\bar{x}^{2}] = \sigma^{2}/n +
+      \mu^{2}$ and $\mathbb{E}[n\bar{x}^{2}] = \sigma^{2} + n\mu^{2}$.
+      Subtracting, $\mathbb{E}\left[\sum_i (x_i-\bar{x})^{2}\right] =
+      (n\sigma^{2} + n\mu^{2}) - (\sigma^{2} + n\mu^{2}) = (n-1)\sigma^{2}$.
+      The $\mu^{2}$ terms cancel exactly, which is why the answer does not
+      depend on where the data is centred. Dividing by $n-1$ therefore gives
+      $\mathbb{E}[s^{2}] = \sigma^{2}$, while dividing by $n$ would give
+      $\frac{n-1}{n}\sigma^{2}$, low by the factor $(n-1)/n$ — a $50\%$
+      understatement at $n = 2$ and a tenth of a percent at $n = 1000$. The
+      degrees-of-freedom reading is the same computation in words: the
+      deviations obey the single constraint $\sum_i (x_i - \bar{x}) = 0$, so
+      $n-1$ of them are free, and the missing $\sigma^{2}$ is exactly the
+      information spent locating $\bar{x}$.
+    rubric:
+      - >
+        Uses $\mathbb{E}[Y^{2}] = \operatorname{Var}(Y) + (\mathbb{E}[Y])^{2}$
+        twice — once for a single $x_i$ and once for $\bar{x}$ — rather than
+        treating $\bar{x}$ as if it were the constant $\mu$.
+      - >
+        Names independence as the hypothesis behind
+        $\operatorname{Var}(\bar{x}) = \sigma^{2}/n$ specifically, and notes
+        that the $\mu^{2}$ terms cancel so the result is location-free.
+    targets:
+      - quant-statistics.descriptive.sample-variance
+    exercises:
+      - quant-statistics.descriptive.sample-mean
+      - quant-probability.expectation.variance
+      - quant-probability.expectation.linearity
+
+  # --- quantiles, median and IQR ----------------------------------------------
+
+  - id: qdesc-quantiles-iqr-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Ten message latencies in microseconds, already sorted: $11, 13, 14, 18,
+      21, 25, 26, 30, 34, 48$. Using the median-of-halves convention — split the
+      sorted data into a lower five and an upper five, and take the median of
+      each — compute the $\operatorname{IQR}$ and convert it into a scale
+      estimate comparable with $s$ by dividing by $1.349$. Report that estimate
+      to four decimal places.
+    answer: >
+      $\approx 11.8606$. With $n = 10$ the two halves are $\{11,13,14,18,21\}$
+      and $\{25,26,30,34,48\}$; each has an odd count, so $Q_1 = 14$ and
+      $Q_3 = 30$ are read straight off with no interpolation, giving
+      $\operatorname{IQR} = 30 - 14 = 16$. For normal data
+      $\operatorname{IQR} \approx 1.349\sigma$, so the calibrated estimate is
+      $16/1.349 \approx 11.8606$. The comparison is what makes the number
+      useful: on this same data $\bar{x} = 240/10 = 24$, the squared deviations
+      sum to $1152$, and $s = \sqrt{1152/9} = \sqrt{128} \approx 11.3137$. The
+      two spread estimates agree to within about $5\%$, which says the tail here
+      is unremarkable — the value $48$ is a large observation, not a corrupted
+      one. When the same two numbers diverge by a factor of several, it is $s$
+      that has been moved and the raw data that needs looking at.
+    expects: "11.8606"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Splits into halves of five and takes each half's median, so $Q_1$ and
+        $Q_3$ are order statistics rather than interpolated values.
+      - >
+        Divides the $\operatorname{IQR}$ by $1.349$ — the estimate is on
+        $\sigma$'s scale only after that calibration, and the raw
+        $\operatorname{IQR} = 16$ is not comparable with $s$.
+    targets:
+      - quant-statistics.descriptive.quantiles-iqr
+    exercises:
+      - quant-statistics.descriptive.empirical-distribution
+
+  - id: qdesc-quantiles-iqr-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Eight quoted spreads in ticks, already sorted: $6, 9, 9, 13, 17, 20, 21,
+      40$. What is the median?
+    answer: >
+      $15$. With $n = 8$ even, there is no single middle observation: the median
+      is the average of the two middle order statistics, the fourth and fifth,
+      so $(13 + 17)/2 = 30/2 = 15$. Notice that $15$ is not one of the observed
+      spreads at all, which is normal and not an error — the median of an
+      even-sized sample is a point on the $p = 0.5$ plateau of $\hat{F}_8$, and
+      any value between $13$ and $17$ has half the data at or below it. The
+      usual slip is to reach for a single value: taking the fourth observation
+      $13$, or the fifth $17$, imposes an arbitrary tie-break the convention
+      does not make. The mean here is $135/8 = 16.875$, dragged above the median
+      by the single spread of $40$.
+    expects: "15"
+    rubric:
+      - >
+        Applies the even-$n$ rule: averages the fourth and fifth order
+        statistics rather than picking one of them.
+      - >
+        Sorts before reading positions, and does not confuse the median with the
+        mean $16.875$.
+    targets:
+      - quant-statistics.descriptive.quantiles-iqr
+    exercises:
+      - quant-statistics.descriptive.empirical-distribution
+
+  - id: qdesc-quantiles-iqr-03
+    kind: decide
+    difficulty: standard
+    statement: >
+      A sorted sample has $n = 12$ observations $x_{(1)} \le \dots \le
+      x_{(12)}$. Under the median-of-halves convention, which expression is
+      $Q_1$?
+    answer: >
+      $(x_{(3)} + x_{(4)})/2$. The convention splits the sorted data at the
+      median into a lower half and an upper half; with $n = 12$ the lower half
+      is $x_{(1)},\dots,x_{(6)}$, six observations, so its own median is again
+      an even-$n$ median — the average of *its* two middle values, which are the
+      third and fourth of the whole sample. By symmetry $Q_3 = (x_{(9)} +
+      x_{(10)})/2$. The point to carry away is that the answer is a statement
+      about a convention and not a theorem: a package using the
+      linear-interpolation rule places $Q_1$ at the $0.25$ point of the
+      staircase and returns a different weighted blend of $x_{(3)}$ and
+      $x_{(4)}$. Both are defensible, and quoting an $\operatorname{IQR}$
+      without naming which rule produced it is what makes two honest
+      computations on the same data disagree.
+    choices:
+      - text: >
+          $(x_{(3)} + x_{(4)})/2$
+        correct: true
+        feedback: >
+          Right — the lower half has six observations, so taking its median
+          means averaging its two middle values, the third and fourth of the
+          full sample.
+      - text: >
+          $x_{(3)}$
+        feedback: >
+          That would be the lower half's median only if the half had an odd
+          count. With six observations below the median there is no single
+          middle one, and the convention averages the two.
+      - text: >
+          $x_{(4)}$
+        feedback: >
+          Same slip in the other direction: $x_{(4)}$ is the upper of the two
+          middle values of the lower half, and picking it alone imposes a
+          tie-break the convention does not make.
+      - text: >
+          $(x_{(6)} + x_{(7)})/2$
+        feedback: >
+          That is the overall median $Q_2$, the split point itself, not the
+          median of the lower half.
+    rubric:
+      - >
+        Applies the even-$n$ median rule twice — once to locate the split, once
+        inside the lower half of six.
+      - >
+        Names the answer as convention-dependent, and does not present it as the
+        unique value of the lower quartile.
+    targets:
+      - quant-statistics.descriptive.quantiles-iqr
+    exercises:
+      - quant-probability.random-variables.quantiles
+
+  # --- robustness and breakdown -----------------------------------------------
+
+  - id: qdesc-robustness-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      A book of $20$ tickets has mean P&L $50$. One ticket is refiled with a
+      keying error that raises its value by $\Delta$; every other ticket is
+      untouched. How large must $\Delta$ be for the reported mean to come out at
+      $62$?
+    answer: >
+      $\Delta = 240$. Only the total changes, and it changes by exactly
+      $\Delta$, so the mean moves by $\Delta/n = \Delta/20$. Setting
+      $\Delta/20 = 62 - 50 = 12$ gives $\Delta = 240$. That is the breakdown
+      point in arithmetic form: a single ticket, one twentieth of the book, buys
+      a $12$-unit move in the reported mean, and since $\Delta$ is unbounded so
+      is the move — $\Delta = 2400$ would report a mean of $170$. Two contrasts
+      make the number mean something. First, $n$ is no defence: at $n = 2000$
+      the same conclusion holds with $\Delta = 24{,}000$, still one ticket.
+      Second, the median cannot be pushed this way at all. Raising one
+      observation slides it up through the sorted order, and once it passes the
+      middle the median moves by at most one order statistic's worth — a jump
+      bounded by the clean data itself, not by $\Delta$.
+    expects: "240"
+    rubric:
+      - >
+        Uses that corrupting one observation by $\Delta$ shifts $\bar{x}$ by
+        exactly $\Delta/n$, not by $\Delta$.
+      - >
+        Says why the same reasoning gives the mean breakdown point $1/n$, and
+        that a larger $n$ raises the required $\Delta$ without ever requiring a
+        second bad ticket.
+    targets:
+      - quant-statistics.descriptive.robustness
+    exercises:
+      - quant-statistics.descriptive.sample-mean
+
+  - id: qdesc-robustness-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A commodities desk's daily notionals are mostly modest with occasional
+      genuine hedges an order of magnitude larger, and roughly one print a week
+      is a mis-keyed unit conversion. You must report one centre and one spread
+      that a single bad print cannot destroy. Which pair?
+    answer: >
+      Median and $\operatorname{IQR}$. Breakdown point is the whole criterion:
+      the median tolerates corruption of just under half the sample and the
+      $\operatorname{IQR}$ just under a quarter, because both are read off the
+      order of the data and a corrupted print merely becomes the new maximum
+      until enough of them accumulate to shift which values sit in the middle.
+      The mean and $s$ both have breakdown $1/n$, so one weekly mis-key is
+      already enough to move either arbitrarily far, and $s$ is the more
+      fragile of the two in practice because it squares the offending deviation
+      before averaging. Mixing the families does not help — a robust spread
+      quoted next to a broken centre still leaves you reporting a broken
+      number. What this choice costs is real and worth stating: on clean data
+      the median's variance runs about $\pi/2$ times the mean's, so you are
+      paying efficiency for resistance, and the genuine order-of-magnitude
+      hedges are legitimate observations that the robust pair will also
+      downweight.
+    choices:
+      - text: >
+          Median and $\operatorname{IQR}$.
+        correct: true
+        feedback: >
+          Both use only the order of the data, giving breakdown points of $1/2$
+          and $1/4$ — a weekly bad print is nowhere near enough to move either.
+      - text: >
+          Mean and $s$.
+        feedback: >
+          Both have breakdown point $1/n$: one mis-keyed print sends either
+          arbitrarily far, and $s$ moves worse than the mean because it squares
+          the deviation first.
+      - text: >
+          Mean and $\operatorname{IQR}$.
+        feedback: >
+          The spread is now robust but the centre is not — the reported mean
+          still breaks on a single bad print, so the pair is only as strong as
+          its weaker half.
+      - text: >
+          Median and $s$.
+        feedback: >
+          The mirror image of the same mistake: the centre holds, but $s$ still
+          has breakdown $1/n$, and it is the volatility number that a
+          fat-fingered unit conversion damages most.
+    rubric:
+      - >
+        Chooses on breakdown point, naming $1/2$ for the median and $1/4$ for
+        the $\operatorname{IQR}$ against $1/n$ for the mean and $s$.
+      - >
+        Notes the cost — lost efficiency on clean data, and genuine large hedges
+        downweighted along with the errors.
+    targets:
+      - quant-statistics.descriptive.robustness
+    exercises:
+      - quant-statistics.descriptive.quantiles-iqr
+      - quant-statistics.descriptive.sample-variance
+
+  - id: qdesc-robustness-03
+    kind: decide
+    difficulty: demanding
+    statement: >
+      Your observations are iid standard Cauchy — no corruption at all, just a
+      genuinely heavy-tailed law. You have $10{,}000$ draws and want the centre.
+      What happens to $\bar{x}$ and to the sample median as the sample grows?
+    answer: >
+      The median converges on the centre; $\bar{x}$ does not improve at all.
+      For a standard Cauchy sample, $\bar{x}$ has exactly the standard Cauchy
+      distribution itself, so the average of ten thousand draws is distributed
+      precisely like a single draw — collecting more data buys literally
+      nothing. The sample median, by contrast, is asymptotically normal about
+      the true centre with spread shrinking like $1/\sqrt{n}$, so it behaves
+      exactly as an estimator should. This is the same phenomenon as breakdown,
+      pushed to its limit: the mean is fragile because one large observation
+      moves it by $\Delta/n$ with $\Delta$ unbounded, and a Cauchy sample
+      *supplies* such observations on its own, at a rate that keeps pace with
+      $n$ no matter how large $n$ becomes. There is nothing to clean here, which
+      is the sharp point — robustness is not only insurance against bad data
+      entry, it is a statement about which estimators the tail of the true law
+      permits you to use.
+    choices:
+      - text: >
+          The median concentrates on the centre while $\bar{x}$ has the law of a
+          single draw, so more data does nothing for the mean.
+        correct: true
+        feedback: >
+          Exactly — the Cauchy sample mean is Cauchy with the same scale, the
+          limiting case of the mean's $1/n$ breakdown point, while the median
+          converges at the usual $1/\sqrt{n}$ rate.
+      - text: >
+          Both improve like $1/\sqrt{n}$; the mean stays the more efficient of
+          the two.
+        feedback: >
+          That is the clean-normal ranking, and it depends on a finite variance
+          the Cauchy does not have — with no $\sigma^{2}$ there is no
+          $\sigma/\sqrt{n}$ and no central limit theorem to invoke.
+      - text: >
+          $\bar{x}$ is still unbiased, so it remains the right estimator; it is
+          only noisier.
+        feedback: >
+          The Cauchy has no mean at all, so there is nothing for $\bar{x}$ to be
+          unbiased *for* — the integral defining $\mathbb{E}[X]$ does not
+          converge.
+      - text: >
+          Neither works, so the data must be winsorized before either can be
+          quoted.
+        feedback: >
+          Trimming is a reasonable practical move, but it is not forced here:
+          the median already estimates the centre consistently on raw Cauchy
+          data, with no cleaning at all.
+    rubric:
+      - >
+        States the exact fact — a Cauchy sample mean is Cauchy with the same
+        scale — rather than only that the mean is "noisy".
+      - >
+        Connects it to breakdown: the heavy tail generates the very extreme
+        observations that a $1/n$ breakdown point cannot survive, so this is a
+        property of the law and not of data quality.
+    targets:
+      - quant-statistics.descriptive.robustness
+      - quant-probability.continuous.cauchy
+    exercises:
+      - quant-statistics.descriptive.sample-mean
+    connects:
+      - "quant-probability.continuous.cauchy ~ quant-statistics.descriptive.robustness"
+
+  # --- one fat-finger print ---------------------------------------------------
+
+  - id: qdesc-outlier-example-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Six trade sizes in lots: $4, 6, 8, 10, 12, 14$. A keying error turns the
+      last entry into $314$. Report the sample standard deviation of the
+      corrupted data, to four decimal places.
+    answer: >
+      $\approx 124.9560$. The corrupted sample is $4, 6, 8, 10, 12, 314$, with
+      total $354$ and mean $\bar{x} = 354/6 = 59$. The deviations are $-55,
+      -53, -51, -49, -47, 255$, whose squares $3025, 2809, 2601, 2401, 2209,
+      65025$ sum to $78070$, so $s^{2} = 78070/5 = 15614$ and
+      $s = \sqrt{15614} \approx 124.9560$. Compare the clean data: $\bar{x} =
+      9$, squared deviations summing to $70$, $s = \sqrt{14} \approx 3.7417$.
+      One entry in six multiplied the mean by about $6.6$ and the reported
+      volatility by about $33$. That gap is the mechanism worth remembering —
+      the mean absorbs a corruption of size $\Delta$ linearly, as $\Delta/n$,
+      while $s^{2}$ absorbs it as roughly $\Delta^{2}/n$, so squaring before
+      averaging is what turns a bad tick into a catastrophic volatility print.
+      Note also that all five clean deviations are now large and negative: once
+      $\bar{x}$ has been dragged out to $59$, no observation is near the centre
+      any more.
+    expects: "124.9560"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Recomputes $\bar{x} = 59$ on the corrupted data before taking
+        deviations — using the clean mean $9$ would misstate every term.
+      - >
+        Divides by $n - 1 = 5$ and takes the square root last, and compares
+        against the clean $s \approx 3.7417$ to show the scale of the damage.
+    targets:
+      - quant-statistics.descriptive.outlier-example
+    exercises:
+      - quant-statistics.descriptive.sample-variance
+
+  - id: qdesc-outlier-example-02
+    kind: work
+    difficulty: standard
+    statement: >
+      For the same corrupted trade sizes $4, 6, 8, 10, 12, 314$, what is the
+      median?
+    answer: >
+      $9$. Sorted, the data is $4, 6, 8, 10, 12, 314$, and with $n = 6$ even the
+      median averages the third and fourth order statistics: $(8 + 10)/2 = 9$.
+      The clean data $4, 6, 8, 10, 12, 14$ has the identical median, $(8+10)/2 =
+      9$, so the corruption moved it by exactly nothing. The reason is
+      structural rather than lucky: raising the largest observation leaves the
+      ranking of every other observation alone, so the third and fourth values
+      are still $8$ and $10$ however extreme the last entry becomes. Set beside
+      the corrupted mean of $59$, this is the whole diagnostic — a centre that
+      jumped by a factor of six sitting next to a centre that did not move at
+      all is the signal to stop and read the raw prints.
+    expects: "9"
+    rubric:
+      - >
+        Sorts first and applies the even-$n$ rule to the third and fourth order
+        statistics.
+      - >
+        Explains the invariance structurally: corrupting the maximum upward
+        cannot change which observations occupy the middle positions.
+    targets:
+      - quant-statistics.descriptive.outlier-example
+    exercises:
+      - quant-statistics.descriptive.quantiles-iqr
+
+  # --- median absolute deviation ----------------------------------------------
+
+  - id: qdesc-mad-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Eight quoted latencies in microseconds: $12, 14, 15, 15, 16, 18, 19, 90$.
+      Compute the modified score $|x_i - m|/(1.4826\operatorname{MAD})$ for the
+      observation $90$, to four decimal places, where $m$ is the sample median.
+    answer: >
+      $\approx 25.1248$. Sorted, the data is $12, 14, 15, 15, 16, 18, 19, 90$,
+      so with $n = 8$ the median is $m = (15+16)/2 = 15.5$. The absolute
+      deviations $|x_i - m|$ are $3.5, 1.5, 0.5, 0.5, 0.5, 2.5, 3.5, 74.5$;
+      sorted they read $0.5, 0.5, 0.5, 1.5, 2.5, 3.5, 3.5, 74.5$, and their
+      median — again an even-$n$ average of the fourth and fifth — is
+      $\operatorname{MAD} = (1.5+2.5)/2 = 2$. The robust scale is therefore
+      $1.4826 \cdot 2 = 2.9652$, and the score for $90$ is $74.5/2.9652 \approx
+      25.1248$. Now the comparison that makes MAD worth the trouble. On the
+      same data $\bar{x} = 24.875$ and $s \approx 26.4058$, so the naive score
+      is $(90 - 24.875)/26.4058 \approx 2.4663$ — under the customary cutoff of
+      $3$, and therefore *not* flagged. That is masking in one line: the
+      outlier inflated the very $s$ it was being judged against, while
+      $\operatorname{MAD}$, built only from medians, never budged.
+    expects: "25.1248"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Takes two medians — first $m$ of the data, then the median of the
+        absolute deviations — using the even-$n$ averaging rule for both.
+      - >
+        Applies the $1.4826$ factor before dividing, and contrasts the result
+        with the unflagged naive score of about $2.47$.
+    targets:
+      - quant-statistics.descriptive.mad
+    exercises:
+      - quant-statistics.descriptive.quantiles-iqr
+
+  - id: qdesc-mad-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Seven fill latencies in microseconds: $20, 22, 23, 25, 26, 28, 120$. What
+      is the $\operatorname{MAD}$?
+    answer: >
+      $3$. With $n = 7$ odd the median is the fourth sorted value, $m = 25$. The
+      absolute deviations $|x_i - m|$ are $5, 3, 2, 0, 1, 3, 95$, and sorted
+      they read $0, 1, 2, 3, 3, 5, 95$, whose middle value is $3$. So
+      $\operatorname{MAD} = 3$, and the corresponding robust scale estimate is
+      $1.4826 \cdot 3 \approx 4.4478$. The name invites a specific error:
+      *median* absolute deviation, not mean absolute deviation. Averaging those
+      same deviations gives $109/7 \approx 15.5714$, five times larger, because
+      the single value $95$ is included in full — an average of absolute
+      deviations still has breakdown point $1/n$, and taking the median of them
+      instead is exactly what buys the breakdown point of $1/2$.
+    expects: "3"
+    rubric:
+      - >
+        Measures the deviations from the median $m = 25$, not from the mean
+        $\bar{x} \approx 37.71$.
+      - >
+        Takes the *median* of the absolute deviations rather than their average,
+        which would give about $15.57$.
+    targets:
+      - quant-statistics.descriptive.mad
+    exercises:
+      - quant-statistics.descriptive.quantiles-iqr
+
+  # --- trimming and winsorizing -----------------------------------------------
+
+  - id: qdesc-winsorize-trim-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Twelve daily returns in basis points, sorted: $-40, -9, -4, -2, 0, 1, 2,
+      3, 5, 8, 14, 300$. The first two and the last two are known bad prints.
+      Compute the $\alpha$-winsorized mean at $\alpha = 1/6$, which caps two
+      observations at each end.
+    answer: >
+      $21/12 = 1.75$. Winsorizing replaces rather than discards: the two lowest
+      values $-40$ and $-9$ each become the most extreme surviving low value,
+      $-4$, and the two highest $14$ and $300$ each become the most extreme
+      surviving high value, $8$. All twelve terms remain, now reading $-4, -4,
+      -4, -2, 0, 1, 2, 3, 5, 8, 8, 8$, which sum to $21$, so the winsorized mean
+      is $21/12 = 1.75$. Three numbers on the same data tell the story. The raw
+      mean is $278/12 \approx 23.1667$, essentially a report on the single print
+      of $300$. The trimmed mean at the same $\alpha$ drops the four extremes
+      outright and averages the surviving eight, $13/8 = 1.625$. Both cures land
+      near $1.6$ to $1.8$ and disagree only slightly, because winsorizing keeps
+      the capped observations' count while trimming removes it — winsorizing is
+      the gentler of the two, and neither is a licence to choose $\alpha$ after
+      seeing which answer you prefer.
+    expects: "1.75"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Replaces the four extreme values with the nearest surviving observation
+        and keeps all $n = 12$ terms — dropping them instead is the trimmed
+        mean, a different statistic.
+      - >
+        Caps each end at the correct surviving value, $-4$ below and $8$ above,
+        not at the discarded values themselves.
+    targets:
+      - quant-statistics.descriptive.winsorize-trim
+    exercises:
+      - quant-statistics.descriptive.robustness
+
+  - id: qdesc-winsorize-trim-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Ten daily returns in basis points, sorted: $-60, -3, -1, 0, 2, 3, 4, 6,
+      9, 200$. Compute the $\alpha$-trimmed mean at $\alpha = 10\%$, which drops
+      one observation from each end.
+    answer: >
+      $2.5$. At $\alpha = 10\%$ with $n = 10$, one observation goes from each
+      end: discard $-60$ and $200$, leaving $-3, -1, 0, 2, 3, 4, 6, 9$. These
+      sum to $20$, and the divisor is now the *surviving* count, so the trimmed
+      mean is $20/8 = 2.5$. Using $10$ as the divisor — a common slip — would
+      give $2$, mixing a trimmed numerator with an untrimmed denominator. For
+      comparison the raw mean is $160/10 = 16$, a number produced almost
+      entirely by the single print of $200$. The honest caveat travels with the
+      answer: if those two extremes were genuine tail days rather than bad
+      prints, $2.5$ is no longer an estimate of $\mu$ at all, because the tail
+      that was deleted was part of the distribution.
+    expects: "2.5"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides by the number of surviving observations, $8$, not by the
+        original $n = 10$.
+      - >
+        Says what the number estimates: $\mu$ only if the discarded points were
+        contamination, something else if the tail was real.
+    targets:
+      - quant-statistics.descriptive.winsorize-trim
+    exercises:
+      - quant-statistics.descriptive.robustness
+
+  # --- which centre to report -------------------------------------------------
+
+  - id: qdesc-mean-or-median-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Over $240$ trading days a desk's mean daily P&L is $1450$ and its median
+      daily P&L is $800$. A junior estimates the year's total by multiplying the
+      median by the day count. By how much does that understate the true total?
+    answer: >
+      $156{,}000$. The mean is defined as total divided by count, so the true
+      total is exactly $240 \cdot 1450 = 348{,}000$ — no modelling, just the
+      definition rearranged. The junior's figure is $240 \cdot 800 =
+      192{,}000$, and the shortfall is $348{,}000 - 192{,}000 = 156{,}000$,
+      which is also $240 \cdot (1450 - 800) = 240 \cdot 650$ directly. The
+      median has no comparable property: it is the middle day, and nothing makes
+      $240$ middle days add up to the year. The gap here is itself the useful
+      signal — a mean nearly twice the median says a minority of days carries
+      most of the P&L, so "typical day" and "annual total" are genuinely
+      different questions and the desk should be quoting both numbers, the mean
+      with $s$ and the median with the $\operatorname{IQR}$.
+    expects: "156000"
+    rubric:
+      - >
+        Computes the true total as $n\bar{x}$, using the definition of the mean
+        rather than any distributional assumption.
+      - >
+        Reports the difference of the two totals, and says why no such scaling
+        identity exists for the median.
+    targets:
+      - quant-statistics.descriptive.mean-or-median
+    exercises:
+      - quant-statistics.descriptive.sample-mean
+
+  - id: qdesc-mean-or-median-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      Operations needs one per-order number which, multiplied by the count of
+      orders routed next quarter, forecasts the total slippage the firm will
+      pay. Per-order slippage is heavily right-skewed: most orders cost almost
+      nothing and a few cost a great deal. Which summary of the historical
+      orders should they use?
+    answer: >
+      The plain mean. The requirement fixes the answer before any question of
+      robustness arises: the forecast is a *total*, and only the mean satisfies
+      total $= n\bar{x}$ by definition. The median is the better description of
+      a typical order and is the wrong tool here precisely because the expensive
+      minority is what the firm actually pays; multiplying a median by the order
+      count would understate the bill by whatever the tail costs. A trimmed mean
+      is worse still in this use, since trimming deletes the expensive orders
+      deliberately — the tail is not contamination here, it *is* the liability
+      being forecast. The right accompanying caution is not to switch statistic
+      but to widen the error bar: a right-skewed sample makes $\bar{x}$ noisy,
+      so quote $s/\sqrt{n}$ alongside it and expect the realised total to vary.
+    choices:
+      - text: >
+          The mean of historical per-order slippage.
+        correct: true
+        feedback: >
+          Right — the forecast is a total, and total $= n\bar{x}$ holds by the
+          definition of the mean. No other centre scales up to a sum.
+      - text: >
+          The median of historical per-order slippage, because the data is
+          skewed.
+        feedback: >
+          Robustness is the wrong criterion for this use. The median describes a
+          typical order but does not scale to a total, so the forecast would
+          miss exactly the expensive minority the firm pays for.
+      - text: >
+          A $5\%$-trimmed mean, to keep the extreme orders from dominating.
+        feedback: >
+          Trimming deletes the very orders that generate most of the cost. Here
+          the tail is real liability rather than contamination, so a trimmed
+          mean stops estimating the quantity being forecast.
+      - text: >
+          The most common slippage value observed.
+        feedback: >
+          The mode answers "what happens most often", which on this shape is
+          close to nothing at all — a forecast built on it would predict a total
+          near zero.
+    rubric:
+      - >
+        Decides on the use of the number — a total — rather than on the shape of
+        the data, and states the identity total $= n\bar{x}$.
+      - >
+        Says why trimming is actively wrong here: the tail is the liability, not
+        contamination.
+    targets:
+      - quant-statistics.descriptive.mean-or-median
+    exercises:
+      - quant-probability.expectation.mean-median-loss
+
+  # --- shape beyond two moments -----------------------------------------------
+
+  - id: qdesc-skew-kurtosis-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Six overnight financing charges: $-4, -2, 0, 1, 2, 9$. Compute the sample
+      skewness $g_1 = m_3/m_2^{3/2}$, to four decimal places, using $m_k =
+      \frac{1}{n}\sum_{i=1}^{n}(x_i-\bar{x})^{k}$ — dividing each moment by $n$,
+      not $n-1$.
+    answer: >
+      $\approx 0.8818$. The mean is $\bar{x} = (-4-2+0+1+2+9)/6 = 6/6 = 1$, so
+      the deviations are $-5, -3, -1, 0, 1, 8$. Their squares $25, 9, 1, 0, 1,
+      64$ sum to $100$, giving $m_2 = 100/6 \approx 16.6667$; their cubes $-125,
+      -27, -1, 0, 1, 512$ sum to $360$, giving $m_3 = 360/6 = 60$. Then
+      $m_2^{3/2} \approx 16.6667 \cdot \sqrt{16.6667} \approx 68.0414$ and
+      $g_1 = 60/68.0414 \approx 0.8818$. Positive, as the shape predicts: the
+      median is $(0+1)/2 = 0.5$, below the mean of $1$, and the single
+      observation $9$ contributes $512$ of the $360$ net cube sum on its own —
+      every other deviation cubed is negative or tiny. That last point is the
+      warning attached to any sample skewness: it is a statement about the few
+      largest deviations, and odd powers let one observation set the sign.
+    expects: "0.8818"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Divides each central moment by $n = 6$, not $n - 1$ — the moment
+        convention here differs from the sample variance's.
+      - >
+        Raises $m_2$ to the power $3/2$, so numerator and denominator carry the
+        same units and $g_1$ comes out dimensionless.
+    targets:
+      - quant-statistics.descriptive.skew-kurtosis
+    exercises:
+      - quant-statistics.descriptive.sample-variance
+
+  - id: qdesc-skew-kurtosis-02
+    kind: decide
+    difficulty: standard
+    statement: >
+      A histogram of a fund's monthly redemption volumes shows a tall block
+      against the low end, a steep fall, and then a long thin tail running far
+      to the right; the sample mean sits well above the sample median. What is
+      the sign of the sample skewness $g_1$?
+    answer: >
+      Positive. $g_1 = m_3/m_2^{3/2}$ has a positive denominator always, so the
+      sign is the sign of $m_3 = \frac{1}{n}\sum(x_i-\bar{x})^{3}$. Cubing
+      preserves sign and rewards magnitude, so the handful of far-right
+      observations contribute large positive cubes while the many mildly
+      negative deviations in the tall block contribute small negative ones,
+      and the sum comes out positive. A long right tail is precisely the shape
+      that makes this happen. The mean-above-median observation points the same
+      way and is worth stating as the rule of thumb it is rather than a theorem
+      — constructed counterexamples exist where a distribution is right-skewed
+      by $g_1$ yet has mean below median — but on a shape described this
+      plainly the two readings agree, and the sign is not in doubt.
+    choices:
+      - text: >
+          Positive.
+        correct: true
+        feedback: >
+          The long right tail supplies a few large positive cubed deviations
+          that outweigh the many small negative ones, so $m_3 > 0$ and $g_1 >
+          0$.
+      - text: >
+          Negative.
+        feedback: >
+          Negative $g_1$ describes the mirror image — a long *left* tail with
+          the mean pulled below the median. The described shape has its tail on
+          the right.
+      - text: >
+          Zero, since skewness measures asymmetry and a histogram cannot be
+          asymmetric about its own mean.
+        feedback: >
+          A histogram can very much be asymmetric about its mean, and that
+          asymmetry is exactly what $g_1$ reports; $g_1 = 0$ describes a
+          balanced shape, which this is not.
+      - text: >
+          Indeterminate without the kurtosis.
+        feedback: >
+          $g_2$ reports how concentrated the variance is in a few observations,
+          a separate question. The sign of $g_1$ is fixed by the sign of $m_3$
+          alone.
+    rubric:
+      - >
+        Reduces the question to the sign of $m_3$, noting the denominator
+        $m_2^{3/2}$ is always positive.
+      - >
+        Treats the mean-above-median reading as a rule of thumb that agrees
+        here, not as the definition of skewness.
+    targets:
+      - quant-statistics.descriptive.skew-kurtosis
+    exercises:
+      - quant-statistics.descriptive.quantiles-iqr
+
+  - id: qdesc-skew-kurtosis-03
+    kind: work
+    difficulty: demanding
+    statement: >
+      You are handed a sample of only $n = 6$ observations and asked whether it
+      shows fat tails. What is the largest value the sample kurtosis
+      $g_2 = m_4/m_2^{2}$ could possibly take on six observations?
+    answer: >
+      $4.2$. The sample kurtosis of any $n$ observations obeys the hard ceiling
+      $g_2 \le n - 2 + 1/(n-1)$, which at $n = 6$ reads $6 - 2 + 1/5 = 4 + 0.2 =
+      4.2$. It is a purely algebraic bound on $n$ numbers, not a probabilistic
+      statement, and it is attained only in the extreme configuration where one
+      observation sits far away and the other five coincide. The consequence is
+      the answer an interviewer is listening for: excess kurtosis on this sample
+      cannot exceed $4.2 - 3 = 1.2$, so six points *cannot* display the excess
+      of $3$ to $10$ that daily index returns routinely show, no matter how fat
+      the true tail is. A reported $g_2$ near the ceiling therefore says almost
+      nothing about the population and almost everything about the sample size
+      — and because $m_4$ raises deviations to the fourth power, whatever value
+      you do get is dominated by the single largest observation.
+    expects: "4.2"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Uses the ceiling $n - 2 + 1/(n-1)$ and evaluates it at $n = 6$ rather
+        than treating $g_2$ as unbounded above.
+      - >
+        Draws the inference: a short sample cannot exhibit heavy tails, so a
+        kurtosis near the ceiling is uninformative about the population.
+    targets:
+      - quant-statistics.descriptive.skew-kurtosis
+    exercises:
+      - quant-statistics.descriptive.sample-variance
+
+  # --- sample correlation -----------------------------------------------------
+
+  - id: qdesc-sample-correlation-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Six paired observations of a signal $x$ and the next day's return $y$:
+      $(2,6)$, $(4,5)$, $(6,11)$, $(8,9)$, $(10,14)$, $(12,15)$. Compute the
+      sample correlation $r$, to four decimal places, and say whether it clears
+      the noise floor at this sample size.
+    answer: >
+      $r \approx 0.9129$, and yes, comfortably. The means are $\bar{x} =
+      42/6 = 7$ and $\bar{y} = 60/6 = 10$, so the $x$-deviations are $-5, -3,
+      -1, 1, 3, 5$ and the $y$-deviations are $-4, -5, 1, -1, 4, 5$. Their
+      products $20, 15, -1, -1, 12, 25$ sum to $70$; the $x$-deviation squares
+      sum to $70$ and the $y$-deviation squares to $84$. The $n-1$ divisors
+      cancel between numerator and denominator, so $r = 70/\sqrt{70 \cdot 84} =
+      70/\sqrt{5880} \approx 0.9129$. The noise floor at $n = 6$ is about
+      $1/\sqrt{n-1} = 1/\sqrt{5} \approx 0.4472$, so $0.9129$ is roughly two
+      floors out and not something six points would produce from nothing. Two
+      readings to refuse: $r$ is not a slope — the fitted line here has slope
+      $70/70 = 1$, which coincides with $r$ only by the accident that the two
+      deviation-square sums are close — and $r^{2} \approx 0.833$ is the share
+      of $y$'s sample variance a straight line explains, leaving a sixth of it
+      unaccounted for.
+    expects: "0.9129"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Centres both variables before multiplying, and divides by the geometric
+        mean $\sqrt{S_{xx}S_{yy}}$ of the two deviation-square sums.
+      - >
+        Compares against the noise floor $1/\sqrt{n-1}$ at $n = 6$ rather than
+        treating any large $r$ from six points as automatically meaningful.
+    targets:
+      - quant-statistics.descriptive.sample-correlation
+    exercises:
+      - quant-statistics.descriptive.sample-variance
+
+  - id: qdesc-sample-correlation-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A signal $x$ and a return $y$ have sample correlation $r = 0.72$ over some
+      fixed set of paired observations. A colleague redefines the return as
+      $y' = 15 - 2y$, reporting the same book from the short side in different
+      units. What is the sample correlation of $x$ with $y'$?
+    answer: >
+      $-0.72$. Correlation is invariant under an affine change of either
+      variable up to the sign of the multiplier. Concretely, $\bar{y}' = 15 -
+      2\bar{y}$, so every centred deviation becomes $y_i' - \bar{y}' = -2(y_i -
+      \bar{y})$: the shift by $15$ vanishes on centring, and the factor $-2$
+      multiplies the numerator $S_{xy}$ by $-2$ while multiplying
+      $\sqrt{S_{y'y'}}$ by $|-2| = 2$. The magnitudes cancel and the sign of the
+      multiplier survives, giving $r' = -r = -0.72$. Two errors this catches.
+      Answering $-1.44$ treats $r$ as though it scaled with the data, which is
+      exactly what the $s_x s_y$ denominator prevents — $r$ is unit-free and
+      confined to $[-1,1]$. Answering $0.72$ forgets that only a *positive*
+      rescaling leaves $r$ untouched; reversing direction reverses the sign of
+      the association, as it should.
+    expects: "-0.72"
+    rubric:
+      - >
+        Notes that the additive shift $15$ disappears when the data is centred.
+      - >
+        Tracks the multiplier through both numerator and denominator: the factor
+        $2$ cancels and only the minus sign survives.
+    targets:
+      - quant-statistics.descriptive.sample-correlation
+    exercises:
+      - quant-statistics.descriptive.sample-variance
+
+  - id: qdesc-sample-correlation-03
+    kind: justify
+    difficulty: demanding
+    statement: >
+      Prove that the sample correlation of any paired data satisfies
+      $-1 \le r \le 1$, and characterise exactly the configurations for which
+      $|r| = 1$. Then state what the bound does *not* say about the data.
+    answer: >
+      Write $a_i = x_i - \bar{x}$ and $b_i = y_i - \bar{y}$ for the two centred
+      deviation vectors, and assume neither is identically zero, since otherwise
+      $s_x$ or $s_y$ is zero and $r$ is undefined rather than bounded. The
+      $n-1$ divisors cancel throughout, leaving $r = \sum_i a_i b_i /
+      \sqrt{\sum_i a_i^{2}\sum_i b_i^{2}}$. Cauchy–Schwarz gives
+      $\left(\sum_i a_i b_i\right)^{2} \le \sum_i a_i^{2}\sum_i b_i^{2}$, so
+      $r^{2} \le 1$ and hence $-1 \le r \le 1$. The self-contained proof is the
+      one worth being able to produce on demand: for every real $t$ the
+      quadratic $q(t) = \sum_i (a_i t + b_i)^{2} = t^{2}\sum_i a_i^{2} +
+      2t\sum_i a_i b_i + \sum_i b_i^{2}$ is a sum of squares and so is never
+      negative, which forces its discriminant to be at most zero, and that
+      discriminant condition is precisely the inequality above. Equality holds
+      exactly when $q(t) = 0$ for some $t$, that is when $b_i = -t a_i$ for
+      every $i$ — the deviations are proportional, so all the points lie on one
+      straight line, with $r = 1$ when the proportionality constant is positive
+      and $r = -1$ when it is negative. What the bound does not say is anything
+      about dependence. A small $|r|$ certifies only that the straight-line
+      component of the relationship is weak: $y$ can be an exact deterministic
+      function of $x$ with $r = 0$, and conversely $|r|$ near $1$ can be
+      manufactured by a single leveraged point in data that is otherwise
+      structureless.
+    rubric:
+      - >
+        Reduces to the centred deviation vectors and notes that the $n-1$
+        divisors cancel, so the claim is exactly Cauchy–Schwarz.
+      - >
+        Gets the equality case right: proportional deviation vectors, meaning
+        collinear points, with the sign of $r$ given by the sign of the
+        constant.
+      - >
+        Says what the bound leaves open — $|r|$ measures the linear part only,
+        so neither a small nor a large value settles dependence.
+    targets:
+      - quant-statistics.descriptive.sample-correlation
+    exercises:
+      - quant-tools.series-calculus.cauchy-schwarz
+      - quant-statistics.descriptive.sample-variance
+
+  # --- what one point does to r -----------------------------------------------
+
+  - id: qdesc-correlation-pitfalls-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Five paired observations of a candidate signal $x$ and a return $y$:
+      $(1,5)$, $(2,4)$, $(3,6)$, $(4,5)$, $(20,60)$. Compute the sample
+      correlation $r$, to four decimal places.
+    answer: >
+      $r \approx 0.9908$. The means are $\bar{x} = 30/5 = 6$ and $\bar{y} =
+      80/5 = 16$, so the $x$-deviations are $-5, -4, -3, -2, 14$ and the
+      $y$-deviations are $-11, -12, -10, -11, 44$. Deviation products $55, 48,
+      30, 22, 616$ sum to $S_{xy} = 771$; the deviation squares sum to
+      $S_{xx} = 250$ and $S_{yy} = 2422$. Then $r = 771/\sqrt{250 \cdot 2422} =
+      771/\sqrt{605500} \approx 0.9908$, a number most desks would call
+      conclusive. Now audit where it came from. The single point $(20,60)$
+      supplies $616$ of the $771$ in the numerator, $196$ of the $250$ in
+      $S_{xx}$ and $1936$ of the $2422$ in $S_{yy}$ — about four fifths of every
+      sum in the formula. Both means have also been dragged toward it, which is
+      why all four other points show negative deviations in *both* coordinates
+      and so contribute positive products purely by sitting on the same side of
+      a displaced centroid. This is leverage, not evidence.
+    expects: "0.9908"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Computes $S_{xy}$, $S_{xx}$ and $S_{yy}$ from deviations about the
+        recomputed means, not about the bulk of the data.
+      - >
+        Quantifies the leverage: names how much of each sum the single distant
+        point contributes, rather than only asserting that it matters.
+    targets:
+      - quant-statistics.descriptive.correlation-pitfalls
+    exercises:
+      - quant-statistics.descriptive.sample-correlation
+
+  - id: qdesc-correlation-pitfalls-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Drop the fifth observation from the previous data and recompute: for the
+      four points $(1,5)$, $(2,4)$, $(3,6)$, $(4,5)$, what is the sample
+      correlation $r$, to four decimal places?
+    answer: >
+      $r \approx 0.3162$. Now $\bar{x} = 10/4 = 2.5$ and $\bar{y} = 20/4 = 5$,
+      giving $x$-deviations $-1.5, -0.5, 0.5, 1.5$ and $y$-deviations $0, -1, 1,
+      0$. The products are $0, 0.5, 0.5, 0$, so $S_{xy} = 1$; the deviation
+      squares give $S_{xx} = 2.25+0.25+0.25+2.25 = 5$ and $S_{yy} = 0+1+1+0 =
+      2$. Hence $r = 1/\sqrt{10} \approx 0.3162$. Read against the previous
+      result, one observation in five carried $r$ from $0.32$ — well inside the
+      noise floor $1/\sqrt{n-1} \approx 0.58$ for four points, so consistent
+      with nothing at all — up to $0.99$. The relationship in the bulk of the
+      data never changed. The practical rule follows: plot the scatter before
+      quoting any correlation, and when one point sits far from the rest,
+      report $r$ with and without it.
+    expects: "0.3162"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Recomputes both means on the four remaining points rather than reusing
+        $\bar{x} = 6$ and $\bar{y} = 16$.
+      - >
+        Compares the two values and reads the difference as leverage from one
+        point, not as a change in the underlying relationship.
+    targets:
+      - quant-statistics.descriptive.correlation-pitfalls
+    exercises:
+      - quant-statistics.descriptive.sample-correlation
+
+  - id: qdesc-correlation-pitfalls-03
+    kind: decide
+    difficulty: demanding
+    statement: >
+      A research note reports $r = 0.00$ between a feature and forward returns
+      over a large sample and concludes that the feature carries no information.
+      What is the strongest conclusion the number actually supports?
+    answer: >
+      Only that the straight-line component of the relationship is absent. The
+      numerator of $r$ is $\sum_i (x_i-\bar{x})(y_i-\bar{y})$, which measures
+      one thing: whether $y$ tends to sit above its mean when $x$ does. A
+      feature can be a perfectly deterministic function of the return and still
+      make that sum vanish — any relationship symmetric about the centre of the
+      $x$ values contributes matched positive and negative products that cancel
+      term by term, so $r = 0$ exactly while the dependence is total. This is
+      the finite-sample face of the population statement that uncorrelated does
+      not mean independent, and no amount of extra data repairs it, because the
+      quantity being estimated is already blind to the structure in question.
+      What to do instead is concrete: plot the scatter, bucket $y$ by $x$ and
+      compare conditional means, or correlate the ranks, any of which sees
+      monotone and curved structure that $r$ discards by construction.
+    choices:
+      - text: >
+          The linear component of the relationship is absent; the feature can
+          still be an exact function of the return.
+        correct: true
+        feedback: >
+          Right — $r$ measures only the straight-line part, and a relationship
+          symmetric about the centre of the $x$ values cancels the
+          deviation-product sum exactly while remaining deterministic.
+      - text: >
+          The feature and the return are independent.
+        feedback: >
+          That is the classic overread. Independence implies zero correlation,
+          never the reverse, and the standard counterexample — a symmetric
+          variable and its square — is uncorrelated and perfectly dependent.
+      - text: >
+          They are uncorrelated, and over a large enough sample uncorrelated
+          data is independent.
+        feedback: >
+          Sample size is not the missing ingredient. $r$ converges to the
+          population correlation, which is itself zero here; the gap between
+          uncorrelated and independent is not a sampling gap.
+      - text: >
+          The scatter plot must be a formless cloud.
+        feedback: >
+          It need not be anything of the kind — a clean parabola centred on
+          $\bar{x}$ gives $r = 0$, which is exactly why the advice is to plot
+          the data rather than trust the coefficient.
+    rubric:
+      - >
+        Identifies the deviation-product sum as the only thing $r$ measures, and
+        explains how symmetry makes it vanish without any weakening of the
+        dependence.
+      - >
+        Refuses the independence reading and names a concrete alternative
+        diagnostic — a scatter plot, conditional means, or rank correlation.
+    targets:
+      - quant-statistics.descriptive.correlation-pitfalls
+      - quant-probability.joint.uncorrelated-not-independent
+    exercises:
+      - quant-statistics.descriptive.sample-correlation
+    connects:
+      - "quant-probability.joint.uncorrelated-not-independent ~ quant-statistics.descriptive.correlation-pitfalls"
+
+  # --- rank correlation -------------------------------------------------------
+
+  - id: qdesc-rank-correlation-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Six paired observations, with no ties in either variable: $x = 10, 20, 30,
+      40, 50, 60$ paired in that order with $y = 7, 3, 12, 9, 25, 18$. Compute
+      Spearman's $\rho_s$ using $1 - 6\sum_i d_i^{2}/(n(n^{2}-1))$, to four
+      decimal places.
+    answer: >
+      $\rho_s \approx 0.8286$. Rank each variable within its own sample. The
+      $x$ values are already increasing, so their ranks are $1,2,3,4,5,6$. For
+      $y$, sorting gives $3,7,9,12,18,25$, so in the original order the ranks
+      are $2,1,4,3,6,5$. The differences are $d_i = -1, 1, -1, 1, -1, 1$ and
+      $\sum_i d_i^{2} = 6$. With $n = 6$, $n(n^{2}-1) = 6 \cdot 35 = 210$, so
+      $\rho_s = 1 - 6 \cdot 6/210 = 1 - 36/210 = 29/35 \approx 0.8286$. Two
+      checks worth doing. The shortcut is the ordinary correlation of the two
+      rank sequences, so it is bounded by $1$ and would hit $1$ only if the
+      rankings agreed exactly; here three adjacent pairs are transposed, and
+      each transposition costs a little. And Pearson's $r$ on the raw values is
+      $\approx 0.7892$ — lower, because $y$'s spacing is uneven while its ranks
+      are evenly spaced by construction. The two measures answer different
+      questions and there is no reason to expect them to agree numerically.
+    expects: "0.8286"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Ranks each variable within its own sample before differencing, rather
+        than differencing the raw values.
+      - >
+        Uses $n(n^{2}-1) = 210$ at $n = 6$, and treats the shortcut as valid
+        only because there are no ties.
+    targets:
+      - quant-statistics.descriptive.rank-correlation
+    exercises:
+      - quant-statistics.descriptive.correlation-pitfalls
+
+  - id: qdesc-rank-correlation-02
+    kind: work
+    difficulty: standard
+    statement: >
+      Four paired observations: $(5,12)$, $(10,8)$, $(15,30)$, $(20,25)$. Using
+      Kendall's $\tau$ = (concordant $-$ discordant)$/\binom{n}{2}$, compute
+      $\tau$.
+    answer: >
+      $\tau = 1/3$. There are $\binom{4}{2} = 6$ pairs of observations, and each
+      is concordant when the two coordinates move the same way between them and
+      discordant otherwise. Taking them in order: $(5,12)$ against $(10,8)$ —
+      $x$ up, $y$ down, discordant; against $(15,30)$ — both up, concordant;
+      against $(20,25)$ — both up, concordant. Then $(10,8)$ against $(15,30)$
+      and against $(20,25)$ — both up each time, concordant twice. Finally
+      $(15,30)$ against $(20,25)$ — $x$ up, $y$ down, discordant. That is
+      $4$ concordant and $2$ discordant, so $\tau = (4-2)/6 = 2/6 = 1/3$. Note
+      what the arithmetic never used: the actual values. Replacing $30$ by
+      $3000$ leaves every pairwise comparison unchanged and so leaves $\tau$ at
+      $1/3$, which is the entire robustness argument in one line — a single
+      observation can flip at most $n-1$ comparisons, however extreme it gets.
+    expects: "1/3"
+    tolerance: 0.0005
+    rubric:
+      - >
+        Examines all $\binom{4}{2} = 6$ pairs and classifies each by the sign of
+        the product of coordinate differences.
+      - >
+        Divides by $\binom{n}{2}$, not by $n$, so $\tau$ lands in $[-1,1]$.
+    targets:
+      - quant-statistics.descriptive.rank-correlation
+    exercises:
+      - quant-statistics.descriptive.correlation-pitfalls
+
+  # --- averages of averages ---------------------------------------------------
+
+  - id: qdesc-averages-of-averages-01
+    kind: work
+    difficulty: demanding
+    statement: >
+      Desk A did $25$ trades averaging $120$ each. Desk B did $n$ trades
+      averaging $-30$ each. Across both desks together the average trade was
+      exactly $0$. How many trades did desk B do?
+    answer: >
+      $n = 100$. The pooled mean is total P&L over total trades, so a pooled
+      mean of zero says the total is zero: $25 \cdot 120 + n \cdot (-30) = 0$,
+      that is $3000 = 30n$, so $n = 100$. Check: $125$ trades summing to
+      $3000 - 3000 = 0$. The weights are what the question is really about. Desk
+      B needs four times desk A's trade count because its average loss per trade
+      is a quarter of desk A's average gain, and the pooled mean is the
+      size-weighted average $\bar{x} = \sum_g n_g \bar{x}_g/\sum_g n_g$. The
+      naive equal-weight figure here is $(120 - 30)/2 = 45$ — a firm that looks
+      solidly profitable while it made nothing at all, which is why you ask for
+      the counts $n_g$ before combining any table of reported means.
+    expects: "100"
+    rubric:
+      - >
+        Sets the *total*, not the average of the two desk means, to zero — the
+        pooled mean is $\sum_g n_g\bar{x}_g/\sum_g n_g$.
+      - >
+        Solves for the count rather than assuming the desks are comparable in
+        size, and contrasts with the naive equal-weight figure of $45$.
+    targets:
+      - quant-statistics.descriptive.averages-of-averages
+    exercises:
+      - quant-statistics.descriptive.sample-mean
+
+  - id: qdesc-averages-of-averages-02
+    kind: work
+    difficulty: standard
+    statement: >
+      A firm runs three books this month: $15$ trades averaging $40$, $60$
+      trades averaging $-5$, and $25$ trades averaging $12$. What was the
+      average trade across the firm?
+    answer: >
+      $6$. Reconstruct each book's total from its count and mean, then divide by
+      the total count: $15 \cdot 40 = 600$, $60 \cdot (-5) = -300$ and
+      $25 \cdot 12 = 300$, summing to $600$ over $15+60+25 = 100$ trades, so the
+      pooled mean is $600/100 = 6$. Equivalently, weight the book means by
+      $0.15, 0.60, 0.25$. The naive average of the three reported means is
+      $(40 - 5 + 12)/3 = 47/3 \approx 15.6667$, nearly three times too high,
+      because it gives the $15$-trade book the same say as the $60$-trade book
+      that dominates the firm's actual activity. Nothing in a table of three
+      means signals this — the counts have to be asked for, and the same trap
+      reappears whenever reported rates from periods of different volume are
+      averaged with equal weight.
+    expects: "6"
+    rubric:
+      - >
+        Weights each book mean by its trade count, or equivalently rebuilds the
+        totals before dividing by $100$.
+      - >
+        Names the naive equal-weight answer $47/3$ and why the weighting changes
+        it so much.
+    targets:
+      - quant-statistics.descriptive.averages-of-averages
+    exercises:
+      - quant-statistics.descriptive.sample-mean
+
+  - id: qdesc-averages-of-averages-03
+    kind: decide
+    difficulty: demanding
+    statement: >
+      You are given the average trade P&L for each of three desks and nothing
+      else, and you want the average trade across the firm. When is the plain
+      average of the three desk means the correct answer?
+    answer: >
+      Only when the three desks did equally many trades. The tower property
+      states $\mathbb{E}[X] = \sum_g \Pr(\text{desk} = g)\,
+      \mathbb{E}[X \mid \text{desk} = g]$ — the unconditional mean is the
+      *probability-weighted* average of the conditional means, never their plain
+      average. Picking a trade uniformly at random from the firm gives desk $g$
+      probability $n_g/n$, so the sample statement is the same identity with
+      $n_g/n$ in place of $\Pr(\text{desk} = g)$, which is exactly $\bar{x} =
+      \sum_g n_g\bar{x}_g/\sum_g n_g$. Equal weighting is therefore not a
+      simplification but a substitution of $1/3$ for the true weights, and it is
+      correct precisely when those coincide, that is when $n_1 = n_2 = n_3$.
+      This is why the trap is invisible in a table: three means printed side by
+      side already look equally weighted, and only the counts can tell you
+      otherwise.
+    choices:
+      - text: >
+          Only when the three desks did equally many trades.
+        correct: true
+        feedback: >
+          Right — the pooled mean weights by $n_g/n$, so equal weighting is
+          correct exactly when those weights are all $1/3$.
+      - text: >
+          Always — the tower property says the mean of the conditional means is
+          the unconditional mean.
+        feedback: >
+          The tower property weights each conditional mean by the probability of
+          its group. Dropping those weights is precisely the error it rules out,
+          not a consequence of it.
+      - text: >
+          Never — group means can never be combined without the raw data.
+        feedback: >
+          They combine exactly, given the counts: $\bar{x} = \sum_g
+          n_g\bar{x}_g/\sum_g n_g$ needs no raw observations at all.
+      - text: >
+          When the three desks have equal variances, so that no desk's mean is
+          noisier than another's.
+        feedback: >
+          Equal variances would matter for how precisely each mean is estimated,
+          but the weights in the pooled mean are counts, not precisions — the
+          identity is arithmetic and holds whatever the variances are.
+    rubric:
+      - >
+        States the tower property with its probability weights and identifies
+        $n_g/n$ as the sample weights.
+      - >
+        Answers the question as a condition on the counts, not on the means or
+        their spreads.
+    targets:
+      - quant-statistics.descriptive.averages-of-averages
+      - quant-probability.conditioning.tower
+    exercises:
+      - quant-statistics.descriptive.sample-mean
+    connects:
+      - "quant-probability.conditioning.tower ~ quant-statistics.descriptive.averages-of-averages"

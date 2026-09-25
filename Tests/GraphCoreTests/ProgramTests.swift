@@ -143,6 +143,38 @@ struct ProgramTests {
         #expect(!rules(Program(spine: spine)).contains(.programOrderViolation))
     }
 
+    /// D15.2: the same forward edge, *declared*. The order is accepted, the plan
+    /// surfaces the edge on the step that carries it, and the declaration is
+    /// held to being real — a stale one, or one with no note, is its own finding.
+    @Test func aDeclaredForwardReferenceIsAcceptedAndSurfaced() {
+        let reversed = ProgramSpine(
+            parts: [.init(title: "P", units: ["g.one", "a.one", "g.two", "a.empty"])],
+            forward: [
+                .init(node: "a.one.w", requires: "g.two.v", note: "V is taken on trust.")
+            ])
+        let found = rules(Program(spine: reversed))
+        #expect(!found.contains(.programOrderViolation))
+        #expect(!found.contains(.programForwardStale))
+        #expect(!found.contains(.programForwardUnexplained))
+
+        let plan = ProgramPlan.compute(
+            spine: reversed, graph: graph, state: ScoreState(), at: Self.now)
+        #expect(plan.step(for: "a.one.w")?.forward == ["g.two.v"])
+        #expect(plan.step(for: "g.two.u")?.forward == [])
+
+        // A declaration that names no forward edge under the order is stale…
+        let stale = ProgramSpine(
+            parts: spine.parts,
+            forward: [.init(node: "a.one.w", requires: "g.two.v", note: "No longer forward.")])
+        #expect(rules(Program(spine: stale)).contains(.programForwardStale))
+        // …and one without a note is unexplained, even when it is real.
+        let mute = ProgramSpine(
+            parts: reversed.parts,
+            forward: [.init(node: "a.one.w", requires: "g.two.v", note: "  ")])
+        #expect(rules(Program(spine: mute)).contains(.programForwardUnexplained))
+        #expect(!rules(Program(spine: mute)).contains(.programOrderViolation))
+    }
+
     @Test func lessonViolationsAreEachReported() {
         func unit(_ lessons: [Lesson], opening: String = "Opening.", of id: NodeID = "g.one")
             -> Program
