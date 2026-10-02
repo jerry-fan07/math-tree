@@ -69,84 +69,209 @@ lessons:
       Las Vegas spends unbounded time to stay always right; Monte Carlo
       spends a fixed sliver of correctness to stay always on time — name
       which one you built before naming a worst case.
-    steps:
-      - teach: >
-          There is no free randomness: building a randomized routine means
-          choosing which failure mode the coin flips are allowed to cause. The
-          two contracts differ in which side of "correct" and "on time" the
-          risk lands on.
-      - teach: >
-          A Las Vegas routine — rejection sampling, a redraw-until-accepted
-          loop, randomized quickselect hunting a pivot — never returns a wrong
-          answer; on unlucky coins it only runs long. A Monte Carlo routine
-          spends a fixed budget once and reports a plausible answer, correct
-          only with some controllable probability.
+    dialogue:
+      - part: Two ways to find a one
+        teach: >
+          An array holds $1{,}000$ bits, and you are promised that exactly
+          $500$ of them are $1$. You want the index of any $1$. Routine A
+          probes uniformly random positions until it hits a $1$ and returns
+          that index. Routine B probes $10$ uniformly random positions; if any
+          of them is a $1$ it returns that index, and otherwise it reports
+          "none found".
       - ask: >
-          Miller–Rabin's single round always finishes in a fixed number of
-          steps, but on an unlucky witness it can report a composite number as
-          probably prime. Which contract is that?
+          On average, how many probes does routine A make?
+        expects: "2"
+        hint: >
+          Each probe is a fresh draw that hits a $1$ with probability $1/2$.
+        feedback: >
+          The number of probes is geometric with success probability
+          $500/1000 = 1/2$, so its mean is $1/(1/2) = 2$.
+      - ask: >
+          What is the probability that routine B reports "none found", even
+          though $500$ ones are sitting in the array?
+        expects: "1/1024"
+        hint: >
+          All ten independent probes have to land on a $0$.
+        feedback: >
+          Each probe misses with probability $1/2$, independently, so all ten
+          miss with probability $(1/2)^{10} = 1/1024$. On those runs B's
+          answer is simply wrong: there is a $1$ and it says there is none.
+      - ask: >
+          An interviewer asks for each routine's worst case. Which pair of
+          answers is honest?
         choices:
           - text: >
-              Las Vegas
+              A makes $2$ probes; B makes $10$.
             feedback: >
-              Las Vegas never returns a wrong answer — only the running time is
-              random. A routine that can output a wrong claim on an unlucky
-              draw is not Las Vegas.
+              $2$ is A's average, not its worst case. A misses $30$ times in a
+              row with probability $2^{-30}$ — rare, but nothing stops it, so
+              no fixed number bounds A.
           - text: >
-              Monte Carlo
+              A's probe count is unbounded but its answer is always right; B
+              stops at $10$ probes but is wrong with probability $1/1024$.
             correct: true
             feedback: >
-              Fixed running time, some real chance of a wrong report — that is
-              exactly the Monte Carlo trade: correctness spent for a guaranteed
-              budget.
+              Each routine guarantees one thing absolutely and gambles the
+              other. The worst case of A is about time; the worst case of B is
+              about correctness.
           - text: >
-              Neither — it's deterministic
+              Both stop within $10$ probes on all but about $0.1\%$ of runs,
+              so they have the same worst case.
             feedback: >
-              The witness is drawn at random, and the correctness of the output
-              depends on that draw, so the routine is randomized.
+              The same unlucky $0.1\%$ of coins costs them different things:
+              A pays in extra probes and still answers correctly; B stops on
+              time and answers wrongly. Those are not the same failure.
         feedback: >
-          Fixed budget plus a real chance of error is the Monte Carlo
-          signature; Las Vegas would rather run long than ever be wrong.
-      - teach: >
-          The two convert into each other, but not symmetrically. Capping a Las
-          Vegas run at a deadline turns it into Monte Carlo, provided you can
-          bound the chance the deadline is missed. Going the other way needs a
-          separate, cheap checker on the output — with no checker, there's no
-          conversion.
+          "What is the worst case" has no single answer until you say which
+          resource the bad coins are allowed to spend.
+      - reflect: >
+          Both routines flip the same kind of coins. Say, for each, what an
+          unlucky run of coins costs it — and what it guarantees no matter how
+          the coins fall.
+        answer: >
+          A never returns a wrong index: an unlucky run only makes it slow, so
+          correctness is guaranteed and running time is random. B never runs
+          past $10$ probes: an unlucky run makes it wrong, so running time is
+          guaranteed and correctness is random. Those are the two contracts a
+          randomized routine can sign, and each has a name.
+
+      - part: Two contracts, and where the risk lives
+        teach: >
+          A routine like A — always correct, running time random — is a Las
+          Vegas algorithm. A routine like B — a fixed budget, correct with
+          probability at least $1 - \delta$ — is a Monte Carlo algorithm; for
+          B, $\delta = 1/1024$. In both, the randomness is coins the routine
+          flips itself, not anything about the input.
       - ask: >
-          A Las Vegas routine has expected running time $T$. By the standard
-          tail bound, the chance its running time exceeds $k$ times $T$ is at
-          most $1/k$. Capping the routine at $5T$ turns it into a Monte Carlo
-          algorithm — what's its failure probability?
-        expects: "0.2"
+          An adversary is allowed to choose which $500$ of the $1{,}000$
+          positions hold the ones, and wants to make routine A slow. What is
+          A's expected number of probes on the adversary's best arrangement?
+        expects: "2"
         hint: >
-          Plug $k=5$ into $1/k$.
+          Does the probability that one uniform probe hits a $1$ depend on
+          where the ones are?
         feedback: >
-          The tail bound gives $\Pr(\text{time} > kT) \le 1/k$, so at $k=5$ the
-          capped run fails to finish with probability at most $1/5 = 0.2$ — a
-          Monte Carlo guarantee with success probability at least $0.8$.
-      - teach: >
-          For Monte Carlo, failure probability falls by adding independent
-          reruns of the fixed-budget routine, not by giving one run more time —
-          the deadline is fixed by definition, so "more time" isn't an option
-          inside the contract.
+          A uniform probe hits a $1$ with probability $500/1000 = 1/2$ for
+          every arrangement, so the mean stays $2$. The adversary picks the
+          input but never sees A's coins — which is why a Las Vegas worst case
+          over inputs is a worst case of an expected time.
       - ask: >
-          Three independent runs of a Monte Carlo routine, each with failure
-          probability $0.2$, are combined by majority or by trusting any run
-          that reports success. What's the joint probability all three fail?
-        expects: "0.008"
-        hint: >
-          Cube the single-run failure probability; independence makes the runs
-          multiply, not add.
+          To check that $AB = C$ for three $500 \times 500$ matrices, a
+          routine multiplies both sides by a random $0/1$ vector and compares,
+          repeats this $20$ times, and declares "equal" if every round agrees.
+          Which contract is it?
+        choices:
+          - text: >
+              Las Vegas, because a "not equal" verdict is always right.
+            feedback: >
+              One verdict being certain does not make the routine Las Vegas.
+              The "equal" verdict can be wrong when $AB \ne C$, and the routine
+              stops after $20$ rounds whatever happens — fixed budget, risky
+              answer.
+          - text: >
+              Neither: the matrices are fixed, so the routine is deterministic.
+            feedback: >
+              The matrices are fixed, but the test vectors are drawn at random,
+              and the verdict depends on them. Randomness inside the routine is
+              what makes it randomized.
+          - text: >
+              Monte Carlo: $20$ rounds always, and "equal" can be wrong with
+              small probability.
+            correct: true
+            feedback: >
+              A fixed budget with a small, controllable chance of a wrong
+              verdict is the Monte Carlo signature. That only one of the two
+              verdicts can be wrong makes it a one-sided Monte Carlo routine.
         feedback: >
-          Independence multiplies the failure probabilities: $0.2^{3} = 0.008$
-          — amplification, not a longer deadline, is what drives the failure
-          probability down.
+          Ask two questions of any randomized routine: can it ever return a
+          wrong answer, and can it ever run past a fixed bound? Las Vegas
+          answers no and yes; Monte Carlo answers yes and no.
+
+      - part: Converting one contract into the other
+        ask: >
+          A deadline forces you to cap routine A at $6$ probes, reporting
+          "none found" if all six miss. What is the capped routine's failure
+          probability?
+        expects: "1/64"
+        hint: >
+          Failure now means six misses in a row.
+        feedback: >
+          $(1/2)^{6} = 1/64$. Cutting a Las Vegas routine off at a deadline
+          gives a Monte Carlo one, as long as you can bound the chance of
+          running past the deadline — here exactly.
+      - ask: >
+          Can routine B be turned into a Las Vegas routine?
+        choices:
+          - text: >
+              No: a Monte Carlo routine can never be made always-correct.
+            feedback: >
+              It can when its output can be checked. B's answers are checkable
+              in one array read, and that is all the conversion needs.
+          - text: >
+              Yes: give B $100$ probes instead of $10$.
+            feedback: >
+              That is still a fixed budget with a failure probability, now
+              $2^{-100}$. Smaller risk, same contract: it can still be wrong.
+          - text: >
+              Yes: when B reports "none found", run it again, and repeat until
+              it returns an index.
+            correct: true
+            feedback: >
+              An index B returns is always a $1$ — it read the bit — so only
+              "none found" can be wrong, and that is the case you retry. The
+              result never lies, and its running time is random: Las Vegas.
+        feedback: >
+          The reverse conversion needs a cheap way to recognise a wrong
+          output. Here the check is free, which is why rerunning B until it
+          succeeds is just routine A in batches of ten.
+      - ask: >
+          A routine estimates an integral by averaging $10{,}000$ random
+          samples. Why can't you make it Las Vegas the way you did with B?
+        choices:
+          - text: >
+              There is no cheap check that a given estimate is within
+              tolerance — that check would need the true value.
+            correct: true
+            feedback: >
+              To retry on failure you must recognise failure. An estimate
+              carries no certificate of its own accuracy, so there is nothing
+              to retry on.
+          - text: >
+              Because its running time is already fixed at $10{,}000$ samples.
+            feedback: >
+              B's running time was fixed too, and it converted. The fixed
+              budget is not the obstacle; the missing checker is.
+          - text: >
+              Because averaging is deterministic once the samples are drawn.
+            feedback: >
+              So is B's scan of its ten probes. Every randomized routine is
+              deterministic given its coins; the question is whether a wrong
+              output can be detected.
+        feedback: >
+          Las Vegas to Monte Carlo needs only a deadline and a tail bound.
+          Monte Carlo to Las Vegas needs a checker — no checker, no conversion.
+
+      - part: Driving the risk down
+        ask: >
+          You need routine B, as written with $10$ probes, to fail less than
+          once in a million calls. How many independent runs of B, combined
+          by taking any index one of them returns, do you need?
+        expects: "2"
+        hint: >
+          Independent runs all have to fail together. Compare $1/1024$ and its
+          square with $10^{-6}$.
+        feedback: >
+          One run fails with probability $1/1024 \approx 9.8 \times 10^{-4}$,
+          too high. Two independent runs fail together with probability
+          $(1/1024)^{2} = 1/1048576 \approx 9.5 \times 10^{-7}$, below one in
+          a million. Monte Carlo risk falls by multiplying independent runs.
       - teach: >
-          Naming the contract first answers "what's the worst case" honestly: a
-          Las Vegas worst case is a worst case of the expectation, since the
-          randomness lives in your coins, not the input — quoting it as a hard
-          bound is the trap to avoid.
+          Said aloud in an interview: "A is Las Vegas — always correct,
+          expected $2$ probes, no hard bound, but more than $20$ probes
+          happens with probability $2^{-20}$. B is Monte Carlo — $10$ probes
+          flat, wrong with probability $1/1024$, and two independent runs push
+          that below one in a million." Name the contract, then quote the
+          number that contract makes meaningful.
 
   - node: quant-programming.randomized.uniform-random-integer
     hook: >
@@ -199,84 +324,191 @@ lessons:
     recap: >
       Never take $r \bmod n$ on a raw draw; reject everything above the
       largest multiple of $n$ at or below $M$, and only then take mod $n$.
-    steps:
-      - teach: >
-          Almost every routine in this unit reduces to one primitive: a uniform
-          integer on $\{0,\dots,n-1\}$, built out of a library draw $r$ uniform
-          on $\{0,\dots,M-1\}$. Getting this one primitive slightly wrong
-          poisons everything built on top of it.
-      - teach: >
-          Returning $r \bmod n$ looks free but is biased whenever $n$ does not
-          divide $M$: the residues below $M \bmod n$ collect one extra preimage
-          each, so the low end of the range comes out measurably more often
-          than the high end.
+    dialogue:
+      - part: A random digit from a random byte
+        teach: >
+          Your generator hands you one random byte at a time: $r$ uniform on
+          $\{0, 1, \dots, 255\}$. You need a uniformly random decimal digit,
+          $0$ through $9$. A colleague writes the obvious line: return
+          $r \bmod 10$.
       - ask: >
-          A generator hands you $r$ uniform on $\{0,\dots,9\}$ ($M=10$), and
-          you need a uniform draw on $\{0,\dots,3\}$ ($n=4$). Under naive $r
-          \bmod 4$, how many of the four residues collect an extra preimage?
-        expects: "2"
+          How many of the $256$ byte values make the colleague's line return
+          $7$?
+        expects: "25"
         hint: >
-          Compute $M \bmod n$ directly; that count is the number of residues
-          carrying the extra preimage.
+          The values are $7, 17, 27, \dots$ — find the last one below $256$.
         feedback: >
-          $M \bmod n = 10 \bmod 4 = 2$, so the first $2$ residues (here $0$ and
-          $1$) each get $\lceil 10/4 \rceil = 3$ preimages while the rest get
-          only $2$ — exactly $M \bmod n$ residues are over-represented.
-      - teach: >
-          The fix is rejection: set $L = M - (M \bmod n)$, the largest multiple
-          of $n$ at or below $M$, redraw while $r \ge L$, and only then return
-          $r \bmod n$. Every residue now has exactly $L/n$ preimages, so the
-          output is exactly uniform, not approximately.
+          $7, 17, \dots, 247$: that is $(247 - 7)/10 + 1 = 25$ values. The next
+          one, $257$, is not a byte.
       - ask: >
-          Same generator, $M=10$, $n=4$: what acceptance probability does the
-          rejection step give?
-        expects: "0.8"
+          What is the exact probability that the colleague's line returns $2$?
+        expects: "13/128"
         hint: >
-          Acceptance is $L/M$, and $L$ is the largest multiple of $n$ at or
-          below $M$.
+          Count the bytes $2, 12, \dots$ — and check whether $252$ is still a
+          byte.
         feedback: >
-          $L = M - (M \bmod n) = 10 - 2 = 8$, so acceptance is $L/M = 8/10 =
-          0.8$ — reject only the top $2$ draws, $8$ and $9$.
+          $2, 12, \dots, 252$ is $26$ values, so the probability is
+          $26/256 = 13/128 \approx 0.1016$, against $25/256 \approx 0.0977$
+          for a $7$. The digits $0$ to $5$ each own $26$ bytes and $6$ to $9$
+          own $25$: the low digits come out $4\%$ more often.
       - ask: >
-          Same setup ($M=10$, $n=4$, $L=8$): what's the expected number of
-          draws before one is accepted?
-        expects: "1.25"
-        hint: >
-          Expected draws is $M/L$, the reciprocal of the acceptance
-          probability.
-        feedback: >
-          Expected draws before acceptance is $M/L = 10/8 = 1.25$ — cheap
-          insurance, since the loop almost always exits on the first draw.
-      - teach: >
-          This is the master pattern reused everywhere in the unit: restrict a
-          source to a clean sub-range and discard the rest — never approximate
-          a boundary with a float or a rounding rule.
-      - ask: >
-          Testing a modulo-bias fix only with $n=2$ or $n=256$ often hides the
-          bug completely. Why?
+          Which change makes all ten digits exactly equally likely, still
+          using one byte per answer?
         choices:
           - text: >
-              Those $n$ are too small to trigger any randomness
+              Scale instead of reducing: return $\lfloor 10r/256 \rfloor$.
             feedback: >
-              Smallness isn't the issue — the issue is specifically whether $M
-              \bmod n$ happens to be tiny.
+              That moves the extra preimages around instead of removing them:
+              each digit gets the bytes in a window $25.6$ wide, so six digits
+              still own $26$ bytes and four own $25$.
           - text: >
-              For those $n$, $M \bmod n$ is $0$ or negligibly small, so the
-              bias itself is negligible or absent
+              Return $(r + 3) \bmod 10$, to spread the extra values evenly.
+            feedback: >
+              A shift only relabels which digits are favoured. Six digits still
+              own $26$ bytes and four own $25$.
+          - text: >
+              None of them: $256$ equally likely bytes cannot be split into
+              $10$ groups of equal size.
             correct: true
             feedback: >
-              When $n$ divides $M$ exactly (or nearly so), the biased residues
-              either don't exist or are too few to notice — the bug is real for
-              general $n$ but invisible at these special values.
+              Every digit would need $25.6$ bytes. Any rule that maps each byte
+              to one digit gives whole-number counts, so some digit is always
+              favoured — no rearrangement fixes it.
           - text: >
-              Floating-point rounding cancels the bias at those sizes
+              Read two bytes as one $16$-bit number and take that mod $10$.
             feedback: >
-              No floating point is involved in integer modulo — the effect is
-              purely about divisibility of $M$ by $n$.
+              $65536 \bmod 10 = 6$, so six digits own $6554$ values and four
+              own $6553$. The bias shrinks to $0.015\%$; it does not vanish.
         feedback: >
-          Powers of two and small $n$ are exactly the cases where $M \bmod n$
-          is $0$ or tiny, so a test suite built only from them will pass while
-          the bias is very real for other $n$.
+          The obstacle is divisibility, not cleverness: with $256$ equal atoms
+          and $10$ targets, a rule that uses every atom cannot be fair.
+      - reflect: >
+          You are allowed to look at $r$ and, if you do not like it, draw
+          another byte. Which byte values would you refuse, and why exactly
+          that many?
+        hint: >
+          What is the largest number of bytes that ten digits can share
+          evenly?
+        answer: >
+          Refuse $250$ through $255$. The bytes $0$ to $249$ are $250 = 25
+          \times 10$ values, so $r \bmod 10$ on them gives every digit exactly
+          $25$ preimages; the six leftovers, $256 \bmod 10$ of them, are the
+          ragged tail that caused the bias. Draw again whenever $r \ge 250$,
+          and reduce only an accepted draw.
+
+      - part: Throwing the ragged tail away
+        teach: >
+          That is rejection sampling aimed at the generator's own range. With
+          a source uniform on $\{0, \dots, M-1\}$ and a target $n$, put
+          $L = M - (M \bmod n)$, the largest multiple of $n$ at or below $M$;
+          redraw while $r \ge L$; then return $r \bmod n$. Here $M = 256$,
+          $n = 10$, $L = 250$.
+      - ask: >
+          Given that a byte is accepted, what is the probability it produces
+          the digit $7$?
+        expects: "1/10"
+        hint: >
+          An accepted byte is uniform on $\{0, \dots, 249\}$. How many of those
+          reduce to $7$?
+        feedback: >
+          Accepted bytes are uniform on $250$ values, and exactly $25$ of them
+          ($7, 17, \dots, 247$) reduce to $7$: $25/250 = 1/10$. Every digit
+          owns exactly $L/n = 25$ accepted bytes, so the output is exactly
+          uniform — the tail was discarded, not smoothed over.
+      - ask: >
+          On average, how many bytes does the fixed routine consume per digit?
+        expects: "1.024"
+        hint: >
+          Each draw is accepted independently with probability $L/M$; the
+          number of draws is geometric.
+        feedback: >
+          Acceptance is $250/256$, so the expected number of draws is
+          $256/250 = 1.024$. Fairness costs $2.4\%$ more bytes — cheap
+          insurance.
+
+      - part: What the insurance costs
+        ask: >
+          Same byte source, different targets. For which $n$ is the rejection
+          loop most expensive?
+        choices:
+          - text: >
+              $n = 255$, the largest target
+            feedback: >
+              $256 \bmod 255 = 1$, so only the single byte $255$ is refused:
+              acceptance $255/256$, barely more than one draw per output.
+          - text: >
+              $n = 128$
+            feedback: >
+              $128$ divides $256$, so nothing is refused at all: one draw per
+              output, and plain $r \bmod 128$ was already exact.
+          - text: >
+              $n = 129$
+            correct: true
+            feedback: >
+              $L = 256 - 127 = 129$: only one copy of the target fits, and the
+              other $127$ bytes are refused. Acceptance is $129/256$, just over
+              a half.
+          - text: >
+              $n = 10$
+            feedback: >
+              Ten fits $25$ times into $256$, and only $6$ bytes are refused —
+              $1.024$ draws per output.
+        feedback: >
+          The waste is $M \bmod n$ out of $M$, and it is worst when $n$ sits
+          just above $M/2$: one copy of the target fits and almost a second
+          one's worth is thrown away.
+      - ask: >
+          For $n = 129$ on the byte source, what is the expected number of
+          draws per output? Give it to three decimals.
+        expects: "1.984"
+        tolerance: 0.001
+        hint: >
+          Expected draws is $M/L$.
+        feedback: >
+          $M/L = 256/129 \approx 1.984$. Even the worst target costs under two
+          draws on average, and the general bound $1/(1 - n/M)$ —
+          $256/127 \approx 2.016$ here — shows why: with $n \ll M$ the
+          refused fraction is at most about $n/M$, almost nothing.
+
+      - part: Where the bias hides from tests
+        ask: >
+          Your test suite checks the naive $r \bmod n$ routine at $n = 16$.
+          How many of the $256$ byte values are in the ragged tail that causes
+          bias?
+        expects: "0"
+        hint: >
+          The tail has $M \bmod n$ values.
+        feedback: >
+          $256 \bmod 16 = 0$: sixteen divides $256$, every residue owns exactly
+          $16$ bytes, and the naive line is exactly fair. A suite that tests
+          only powers of two passes while $n = 10$ ships biased.
+      - ask: >
+          A teammate proposes a float version: $u = r/256$, return
+          $\lfloor 10u \rfloor$. Does it fix the bias?
+        choices:
+          - text: >
+              Yes: floats spread the values continuously, so each digit gets a
+              tenth of the interval.
+            feedback: >
+              $u$ still takes only $256$ distinct values, so each digit still
+              owns a whole number of them — $26$ or $25$, exactly as before.
+          - text: >
+              No: it is the scaling rule in disguise, with the same $26$
+              against $25$, plus rounding at the boundaries.
+            correct: true
+            feedback: >
+              $\lfloor 10r/256 \rfloor$ is integer scaling written in floats.
+              The atoms are the same $256$ bytes; only rejecting some of them
+              changes the counts.
+          - text: >
+              Yes, provided you use double precision.
+            feedback: >
+              Precision is not the issue. Even with exact arithmetic, $256$
+              equal atoms cannot fill ten equal bins.
+        feedback: >
+          No rearrangement of the source's values fixes a count that does not
+          divide. Reject the tail, then reduce: that is the primitive every
+          later routine in this unit is built on.
 
   - node: quant-programming.randomized.fisher-yates
     hook: >
@@ -327,77 +559,194 @@ lessons:
       Walk backward from the last slot, drawing each swap partner from the
       shrinking range $\{0,\dots,i\}$: $n-1$ draws, $O(1)$ space, exactly
       $1/n!$ per permutation.
-    steps:
-      - teach: >
-          Loop $i$ from $n-1$ down to $1$: draw $j$ uniform on $\{0,\dots,i\}$
-          using the uniform-integer primitive, and swap $a[i]$ with $a[j]$. The
-          range shrinks with $i$ — that shrinking range is the entire
-          mechanism, and it's the one detail people misremember.
-      - teach: >
-          Uniformity by induction: the first draw is uniform over all $n$
-          positions, so the element landing in the last slot is a uniformly
-          random choice among all $n$. What remains in the first $n-1$ slots is
-          now exactly the same problem one size smaller.
+    dialogue:
+      - part: The hat you would use by hand
+        teach: >
+          Five cards $P, Q, R, S, T$ sit in an array $a[0..4]$, and you want
+          them in a uniformly random order, each of the $120$ orders equally
+          likely. You already have a uniform integer on $\{0, \dots, m-1\}$
+          for any $m$. The method anyone uses by hand: put the cards in a hat,
+          draw one uniformly from what is left, lay it down, repeat.
       - ask: >
-          Running Fisher–Yates on $n=5$ elements, what's the probability the
-          shuffle lands on one particular, fixed ordering — say, the original
-          order?
+          Drawing from the hat, what is the probability the cards come out in
+          the order $T, S, R, Q, P$?
         expects: "1/120"
         hint: >
-          Uniform over $n!$ orders means every specific order gets probability
-          $1/n!$.
+          The first draw must be $T$ out of five, the second $S$ out of the
+          four left, and so on.
         feedback: >
-          There are $n! = 120$ equally likely orders and the shuffle is exactly
-          uniform over them, so any one fixed ordering has probability $1/120$.
-      - teach: >
-          The same fact by counting: there are $n \cdot (n-1) \cdots 2 = n!$
-          equally likely draw sequences, and the map from a sequence of draws
-          to the final permutation is a bijection — every sequence lands on a
-          different order, and every order is reachable.
+          $(1/5)(1/4)(1/3)(1/2)(1) = 1/120$. Every order comes out the same
+          way, so the hat is exactly uniform — correctness is not the problem
+          with it.
       - ask: >
-          For $n=6$, how many random draws does one full run of Fisher–Yates
-          perform?
-        expects: "5"
-        hint: >
-          Count the steps of the descending loop, from $n-1$ down to $1$
-          inclusive.
-        feedback: >
-          The loop runs from $i=n-1$ down to $1$, one draw per step, so it
-          performs exactly $n-1 = 5$ draws.
-      - teach: >
-          Cost: $O(n)$ time, $O(1)$ extra space, exactly $n-1$ draws — no
-          auxiliary array, no recursion, and the induction on the last slot is
-          the fast, cold-recitable proof of uniformity.
-      - ask: >
-          At step $i$ of the descending loop, which range must the swap partner
-          $j$ be drawn from for the shuffle to stay uniform?
+          You code the hat as a second array: draw an index into the
+          remaining cards, append that card to the output, and delete it from
+          the remaining array by shifting the later cards left. For a million
+          cards, what goes wrong?
         choices:
           - text: >
-              $\{0,\dots,i\}$
+              The order is no longer uniform once the remaining cards are
+              shifted.
+            feedback: >
+              Shifting keeps the remaining cards in the hat, and each draw is
+              still uniform over them. The distribution is the hat's: exactly
+              uniform.
+          - text: >
+              It makes $10^{6}$ draws, one more than necessary.
+            feedback: >
+              True — the last draw picks from one card — but that wastes one
+              draw out of a million. The real cost is elsewhere.
+          - text: >
+              Each deletion shifts about half the remaining cards: roughly
+              $n^{2}/4$ moves in total, about $2.5 \times 10^{11}$, plus a
+              second array of $n$ slots.
             correct: true
             feedback: >
-              The shrinking range is exactly what makes the induction go
-              through: at step $i$ there are $i+1$ still-undecided slots to
-              choose among.
-          - text: >
-              $\{0,\dots,n-1\}$, the full array every time
-            feedback: >
-              Drawing from the full range at every step is the naive, biased
-              version — it compiles and looks shuffled, but the distribution is
-              measurably wrong.
-          - text: >
-              $\{i,\dots,n-1\}$
-            feedback: >
-              That range moves the wrong direction — it would draw only from
-              slots already placed, not the undecided prefix.
+              Deleting a uniform position from $m$ cards shifts $(m-1)/2$ on
+              average, and summing over $m$ gives about $n^{2}/4$. The draws
+              are cheap; maintaining the hat is quadratic.
         feedback: >
-          $\{0,\dots,i\}$ is the shrinking range that makes each step
-          contribute exactly as much freedom as it should — anything wider or
-          differently placed breaks the bijection with the $n!$ orderings.
+          The hat is the right distribution with the wrong data structure:
+          removing a card from the middle of an array is what costs.
+      - reflect: >
+          The hat is the set of cards not yet placed, and the output fills one
+          slot at a time. Where in the original array could the hat and the
+          output both live, so that drawing a card and removing it from the
+          hat is a single swap?
+        hint: >
+          The output only ever grows by one slot, and the hat only ever shrinks
+          by one card.
+        answer: >
+          Fill the output from the back. Keep the hat as the prefix
+          $a[0..i]$ and the placed cards as the suffix after it. Draw $j$
+          uniform on $\{0, \dots, i\}$ and swap $a[j]$ with $a[i]$: the drawn
+          card lands in slot $i$, its final place, and the card that was in
+          slot $i$ drops into the hole the drawn card left. The hat shrinks by
+          one, nothing is shifted, and no second array is needed.
+
+      - part: The hat, moved inside the array
+        teach: >
+          That is the Fisher–Yates shuffle: for $i$ from $n-1$ down to $1$,
+          draw $j$ uniform on $\{0, \dots, i\}$ and swap $a[i]$ with $a[j]$. A
+          draw of $j = i$ is legitimate — the card already in slot $i$ was
+          drawn from the hat — and the swap is a no-op. It is the hat draw for
+          draw, so it inherits the hat's exact uniformity, at $O(1)$ work per
+          step.
+      - ask: >
+          Start from $[P, Q, R, S, T]$. The draws are $j = 1$ at $i = 4$,
+          $j = 3$ at $i = 3$, $j = 0$ at $i = 2$, and $j = 1$ at $i = 1$. What
+          is the final array?
+        choices:
+          - text: >
+              $[P, T, R, S, Q]$
+            feedback: >
+              That is the array after the first swap only. The $j = 0$ draw at
+              $i = 2$ still swaps $a[2]$ with $a[0]$.
+          - text: >
+              $[R, T, P, S, Q]$
+            correct: true
+            feedback: >
+              $i = 4, j = 1$ gives $[P, T, R, S, Q]$; $i = 3, j = 3$ is a
+              no-op; $i = 2, j = 0$ gives $[R, T, P, S, Q]$; $i = 1, j = 1$ is a
+              no-op.
+          - text: >
+              $[T, R, P, S, Q]$
+            feedback: >
+              The $j = 1$ draw at $i = 1$ swaps $a[1]$ with itself, so it
+              changes nothing. Swapping $a[0]$ and $a[1]$ there would need
+              $j = 0$.
+        feedback: >
+          Four draws for five cards, two of them no-ops, and each no-op is a
+          real outcome of the hat: the card in slot $i$ was the one drawn.
+      - ask: >
+          Card $P$ starts in slot $0$. What is the probability it is still in
+          slot $0$ when the shuffle finishes?
+        expects: "1/5"
+        hint: >
+          $P$ moves only when it is drawn, and once drawn it is placed for
+          good. It must survive the draws at $i = 4, 3, 2, 1$.
+        feedback: >
+          It must avoid being drawn at every step:
+          $(4/5)(3/4)(2/3)(1/2) = 1/5$. The product telescopes, which is the
+          induction in miniature — each step leaves the unplaced cards in
+          exactly equal standing.
+      - ask: >
+          There are $5 \cdot 4 \cdot 3 \cdot 2 = 120$ equally likely draw
+          sequences and $120$ orders. What else must be true for each order to
+          have probability exactly $1/120$?
+        choices:
+          - text: >
+              Different draw sequences must give different orders, so each
+              order is reached by exactly one sequence.
+            correct: true
+            feedback: >
+              And they do: the card that ends in slot $4$ tells you which $j$
+              was drawn at $i = 4$; redo that swap on the start, and slot $3$
+              tells you the next $j$, and so on. That makes the map injective,
+              and with $120$ on each side, a bijection.
+          - text: >
+              Nothing: equal counts already force equal probabilities.
+            feedback: >
+              Equal counts allow it but do not force it. If two sequences gave
+              the same order, some other order would be reached by none, and
+              the counts would be $2$ and $0$.
+          - text: >
+              The draws must be independent of the starting order of the
+              cards.
+            feedback: >
+              They are, but that is not the missing step. What turns $120$
+              sequences into $1/120$ per order is that no two sequences
+              collide.
+        feedback: >
+          Counting plus a bijection is the proof: $n!$ equally likely choice
+          sequences, each landing on a different order.
+
+      - part: Where it quietly breaks
+        ask: >
+          Three variants are proposed. Which one is biased?
+        choices:
+          - text: >
+              Loop $i$ upward from $1$ to $n-1$, drawing $j$ uniform on
+              $\{0, \dots, i\}$.
+            feedback: >
+              That one is fine: it inserts card $i$ into a uniformly random
+              position of an already-uniform prefix, with $2 \cdot 3 \cdots n
+              = n!$ distinct draw sequences. It is Fisher–Yates run forwards.
+          - text: >
+              The usual descending loop, but $j$ is computed as a random byte
+              mod $(i+1)$.
+            correct: true
+            feedback: >
+              The loop is right and the primitive is wrong. A byte mod $5$ does
+              not give a uniform $j$, so the very first step already favours
+              some slots — the shuffle is only as fair as its uniform integer.
+          - text: >
+              The usual descending loop, keeping the no-op swaps when
+              $j = i$.
+            feedback: >
+              That is exactly Fisher–Yates. A self-swap is a real outcome of
+              the draw; it must stay in.
+        feedback: >
+          The proof needs every draw to be exactly uniform on $\{0, \dots,
+          i\}$. Get the primitive wrong and the counting argument has nothing
+          to stand on.
+      - ask: >
+          In that biased variant, at $i = 4$ the draw is $j = r \bmod 5$ for a
+          byte $r$ uniform on $\{0, \dots, 255\}$. What is the probability the
+          card in slot $0$ is sent to the last slot?
+        expects: "13/64"
+        hint: >
+          Count the bytes $0, 5, 10, \dots$ up to $255$.
+        feedback: >
+          The bytes $0, 5, \dots, 255$ are $52$ values, so the probability is
+          $52/256 = 13/64 \approx 0.203$, against the fair $1/5 = 0.2$.
+          Rejection in the primitive removes it.
       - teach: >
-          Asked to "prove it's uniform" cold, the induction is the fast answer:
-          the last slot is uniform over all $n$ elements, and what's left
-          recurses into the identical problem one size down.
+          Asked to shuffle an array, the answer is one loop: from the back,
+          swap each slot with a uniformly chosen slot at or before it — $n-1$
+          draws, $O(n)$ time, no extra array. Asked to prove it, say "the last
+          slot gets a uniformly random card, and the prefix left over is the
+          same problem one size smaller".
 
   - node: quant-programming.randomized.naive-shuffle-bias
     hook: >
@@ -449,80 +798,205 @@ lessons:
       The naive full-range shuffle has $n^{n}$ equally likely paths, and
       $n!$ fails to divide $n^{n}$ for every $n \ge 3$, so no full-range
       shuffle there can be uniform.
-    steps:
-      - teach: >
-          The naive shuffle draws $j$ from the full range $\{0,\dots,n-1\}$ at
-          every one of $n$ steps, instead of the shrinking range Fisher–Yates
-          uses. That gives $n^{n}$ equally likely execution paths, against
-          Fisher–Yates's $n!$.
+    dialogue:
+      - part: A playlist shuffle that looks fine
+        teach: >
+          A pull request shuffles a three-song playlist $[X, Y, Z]$ with: for
+          $i = 0$ to $2$, draw $j$ uniform on $\{0, 1, 2\}$ and swap $a[i]$
+          with $a[j]$. Every slot gets touched, every draw is uniform, and the
+          output looks scrambled. You are the reviewer.
       - ask: >
-          For $n=4$, how many equally likely execution paths does the naive
-          shuffle have?
-        expects: "256"
+          How many equally likely execution paths does this loop have — that
+          is, how many different triples of draws $(j_0, j_1, j_2)$?
+        expects: "27"
         hint: >
-          It's $n$ raised to the $n$, not $n$ factorial.
+          Three draws, each with three possible values.
         feedback: >
-          $n^{n} = 4^{4} = 256$ — one factor of $n$ choices for each of the $n$
-          steps.
-      - teach: >
-          For the result to be uniform, all $n!$ permutations would need equal
-          shares of those $n^{n}$ paths, which requires $n!$ to divide $n^{n}$.
-          For every $n \ge 3$ it doesn't — there's always a prime $p$ with $n/2
-          < p < n$ that divides $n!$ but can't divide $n^{n}$, since $n^n$'s
-          only prime factors are the primes dividing $n$ itself.
+          $3 \times 3 \times 3 = 27$, each with probability $1/27$.
       - ask: >
-          For $n=5$, name the prime strictly between $n/2 = 2.5$ and $n=5$ that
-          blocks divisibility — the one that divides $5!$ but cannot divide
-          $5^{5}$.
-        expects: "3"
+          There are $3! = 6$ orders of the playlist. For the shuffle to be
+          uniform, how many of the $27$ paths would each order need?
+        expects: "4.5"
         hint: >
-          List the primes between $2.5$ and $5$; there's exactly one.
+          Each order should get an equal share of the paths.
         feedback: >
-          $3$ is the only prime in $(2.5, 5)$. It divides $5! = 120$ (as one of
-          the factors $1,\dots,5$), but $5^{5} = 3125$'s only prime factor is
-          $5$, so $3 \nmid 5^{5}$ — the mismatch that makes uniformity
-          impossible.
-      - teach: >
-          The mismatch is provable, not just measurable: once $n!$ fails to
-          divide $n^{n}$, no distribution assembled from $n^{n}$ equal atoms
-          can land exactly $1/n!$ on every permutation. No amount of code
-          tweaking fixes it — only changing the draws themselves, the way
-          Fisher–Yates does, can.
+          $27/6 = 4.5$ paths per order. Hold on to how odd that number is.
       - ask: >
-          At $n=2$, is the naive full-range shuffle exactly uniform?
+          What follows from that $4.5$?
         choices:
           - text: >
-              No — the theorem says every $n$ is biased
+              The shuffle is slightly off, and running it on more songs makes
+              the error average out.
             feedback: >
-              The theorem only forces a mismatch when $n!$ fails to divide
-              $n^{n}$; at $n=2$ that division succeeds, so nothing rules out
-              uniformity.
+              Nothing averages out: each path is a fixed atom of $1/27$, and
+              more songs only bring more atoms with the same problem.
           - text: >
-              Yes — $2! = 2$ divides $2^{2} = 4$ exactly, and it is achieved
+              You cannot tell without running it many times and comparing the
+              frequencies with $1/6$.
+            feedback: >
+              You can tell without running it once. An experiment could only
+              estimate the bias; the counting already proves it exists.
+          - text: >
+              It cannot be uniform: an order's probability is (its number of
+              paths)$/27$, and no whole number of paths makes that $1/6$.
             correct: true
             feedback: >
-              $2$ divides $4$ evenly, so no prime obstruction exists at $n=2$,
-              and direct enumeration confirms both orders occur with
-              probability exactly $1/2$.
-          - text: >
-              It depends on the random number generator used
-            feedback: >
-              The uniformity or bias here is a fact about the path counting,
-              not about which generator supplies the random bits.
+              Whatever the split, it is uneven. Enumerated, three orders get
+              $4$ paths and three get $5$: probabilities $4/27$ and $5/27$,
+              never $1/6$.
         feedback: >
-          $n=2$ happens to be exactly uniform, which is why testing bias only
-          at $n=2$ is misleading — the failure only shows up once $n \ge 3$,
-          where a blocking prime always exists.
+          The verdict comes from arithmetic on the path count, before anyone
+          enumerates a single path.
+      - ask: >
+          For comparison, how many equally likely paths does Fisher–Yates
+          have on the same three songs?
+        expects: "6"
+        hint: >
+          Its draws come from shrinking ranges: three values at $i = 2$, two at
+          $i = 1$.
+        feedback: >
+          $3 \times 2 = 6$ paths for $6$ orders — exactly one each. The naive
+          loop has $27$ paths for the same $6$ orders.
+      - reflect: >
+          Without enumerating anything, say what decides whether a loop of
+          $n$ full-range draws on an $n$-card array could ever be uniform —
+          and what you would check about the numbers for a general $n$.
+        hint: >
+          Compare what $27$ and $6$ are made of.
+        answer: >
+          The loop has $n^{n}$ equally likely paths, so every order's
+          probability is a multiple of $1/n^{n}$. Uniform needs $1/n!$ to be
+          such a multiple, which means $n!$ must divide $n^{n}$. At $n = 3$,
+          $6 = 2 \times 3$ needs a factor $2$, and $27 = 3^{3}$ has none. In
+          general, look for a prime that divides $n!$ but not $n^{n}$.
+
+      - part: The prime that blocks it
+        teach: >
+          The obstruction for every $n \ge 3$ is a prime $p$ with
+          $n/2 < p < n$; one always exists (Bertrand's postulate). It divides
+          $n!$, since it is one of the factors $1, \dots, n$, and — the step
+          worth checking yourself — it never divides $n^{n}$. So $n!$ does not
+          divide $n^{n}$, and no distribution made of $n^{n}$ equal atoms puts
+          $1/n!$ on every order.
+      - ask: >
+          For a ten-song playlist, the loop has $10^{10}$ paths against $10!$
+          orders. Which prime $p$ with $5 < p < 10$ blocks uniformity?
+        expects: "7"
+        hint: >
+          List the primes between $5$ and $10$.
+        feedback: >
+          $7$ is the only prime strictly between $5$ and $10$. It divides
+          $10! = 3628800$, but $10^{10} = 2^{10} \cdot 5^{10}$ has no factor
+          $7$.
+      - ask: >
+          Why can a prime $p$ with $n/2 < p < n$ never divide $n^{n}$?
+        choices:
+          - text: >
+              A prime dividing $n^{n}$ must divide $n$, and every divisor of
+              $n$ smaller than $n$ is at most $n/2$.
+            correct: true
+            feedback: >
+              A prime factor of a power is a factor of the base, and the
+              largest proper divisor of $n$ is at most $n/2$. A prime strictly
+              between $n/2$ and $n$ has nowhere to hide.
+          - text: >
+              Because such a $p$ is always odd.
+            feedback: >
+              Oddness proves nothing: $3$ is odd and divides $9^{9}$. It just
+              does not lie between $4.5$ and $9$.
+          - text: >
+              Because $p$ is larger than $n$.
+            feedback: >
+              Then it would not divide $n!$ either. The point is that $p < n$
+              puts it inside $n!$ while $p > n/2$ keeps it out of $n$.
+        feedback: >
+          Both inequalities do work: $p < n$ puts $p$ into $n!$, and
+          $p > n/2$ keeps it out of $n^{n}$.
+      - ask: >
+          For which playlist lengths can the naive full-range loop possibly
+          be uniform?
+        choices:
+          - text: >
+              Prime lengths, since then $n$ shares no factors with smaller
+              numbers.
+            feedback: >
+              That is exactly why primes fail: at $n = 5$, the prime $3$
+              divides $5! = 120$ and not $5^{5} = 3125$.
+          - text: >
+              Only $n \le 2$.
+            correct: true
+            feedback: >
+              At $n = 2$, $2! = 2$ divides $2^{2} = 4$, so nothing blocks it,
+              and it is in fact fair. From $n = 3$ on, a blocking prime always
+              exists.
+          - text: >
+              Powers of two, where the generator's bits line up with $n$.
+            feedback: >
+              At $n = 4$, $4! = 24$ has the factor $3$ and $4^{4} = 256$ does
+              not. Bits lining up with $n$ do not help with $n!$.
+        feedback: >
+          The small case that passes is the trap: test the naive loop on two
+          items and it looks perfect.
+
+      - part: Tests that would let it through
+        ask: >
+          A tester runs the three-song loop a million times and checks only
+          which slot song $X$ ends in: one third each, within noise. What do
+          you conclude?
+        choices:
+          - text: >
+              The shuffle is fair: the first song is spread evenly.
+            feedback: >
+              One song's spread is one marginal. Enumerating the $27$ paths,
+              $X$'s slots really are $9, 9, 9$ — while song $Y$ ends in slot
+              $0$ on $10$ of the $27$ paths, not $9$.
+          - text: >
+              The test checks the wrong thing: one song's marginal can be
+              uniform while the orders are not, and the counting already says
+              they are not.
+            correct: true
+            feedback: >
+              Exactly. Song $Y$ ends in slot $0$ with probability
+              $10/27 \approx 0.370$ against $1/3$, and three of the six orders
+              carry $5/27$. A test of $X$ alone is blind to both.
+          - text: >
+              A million runs is too few; the bias would show at a billion.
+            feedback: >
+              For $X$ it would never show: its slots are exactly uniform. No
+              sample size rescues a test that looks at the wrong statistic.
+        feedback: >
+          Empirical tests can miss bias that a two-line divisibility argument
+          proves. Certify a shuffle by counting paths, not by eye.
+      - ask: >
+          A teammate suggests running the naive loop twice in a row on the
+          three songs. Is the result exactly uniform?
+        choices:
+          - text: >
+              No: $729$ paths, and $729$ is odd, so $6$ cannot divide it.
+            correct: true
+            feedback: >
+              Any number of passes gives $3^{k}$ paths, never divisible by
+              $2$. More passes can shrink the bias but never reach zero —
+              only changing the draws, as Fisher–Yates does, removes it.
+          - text: >
+              Yes: two passes of anything reasonable mix fully.
+            feedback: >
+              Two passes give $27^{2} = 729 = 3^{6}$ equally likely paths, and
+              $6$ still needs a factor $2$ that $729$ does not have.
+          - text: >
+              Yes, if the second pass runs the loop backwards.
+            feedback: >
+              Direction does not change the path count: still $3^{6} = 729$
+              paths, still no factor of $2$.
+        feedback: >
+          Patching more full-range draws onto a full-range loop keeps the
+          path count a power of $n$. The fix is to change the ranges.
       - teach: >
-          The general lesson: any routine assembled from a fixed number of
-          independent uniform choices creates a fixed number of equally likely
-          paths, and only target distributions whose denominator divides that
-          path count are even reachable.
-      - teach: >
-          That's why testing a shuffle's fairness empirically at a small,
-          convenient $n$ can mislead — the divisibility argument, not eye
-          inspection or a small-$n$ test, is what actually certifies or refutes
-          uniformity.
+          In the interview the snippet comes with "what's wrong with this
+          shuffle?" Say: "It has $n^{n}$ equally likely paths and $n!$ orders;
+          $n!$ doesn't divide $n^{n}$ for $n \ge 3$ — a prime between $n/2$
+          and $n$ divides one and not the other — so it can't be uniform. At
+          three items, half the orders get $5/27$ and half $4/27$."
 
   - node: quant-programming.randomized.sample-k-of-n
     hook: >
@@ -573,80 +1047,175 @@ lessons:
       For $k \ll n$ reject collisions into a hash set at barely more than
       $k$ draws; as $k \to n$ switch to running only the last $k$ steps of
       Fisher–Yates.
-    steps:
-      - teach: >
-          When $n$ is known, two techniques beat running a full shuffle just to
-          keep $k$ items: partial Fisher–Yates, and sampling with replacement
-          into a hash set. Which one wins depends entirely on how $k$ compares
-          to $n$.
-      - teach: >
-          Partial Fisher–Yates runs only the last $k$ steps of the same
-          algorithm and returns those slots — the uniformity proof is
-          unchanged, since it's just a prefix of the same swap sequence. Cost
-          is $k$ draws, but it still needs the full $n$-element array
-          materialized for random access.
-      - teach: >
-          When $k \ll n$, sample indices with replacement into a hash set,
-          redrawing on collision. The $m$-th distinct item needs, in
-          expectation, $n/(n-m+1)$ draws, so $k$ items cost $n(H_n - H_{n-k})$
-          draws in total — a telescoping harmonic sum.
+    dialogue:
+      - part: Three winners out of forty
+        teach: >
+          An office raffle has $40$ employees, stored as an array $a[0..39]$,
+          and needs $3$ distinct winners, with every set of three equally
+          likely. You already have a working Fisher–Yates shuffle.
       - ask: >
-          Using $n(H_n - H_{n-k})$, what's the expected total number of draws
-          to collect $k=2$ distinct items out of $n=5$ by hash-set rejection?
-        expects: "2.25"
+          Shuffling the whole array and taking the last three slots works. How
+          many random draws does that cost?
+        expects: "39"
         hint: >
-          $H_5 - H_3$ telescopes to just $1/4 + 1/5$; multiply by $n=5$.
+          Fisher–Yates draws once for each $i$ from $n-1$ down to $1$.
         feedback: >
-          $H_5 - H_3 = 1/4 + 1/5 = 9/20$, so $n(H_n-H_{n-k}) = 5 \times 9/20 =
-          2.25$ — barely more than the $2$ items themselves cost.
-      - teach: >
-          This is the birthday-paradox mechanic in reverse: collisions are rare
-          while few items are collected, so the loop is nearly free for $k \ll
-          n$. As $k$ approaches $n$, the same mechanic degrades the loop to the
-          coupon collector, costing $\Theta(n\log n)$ draws.
+          $n - 1 = 39$ draws, to decide $3$ names.
       - ask: >
-          You need $k=9{,}500$ distinct items out of $n=10{,}000$. Which
-          technique should you use?
+          Which of those $39$ draws actually decide who ends up in slots $37$,
+          $38$ and $39$?
         choices:
           - text: >
-              Hash-set rejection, since it's barely more than $k$ draws
-            feedback: >
-              That's only true while $k \ll n$. With $k$ this close to $n$,
-              collisions become frequent and the loop degrades to the coupon
-              collector, $\Theta(n \log n)$ draws.
-          - text: >
-              Partial Fisher–Yates, running the last $k$ steps
+              The first three, at $i = 39, 38, 37$.
             correct: true
             feedback: >
-              With $k$ comparable to $n$, the flat $k$-draw cost of partial
-              Fisher–Yates beats hash-set rejection's blow-up near $k=n$ —
-              exactly the regime where the crossover favors the shuffle.
+              The loop fills slots from the back, and each slot is final the
+              moment its step ends. The other $36$ draws only rearrange the
+              losers.
           - text: >
-              Either — the expected cost is the same either way
+              All $39$: a later swap can still move a winner out of the last
+              three slots.
             feedback: >
-              The two techniques have very different costs once $k$ is close to
-              $n$; the hash-set method is the one that degrades.
+              The step at $i$ only touches slot $i$ and slots below it. Once
+              the loop has passed slot $37$, nothing ever writes to slots $37$
+              to $39$ again.
+          - text: >
+              The last three, at $i = 3, 2, 1$.
+            feedback: >
+              Those draws arrange slots $0$ to $3$. Slots $37$ to $39$ were
+              settled at the very start of the loop.
         feedback: >
-          As $k \to n$, hash-set rejection's cost blows up toward $\Theta(n\log
-          n)$ while partial Fisher–Yates stays a flat $k$ draws — exactly where
-          the shuffle wins outright.
+          The last $k$ slots are fixed by the first $k$ steps. The rest of the
+          shuffle is wasted work when you only need $k$ items.
       - ask: >
-          Using $n(H_n - H_{n-k})$ again: for $k=100$ distinct items out of
-          $n=100{,}000$, what's the expected total number of draws?
-        expects: "100.05"
-        tolerance: 0.05
+          Running only those first three steps, what is the probability that
+          employee number $7$ is among the winners?
+        expects: "3/40"
         hint: >
-          Approximate the harmonic difference by $\ln(n/(n-k))$ and multiply by
-          $n$.
+          Employee $7$ is left out only if missed at all three draws:
+          $39/40$, then $38/39$, then $37/38$.
         feedback: >
-          $H_{100000} - H_{99900} \approx \ln(100000/99900) \approx 0.0010005$,
-          so $n(H_n - H_{n-k}) \approx 100000 \times 0.0010005 \approx 100.05$
-          — about $100$ items cost about $100.05$ draws, a $0.05\%$ overhead
-          from collisions.
+          $1 - (39/40)(38/39)(37/38) = 1 - 37/40 = 3/40$. Every employee gets
+          the same $3/40$, and the three steps are a prefix of an exactly
+          uniform shuffle, so the winning set is uniform too.
       - teach: >
-          So the decision is always the same question, asked before coding: is
-          $k$ small relative to $n$, or comparable to it? One technique alone
-          misses whichever regime it wasn't built for.
+          That is partial Fisher–Yates: run only the last $k$ swap steps and
+          return those $k$ slots. It costs $k$ draws instead of $n - 1$, and
+          its correctness is the full shuffle's, untouched. It still needs the
+          whole $n$-entry array, though — every draw indexes into it.
+
+      - part: When the array is the expensive part
+        teach: >
+          An audit needs $20$ distinct account ids out of $50{,}000{,}000$.
+          Partial Fisher–Yates takes $20$ draws — after allocating and filling
+          a $50$-million-entry array just to read $20$ of its slots.
+      - reflect: >
+          You can draw an id uniformly from $1$ to $50{,}000{,}000$ without any
+          array. What goes wrong if you just draw $20$ times, and what is the
+          cheapest repair?
+        hint: >
+          Twenty draws from fifty million: how often would two coincide?
+        answer: >
+          Two draws can coincide, so you might get fewer than $20$ distinct
+          ids. Keep the ids collected so far in a hash set and redraw whenever
+          a draw is already in it. Each accepted id is uniform over the ids not
+          yet taken, so the set is uniform, and with $k$ tiny next to $n$ a
+          collision is so rare that the redraws cost almost nothing.
+      - ask: >
+          Back to the raffle, now done with a hash set: draw employees $0$ to
+          $39$ with replacement and redraw repeats. Once two winners are in
+          the set, what is the expected number of draws to get the third?
+        expects: "20/19"
+        hint: >
+          Each draw is new with probability $38/40$; the wait is geometric.
+        feedback: >
+          A draw is new with probability $38/40$, so the expected wait is
+          $40/38 = 20/19 \approx 1.053$ draws.
+      - ask: >
+          What is the expected total number of draws to collect all three
+          raffle winners this way? Give it to three decimals.
+        expects: "3.078"
+        tolerance: 0.001
+        hint: >
+          Add the three geometric waits: the $m$-th new name has success
+          probability $(40 - m + 1)/40$.
+        feedback: >
+          $40/40 + 40/39 + 40/38 = 1 + 1.0256 + 1.0526 \approx 3.078$. Three
+          names cost about $3.08$ draws and no array at all.
+      - teach: >
+          In general the $m$-th distinct item costs $n/(n - m + 1)$ draws in
+          expectation, so $k$ items cost $n(H_n - H_{n-k})$, a telescoped
+          harmonic sum. For the audit, that is about $20 + 190/(5 \times
+          10^{7}) \approx 20.0000038$ draws — collisions are a rounding error.
+
+      - part: Where the hash set falls over
+        ask: >
+          Push the hash set to its limit: put all $40$ employees in a random
+          order by drawing until every one has appeared. What is the expected
+          number of draws? Give it to one decimal.
+        expects: "171.1"
+        tolerance: 0.1
+        hint: >
+          That is $40 \cdot H_{40}$, with $H_{40} \approx 4.2785$.
+        feedback: >
+          $40 \cdot H_{40} \approx 40 \times 4.2785 \approx 171.1$ — the coupon
+          collector. The last few names each take about $40$, $20$, $13$
+          draws to find. Fisher–Yates does the same job in $39$.
+      - ask: >
+          The raffle grows to $30$ winners out of the $40$. Which method do you
+          use?
+        choices:
+          - text: >
+              The hash set, since it never needs the array.
+            feedback: >
+              Its cost is $40(H_{40} - H_{10}) \approx 54.0$ draws for $30$
+              names, and it climbs steeply as $k$ nears $n$. Here the array is
+              only $40$ entries — nothing to save.
+          - text: >
+              Partial Fisher–Yates, since it costs a flat $30$ draws.
+            correct: true
+            feedback: >
+              $30$ draws against about $54$, and the array is tiny. Once $k$ is
+              a sizable fraction of $n$, collisions stop being rare and the
+              flat cost wins.
+          - text: >
+              Either: both average about one draw per winner.
+            feedback: >
+              Only the hash set's cost depends on how full the set is: the
+              thirtieth name alone takes $40/11 \approx 3.6$ draws on average.
+        feedback: >
+          The two methods split the regimes: hash set while $k \ll n$ and the
+          array is costly, partial shuffle once $k$ is comparable to $n$.
+      - ask: >
+          The $40$ employee records arrive one at a time over a network, and
+          you cannot store them all or know in advance how many there will be.
+          Which of the two methods still works?
+        choices:
+          - text: >
+              Partial Fisher–Yates, since it only needs $k$ draws.
+            feedback: >
+              Its draws index anywhere in the array, including records that
+              have not arrived. It needs random access to all $n$ items.
+          - text: >
+              The hash set, since it does not need the array.
+            feedback: >
+              It draws indices from $1$ to $n$, so it needs to know $n$, and
+              then to fetch whichever records were drawn.
+          - text: >
+              Neither: both assume $n$ is known and the items can be fetched by
+              index.
+            correct: true
+            feedback: >
+              Both methods are for a known $n$ with random access. A stream of
+              unknown length needs a different one-pass idea.
+        feedback: >
+          Known $n$ and random access are the hidden hypotheses of both
+          techniques.
+      - teach: >
+          In an interview, ask first: "How does $k$ compare to $n$, and do I
+          have the array?" Then: "Small $k$ — hash set and redraw, about
+          $k + k^{2}/(2n)$ draws. $k$ near $n$ — the last $k$ steps of
+          Fisher–Yates, exactly $k$ draws."
 
   - node: quant-programming.randomized.reservoir
     hook: >
@@ -696,64 +1265,156 @@ lessons:
       Accept the $i$-th arrival with probability $k/i$ and evict a
       uniformly random incumbent: every item ends up in the sample with
       probability exactly $k/n$, with $n$ never known in advance.
-    steps:
-      - teach: >
-          For $k=1$: hold the first item, and on seeing item $i$, replace the
-          held item with probability $1/i$. This is the whole mechanism that
-          lets a one-pass algorithm sample fairly from a stream whose length it
-          never learns.
-      - teach: >
-          The induction: if every item is held with probability $1/i$ after $i$
-          arrivals, then a held item survives to $i+1$ with probability
-          $(1/i)(1-1/(i+1)) = 1/(i+1)$, and the new arrival is held with
-          probability $1/(i+1)$ by construction — every one of the $i+1$ items
-          ends up equally likely.
+    dialogue:
+      - part: One line from a log of unknown length
+        teach: >
+          A log streams past one line at a time. You may store exactly one
+          line, and when the stream stops you must hand back a line chosen
+          uniformly from everything that went by. Nobody tells you when it
+          will stop — after $4$ lines or after $4$ million.
       - ask: >
-          Running $k=1$ reservoir sampling, after $i=10$ items have arrived,
-          what's the probability that any one specific item seen so far is the
-          one currently held?
-        expects: "1/10"
+          Suppose, in hindsight, the stream stopped after line $4$. With what
+          probability should you be holding line $4$?
+        expects: "1/4"
         hint: >
-          The claim proven by induction gives the probability directly as a
-          function of $i$.
+          Uniform over the lines that went by.
         feedback: >
-          By the induction, after $i$ items each one is held with probability
-          exactly $1/i$, so at $i=10$ that's $1/10$.
-      - teach: >
-          For general $k$: keep the first $k$, then for $i>k$ accept item $i$
-          with probability $k/i$ and evict a uniformly random incumbent if
-          accepted. The later an item arrives, the harder it has to fight to
-          get in, and it fights exactly hard enough that fairness holds no
-          matter when the stream ends.
+          Four lines went by, so each should be held with probability $1/4$ —
+          line $4$ included.
       - ask: >
-          With $k=5$ held, what's the probability that the $40$th arrival ends
-          up in the reservoir?
+          A first attempt: every new line replaces the held one with
+          probability $1/2$. If the stream stops after $4$ lines, what is the
+          probability you are still holding line $1$?
         expects: "1/8"
         hint: >
-          Acceptance for the $i$-th arrival is $k/i$.
+          Line $1$ has to survive lines $2$, $3$ and $4$.
         feedback: >
-          Acceptance probability for item $i$ is $k/i = 5/40 = 1/8$.
-      - teach: >
-          Cost: the expected number of replacements is $k(H_n - H_k) \approx
-          k\ln(n/k)$, since acceptance probability $k/i$ shrinks as $i$ grows —
-          nearly all the churn happens early in a long stream.
-      - ask: >
-          For $k=2$ held out of a stream of $n=10$, what's the expected number
-          of replacements, $k(H_n - H_k)$?
-        expects: "2.86"
-        tolerance: 0.01
+          $(1/2)^{3} = 1/8$, while line $4$ is held with probability $1/2$. A
+          fixed replacement rate favours late arrivals more and more as the
+          stream grows.
+      - reflect: >
+          Line $i$ must be held with probability exactly $1/i$ if the stream
+          happens to stop right after it — and you decide about line $i$ the
+          moment it arrives. What does that force your rule to be?
         hint: >
-          Compute $H_{10} - H_2$ first, then multiply by $k=2$.
+          Line $i$ is held right after it arrives exactly when you took it.
+        answer: >
+          You must take line $i$ with probability exactly $1/i$: if the stream
+          stops now, the only way line $i$ is held is that you took it on
+          arrival. The rate shrinks as the stream grows. What remains to check
+          is that the older lines then share the remaining $1 - 1/i$ equally.
+
+      - part: The odds each arrival must get
+        teach: >
+          That rule is reservoir sampling for $k = 1$: hold line $1$; when line
+          $i$ arrives, replace the held line by it with probability $1/i$.
+          Line $1$ is taken with probability $1$, line $2$ with $1/2$, line
+          $3$ with $1/3$, and so on, forever if need be.
+      - ask: >
+          The stream stops after $5$ lines. What is the probability you end up
+          holding line $2$?
+        expects: "1/5"
+        hint: >
+          Line $2$ must be taken on arrival, then survive lines $3$, $4$ and
+          $5$.
         feedback: >
-          $H_{10} \approx 2.929$ and $H_2 = 1.5$, so $2(H_{10}-H_2) \approx 2
-          \times 1.429 \approx 2.86$ — of the $8$ candidates past the first
-          $2$, under $3$ actually bump an incumbent.
+          $(1/2)(2/3)(3/4)(4/5) = 1/5$. The product telescopes to exactly the
+          uniform answer, and it would for any line and any stopping point.
+      - ask: >
+          Suppose that after $i$ lines each is held with probability $1/i$.
+          With what probability is a particular one of them still held after
+          line $i+1$ arrives?
+        choices:
+          - text: >
+              $1/i$, since nothing about it changed.
+            feedback: >
+              Line $i+1$ may replace it: that happens with probability
+              $1/(i+1)$, so its chance must go down.
+          - text: >
+              $1/i - 1/(i+1)$
+            feedback: >
+              Subtracting treats "held" and "replaced" as if they could not
+              overlap. Survival is a product: held, and then not replaced.
+          - text: >
+              $(1/i)(1 - 1/(i+1)) = 1/(i+1)$
+            correct: true
+            feedback: >
+              Held before, and not displaced: $(1/i) \cdot i/(i+1) = 1/(i+1)$.
+              The newcomer also has $1/(i+1)$, so all $i+1$ lines are equal
+              again — the induction step.
+        feedback: >
+          The shrinking acceptance $1/(i+1)$ is exactly the fraction that each
+          incumbent must give up so that everyone lands on $1/(i+1)$.
+
+      - part: Keeping three lines
+        ask: >
+          Now you may keep $k = 3$ lines, and want a uniform sample of three.
+          Line $12$ arrives. With what probability should it enter the
+          reservoir?
+        expects: "1/4"
+        hint: >
+          If the stream stops now, line $12$ should be one of the three with
+          the same probability as any of the twelve.
+        feedback: >
+          Each of the $12$ lines should be in the sample with probability
+          $3/12 = 1/4$, and line $12$ can only be in it by entering now.
       - teach: >
-          The two traps mirror each other: using a $0$-indexed counter where
-          the acceptance rule assumes $1$-indexed arrivals is an off-by-one
-          that breaks uniformity as quietly as a modulo-bias bug, and evicting
-          a fixed incumbent instead of a uniformly random one destroys the
-          guarantee even though the acceptance probabilities stay correct.
+          So the general rule: keep the first $k$; admit line $i > k$ with
+          probability $k/i$; on admission, evict one of the $k$ incumbents
+          chosen uniformly at random — a uniform integer on $\{0, \dots, k-1\}$.
+      - ask: >
+          A line already in the three-line reservoir when line $12$ arrives:
+          what is the probability it survives that arrival?
+        expects: "11/12"
+        hint: >
+          It is evicted only if line $12$ is admitted and it is the one of
+          three picked for eviction.
+        feedback: >
+          Evicted with probability $(3/12)(1/3) = 1/12$, so it survives with
+          probability $11/12$. If it was in with probability $3/11$, it is
+          still in with $(3/11)(11/12) = 3/12$ — the same $3/12$ as the
+          newcomer.
+      - ask: >
+          A colleague's version evicts the oldest incumbent instead of a random
+          one. With $k = 2$ and a stream that stops after $3$ lines, what is
+          the probability that line $2$ is in the final sample?
+        expects: "1"
+        hint: >
+          Line $3$ is admitted with probability $2/3$. Whom does it evict?
+        feedback: >
+          Line $3$ always evicts line $1$, the oldest, so line $2$ is never
+          removed: probability $1$, against the fair $2/3$. Line $1$ ends at
+          $1/3$. The admission rates were right; the eviction was not uniform.
+      - ask: >
+          With $k = 1$ over a log of a million lines, about how many times does
+          the held line change?
+        choices:
+          - text: >
+              About $500{,}000$ — half the lines replace it.
+            feedback: >
+              Only line $2$ has a one-half chance. Line $1000$ replaces with
+              probability $1/1000$; the rate keeps falling.
+          - text: >
+              About $14$
+            correct: true
+            feedback: >
+              The expected count is $\sum_{i=2}^{n} 1/i = H_n - 1 \approx
+              \ln(10^{6}) + 0.58 - 1 \approx 13.4$. Nearly all the churn
+              happens early.
+          - text: >
+              About $1{,}000$, the square root of the stream length.
+            feedback: >
+              The sum $\sum 1/i$ grows like $\ln n$, not $\sqrt{n}$: for a
+              million lines it is about $13.4$.
+        feedback: >
+          For general $k$ the expected number of replacements is
+          $k(H_n - H_k) \approx k\ln(n/k)$: work concentrated at the start, a
+          trickle afterwards.
+      - teach: >
+          Said aloud: "Keep the first $k$. Admit the $i$-th with probability
+          $k/i$ and evict a uniformly random incumbent. By induction every item
+          seen so far is in the sample with probability $k/i$, whenever the
+          stream stops. One pass, $O(k)$ memory."
 
   - node: quant-programming.randomized.weighted-sampling
     hook: >
@@ -803,83 +1464,153 @@ lessons:
       Prefix-sum the weights into an integer CDF and binary-search a
       uniform draw against it — a Fenwick tree keeps updates $O(\log m)$,
       and the key $U^{1/w}$ extends the idea to a stream.
-    steps:
-      - teach: >
-          Build prefix sums $W_j = w_1 + \dots + w_j$, draw a uniform integer
-          $r$ on $\{0,\dots,W_m-1\}$ using the uniform-integer primitive, and
-          binary-search for the first $j$ with $r < W_j$. This is
-          inverse-transform sampling run entirely in integers, so no
-          floating-point cutoff can ever misplace a boundary draw.
+    dialogue:
+      - part: Routing orders by weight
+        teach: >
+          An order router sends each order to one of four venues with integer
+          weights $3, 1, 4, 2$ — venue $1$ should get $3$ orders in $10$, venue
+          $2$ one in $10$, and so on. You draw $r$ uniform on
+          $\{0, \dots, 9\}$ and lay the ten values out in blocks: venue $1$
+          owns $\{0, 1, 2\}$, and the blocks continue in venue order.
       - ask: >
-          Weights $2, 5, 3$ give prefix sums $W = 2, 7, 10$. What's the
-          probability that item $2$ (the one with weight $5$) is the one
-          picked?
-        expects: "1/2"
+          Which venue owns $r = 7$? Answer with its number, $1$ to $4$.
+        expects: "3"
         hint: >
-          An item's probability is its weight divided by the total weight.
+          Venue $2$ owns one value, $3$; venue $3$ owns the next four.
         feedback: >
-          Item $2$ owns the range $\{2,\dots,6\}$, five of the ten equally
-          likely draws on $\{0,\dots,9\}$, so its probability is $5/10 = 1/2$ —
-          exactly its weight share, $5/(2+5+3)$.
-      - teach: >
-          When weights change between draws — an item removed after being
-          sampled, a reweighting — hold the prefix sums in a Fenwick tree
-          instead of a flat array, so both the point-update and the prefix
-          lookup the binary search needs stay $O(\log m)$.
+          Venue $1$ owns $0$ to $2$, venue $2$ owns $3$, venue $3$ owns $4$ to
+          $7$, venue $4$ owns $8$ and $9$. So $r = 7$ goes to venue $3$, which
+          owns $4$ of the $10$ values — exactly its weight share.
       - ask: >
-          Weights are reweighted after every draw, and you need both the update
-          and the next pick to stay fast. Which structure holds the prefix
-          sums?
+          The router grows to $2{,}000$ venues of equal weight, and you find
+          $r$'s block by walking through the venues in order until the running
+          total passes $r$. On average, how many venues does one pick examine?
+        expects: "1000.5"
+        hint: >
+          The walk stops at venue $j$, and $j$ is uniform on
+          $\{1, \dots, 2000\}$.
+        feedback: >
+          The mean of a uniform $j$ on $\{1, \dots, 2000\}$ is
+          $(2000 + 1)/2 = 1000.5$. Correct, and at a million picks a second,
+          about a billion steps a second.
+      - reflect: >
+          For the four venues, the block boundaries are the running totals
+          $3, 4, 8, 10$, and they only go up. How can you find $r$'s block
+          without walking the venues one by one?
+        hint: >
+          What search works on a sorted list?
+        answer: >
+          Store the running totals once, as an array, and binary-search it for
+          the first boundary strictly greater than $r$. The boundaries are
+          sorted because the weights are positive, so the search takes about
+          $\log_2 m$ steps instead of $m/2$. The array is the integer CDF of
+          the weights, and the search inverts it.
+
+      - part: An integer CDF and a binary search
+        teach: >
+          The coded form: prefix sums $W_j = w_1 + \dots + w_j$, a uniform
+          integer $r$ on $\{0, \dots, W_m - 1\}$ from the uniform-integer
+          primitive, and a binary search for the first $j$ with $r < W_j$.
+          That is inverse-transform sampling with every quantity an integer:
+          $O(m)$ setup, $O(\log m)$ per pick.
+      - ask: >
+          With $2{,}000$ venues, what is the most comparisons a binary search
+          over the prefix sums needs?
+        expects: "11"
+        hint: >
+          Each comparison halves the candidates. What power of $2$ first
+          reaches $2{,}000$?
+        feedback: >
+          $2^{10} = 1024 < 2000 \le 2048 = 2^{11}$, so $11$ comparisons
+          suffice — against about $1{,}000$ for the walk.
+      - ask: >
+          A colleague stores probabilities instead: ten venues at $0.1$ each,
+          cumulative sums in floating point, and a float draw $u$ on $[0, 1)$
+          compared against them. What can go wrong?
         choices:
           - text: >
-              A flat array of running totals
+              Nothing: each venue gets a tenth of the interval.
             feedback: >
-              A flat array makes the binary search fast, but a single weight
-              update forces recomputing every prefix sum after it — $O(m)$ per
-              update.
+              In floating point, ten additions of $0.1$ give
+              $0.9999999999999999$, not $1$. Every boundary is slightly off,
+              and the last one falls short.
           - text: >
-              A Fenwick tree
+              A draw $u$ above the last cumulative sum matches no venue, and
+              boundary draws can land in the wrong one.
             correct: true
             feedback: >
-              A Fenwick tree keeps both a point update and a prefix-sum lookup
-              at $O(\log m)$, exactly matching the binary search's cost.
+              The last cutoff is $0.9999999999999999$, so the largest $u$ below $1$
+              falls off the end — an out-of-range index that fires once in a
+              very long while. Integer prefix sums end at exactly $W_m$, by
+              construction.
           - text: >
-              A sorted linked list of weights
+              Only a slowdown: float comparisons cost more than integer ones.
             feedback: >
-              A linked list doesn't support the prefix-sum query the binary
-              search needs without a linear scan.
+              The cost is about the same. The danger is correctness: rounded
+              cutoffs misplace draws, and one draw can match nothing at all.
         feedback: >
-          Only the Fenwick tree keeps update and prefix-lookup both at $O(\log
-          m)$ — a flat array is fast to search but slow to update, which is
-          exactly backwards when weights change.
-      - teach: >
-          For a stream of unknown length with unequal weights, plain $k/i$
-          reservoir acceptance doesn't generalize, since items aren't
-          exchangeable. Instead attach item $i$ a key $U_i^{1/w_i}$ for a fresh
-          uniform $U_i$, and keep the $k$ largest keys in a heap — one pass,
-          $O(k)$ memory.
-      - ask: >
-          With $m=1{,}000$ distinct weights held in a flat array of prefix
-          sums, roughly how many comparisons does one weighted pick need, using
-          $\log_2 m$?
-        expects: "10"
-        tolerance: 0.5
+          Keep the CDF in integers and the draw an integer below $W_m$: then
+          every draw lands in exactly one block, and each block's size is its
+          weight.
+
+      - part: Weights that change between picks
+        ask: >
+          Back to four venues with prefix sums $3, 4, 8, 10$. Venue $2$'s weight
+          rises from $1$ to $5$. How many of the four stored prefix sums must
+          change?
+        expects: "3"
         hint: >
-          Binary search over $m$ candidates costs about $\log_2 m$ comparisons.
+          Which running totals include venue $2$?
         feedback: >
-          $\log_2 1000 \approx 9.97$, about $10$ comparisons for the binary
-          search — versus $1{,}000$ for a linear scan.
+          $W_2$, $W_3$ and $W_4$ all include $w_2$, so they become $8$, $12$
+          and $14$. With $m$ venues, one update rewrites up to $m$ entries.
+      - ask: >
+          After that update, what is the probability that venue $2$ is picked?
+        expects: "5/14"
+        hint: >
+          Its block is now $5$ values wide; how many values are there in all?
+        feedback: >
+          The total weight is $3 + 5 + 4 + 2 = 14$, and venue $2$ owns
+          $\{3, \dots, 7\}$, five values: $5/14$.
       - teach: >
-          Every distribution problem in this unit reduces to the same move:
-          turn the target into a CDF over integers and binary-search a uniform
-          draw against it — prefix sums for a known list, the key $U^{1/w}$ for
-          a stream.
+          A flat prefix array is $O(\log m)$ to search but $O(m)$ to update.
+          When weights change between picks, store the prefix sums in a
+          Fenwick tree (a binary indexed tree): it answers a prefix-sum query
+          and absorbs a point update in $O(\log m)$ each, so a pick and an
+          update both stay logarithmic.
+      - ask: >
+          Now the venues arrive as a stream of unknown length, each with its
+          weight, and you may keep one. Why does reservoir sampling's "admit
+          the $i$-th with probability $1/i$" fail here?
+        choices:
+          - text: >
+              It treats every arrival alike, so a weight-$9$ venue gets the same
+              chance as a weight-$1$ venue.
+            correct: true
+            feedback: >
+              Reservoir sampling is fair because the items are interchangeable.
+              With weights they are not, and the admission rate must depend on
+              each item's weight — not just on its position.
+          - text: >
+              It needs the stream length in advance.
+            feedback: >
+              It never does — that is its point. The trouble is that $1/i$
+              ignores the weights.
+          - text: >
+              It cannot keep more than one item.
+            feedback: >
+              The general version keeps $k$. The trouble is the admission rate,
+              which ignores the weights.
+        feedback: >
+          The fix: give item $i$ the key $U_i^{1/w_i}$ for a fresh uniform
+          $U_i$ on $(0, 1)$ and keep the largest key — or the $k$ largest in a
+          heap. A heavier weight pushes the key toward $1$, so heavier items
+          tend to win, and the arrival order no longer matters at all.
       - teach: >
-          The trap is comparing floating-point cumulative probabilities against
-          a float draw — boundary draws can land on the wrong side of a
-          rounding error. A linear scan through weights is $O(m)$ per pick,
-          correct once but wrong the moment the interviewer says "now do this a
-          million times."
+          In an interview, "sample proportional to weight" wants two phrases
+          — prefix sums, binary search — and one question back: "Do the
+          weights change between draws?" Static weights: an array. Changing
+          weights: a Fenwick tree. A stream: the key $U^{1/w}$ and a heap.
 
   - node: quant-programming.randomized.rand7-from-rand5
     hook: >
@@ -932,79 +1663,175 @@ lessons:
       the largest multiple of the target range, map by mod, reject the
       remainder — and the rejection never disappears when the target
       doesn't divide a power of the source.
-    steps:
-      - teach: >
-          Two independent rand5 calls $a, b$ give $v = 5(a-1)+b$ uniform on
-          $\{1,\dots,25\}$ — combining two independent uniforms into one bigger
-          uniform range, the same trick the uniform-integer primitive is built
-          from, applied at the smallest scale.
-      - teach: >
-          Since $25$ isn't a multiple of $7$, the same modulo-bias problem
-          reappears. Keep $v \le 21$ — three full copies of $1,\dots,7$ — and
-          map via $((v-1) \bmod 7)+1$, giving each of the seven outputs exactly
-          three preimages; reject $\{22,\dots,25\}$ and redraw the whole pair.
+    dialogue:
+      - part: Ten outcomes from a seven-sided source
+        teach: >
+          You are given rand7, uniform on $\{1, \dots, 7\}$, and asked to write
+          rand10, uniform on $\{1, \dots, 10\}$. One call has only seven
+          outcomes, so you will need at least two.
       - ask: >
-          With acceptance $21/25$ for the grid draw, what's the expected number
-          of grid draws (each a fresh pair of rand5 calls) needed before one is
-          accepted?
-        expects: "25/21"
+          Two independent calls give a pair $(a, b)$. How many equally likely
+          pairs are there?
+        expects: "49"
         hint: >
-          A geometric wait's mean is the reciprocal of the success probability.
+          Seven values for $a$, each with seven for $b$.
         feedback: >
-          The number of grid draws is geometric with mean the reciprocal of the
-          acceptance probability: $1/(21/25) = 25/21$.
-      - teach: >
-          No fixed number of rand5 calls, however large, can build rand7
-          without ever rejecting: $k$ rand5 calls give $5^{k}$ equally likely
-          outcomes, and $7$, being prime and unequal to $5$, never divides any
-          power of $5$ — the same divisibility obstruction that blocks a naive
-          array shuffle, for a different pair of numbers.
+          $7 \times 7 = 49$ pairs, each with probability $1/49$.
       - ask: >
-          Reversing the construction to build rand5 from rand7: two rand7 calls
-          index a $7\times7=49$ grid, and outcomes $1$ through $35$ are kept.
-          What's the expected number of grid draws needed?
-        expects: "7/5"
-        hint: >
-          Reduce $49/35$ to lowest terms.
-        feedback: >
-          Acceptance is $35/49$, so the expected number of grid draws is
-          $49/35$, which reduces to $7/5$.
-      - teach: >
-          The block kept is always the largest multiple of the target range at
-          or below the source range — here $21$, the largest multiple of $7$ at
-          or below $25$ — and whatever's left over is always rejected, never
-          approximated.
-      - ask: >
-          A candidate implements the grid construction but rejects only $v=25$
-          instead of the whole block $\{22,23,24,25\}$. What goes wrong?
+          Which single number built from $a$ and $b$ is uniform over $49$
+          values?
         choices:
           - text: >
-              Nothing — rejecting one value is enough since only one value is
-              "extra"
+              $a + b$
             feedback: >
-              $25 \bmod 7 = 4$, not $1$ — the leftover block after three full
-              copies of $1,\dots,7$ is four values wide, not one.
+              The sum runs from $2$ to $14$ and piles up in the middle: $8$
+              comes from seven pairs, $2$ from only one. Adding dice makes a
+              triangle, not a flat distribution.
           - text: >
-              The seven outputs end up with uneven preimage counts
+              $a \cdot b$
+            feedback: >
+              Different pairs collide: $2 \cdot 6 = 3 \cdot 4 = 12$, while $49$
+              comes only from $(7, 7)$. Far fewer than $49$ values, unequally
+              likely.
+          - text: >
+              $v = 7(a - 1) + b$
             correct: true
             feedback: >
-              Rejecting only $v=25$ leaves $\{22,23,24\}$ mapped in, giving
-              three of the seven outputs an extra preimage over the other four
-              — biased, the same way an unrejected modulo is biased.
-          - text: >
-              The acceptance probability becomes too low to be useful
-            feedback: >
-              The bug here is a correctness bug, not a performance one —
-              rejecting less often than needed doesn't hurt speed, it breaks
-              uniformity.
+              Read $a$ as the row and $b$ as the column of a $7 \times 7$ grid:
+              every pair is a different cell, numbered $1$ to $49$, so $v$ is
+              uniform on $\{1, \dots, 49\}$.
         feedback: >
-          The rejected block must be exactly $25 \bmod 7 = 4$ values wide;
-          rejecting fewer leaves some residues with more preimages than others.
+          Two independent uniforms combine into one bigger uniform by treating
+          them as digits — base $7$ here — never by adding them.
+      - ask: >
+          Reduce every cell with $((v - 1) \bmod 10) + 1$. What is the
+          probability the output is $10$?
+        expects: "4/49"
+        hint: >
+          Output $10$ comes from $v = 10, 20, \dots$ — how many of those are at
+          most $49$?
+        feedback: >
+          $v = 10, 20, 30, 40$: four cells, so $4/49 \approx 0.082$. Outputs $1$
+          to $9$ each get five cells, $5/49 \approx 0.102$. The modulo bias is
+          back, because $10$ does not divide $49$.
+      - reflect: >
+          Which cells of the grid would you refuse, so that every output owns
+          the same number of cells — and what do you do when one comes up?
+        hint: >
+          What is the largest multiple of $10$ that fits in $49$?
+        answer: >
+          Keep cells $1$ to $40$, four full copies of $1, \dots, 10$, and
+          refuse $41$ to $49$ — the $49 \bmod 10 = 9$ leftover cells. On a
+          refused cell, throw the whole pair away and call rand7 twice more.
+          Every output then owns exactly four of the forty kept cells.
+
+      - part: Grid, keep, reduce, redraw
+        teach: >
+          The construction, then: two calls index a $7 \times 7$ grid; accept
+          $v \le 40$ and return $((v - 1) \bmod 10) + 1$; on $v \ge 41$, redraw
+          both calls. It is the uniform-integer recipe — keep the largest
+          multiple of the target, reject the ragged tail — applied to a grid.
+      - ask: >
+          What is the expected number of grids (pairs of calls) per rand10
+          output?
+        expects: "49/40"
+        hint: >
+          Each grid is accepted with probability $40/49$, independently.
+        feedback: >
+          The number of grids is geometric with success probability $40/49$,
+          so its mean is $49/40 = 1.225$.
+      - ask: >
+          And the expected number of rand7 calls per rand10 output?
+        expects: "2.45"
+        hint: >
+          Each grid costs two calls.
+        feedback: >
+          $2 \times 49/40 = 49/20 = 2.45$ calls per output.
+      - ask: >
+          Could a cleverer scheme with a fixed number of rand7 calls — three,
+          ten, a hundred — produce rand10 with no rejection at all?
+        choices:
+          - text: >
+              No: $7^{k}$ equal outcomes can be split into ten equal groups
+              only if $10$ divides $7^{k}$, and $7^{k}$ has no factor $2$ or
+              $5$.
+            correct: true
+            feedback: >
+              The only prime in $7^{k}$ is $7$. Whatever the scheme, some
+              outcomes must be refused — rejection is forced by arithmetic,
+              not by a clumsy implementation.
+          - text: >
+              Yes: with enough calls the leftover block becomes negligible.
+            feedback: >
+              Negligible is not zero. $k$ calls give $7^{k}$ equal outcomes,
+              and splitting them into ten equal groups needs $10$ to divide
+              $7^{k}$. It never does.
+          - text: >
+              Yes, with three calls: $343$ outcomes is enough to spread ten
+              ways almost evenly.
+            feedback: >
+              $343 = 34 \times 10 + 3$: three outcomes are left over, so three
+              outputs would be favoured. Almost even is still biased.
+        feedback: >
+          Rejection disappears only when the target divides some power of the
+          source range.
+      - ask: >
+          By that test, which of these can be built from rand6 with no
+          rejection?
+        choices:
+          - text: >
+              rand5, using three calls ($216$ outcomes)
+            feedback: >
+              $216 = 43 \times 5 + 1$, and no power of $6$ is a multiple of
+              $5$: rand5 from rand6 always needs rejection.
+          - text: >
+              rand4, using two calls ($36$ outcomes)
+            correct: true
+            feedback: >
+              $36 = 9 \times 4$: reduce the grid cell mod $4$ and each output
+              owns exactly nine cells, nothing refused.
+          - text: >
+              rand7, using two calls ($36$ outcomes)
+            feedback: >
+              $36 = 5 \times 7 + 1$. Seven is a prime that never divides a
+              power of $6$.
+        feedback: >
+          The primes of the target must all be primes of the source: $4 =
+          2^{2}$ and $6 = 2 \times 3$ share the $2$, while $5$ and $7$ share
+          nothing with $6$.
+
+      - part: The redraw that hangs
+        ask: >
+          A candidate saves a call: on a refused cell, keep $a$ and redraw only
+          $b$. What happens?
+        choices:
+          - text: >
+              It is fine: $b$ is fresh, so the next cell is fresh too.
+            feedback: >
+              Look at the row $a = 7$: its cells are $43$ to $49$, all refused.
+              Redrawing $b$ alone can never leave that row.
+          - text: >
+              Only a small bias toward low outputs.
+            feedback: >
+              Worse than bias. When $a = 7$ the loop never ends, since every
+              $b$ gives a refused cell.
+          - text: >
+              Whenever $a = 7$ it loops forever, and when $a = 6$ it only
+              accepts $b \le 5$, skewing the outputs.
+            correct: true
+            feedback: >
+              Row $7$ is entirely refused and row $6$ partly. Keeping $a$ makes
+              the retry depend on the failed draw, which destroys both
+              termination and uniformity.
+        feedback: >
+          A rejected grid is thrown away whole. Rejection is fair only because
+          each retry is a fresh, independent copy of the first try.
       - teach: >
-          The other trap is discarding just one of the two rand5 calls on
-          rejection instead of redrawing the whole pair — that silently
-          correlates consecutive outputs and voids the independence the
-          uniformity argument relies on.
+          The classic interview pair, rand7 from rand5, is these same lines
+          with different numbers. Say it as: "Two calls index a $5 \times 5$
+          grid; keep the first $21$ cells, three per output, reduce mod $7$;
+          redraw the pair on the other four. $25/21$ grids per output. And no
+          rejection-free scheme exists, because $7$ never divides $5^{k}$."
 
   - node: quant-programming.randomized.von-neumann
     hook: >
@@ -1053,77 +1880,144 @@ lessons:
       Flip in pairs, output HT as heads and TH as tails, discard ties:
       exactly fair for every $p$, at an expected $1/(pq)$ flips, which
       blows up as the coin skews toward certainty.
-    steps:
-      - teach: >
-          Flip a biased coin in pairs. Report heads on HT, tails on TH, and
-          discard HH and TT, retrying. The whole trick lives in one fact:
-          $\Pr(\text{HT}) = pq = \Pr(\text{TH})$ for every $p \in (0,1)$, since
-          the product $pq$ doesn't care which factor is called $p$.
-      - teach: >
-          Conditioning on landing in the usable set — HT or TH — makes the two
-          outputs exactly equally likely, $1/2$ each, whatever $p$ is. You
-          never estimate $p$, because the symmetry that makes this work doesn't
-          depend on its value.
+    dialogue:
+      - part: A bent coin and a bet
+        teach: >
+          A bet has to be settled by a perfectly fair coin flip, and the only
+          coin in the room is bent. Nobody knows its heads probability $p$ —
+          say, secretly, it is $1/3$ — and you are not allowed to rely on any
+          estimate of it. Flips are independent.
       - ask: >
-          For a coin with $p=0.7$ (so $q=0.3$), what's the probability that a
-          given pair of flips is usable — lands HT or TH?
-        expects: "0.42"
+          With $p = 1/3$, you flip the coin twice. What is the probability of
+          heads then tails?
+        expects: "2/9"
         hint: >
-          Usable means HT or TH, and each has probability $pq$.
+          Independent flips multiply: $p$ for the head, $1 - p$ for the tail.
         feedback: >
-          A pair is usable with probability $2pq = 2(0.7)(0.3) = 0.42$.
-      - teach: >
-          This is a Las Vegas contract: once it returns, the output is exactly
-          correct, and only the running time is random. A pair is usable with
-          probability $2pq$, so the number of pairs needed is geometric with
-          mean $1/(2pq)$, and at two flips per pair, the expected flips per
-          fair bit is $1/(pq)$.
+          $\Pr(\text{HT}) = (1/3)(2/3) = 2/9$. Heads-heads is $1/9$ and
+          tails-tails is $4/9$ — lopsided, as you would expect from this coin.
       - ask: >
-          Continuing with $p=0.7$: what's the expected number of flips needed
-          to produce one fair bit?
-        expects: "4.76"
-        tolerance: 0.01
-        hint: >
-          Expected flips is $1/(pq)$, the reciprocal of $p$ times $q$.
-        feedback: >
-          $pq = 0.21$, so the expected flips is $1/(pq) = 1/0.21 \approx 4.76$.
-      - teach: >
-          The cost curve says where the fairness was hiding: at $p=1/2$ the
-          cost is minimized at $4$ flips per bit — already worse than the
-          theoretical floor of $2$, so this scheme is simple, not optimal.
-      - ask: >
-          Why does the expected cost blow up as $p \to 0$ or $p \to 1$?
+          For a coin with an arbitrary, unknown $p$, how do $\Pr(\text{HT})$
+          and $\Pr(\text{TH})$ compare?
         choices:
           - text: >
-              The scheme becomes biased at extreme $p$, so more flips are
-              needed to correct it
+              $\Pr(\text{HT})$ is larger when $p > 1/2$, since heads comes
+              first.
             feedback: >
-              The output stays exactly fair for every $p$ — the symmetry
-              $\Pr(\text{HT})=\Pr(\text{TH})$ never breaks. Only the running
-              time changes.
+              Order does not matter to a product: $\Pr(\text{HT}) = pq$ and
+              $\Pr(\text{TH}) = qp$, with $q = 1 - p$. The head appears once in
+              each.
           - text: >
-              HT and TH pairs become rare, since almost every pair is HH or TT,
-              so most pairs are discarded
+              They are always equal, both $pq$.
             correct: true
             feedback: >
-              As $p \to 0$ or $1$, $pq \to 0$, so usable pairs (HT or TH)
-              become vanishingly rare and the algorithm burns flips on pairs it
-              must discard.
+              One head and one tail, in either order, cost the same $p \cdot q$
+              — at $p = 1/3$, both are $2/9$. That symmetry holds for every
+              $p$, known or not.
           - text: >
-              The formula $1/(pq)$ is only an upper bound, and the true cost
-              stays flat
+              They can be compared only once $p$ is estimated.
             feedback: >
-              $1/(pq)$ is the exact expected number of flips, not a bound, and
-              it genuinely grows without limit as $p$ approaches $0$ or $1$.
+              Nothing needs estimating: $pq = qp$ is an identity, true for
+              every $p$ at once.
         feedback: >
-          A lopsided coin carries almost no information per flip about which
-          rare ordering, HT or TH, occurred — that's the entire reason the cost
-          explodes at extreme $p$.
+          Among all four outcomes of a pair, HT and TH are the two that tie
+          exactly, whatever the coin.
+      - reflect: >
+          You have two outcomes of a pair of flips that are exactly equally
+          likely for every $p$. How do you turn that into a fair bit — and what
+          do you do about HH and TT?
+        answer: >
+          Flip in pairs. Report heads on HT and tails on TH. On HH or TT,
+          report nothing: discard the pair and flip a fresh one. Conditioned
+          on stopping, the two reports split an event of probability $2pq$
+          into two halves of $pq$ each, so each comes out with probability
+          exactly $1/2$ — and $p$ never enters the procedure.
+
+      - part: Two orders that tie
+        teach: >
+          That is von Neumann's trick. It is a Las Vegas routine: once it
+          returns a bit, the bit is exactly fair, and only the number of pairs
+          it burns is random.
+      - ask: >
+          With $p = 1/3$, what is the probability that a given pair is usable?
+        expects: "4/9"
+        hint: >
+          Usable is HT or TH.
+        feedback: >
+          $2pq = 2 (1/3)(2/3) = 4/9$. The other $5/9$ of pairs are thrown
+          away.
+      - ask: >
+          With $p = 1/3$, what is the probability that the first fair bit comes
+          from the second pair and is heads?
+        expects: "10/81"
+        hint: >
+          The first pair must be discarded, then the second must be HT.
+        feedback: >
+          $(5/9)(2/9) = 10/81$. Tails from the second pair is also $10/81$:
+          whichever pair the routine stops on, HT and TH weigh $pq$ each, so
+          conditioning on the stopping pair leaves exactly $1/2$ — and the
+          discarded pairs carry no information about the bit.
+      - ask: >
+          With $p = 1/3$, what is the expected number of flips per fair bit?
+        expects: "4.5"
+        hint: >
+          The number of pairs is geometric with success probability $4/9$, and
+          each pair is two flips.
+        feedback: >
+          $9/4$ pairs on average, times $2$ flips: $9/2 = 4.5$. In general
+          $2 \cdot 1/(2pq) = 1/(pq)$.
+
+      - part: What fairness costs
+        ask: >
+          A heavily bent coin has $p = 0.99$. About how many flips does each
+          fair bit cost? Give it to one decimal.
+        expects: "101.0"
+        tolerance: 0.05
+        hint: >
+          $1/(pq)$ with $q = 0.01$.
+        feedback: >
+          $pq = 0.99 \times 0.01 = 0.0099$, so $1/(pq) \approx 101.0$ flips.
+          Almost every pair is HH; the rare HT or TH carries all the
+          randomness, and the cost blows up as $p$ nears $0$ or $1$.
       - teach: >
-          The two traps to avoid: assuming you need to estimate $p$ first (the
-          entire point is that you don't), and reusing one flip from a rejected
-          pair as the start of the next pair instead of discarding both, which
-          breaks independence between pairs and voids the fairness proof.
+          Even a fair coin costs $4$ flips per bit this way, against a floor
+          of $2$ — the trick is simple, not optimal. Its value is that it is
+          exact for every $p$ without knowing $p$. The proof leans on two
+          things: the two flips of a pair are independent, and they share the
+          same $p$.
+
+      - part: Breaking the symmetry
+        ask: >
+          A candidate saves flips by overlapping pairs: on HH or TT, keep the
+          second flip as the first flip of the next pair. With $p = 1/3$, what
+          is the probability this version outputs heads?
+        expects: "1/3"
+        hint: >
+          The routine stops at the first flip that differs from the one before
+          it. What must every flip before that point equal?
+        feedback: >
+          Overlapping pairs stop at the first change in the sequence, and every
+          flip before the change equals the very first flip. So the output is
+          just the first flip: heads with probability $p = 1/3$. Reusing a flip
+          made every pair depend on the last.
+      - ask: >
+          The coin heats up as it is flipped: the first flip of each pair has
+          $p = 0.4$ and the second $p = 0.5$, still independent. Given a usable
+          pair, what is the probability of heads?
+        expects: "0.4"
+        hint: >
+          $\Pr(\text{HT}) = 0.4 \times 0.5$, $\Pr(\text{TH}) = 0.6 \times
+          0.5$.
+        feedback: >
+          $\Pr(\text{HT}) = 0.20$ and $\Pr(\text{TH}) = 0.30$, so heads comes
+          out $0.20/0.50 = 0.4$. With different $p$ for the two flips, $p_1
+          q_2 \ne q_1 p_2$, and the tie that made the trick exact is gone.
+      - teach: >
+          Said aloud: "Flip twice; HT means heads, TH means tails, otherwise
+          flip a fresh pair. $\Pr(\text{HT}) = \Pr(\text{TH}) = pq$, so it is
+          exactly fair for any $p$, at $1/(pq)$ flips per bit." The
+          interviewer's follow-up is usually the cost, or what happens if
+          flips are reused.
 
   - node: quant-programming.randomized.biased-from-fair
     hook: >
@@ -1147,11 +2041,12 @@ lessons:
       doesn't depend on $p$ at all is the load-bearing fact, unlike von
       Neumann's reverse direction, where cost blows up at extreme $p$.
 
-      For rational $p = a/b$ there's a cheaper exact route using the
+      For rational $p = a/b$ there's a second exact route using the
       uniform-integer primitive directly: draw a uniform integer on
       $\{0,\dots,b-1\}$ by rejection and report whether it's below $a$ — one
       integer draw, no lazy bit comparison, useful whenever $p$ is already
-      given as a fraction rather than a real number to expand.
+      given as a fraction rather than a real number to expand, though in
+      fair flips it usually costs more than the lazy comparison's $2$.
     worked: >
       Take $p = 5/8 = 0.101$ in binary ($b_1=1, b_2=0, b_3=1$, all further
       digits $0$). Stopping at digit $1$ needs $c_1=0$ (probability $1/2$),
@@ -1177,87 +2072,180 @@ lessons:
       Compare a lazily-drawn fair-bit stream to $p$'s binary expansion digit
       by digit and stop at the first mismatch: exactly $\Pr = p$, at an
       expected $2$ flips regardless of $p$.
-    steps:
-      - teach: >
-          Write $p$ in binary as $0.b_1b_2b_3\dots$. Draw fair bits $c_1, c_2,
-          \dots$ lazily, one at a time, and stop at the first index $i$ where
-          $c_i \ne b_i$, returning $1$ if $c_i=0$ and $0$ if $c_i=1$.
-      - teach: >
-          This is deciding $U < p$ for $U = 0.c_1c_2\dots$ uniform on $[0,1)$,
-          compared digit by digit and stopped the instant a digit differs —
-          every digit where $c_i$ matched $b_i$ contributes nothing, so there's
-          no reason to have generated it in advance.
+    dialogue:
+      - part: Four flips for one decision
+        teach: >
+          A simulator must fill an order with probability exactly $11/16$, and
+          its only randomness is a fair coin. The obvious method: flip four
+          coins, read them as the binary digits of an integer $U$ from $0$ to
+          $15$, most significant first, and fill if $U < 11$. That is four
+          flips per decision, every time.
       - ask: >
-          Take $p = 3/8 = 0.011$ in binary ($b_1=0, b_2=1, b_3=1$, all later
-          digits $0$). What is $\Pr(\text{output}=1)$?
-        expects: "3/8"
-        hint: >
-          Work out, digit by digit, which stopping index returns $1$ and what
-          probability that stopping index has.
-        feedback: >
-          Stopping at digit $1$ needs $c_1=1$ (probability $1/2$), which
-          returns $0$. Stopping at digit $2$ needs $c_1=0, c_2=0$ (probability
-          $1/4$), returning $1$: contributes $1/4$. Stopping at digit $3$ needs
-          $c_1=0,c_2=1,c_3=0$ (probability $1/8$), returning $1$: contributes
-          $1/8$. Every later digit is $0$, so any later stop returns $0$.
-          Total: $1/4 + 1/8 = 3/8$, exactly $p$.
-      - teach: >
-          Cost: at each digit there's an independent $1/2$ chance $c_i \ne b_i$
-          and the process stops, since each $c_i$ is a fresh fair bit unrelated
-          to $b_i$ — so the number of digits examined is geometric with mean
-          $2$, for every $p$, including irrational ones.
-      - ask: >
-          Why doesn't the expected number of flips depend on $p$ at all, unlike
-          von Neumann's reverse direction, where the cost blows up at extreme
-          $p$?
+          The first flip comes up $0$. What do you know before flipping again?
         choices:
           - text: >
-              Because $p$ is always assumed to be rational here
+              Nothing yet: $U$ is not known until all four digits are in.
             feedback: >
-              The construction works for irrational $p$ too — the comparison
-              only needs finitely many digits with probability $1$, regardless
-              of whether $p$'s expansion terminates.
+              $U$ is not known, but the decision is. A leading $0$ means
+              $U \le 7$, and every value up to $7$ is below $11$.
           - text: >
-              Each digit comparison is a fresh fair coin unrelated to $b_i$, so
-              the mismatch probability is always exactly $1/2$ no matter what
-              $p$'s digits are
+              The order fills, whatever the other three flips are.
             correct: true
             feedback: >
-              $c_i$ is fair and independent of $b_i$, so $\Pr(c_i \ne b_i) =
-              1/2$ at every digit regardless of whether that digit of $p$ is
-              $0$ or $1$ — the geometric mean is $2$ unconditionally.
+              A leading $0$ puts $U$ in $\{0, \dots, 7\}$, all below $11$.
+              The remaining three flips cannot change the answer, so they are
+              wasted.
           - text: >
-              Because the recursion depth is bounded by the number of bits in a
-              machine word
+              The order does not fill.
             feedback: >
-              Nothing here is bounded by word size — the argument is purely
-              about the fixed $1/2$ mismatch probability at each digit.
+              A leading $0$ makes $U$ small, at most $7$ — and small means
+              below $11$, so it fills.
         feedback: >
-          Every digit comparison is a fresh, fair, independent coin flip
-          against a fixed target bit, so the stopping probability is $1/2$ at
-          every digit no matter what $p$ is — that's why the mean stays $2$ for
-          every $p$.
-      - teach: >
-          For rational $p = a/b$ there's a cheaper exact route: draw a uniform
-          integer on $\{0,\dots,b-1\}$ by rejection using the uniform-integer
-          primitive, and report whether it's below $a$ — one integer draw, no
-          lazy bit comparison.
+          Half the time, one flip already settles the decision.
       - ask: >
-          Using the rejection shortcut for $p = 2/5$ ($a=2$, $b=5$): what's the
-          probability that a uniform integer draw on $\{0,\dots,4\}$ lands
-          below $2$?
-        expects: "2/5"
+          Suppose instead the first two flips are $1, 1$. Does the order fill?
+          Answer $1$ for fill, $0$ for no fill.
+        expects: "0"
         hint: >
-          Count how many of the $b$ equally likely integers are below $a$.
+          Which values of $U$ start with the binary digits $11$?
         feedback: >
-          Exactly $2$ of the $5$ equally likely values, $0$ and $1$, are below
-          $a=2$, giving probability $2/5$ — the shortcut reproduces $p$ in one
-          draw instead of a lazy bit stream.
+          $U$ starts $11$, so $U \in \{12, \dots, 15\}$, all at least $11$: no
+          fill, after two flips.
+      - ask: >
+          Flip one coin at a time and stop the moment the decision is settled.
+          What is the expected number of flips per decision?
+        expects: "15/8"
+        hint: >
+          $11 = 1011$ in binary. A first flip of $0$ settles it; after a $1$, a
+          second flip of $1$ settles it; and so on. Find the probability of
+          stopping at each of flips $1$ to $4$.
+        feedback: >
+          Stop at flip $1$ with probability $1/2$, flip $2$ with $1/4$, flip
+          $3$ with $1/8$, and flip $4$ otherwise, $1/8$:
+          $1/2 + 2/4 + 3/8 + 4/8 = 15/8$. Fewer than two flips on average,
+          instead of four.
+      - reflect: >
+          In terms of the binary digits of $11/16 = 0.1011$, state the rule
+          that tells you, flip by flip, whether you are done and what the
+          answer is.
+        hint: >
+          Compare each flip with the digit of $p$ in the same position.
+        answer: >
+          Treat the flips $c_1, c_2, \dots$ as the binary digits of $U$ and
+          compare them with $p$'s digits $b_1, b_2, \dots$. While they agree,
+          nothing is decided. At the first position where they differ, $U$ is
+          below $p$ if the flip is $0$ (and $p$'s digit $1$), above it if the
+          flip is $1$. So stop there and fill exactly when that flip is $0$.
+
+      - part: Comparing against the digits of p
+        teach: >
+          That rule works for any $p$, written in binary as
+          $0.b_1 b_2 b_3 \dots$: draw fair bits lazily, stop at the first $i$
+          with $c_i \ne b_i$, and return $1$ if $c_i = 0$, $0$ if $c_i = 1$. It
+          decides $U < p$ for a uniform $U$ on $[0, 1)$, reading only as many
+          digits of $U$ as the comparison needs — even when $p$'s expansion
+          never ends.
+      - ask: >
+          Take $p = 0.3$, which in binary is $0.0100110011\dots$. The flips come
+          up $0, 1, 1$. What does the routine return?
+        choices:
+          - text: >
+              $0$: the flips match $0, 1$, then $c_3 = 1$ exceeds $b_3 = 0$, so
+              $U > p$.
+            correct: true
+            feedback: >
+              $U$ starts $0.011$ and $p$ starts $0.010$, so $U$ is the larger
+              — no fill. Return $1$ only when the differing flip is $0$.
+          - text: >
+              $1$, because the third flip is where it stopped.
+            feedback: >
+              Stopping says the digits differ; the value of the differing flip
+              says which way. Here $c_3 = 1$ against $b_3 = 0$, so $U > p$.
+          - text: >
+              Nothing yet: the routine must keep going because $p$'s expansion
+              never ends.
+            feedback: >
+              Once one digit differs, every later digit is irrelevant: $U$ and
+              $p$ are already ordered. The infinite tail of $p$ is never read.
+        feedback: >
+          The decision is made by the first disagreement, and the bit that
+          disagrees says which side of $p$ the uniform landed on.
+      - ask: >
+          For $p = 0.3$, what is the expected number of flips per decision?
+        expects: "2"
+        hint: >
+          At each position, a fresh fair flip disagrees with $b_i$ with what
+          probability — whether $b_i$ is $0$ or $1$?
+        feedback: >
+          Each fresh fair flip differs from the fixed digit $b_i$ with
+          probability $1/2$, whatever $b_i$ is, so the stopping position is
+          geometric with mean $2$. The same holds for every $p$ whose
+          expansion does not end — irrational $p$ included.
+
+      - part: Shortcuts that cost more
+        ask: >
+          A colleague generates $64$ flips up front, forms a $64$-bit integer,
+          and fills if it is below $\lfloor 0.3 \cdot 2^{64} \rfloor$. What is
+          wrong with that?
+        choices:
+          - text: >
+              Nothing: $64$ bits is more precision than anyone needs.
+            feedback: >
+              It is still not exact: $0.3$ has an infinite binary expansion,
+              so truncating at $64$ digits gives a probability slightly off
+              $0.3$. And it pays $64$ flips where $2$ suffice on average.
+          - text: >
+              It would never terminate for an irrational $p$.
+            feedback: >
+              A fixed $64$ flips always terminates. What would never terminate
+              is trying to generate all of $U$'s digits; the colleague instead
+              cut off at $64$ and accepted a small error.
+          - text: >
+              It is slightly inexact, since $p$ is truncated, and it spends
+              $64$ flips per decision instead of $2$ on average.
+            correct: true
+            feedback: >
+              Generating digits that the comparison never reads is pure waste,
+              and stopping at a fixed length forces a rounding of $p$. The lazy
+              version is exact and cheap.
+        feedback: >
+          Lazy evaluation is the whole technique: read a digit only when the
+          comparison needs it.
+      - ask: >
+          A teammate prefers to avoid binary expansions: draw a uniform integer
+          below a denominator by rejection, and compare. For which target is
+          the lazy comparison the only exact option of the two?
+        choices:
+          - text: >
+              $p = 2/3$
+            feedback: >
+              Rational, so the integer route works: a uniform draw on
+              $\{0, 1, 2\}$, by rejection from two flips, is below $2$ with
+              probability exactly $2/3$.
+          - text: >
+              $p = 5/8$
+            feedback: >
+              Dyadic, so the integer route is even simpler: three flips read as
+              an integer below $8$, no rejection at all, fill when it is below
+              $5$.
+          - text: >
+              $p = 1/\sqrt{2}$
+            correct: true
+            feedback: >
+              No denominator exists, so there is no uniform integer to compare
+              with. The lazy comparison only needs the digits of
+              $1/\sqrt{2}$ one at a time, as far as the first mismatch — on
+              average two of them.
+        feedback: >
+          The integer route needs $p = a/b$ and is easy to write; the lazy
+          comparison handles any $p$ whose binary digits you can compute on
+          demand, at $2$ flips on average.
       - teach: >
-          The trap is generating all of $U$'s bits up front instead of lazily —
-          for irrational $p$ that never terminates — and mixing up the return
-          rule, since it's the value of the differing bit that decides the
-          output ($c_i=0 \to$ output $1$), an easy detail to flip by accident.
+          Asked "make a $p$-coin from a fair coin", say: "Compare a lazily
+          generated fair-bit stream against $p$'s binary expansion; stop at
+          the first mismatch and return $1$ if my bit was the $0$. Exact for
+          any $p$, two flips on average." The return rule is the detail people
+          flip under pressure.
 
   - node: quant-programming.randomized.pi-simulation
     hook: >
@@ -1310,83 +2298,145 @@ lessons:
       Two uniforms, no square root, one hit counter — and the estimator's
       standard error, $1.64/\sqrt{n}$ scaled by $4$, is what turns "test a
       random function" into an honest, quantified assertion.
-    steps:
-      - teach: >
-          Draw $u, v$ uniform on $(0,1)$, increment a hit counter when
-          $u^{2}+v^{2} \le 1$ — comparing squares directly, never taking a
-          square root — and return $4$ times hits over $n$. This is the Monte
-          Carlo contract exactly: a fixed budget $n$, an answer correct only up
-          to sampling error.
+    dialogue:
+      - part: Darts at the unit square
+        teach: >
+          The interviewer asks for a function that estimates $\pi$ by
+          throwing $n$ darts uniformly at the unit square and counting those
+          inside the quarter disc $u^{2} + v^{2} \le 1$. You write it in four
+          lines. Then comes the real question: "Now write a unit test for it."
       - ask: >
-          A run with $n=1{,}000$ samples produces exactly $785$ hits. What pi
-          estimate does the four-line procedure return?
-        expects: "3.14"
+          A run with $n = 2{,}000$ darts records $1{,}566$ hits. What estimate
+          of $\pi$ does it return?
+        expects: "3.132"
         hint: >
-          Multiply the hit fraction by $4$.
+          The quarter disc covers $\pi/4$ of the square.
         feedback: >
-          The estimate is $4 \times \text{hits}/n = 4 \times 785/1000 = 3.14$.
-      - teach: >
-          The genuinely interesting half is testing it: a randomized function
-          can't be asserted against a fixed value. Seed the generator and pin
-          the exact output as a regression test — this checks "did I break the
-          code," not "is the algorithm right," and only means anything if the
-          seeded stream is deterministic across runs.
+          Hits over darts estimates $\pi/4$, so the estimate is
+          $4 \times 1566/2000 = 4 \times 0.783 = 3.132$.
       - ask: >
-          The estimator's standard error at $n$ samples is about
-          $1.64/\sqrt{n}$. At $n = 250{,}000$ samples, what tolerance should a
-          statistical test use for $|\hat\pi - \pi|$, using $4 \times
-          1.64/\sqrt{n}$?
-        expects: "0.01312"
-        hint: >
-          Take the square root of $n$ first, then divide $6.56$ by it.
-        feedback: >
-          $\sqrt{250000} = 500$, so the tolerance is $4 \times 1.64/500 =
-          6.56/500 = 0.01312$.
-      - teach: >
-          The general pattern for testing any randomized routine: split it into
-          deterministic pieces — here, the hit predicate and the counter — and
-          unit-test those exactly, then test the randomized composition only
-          statistically, never with an exact assertion on a random output.
-      - ask: >
-          A teammate's only test for the pi estimator is asserting the output
-          equals $3.14159$ to five decimal places at $n=1{,}000$. What's wrong
-          with this test?
+          Which hit test belongs in the loop?
         choices:
           - text: >
-              Nothing — pinning an exact expected value is the right way to
-              test any function
+              $\sqrt{u^{2} + v^{2}} \le 1$
             feedback: >
-              That's right for deterministic code, but a randomized estimator's
-              output varies run to run; pinning a fixed value ignores that
-              entirely.
+              Correct as mathematics, but the square root is wasted work: for
+              non-negative numbers, $\sqrt{x} \le 1$ exactly when $x \le 1$.
+              It adds cost and a rounding step for nothing.
           - text: >
-              At $n=1{,}000$ the sampling error is far larger than five decimal
-              places, so the test fails almost every run purely from
-              randomness, not from a bug
+              $u + v \le 1$
+            feedback: >
+              That is a triangle of area $1/2$, not the quarter disc. Four times
+              its hit rate converges to $2$, not $\pi$.
+          - text: >
+              $u^{2} + v^{2} \le 1$
             correct: true
             feedback: >
-              The standard error at $n=1{,}000$ is on the order of $0.05$,
-              orders of magnitude larger than $10^{-5}$ — this test is a coin
-              flip on the run, not a real check.
-          - text: >
-              The test should use more decimal places for extra precision
-            feedback: >
-              More decimal places only makes an already-broken test fail even
-              more reliably — the problem is asserting an exact value at all,
-              not the precision chosen.
+              The squared distance compared with $1$ decides the same thing as
+              the distance, with two multiplications and an add.
         feedback: >
-          Any exact assertion on a randomized output ignores the sampling error
-          entirely; the honest routes are a seeded regression test or an
-          assertion sized to a stated number of standard errors.
+          Compare squares, never take the root: the predicate is exact and
+          cheap, and it is a deterministic piece you can test on its own.
+      - ask: >
+          First test attempt: assert $|\hat{\pi} - \pi| < 0.001$ after
+          $2{,}000$ darts. The estimator's standard error there is about
+          $0.037$. What happens?
+        choices:
+          - text: >
+              It passes almost always, since the estimator is unbiased.
+            feedback: >
+              Unbiased means right on average, not right on every run. Single
+              runs scatter about $0.037$ either side of $\pi$ — your $3.132$
+              missed by $0.0096$.
+          - text: >
+              It fails on about $98\%$ of runs, with no bug anywhere.
+            correct: true
+            feedback: >
+              $0.001$ is about $0.027$ standard errors, and a normal lands that
+              close to its mean only about $2\%$ of the time. The test measures
+              luck, not code.
+          - text: >
+              It fails about half the time.
+            feedback: >
+              Half would need the tolerance to be about $0.67$ standard errors.
+              At $0.027$ standard errors it passes only about $2\%$ of runs.
+        feedback: >
+          A Monte Carlo routine — fixed budget of darts, answer right only up
+          to sampling error — cannot be asserted against a fixed number.
+      - reflect: >
+          The function returns something different on every run. What can a
+          test honestly assert about it? Name two different things you could
+          pin down.
+        hint: >
+          One route removes the randomness; the other accounts for it.
+        answer: >
+          Either remove the randomness: fix the generator's seed and assert the
+          exact output — a regression test that catches any change in
+          behaviour, though not whether the method is right. Or account for
+          it: assert $|\hat{\pi} - \pi|$ is within several standard errors, so
+          the test itself has a small, stated false-alarm rate. And test the
+          deterministic pieces — the hit predicate, the counter — exactly, on
+          their own.
+
+      - part: Sizing the tolerance
+        teach: >
+          The statistical route needs the standard error. Each dart is a hit
+          with probability $\pi/4$, so the hit fraction has standard deviation
+          $\sqrt{(\pi/4)(1 - \pi/4)/n}$, and the estimate, four times that
+          fraction, has standard error $4\sqrt{(\pi/4)(1 - \pi/4)}/\sqrt{n}$.
+      - ask: >
+          Compute the constant $4\sqrt{(\pi/4)(1 - \pi/4)}$ to two decimals.
+        expects: "1.64"
+        tolerance: 0.005
+        hint: >
+          $\pi/4 \approx 0.7854$ and $1 - \pi/4 \approx 0.2146$.
+        feedback: >
+          $0.7854 \times 0.2146 \approx 0.1686$, whose square root is about
+          $0.4106$; times $4$ is about $1.64$. So the standard error is
+          $1.64/\sqrt{n}$.
+      - ask: >
+          A test allows four standard errors. What tolerance does it use at
+          $n = 10{,}000$ darts?
+        expects: "0.0656"
+        hint: >
+          $4 \times 1.64/\sqrt{10000}$.
+        feedback: >
+          $4 \times 1.64/100 = 0.0656$. A normal strays beyond four standard
+          errors with probability about $6 \times 10^{-5}$, so the test
+          almost never fails without a bug.
+      - ask: >
+          The suite raises $n$ from $10{,}000$ to $160{,}000$ darts. What is the
+          new four-standard-error tolerance?
+        expects: "0.0164"
+        hint: >
+          The tolerance scales like $1/\sqrt{n}$, and $n$ grew sixteenfold.
+        feedback: >
+          $\sqrt{16} = 4$, so the tolerance shrinks fourfold:
+          $0.0656/4 = 0.0164$. Sixteen times the darts buys a fourfold
+          tighter tolerance — the $1/\sqrt{n}$ rate is the price of Monte
+          Carlo.
+
+      - part: Why four standard errors, not two
+        ask: >
+          A teammate prefers a tighter two-standard-error tolerance, which a
+          correct estimator still exceeds on about $4.55\%$ of runs. CI runs
+          the test $20$ times a day. How many spurious failures a day should
+          you expect?
+        expects: "0.91"
+        tolerance: 0.01
+        hint: >
+          Expected failures are runs times failure probability.
+        feedback: >
+          $20 \times 0.0455 \approx 0.91$ — nearly one red build a day from
+          noise alone, and a team learns to ignore red builds. At four
+          standard errors the same schedule gives one false alarm in about
+          two years.
       - teach: >
-          Taking a square root to compare distances to the unit circle is an
-          unnecessary operation, since $u^{2}+v^{2}\le1$ compares exactly the
-          same way without it — a small but real waste worth cutting on sight.
-      - teach: >
-          Expect the interview to follow "estimate pi with Monte Carlo"
-          immediately with "now how would you test this" — naming the
-          deterministic/statistical split before being asked is what separates
-          understanding from a memorized four-liner.
+          Said aloud: "Two uniforms, compare $u^{2} + v^{2}$ with $1$, four
+          times the hit rate. To test it: unit-test the predicate exactly, pin
+          a seed for a regression test, and for correctness assert within four
+          standard errors, $4 \times 1.64/\sqrt{n}$, which fails without a bug
+          less than once in ten thousand runs."
 
   - node: quant-programming.randomized.quicksort-expected
     hook: >
@@ -1440,84 +2490,173 @@ lessons:
       block is one of the two endpoints ($2/(j-i+1)$): linearity turns that
       into $2(n+1)H_n - 4n \approx 1.39\,n\log_2 n$ comparisons in
       expectation.
-    steps:
-      - teach: >
-          Fix the sorted order $z_1 < \dots < z_n$ and define $X_{ij} =
-          \mathbf{1}\{z_i \text{ and } z_j \text{ are compared}\}$ for $i<j$.
-          Total comparisons $C = \sum_{i<j} X_{ij}$, since two keys compare at
-          most once — once one becomes the pivot, they never meet again.
-      - teach: >
-          $z_i$ and $z_j$ are compared exactly when the first pivot ever drawn
-          from the block $\{z_i,\dots,z_j\}$ is $z_i$ or $z_j$ itself — any
-          interior pivot separates them onto opposite sides forever. That first
-          pivot is uniform among the block's $j-i+1$ members, so $\Pr(X_{ij}=1)
-          = 2/(j-i+1)$.
+    dialogue:
+      - part: Four prices, one random pivot
+        teach: >
+          Randomized quicksort sorts four distinct prices, $10, 20, 30, 40$,
+          given in some scrambled order. Each pivot is drawn uniformly from the
+          current subarray, and partitioning compares the pivot with every
+          other key in that subarray. The interviewer wants the expected
+          number of comparisons.
       - ask: >
-          For a contiguous block of $5$ sorted keys, what's the probability
-          that its two endpoints are ever compared against each other?
-        expects: "0.4"
+          Suppose the first pivot drawn is $20$. How many comparisons does that
+          first partitioning step make?
+        expects: "3"
         hint: >
-          Use $2/(j-i+1)$ with the block size in the denominator.
+          The pivot is compared with every other key in the subarray.
         feedback: >
-          $\Pr(X_{ij}=1) = 2/(j-i+1) = 2/5 = 0.4$, since the block has $5$
-          members and either endpoint being the first pivot drawn from it
-          triggers the comparison.
-      - teach: >
-          Linearity gives $\mathbb{E}[C] = \sum_{i<j}\Pr(X_{ij}=1)$,
-          sidestepping any need to reason about the recursive structure
-          directly. Summing by gap length $g=j-i$, there are $n-g$ pairs at gap
-          $g$, each contributing $2/(g+1)$, and the sum collapses to $2(n+1)H_n
-          - 4n$.
+          $20$ is compared with $10$, $30$ and $40$: three comparisons, leaving
+          $\{10\}$ on the left and $\{30, 40\}$ on the right.
       - ask: >
-          Using $2(n+1)H_n - 4n$, what's $\mathbb{E}[C]$ for $n=5$?
-        expects: "7.4"
-        tolerance: 0.01
-        hint: >
-          Compute $H_5$ first, then plug $n=5$ into $2(n+1)H_n - 4n$.
-        feedback: >
-          $H_5 = 137/60 \approx 2.2833$, so $2(6)(2.2833) - 20 = 27.4 - 20 =
-          7.4$ expected comparisons.
-      - ask: >
-          A candidate proposes computing $\mathbb{E}[C]$ from the recurrence
-          $T(n) = n-1 + \frac{1}{n}\sum_k (T(k)+T(n-1-k))$ instead of the
-          pairwise-indicator argument. Which is true?
+          After that split, will $10$ and $40$ ever be compared?
         choices:
           - text: >
-              The indicator argument is preferred because it sidesteps the
-              recursive structure entirely and gives a closed form immediately
-              via linearity
+              Yes, when the two halves are merged back together.
+            feedback: >
+              Quicksort never merges: once partitioned, the halves are sorted
+              separately and simply sit side by side. Nothing compares across
+              them.
+          - text: >
+              Possibly, if $40$ is later picked as a pivot.
+            feedback: >
+              A later pivot from $\{30, 40\}$ is compared only with keys in
+              its own subarray. $10$ is not there.
+          - text: >
+              Never: they now sit in different subarrays for good.
             correct: true
             feedback: >
-              Linearity of expectation turns the sum over pairs into a closed
-              form directly — no need to solve a recurrence or reason about how
-              the recursion branches.
-          - text: >
-              The recurrence is simply wrong and cannot give the right answer
-            feedback: >
-              The recurrence isn't wrong — it's just harder to solve cleanly
-              than summing pairwise indicators.
-          - text: >
-              The indicator argument only works because the $X_{ij}$ are
-              independent of each other
-            feedback: >
-              Linearity of expectation holds regardless of independence — the
-              $X_{ij}$ are in fact dependent, and the argument never needs them
-              not to be.
+              The pivot $20$ fell strictly between them, and from then on they
+              live in separate recursive calls.
         feedback: >
-          Linearity of expectation never requires independence — that's exactly
-          why summing $2/(j-i+1)$ over all pairs works even though whether one
-          pair is compared is correlated with whether another is.
+          A pivot strictly between two keys separates them forever. Two keys
+          are compared only if one of them is a pivot while both are still in
+          the same subarray — so any pair is compared at most once.
+      - reflect: >
+          Following that thought, state exactly when $10$ and $30$ get
+          compared during the whole run, in terms of which key is drawn as a
+          pivot first.
+        hint: >
+          Watch the block of keys from $10$ to $30$ in sorted order. Until one
+          of them is a pivot, they all stay together.
+        answer: >
+          Look at the block $\{10, 20, 30\}$. While pivots come from outside
+          it, the whole block stays in one subarray. The first pivot drawn
+          from inside the block decides: if it is $20$, the two are separated
+          forever; if it is $10$ or $30$, that pivot is compared with the
+          other. So they are compared exactly when the first pivot from their
+          block is one of the two endpoints.
+
+      - part: The block between them
+        ask: >
+          What is the probability that $10$ and $30$ are ever compared?
+        expects: "2/3"
+        hint: >
+          The first pivot from $\{10, 20, 30\}$ is uniform over those three.
+        feedback: >
+          Two of the three keys in the block are endpoints, so $2/3$. Note it
+          is not "$10$ or $30$ is the first pivot of the whole array", which
+          has probability $2/4$ — a pivot of $40$ first leaves the block
+          intact.
+      - ask: >
+          And the probability that $10$ and $40$ are ever compared?
+        expects: "1/2"
+        hint: >
+          Their block is all four keys.
+        feedback: >
+          The block $\{10, 20, 30, 40\}$ has four members, two of them
+          endpoints: $2/4 = 1/2$.
       - teach: >
-          The sum collapses to $2(n+1)H_n - 4n \approx 2n\ln n$, about
-          $1.39\,n\log_2 n$ comparisons — indicator variables plus linearity is
-          the same move behind counting inversions and counting hash
-          collisions.
+          In general, write $z_1 < \dots < z_n$ for the sorted keys and
+          $X_{ij}$ for the indicator that $z_i$ and $z_j$ are compared. Their
+          block has $j - i + 1$ keys, so $\Pr(X_{ij} = 1) = 2/(j - i + 1)$.
+          Since each pair is compared at most once, the total is
+          $C = \sum_{i<j} X_{ij}$, and linearity gives
+          $\mathbb{E}[C] = \sum_{i<j} 2/(j - i + 1)$.
+      - ask: >
+          Sum it for the four prices: what is the expected number of
+          comparisons?
+        expects: "29/6"
+        hint: >
+          Group pairs by gap $j - i$: three pairs at gap $1$, two at gap $2$,
+          one at gap $3$.
+        feedback: >
+          Gap $1$: $3 \times 2/2 = 3$. Gap $2$: $2 \times 2/3 = 4/3$. Gap $3$:
+          $1 \times 2/4 = 1/2$. Total $3 + 4/3 + 1/2 = 29/6 \approx 4.83$,
+          against $6$ if every pair were compared.
+      - ask: >
+          Whether $10$–$20$ is compared and whether $10$–$30$ is compared are
+          dependent events. Does the sum of probabilities still give the
+          expected count?
+        choices:
+          - text: >
+              Yes: linearity of expectation needs no independence.
+            correct: true
+            feedback: >
+              The indicators are tangled together by the recursion, and it
+              does not matter. That is exactly why this argument beats solving
+              the recurrence.
+          - text: >
+              No: the indicators must be independent for the sum to work.
+            feedback: >
+              That is the condition for variances to add, not expectations.
+              $\mathbb{E}[X + Y] = \mathbb{E}[X] + \mathbb{E}[Y]$ holds for any
+              $X$ and $Y$.
+          - text: >
+              Only approximately, for large $n$.
+            feedback: >
+              It is exact for every $n$ — $29/6$ at $n = 4$ is the true
+              expectation, not an approximation.
+        feedback: >
+          Indicators plus linearity turn a tangled recursion into a sum of
+          simple probabilities.
+
+      - part: The closed form, and where it fails
+        ask: >
+          Grouping by gap gives the closed form $2(n+1)H_n - 4n$. With
+          $H_6 = 49/20$, what is the expected number of comparisons for
+          $n = 6$?
+        expects: "10.3"
+        hint: >
+          $2 \times 7 \times 49/20$, then subtract $24$.
+        feedback: >
+          $14 \times 2.45 = 34.3$, minus $24$, is $10.3$. Check $n = 4$ too:
+          $10 \times 25/12 - 16 = 29/6$, matching the sum by hand. For large
+          $n$ this grows like $2n\ln n$, about $1.39\,n\log_2 n$.
+      - ask: >
+          Now the pivot is always the first key of the subarray, and the input
+          arrives already sorted: $10, 20, 30, 40$. Which step of the argument
+          breaks?
+        choices:
+          - text: >
+              Two keys can now be compared more than once.
+            feedback: >
+              Still at most once: a pivot is compared with the others and then
+              set aside. Here the pivots are $10$, $20$, $30$ in turn, and all
+              six pairs are compared exactly once.
+          - text: >
+              The first pivot from a block is no longer uniform over the block,
+              so $2/(j - i + 1)$ no longer holds.
+            correct: true
+            feedback: >
+              On sorted input the first pivot from every block is its smallest
+              key, an endpoint, so every pair is compared: $6$ comparisons, and
+              $n(n-1)/2$ in general.
+          - text: >
+              Linearity of expectation fails for a deterministic rule.
+            feedback: >
+              Linearity still holds; it just has nothing random to average
+              over. The broken step is the uniform first pivot.
+        feedback: >
+          The $2/(j - i + 1)$ came from the pivot draws alone, never from the
+          input order. That is why the random-pivot expectation is the same
+          for every input — a Las Vegas worst case that is a worst case of an
+          expectation.
       - teach: >
-          The trap is double-counting: forgetting that a pair compares at most
-          once is exactly what makes the pairwise sum equal the total, and
-          misstating the event as "$z_i$ or $z_j$ is the pivot of the whole
-          array" instead of "the first pivot drawn from their block" is a much
-          stronger, easy-to-loosen condition.
+          Said aloud: "Let $X_{ij}$ indicate that the $i$-th and $j$-th
+          smallest keys are compared. They are compared exactly when the first
+          pivot from the block between them is one of the two, probability
+          $2/(j - i + 1)$. Linearity sums that to $2(n+1)H_n - 4n$, about
+          $1.39\,n\log_2 n$."
 
   - node: quant-programming.randomized.randomness-against-adversaries
     hook: >
@@ -1569,102 +2708,188 @@ lessons:
       Randomizing swaps "some inputs are catastrophic," a fact an adversary
       or unlucky distribution can force, for "some coin flips are unlucky,"
       a fact only the algorithm controls and can rerun away.
-    steps:
-      - teach: >
-          The real payoff of randomizing isn't a better average — it's deleting
-          the idea of a bad input altogether. That reframe should come before
-          any of the machinery in this unit: it's rarely about the average
-          case.
-      - teach: >
-          Deterministic quicksort with a fixed pivot rule is $\Theta(n^{2})$
-          precisely on already-sorted data — exactly the input a production
-          system is most likely to see. With a random pivot, no fixed input is
-          bad: the comparison-count proof never referenced the input's order,
-          only that the pivot draws are uniform.
+    dialogue:
+      - part: The batch that is always sorted
+        teach: >
+          A trade-matching service sorts each batch of $1{,}000$ order
+          timestamps with quicksort, always taking the first element of the
+          subarray as pivot. Timestamps come off the wire almost always
+          already in order.
       - ask: >
-          Why is "already sorted" a uniquely important bad case to worry about
-          for a fixed-pivot quicksort in production — more than, say, some
-          adversarially rare arrangement chosen at random from all $n!$ orders?
+          On an already-sorted batch of $1{,}000$, how many comparisons does
+          the first-element-pivot quicksort make?
+        expects: "499500"
+        hint: >
+          Each pivot is the smallest key left, so it peels off one key and
+          compares against all the rest.
+        feedback: >
+          $999 + 998 + \dots + 1 = 999 \times 1000/2 = 499{,}500$. Every pair
+          is compared, the most any comparison sort could spend.
+      - ask: >
+          With a uniformly random pivot instead, the expected count is
+          $2(n+1)H_n - 4n$. Using $H_{1000} \approx 7.4855$, what is it for
+          $n = 1{,}000$, to the nearest whole comparison?
+        expects: "10986"
+        tolerance: 2
+        hint: >
+          $2 \times 1001 \times 7.4855$, then subtract $4000$.
+        feedback: >
+          $2002 \times 7.4855 \approx 14986$, minus $4000$, is about
+          $10{,}986$ — some $45$ times fewer than on the sorted batch.
+      - ask: >
+          A colleague says: "Then just pivot on the middle element — sorted
+          input becomes the best case, no randomness needed." What remains
+          wrong?
         choices:
           - text: >
-              Sorted input genuinely requires more comparisons in any correct
-              sorting algorithm, not just quicksort
+              Nothing: sorted input was the only bad case, and it is fixed.
             feedback: >
-              That's false in general — an already-sorted array is the easy
-              case for many algorithms; it's specifically fixed-pivot
-              quicksort's degenerate recursion that makes it bad here.
+              Sorted input was the only bad case you happen to see often. Any
+              fixed pivot rule has inputs that make every split lopsided, and
+              they are now different inputs, not none.
           - text: >
-              Real data is disproportionately likely to already be sorted or
-              nearly so, so the bad case isn't a rare corner case at all — it's
-              common
+              The middle pivot is slower on average.
+            feedback: >
+              On scrambled input it is about the same. The issue is not the
+              average; it is that a bad input still exists.
+          - text: >
+              Some other input order still forces $\Theta(n^{2})$, and anyone
+              who knows the rule — or any data source with the wrong quirk —
+              can produce it.
             correct: true
             feedback: >
-              An adversarially rare order might never actually occur in
-              practice, but already-sorted or nearly-sorted data shows up
-              constantly — logs, timestamps, IDs — making the bad case the
-              routine case.
-          - text: >
-              Sorted input triggers integer overflow in the pivot index
-              calculation
-            feedback: >
-              There's no arithmetic overflow issue here — the problem is purely
-              that a fixed-pivot rule recurses into an unbalanced split on
-              sorted data.
+              A deterministic rule is a fixed function of the input, so its
+              worst case is a fixed input. Moving it from "sorted" to
+              "something stranger" makes it rarer, not gone.
         feedback: >
-          The randomized fix isn't about a rare adversarial worst case — it's
-          about a worst case that shows up constantly in ordinary production
-          data, which is exactly why randomizing the pivot matters so much in
-          practice.
-      - teach: >
-          The same move defends against an actual adversary. A hash table on a
-          fixed, published hash function can be deliberately attacked — an
-          attacker who knows the function constructs keys that all collide,
-          degrading every lookup to $O(n)$, a real, exploited denial-of-service
-          class.
+          Choosing a cleverer fixed rule only relocates the bad input.
+      - reflect: >
+          With the random pivot, an adversary sees your code and may submit
+          any batch of $1{,}000$ timestamps. Which batch should they submit to
+          maximize your expected comparisons — and why?
+        hint: >
+          Recall what the probability $2/(j - i + 1)$ depended on.
+        answer: >
+          It makes no difference. The expected count is the same for every
+          input, because the chance that two keys meet depends only on which
+          pivot is drawn first from their block — on your coins, not on the
+          order they arrived in. The adversary chooses the input but never
+          sees the coins. All they can hope for is that you are unlucky, and
+          that luck is the same for every input.
+
+      - part: Bad inputs become bad coins
+        teach: >
+          That is the reason to randomize. A deterministic algorithm has a
+          worst case over inputs, which someone else controls. A randomized
+          one has a worst case over its own coins: the input stops mattering,
+          and bad luck is something you can bound, and rerun away.
       - ask: >
-          Why does a hash table need a randomly chosen seed, rather than a
-          single fixed, published hash function?
+          The standard tail bound (Markov's inequality) says a non-negative
+          random variable exceeds $k$ times its mean with probability at most
+          $1/k$. For any input batch, at most what is the probability that the
+          random-pivot sort needs more than $4 \times 10{,}986$ comparisons?
+        expects: "1/4"
+        hint: >
+          Apply the bound with $k = 4$; the mean is the same for every input.
+        feedback: >
+          At most $1/4$ — a crude bound, and the true tail is far thinner, but
+          note what it is about: the probability is over your pivot draws,
+          the same for every batch anyone could send.
+      - ask: >
+          On a uniformly random input order, how does the first-element pivot
+          compare with the random pivot in expected comparisons?
         choices:
           - text: >
-              A random seed makes the average-case lookup time faster than a
-              fixed hash function would give
-            feedback: >
-              The expected cost with a good fixed function is already $O(1)$ on
-              typical data — the seed isn't about speed at all.
-          - text: >
-              Without it, an attacker who knows the fixed function can craft
-              keys that all collide, and random seeding means the attacker
-              can't target a function they don't know
+              They are the same.
             correct: true
             feedback: >
-              "Expected $O(1)$ lookup" becomes a claim about a randomly chosen
-              function rather than the one particular function that shipped —
-              an attacker observing the program can't reverse-engineer
-              collisions for a seed they never see.
+              A random input makes the first element a uniform pivot. Both
+              average $2(n+1)H_n - 4n$. Randomizing buys nothing on the
+              average case — it buys a guarantee on every input.
           - text: >
-              It reduces the memory the hash table needs to store its buckets
+              The random pivot is much faster.
             feedback: >
-              Seeding the hash function has nothing to do with memory layout or
-              bucket count.
+              On scrambled input the first element is already a uniformly
+              random key, so both rules make the same pivot choices in
+              distribution.
+          - text: >
+              The first-element pivot is faster, since it skips the random
+              draw.
+            feedback: >
+              One draw per partition is noise against $n$ comparisons. The
+              comparison counts are equal in expectation.
         feedback: >
-          A fixed, published hash function is a target; a randomly chosen seed
-          converts "this function is vulnerable" back into "expected $O(1)$," a
-          claim about the distribution of functions, not the one an attacker
-          can study offline.
+          "Randomize for a better average" is the wrong reason. The average
+          over random inputs does not move; the worst case over inputs
+          disappears.
+
+      - part: An adversary with a hash table
+        ask: >
+          A web service keeps request parameters in a chained hash table with
+          a fixed, published hash function. An attacker sends $10{,}000$ keys
+          that all land in one bucket. Counting one key comparison for each
+          key already in that bucket, how many comparisons do the $10{,}000$
+          insertions cost in total?
+        expects: "49995000"
+        hint: >
+          The $m$-th insertion compares against the $m - 1$ keys already in
+          the bucket.
+        feedback: >
+          $0 + 1 + \dots + 9999 = 9999 \times 10000/2 = 49{,}995{,}000$:
+          quadratic, from one request. Expected $O(1)$ lookup was a promise
+          about typical keys, and the attacker did not send typical keys.
+      - ask: >
+          Which change actually defeats the attack?
+        choices:
+          - text: >
+              A table with ten times as many buckets.
+            feedback: >
+              The attacker's keys collide in the hash value itself, so they
+              share a bucket at any table size the function maps them to.
+          - text: >
+              Rehash with the same function whenever one bucket passes $8$
+              keys.
+            feedback: >
+              Same function, same collisions: the keys share a full hash value,
+              so they land together again after every rehash — and each rehash
+              is extra work the attacker triggered.
+          - text: >
+              A hash function seeded at random when each process starts.
+            correct: true
+            feedback: >
+              The attacker never sees the seed, so they cannot know which keys
+              collide. "Expected $O(1)$" becomes a statement about a randomly
+              chosen function — true for every set of keys they could send.
+        feedback: >
+          The same move as the random pivot: replace a fixed rule, whose bad
+          inputs can be found, by a random one, whose bad luck cannot be
+          aimed.
+      - ask: >
+          A matching engine breaks price-and-time ties by always preferring
+          the lower account number. What does randomizing the tie-break fix?
+        choices:
+          - text: >
+              It makes matching faster.
+            feedback: >
+              The work is the same. The difference is who wins the ties.
+          - text: >
+              It stops the same accounts from losing every tie, forever.
+            correct: true
+            feedback: >
+              A fixed rule makes the high account numbers lose every single
+              tie, systematically. A random rule spreads the losses — no one
+              is starved by construction.
+          - text: >
+              Nothing: ties are too rare to matter.
+            feedback: >
+              In a busy book, ties at the touch are routine. A fixed rule turns
+              each one into the same loser.
+        feedback: >
+          Random tie-breaking, random restarts in search, random seeds in
+          hashing: each removes a systematic loser that a fixed rule creates.
       - teach: >
-          The pattern generalizes past sorting and hashing: random tie-breaking
-          in queueing or matching prevents systematic starvation of whichever
-          element would otherwise always lose ties, and random restarts in
-          search stop a single deterministic strategy from being trapped by
-          whatever structure happens to fool it.
-      - teach: >
-          The substitution is always the same: replace "is this input bad," a
-          question an adversary or unlucky distribution controls, with "were
-          these coins bad," a question only you control and can drive down by
-          rerunning.
-      - teach: >
-          "Better average case" alone misses this point, and it's not the whole
-          defense either: a seed drawn once at process start can still be
-          inferred by an adversary who observes outputs over many requests,
-          which is why some systems need the seed rotated, not just randomized
-          once.
+          Asked "why randomize?", say: "Not for the average. A fixed rule has
+          a worst-case input that the data or an adversary can supply;
+          randomizing turns that into a worst case over my own coins, which
+          nobody can aim and I can bound." Then give quicksort's pivot and the
+          seeded hash as the two examples.
