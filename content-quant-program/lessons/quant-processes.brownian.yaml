@@ -33,8 +33,10 @@ lessons:
       The Gaussian shape is not an extra assumption bolted onto independence
       and stationarity — it is close to forced. Split $[0,t]$ into $n$ equal
       pieces; $B_t$ is the sum of $n$ independent, identically distributed
-      increments, and summing independent normals produces a normal, so
-      consistency alone pins the increment law down to Gaussian. What
+      increments for every $n$, and once continuous paths make every piece
+      uniformly small the central limit theorem forces that sum to be normal.
+      Splitting alone does not do it — a jump process can split just as
+      consistently — so the Gaussian law is what continuity buys. What
       independence buys computationally is that variance is additive:
       $\operatorname{Var}(B_t)=\sum_{i=1}^{n}\operatorname{Var}(B_{it/n}-B_{(i-1)t/n})=n\cdot(t/n)=t$,
       exactly, regardless of $n$.
@@ -53,8 +55,8 @@ lessons:
       "Define Brownian motion" and "why is $B_t$ normal, not just symmetric"
       are the standard openers — answer with all four properties in one
       breath, and be ready to say that continuity is the one true assumption
-      while the Gaussian shape follows from consistency under
-      increment-splitting.
+      while the Gaussian shape follows from increment-splitting once the
+      paths are continuous.
     pitfalls: >
       Treating "independent increments" as merely "uncorrelated increments"
       understates the hypothesis — full independence is what licenses
@@ -65,85 +67,209 @@ lessons:
       Brownian motion is the process built from independent, stationary
       $N(0,\Delta t)$ increments started at $0$ with continuous paths — four
       facts, and everything else in this unit is derived from them.
-    steps:
-      - teach: >
-          An interviewer who asks you to define Brownian motion is not asking
-          for the label — they want all four defining properties produced in
-          order, and they want to know which one is a genuine extra assumption
-          rather than a restatement of the others.
-      - teach: >
-          The four properties: $B_0 = 0$; independent increments; stationary
-          Gaussian increments, $B_t - B_s \sim N(0, t-s)$; and continuous
-          sample paths with probability $1$. Together they force $B_t \sim
-          N(0,t)$.
+    dialogue:
+      - part: A simulator's spec sheet
+        teach: >
+          A risk desk needs a noise process $X_t$ for a spread, with time in
+          hours. A colleague's simulator adds up a huge number of tiny
+          independent nudges, and over $10^{5}$ runs it reports three facts:
+          $X_0 = 0$ every time; the law of a change $X_t - X_s$ depends only on
+          the window length $t - s$, and a one-hour change has mean $0$ and
+          variance $1$; and changes over non-overlapping windows are
+          independent.
       - ask: >
-          Using $B_t \sim N(0,t)$ directly, what is $\operatorname{Var}(B_5)$?
-        expects: "5"
+          What is the variance of $X_9$, the value after nine hours?
+        expects: "9"
         hint: >
-          No formula is needed beyond the definition — read the variance
-          straight off $t$.
+          Cut $[0, 9]$ into nine non-overlapping one-hour windows.
         feedback: >
-          The defining property $B_t \sim N(0,t)$ makes the variance the
-          elapsed time itself, no computation beyond reading off $t=5$.
-      - teach: >
-          Independence buys additivity of variance: splitting $[0,t]$ into $n$
-          equal pieces, $\operatorname{Var}(B_t) =
-          \sum_{i=1}^{n}\operatorname{Var}(B_{it/n}-B_{(i-1)t/n}) = n\cdot(t/n)
-          = t$ exactly, for every $n$ — the Gaussian shape is close to forced
-          by this consistency, not a separate assumption.
+          $X_9$ is the sum of nine hourly changes. They are independent, each
+          has variance $1$, and variances of independent pieces add:
+          $1 + 1 + \dots + 1 = 9$. The standard deviation is $3$, not $9$.
       - ask: >
-          $B_4 \sim N(0,4)$. What is $\Pr(B_4 > 4)$?
-        expects: "0.0228"
-        tolerance: 0.0005
-        hint: >
-          Standardize by the standard deviation $\sqrt4=2$, then use
-          $\Phi(2)=0.9772$.
-        feedback: >
-          $\Pr(B_4>4) = \Pr(Z > 4/\sqrt4) = \Pr(Z>2) = 1-\Phi(2) = 1-0.9772 =
-          0.0228$: a full four-unit move by time $4$ is already a rare event.
-      - teach: >
-          The one property genuinely doing new work is continuity — Wiener had
-          to prove such a process exists at all. In an interview, take it as
-          given and spend your effort on the other three.
-      - ask: >
-          Which of the four defining properties is not implied by the other
-          three and needed its own existence proof?
+          What is the variance of a single half-hour change?
         choices:
           - text: >
-              Independent increments
+              $1/4$, because half the time means half the standard deviation.
             feedback: >
-              This is one of the three properties that, together with
-              consistency under splitting, essentially force the Gaussian shape
-              — it does not need a separate existence argument the way
-              continuity does.
+              Then two back-to-back half-hours, independent and each of
+              variance $1/4$, would add to a one-hour change of variance $1/2$.
+              The spec says $1$.
           - text: >
-              Continuous sample paths
+              It cannot be known: the spec only quotes one-hour windows.
+            feedback: >
+              It can. An hour is two non-overlapping half-hours, independent
+              and identically distributed by the spec, so their common
+              variance $v$ must satisfy $2v = 1$.
+          - text: >
+              $1/2$
             correct: true
             feedback: >
-              Continuity is not implied by $B_0=0$ plus independent stationary
-              Gaussian increments — a process could satisfy those three and
-              still jump. Wiener's theorem is exactly the proof that a
-              continuous version exists.
+              Two independent, identical half-hours make the hour, so
+              $2v = 1$. The same argument with sixty minutes gives $1/60$ per
+              minute.
+        feedback: >
+          Variance is proportional to elapsed time at every scale: a change
+          over a window of length $t - s$ has variance $t - s$. Standard
+          deviation therefore grows like the square root of the window.
+      - ask: >
+          What is the standard deviation of the change from hour $2.5$ to hour
+          $6.5$?
+        expects: "2"
+        hint: >
+          Only the window's length matters, not where it starts.
+        feedback: >
+          The window has length $4$, so the change has variance $4$ and
+          standard deviation $\sqrt{4} = 2$. Starting at hour $2.5$ rather
+          than at $0$ changes nothing.
+
+      - part: A rival that fits every number
+        teach: >
+          A second colleague offers a cheaper engine: a counter $Y_t$ that
+          starts at $0$ and, at each arrival of a rate-$1$ Poisson process,
+          jumps by $+1$ or $-1$ on a fair coin flip. Arrivals in disjoint
+          windows are independent, and so are the coins.
+      - ask: >
+          What is the variance of $Y_9$?
+        expects: "9"
+        hint: >
+          Condition on the number of jumps $N$, which is Poisson with mean
+          $9$. Each jump contributes variance $1$.
+        feedback: >
+          Given $N$ jumps, $Y_9$ is a sum of $N$ fair $\pm 1$ signs with
+          variance $N$; averaging over $N$ gives
+          $\operatorname{Var}(Y_9) = \mathbb{E}[N] = 9$. The mean is $0$ by
+          symmetry. The rival matches the spec sheet number for number.
+      - ask: >
+          What is the probability that $Y$ does not move at all during a given
+          hour? Give four decimal places.
+        expects: "0.3679"
+        tolerance: 0.0005
+        hint: >
+          No movement at all means no arrival in that hour.
+        feedback: >
+          $\Pr(\text{no arrival in one hour}) = e^{-1} \approx 0.3679$. So the
+          hourly change of $Y$ sits exactly at $0$ more than a third of the
+          time — an atom no normal law has.
+      - ask: >
+          Both engines satisfy all three facts on the spec sheet. What
+          separates them?
+        choices:
+          - text: >
+              $Y$ has dependent increments: a jump now makes the next jump
+              likelier.
+            feedback: >
+              Poisson arrivals in disjoint windows are independent, and the
+              coins are fresh each time. $Y$ has independent increments just
+              as $X$ does.
+          - text: >
+              $Y$'s paths jump, and its hourly change is not normal.
+            correct: true
+            feedback: >
+              $Y$ moves only in unit jumps, and its hourly change has an atom
+              at $0$ of mass at least $0.3679$. The tiny-nudges engine never
+              jumps.
+          - text: >
+              $Y$ is not stationary: the jumps cluster early.
+            feedback: >
+              A Poisson process has the same arrival rate in every window, so
+              the law of a change of $Y$ depends only on the window length.
+              Stationarity holds.
+        feedback: >
+          Mean $0$, variance equal to elapsed time, independent and stationary
+          changes: none of that rules out jumps. The spec sheet is missing a
+          clause.
+      - reflect: >
+          What would you add to the spec sheet to rule out the jump engine,
+          and why would that same addition force the hourly change of $X$ to
+          be normal, even though nobody wrote "normal" into the spec?
+        hint: >
+          Split the hour into $n$ pieces and ask how big the largest piece can
+          be.
+        answer: >
+          Require the paths to be continuous. Then an hour is the sum of $n$
+          independent, identical pieces for every $n$, and continuity makes
+          every piece uniformly small as $n$ grows, so the central limit
+          theorem forces the sum to be normal. The jump engine escapes the
+          argument precisely because one piece can carry a whole unit jump
+          however finely you cut.
+      - teach: >
+          That completed spec is the definition. A standard Brownian motion
+          $(B_t)_{t \ge 0}$ has four properties: $B_0 = 0$; independent
+          increments over non-overlapping windows; stationary Gaussian
+          increments, $B_t - B_s \sim N(0, t-s)$; and continuous paths with
+          probability $1$. Hence $B_t \sim N(0, t)$. That a process with all
+          four exists is Wiener's theorem — continuity is the clause that
+          needed proving.
+
+      - part: Testing new candidates clause by clause
+        ask: >
+          For a standard Brownian motion, what is $\Pr(B_6 - B_2 > 3)$? Use
+          $\Phi(1.5) = 0.9332$.
+        expects: "0.0668"
+        tolerance: 0.0005
+        hint: >
+          The increment is normal with variance equal to the window length.
+        feedback: >
+          $B_6 - B_2 \sim N(0, 4)$, standard deviation $2$, so
+          $\Pr(B_6 - B_2 > 3) = \Pr(Z > 1.5) = 1 - 0.9332 = 0.0668$.
+      - ask: >
+          A third engine sets each hour's change to a fresh standard normal
+          draw minus half of the previous hour's change, starting from $0$.
+          Which clause does it break?
+        choices:
+          - text: >
+              Gaussian increments: a normal minus half a normal is not normal.
+            feedback: >
+              A linear combination of independent normals is normal. Every
+              hourly change here is a linear combination of fresh draws, so
+              each one is Gaussian.
           - text: >
               $B_0 = 0$
             feedback: >
-              This is a normalization, not a substantive claim requiring proof
-              — it just fixes the starting point.
+              It starts at $0$ by construction. The trouble is in how one
+              hour's change feeds the next.
           - text: >
-              Stationary Gaussian increments
+              Independent increments: consecutive hourly changes are
+              correlated.
+            correct: true
             feedback: >
-              Given independence and stationarity, consistency under splitting
-              an interval into pieces pins the increment law down to Gaussian —
-              this is close to forced, not a free extra assumption on the same
-              footing as continuity.
+              With $D_1 = Z_1$ and $D_2 = Z_2 - D_1/2$,
+              $\operatorname{Cov}(D_1, D_2) = -1/2$. The variance also drifts,
+              $\operatorname{Var}(D_2) = 1 + 1/4 = 1.25$, so stationarity fails
+              as a consequence.
         feedback: >
-          Continuity is the one true assumption; the Gaussian shape follows
-          from consistency under increment-splitting, and $B_0=0$ is mere
-          normalization.
-      - teach: >
-          Everything downstream in this unit — scaling, martingales,
-          reflection, hitting times — is squeezed out of exactly these four
-          facts and nothing else.
+          Mean reversion is the classic way real prices fail the
+          independent-increments clause. A model that ignores it overstates
+          long-horizon spread.
+      - ask: >
+          A last engine outputs $2B_t$. Which clause, and only which, does it
+          break?
+        choices:
+          - text: >
+              Continuity, because doubling makes the path rougher.
+            feedback: >
+              Doubling a continuous path gives a continuous path. Rougher in
+              size is not the same as broken.
+          - text: >
+              The variance of the increments: $2B_t - 2B_s \sim N(0, 4(t-s))$.
+            correct: true
+            feedback: >
+              It starts at $0$, has independent Gaussian stationary increments
+              and continuous paths; only the normalization $N(0, t-s)$ fails.
+              It is a Brownian motion with volatility $2$, just not a standard
+              one.
+          - text: >
+              Independent increments, because every value is multiplied by the
+              same $2$.
+            feedback: >
+              A constant multiplier is not a shared random quantity. The
+              increments of $2B$ are $2$ times independent increments, still
+              independent.
+        feedback: >
+          In an interview, the four clauses in one breath — starts at zero,
+          independent increments, $N(0, t-s)$ increments, continuous paths —
+          and then which one carries the weight: continuity.
 
   - node: quant-processes.brownian.walk-limit
     hook: >
@@ -196,88 +322,198 @@ lessons:
       Rescale a random walk by $\sqrt n$ in space and $n$ in time and it
       converges to Brownian motion — the CLT applied not to one endpoint but
       to the whole path at once, for any mean-$0$, finite-variance step.
-    steps:
-      - teach: >
-          Every walk formula you already know — reflection, hitting
-          probabilities, maxima — reappears later in this unit with $\sqrt n$
-          replaced by $\sqrt t$. Donsker's theorem is the single reason why, so
-          it pays to know precisely what it claims.
-      - teach: >
-          Fix a time $t$: $W_t^{(n)} = S_{\lfloor nt\rfloor}/\sqrt n$ sums
-          about $nt$ independent $\pm1$ steps and divides by $\sqrt n$ —
-          exactly the CLT's standardized-sum setup with $nt$ in place of $n$,
-          so $W_t^{(n)} \to N(0,t)$ at that one time.
+    dialogue:
+      - part: A day of inventory
+        teach: >
+          A market maker's inventory starts the day flat. Each trade moves it
+          by $+1$ or $-1$ share on a fair coin, independently of every other
+          trade, and there are $2500$ trades a day. Write $S_k$ for the
+          inventory after $k$ trades.
       - ask: >
-          A fair $\pm1$ walk has $n=2500$ steps, so $S_{2500}$ has variance
-          $2500$ and standard deviation $50$. Using the CLT, what is
-          $\Pr(S_{2500} > 50)$?
-        expects: "0.1587"
+          What is the standard deviation of the inventory at the close,
+          $S_{2500}$?
+        expects: "50"
+        hint: >
+          Each step has variance $1$, and the steps are independent.
+        feedback: >
+          $\operatorname{Var}(S_{2500}) = 2500 \times 1 = 2500$, so the
+          standard deviation is $\sqrt{2500} = 50$ shares.
+      - ask: >
+          Using the normal approximation, what is the probability that the
+          closing inventory exceeds $60$ shares? Use $\Phi(1.2) = 0.8849$.
+        expects: "0.1151"
         tolerance: 0.0005
         hint: >
-          Divide the threshold by the standard deviation $50$, then use
-          $\Phi(1)=0.8413$.
+          The central limit theorem makes $S_{2500}/50$ roughly standard
+          normal.
         feedback: >
-          $\Pr(S_{2500}>50) = \Pr(Z > 50/50) = \Pr(Z>1) = 1-\Phi(1) = 1-0.8413
-          = 0.1587$ — a direct CLT tail probability, dressed as a walk
-          question.
-      - teach: >
-          What Donsker's theorem adds beyond that single-time CLT is joint
-          convergence of the whole path: steps in disjoint time windows are
-          independent by construction, and that independence survives
-          rescaling, so the limit inherits independent increments across every
-          time simultaneously.
+          $\Pr(S_{2500} > 60) \approx \Pr(Z > 60/50) = \Pr(Z > 1.2) = 1 - 0.8849
+          = 0.1151$.
       - ask: >
-          What does Donsker's invariance principle add beyond the single-time
-          central limit theorem?
+          What is the standard deviation of the inventory at midday, after
+          $1250$ trades? Give two decimal places.
+        expects: "35.36"
+        tolerance: 0.01
+        hint: >
+          Half the trades means half the variance, not half the standard
+          deviation.
+        feedback: >
+          $\sqrt{1250} \approx 35.36$. Half the day already carries about
+          $71\%$ of the full day's spread, because spread grows like the
+          square root of the number of trades.
+
+      - part: Zooming out on the whole path
+        ask: >
+          You want to plot the day's path in a unit box: the time axis
+          compressed by $2500$, so the close sits at $t = 1$. By what factor
+          should you shrink the inventory axis so that the picture neither
+          flattens nor explodes as the number of trades per day grows?
         choices:
           - text: >
-              Nothing — it is just the CLT restated for one endpoint
+              By $2500$, the same factor as time.
             feedback: >
-              That describes only the single-time marginal, which is indeed a
-              relabeled CLT. The theorem's real content is stronger than this.
+              Then the close has standard deviation $50/2500 = 0.02$, and with
+              $10^{6}$ trades it would be $0.001$: the law of large numbers
+              flattens the picture to a straight line at $0$.
           - text: >
-              Convergence of the whole path jointly, so disjoint time blocks
-              stay independent in the limit
+              By $\sqrt{2500} = 50$.
             correct: true
             feedback: >
-              This is the extra claim: not just one snapshot converging, but
-              every joint block of times converging together, which is what
-              assembles a genuine Brownian path rather than a family of
-              separately-normal but possibly correlated snapshots.
+              Then the close has standard deviation exactly $1$ however many
+              trades there are, because $\sqrt{n}/\sqrt{n} = 1$. The noise
+              survives the limit at a fixed size.
           - text: >
-              The walk must take exactly $\pm1$ steps for the limit to hold
+              Not at all; inventory is already in shares.
             feedback: >
-              The limit is universal over any mean-$0$, finite-variance step
-              law — the $\pm1$ walk is only the simplest instance.
-          - text: >
-              The steps must be positively correlated for convergence
-            feedback: >
-              The construction requires independent steps; correlated steps are
-              outside the theorem's hypotheses entirely.
+              The close's standard deviation is $\sqrt{n}$, which grows without
+              bound as trades per day increase. The picture explodes.
         feedback: >
-          The theorem's content is joint convergence of the whole path, built
-          from independence of disjoint step-blocks surviving the rescaling.
-      - teach: >
-          The limit does not depend on the shape of one step, only on mean $0$
-          and finite variance $\sigma^2$ — a different, recentered step law
-          converges to the same Brownian motion, scaled by $\sigma$.
+          Time by $n$, space by $\sqrt{n}$: the rescaled path is
+          $W^{(n)}_t = S_{\lfloor nt \rfloor}/\sqrt{n}$. Any other exponent on
+          $n$ either kills the randomness or blows it up.
       - ask: >
-          A walk's steps have mean $0$ and variance $\sigma^2 = 4$ (not the
-          $\pm1$ case). The limit is $\sigma B$ for a standard Brownian motion
-          $B$. What is $\operatorname{Var}(\sigma B_1)$?
-        expects: "4"
+          In those units, with $n = 2500$, what is the variance of
+          $W^{(n)}_{0.36}$?
+        expects: "0.36"
         hint: >
-          Use $\operatorname{Var}(B_1)=1$ for standard Brownian motion and
-          scale by $\sigma^2$.
+          Count the trades that have happened by $t = 0.36$, then divide the
+          variance by $n$.
         feedback: >
-          $\operatorname{Var}(\sigma B_1) = \sigma^2\operatorname{Var}(B_1) =
-          \sigma^2 \cdot 1 = 4$ — the limiting variance at time $1$ is exactly
-          the step variance, regardless of the walk's step shape.
+          By $t = 0.36$ there have been $900$ trades, so the variance of
+          $S_{900}/50$ is $900/2500 = 0.36$. The variance of the rescaled
+          walk at time $t$ is $t$ — the marginal of a standard Brownian
+          motion.
+      - ask: >
+          The central limit theorem makes $W^{(n)}_{1/2}$ and $W^{(n)}_1$ each
+          approximately normal, with variances $1/2$ and $1$. What does that,
+          on its own, fail to tell you?
+        choices:
+          - text: >
+              Whether $W^{(n)}_1$ has mean $0$.
+            feedback: >
+              The central limit theorem hands you the mean along with the
+              shape. The mean is $0$ at every time.
+          - text: >
+              Nothing: normal snapshots with variance $t$ are already a
+              Brownian motion.
+            feedback: >
+              Snapshots one at a time say nothing about how they move
+              together. Brownian motion is a statement about the whole path:
+              its increments must be independent too.
+          - text: >
+              How the morning change $W^{(n)}_{1/2}$ relates to the afternoon
+              change $W^{(n)}_1 - W^{(n)}_{1/2}$.
+            correct: true
+            feedback: >
+              Right. Two separately normal numbers can be correlated in any
+              way at all. The marginals are only half the story.
+        feedback: >
+          A Brownian motion is pinned down by its joint behaviour across
+          times, not by one time at a time. Something beyond the single-time
+          central limit theorem has to carry the joint structure.
+      - reflect: >
+          What property of the trades themselves makes the afternoon change
+          independent of the morning change, and why does that property
+          survive the rescaling into the limit?
+        hint: >
+          Which trades make up each change?
+        answer: >
+          The morning change is built from trades $1$ to $1250$ and the
+          afternoon change from trades $1251$ to $2500$ — disjoint blocks of
+          independent coin flips, so independent for every $n$. Dividing both
+          by the same $\sqrt{n}$ cannot couple them, and each block is
+          normal in the limit by the central limit theorem. So the limit has
+          independent Gaussian increments with variance equal to elapsed
+          time: Brownian motion.
       - teach: >
-          A step distribution with infinite variance breaks the whole
-          construction — no rescaling recovers Brownian motion in that case,
-          which is why the finite-variance hypothesis is load-bearing, not
-          boilerplate.
+          That is Donsker's invariance principle: $W^{(n)}_t =
+          S_{\lfloor nt \rfloor}/\sqrt{n}$ converges in distribution, as a
+          whole path, to a standard Brownian motion. At one time it is the
+          central limit theorem; disjoint blocks of steps becoming independent
+          increments is what makes it a theorem about paths. It holds for any
+          step law with mean $0$ and finite variance $\sigma^{2}$, the limit
+          then being $\sigma B$.
+
+      - part: Other steps, same limit
+        ask: >
+          A different book: each trade moves inventory by $+2$ with
+          probability $1/3$ and by $-1$ with probability $2/3$. The mean step
+          is $0$. What is the variance of one step?
+        expects: "2"
+        hint: >
+          With mean $0$, the variance is $\mathbb{E}[X^{2}]$.
+        feedback: >
+          $\mathbb{E}[X^{2}] = 4 \cdot (1/3) + 1 \cdot (2/3) = 2$. The limit of
+          this walk is $\sqrt{2}\,B$: lopsided steps, same Brownian shape.
+      - ask: >
+          What is the standard deviation of this walk after $800$ trades?
+        expects: "40"
+        hint: >
+          Variances of independent steps add.
+        feedback: >
+          $\operatorname{Var}(S_{800}) = 800 \times 2 = 1600$, standard
+          deviation $40$. Only the mean and variance of a step enter; the
+          lopsidedness washes out.
+
+      - part: Where the limit breaks
+        ask: >
+          Now each step has mean $0.01$ and variance $1$. With $n = 10^{6}$
+          steps, what is the mean of $S_n/\sqrt{n}$?
+        expects: "10"
+        hint: >
+          The mean of $S_n$ grows like $n$; you divide by $\sqrt{n}$.
+        feedback: >
+          $\mathbb{E}[S_n]/\sqrt{n} = 0.01 \times 10^{6}/10^{3} = 10$. At
+          $n = 10^{4}$ it was $1$; it grows like $0.01\sqrt{n}$ and the
+          rescaled path drifts off to infinity.
+      - ask: >
+          What repairs the limit for that walk?
+        choices:
+          - text: >
+              Divide by $n$ instead of $\sqrt{n}$.
+            feedback: >
+              That tames the drift, giving the straight line $0.01t$, but it
+              also crushes the noise to $0$. You keep the trend and lose the
+              Brownian motion.
+          - text: >
+              Nothing is needed: a small drift still converges to Brownian
+              motion.
+            feedback: >
+              However small, a drift of $\mu$ per step contributes
+              $\mu\sqrt{n}$ to the rescaled endpoint, which has no limit.
+          - text: >
+              Subtract the drift: $(S_n - 0.01n)/\sqrt{n}$ converges to a
+              standard Brownian motion.
+            correct: true
+            feedback: >
+              The recentred steps have mean $0$ and variance $1$, so Donsker
+              applies. Mean zero is a hypothesis, not a detail.
+        feedback: >
+          Both hypotheses bite. Mean $0$ (or recentring), and finite variance:
+          steps with infinite variance have no $\sqrt{n}$ scaling at all.
+          With both in hand, every exact walk formula — reflection, ruin,
+          maxima — carries into continuous time with $\sqrt{n}$ read as
+          $\sqrt{t}$.
 
   - node: quant-processes.brownian.scaling
     hook: >
@@ -327,86 +563,169 @@ lessons:
       Shrink time by $c$ and space by $\sqrt c$ together and Brownian motion
       is unchanged in law, which is exactly why displacement grows like
       $\sqrt t$ rather than $t$.
-    steps:
-      - teach: >
-          If you stretch the time axis by a factor $c$, the honest answer for
-          how much the spread changes is a square root, not the factor $c$
-          itself — this proposition is the standing justification for every
-          horizon-conversion argument later in this unit.
-      - teach: >
-          Rescale time by $c$ and space by $\sqrt c$ together: $\tilde B_t =
-          c^{-1/2}B_{ct}$ is again a standard Brownian motion. The only fact
-          needing a check is the variance, since independence and stationarity
-          of the increments carry over automatically under any linear
-          rescaling.
+    dialogue:
+      - part: One minute against twenty-five
+        teach: >
+          A spread follows a standard Brownian motion with time measured in
+          minutes. Over one minute its average absolute move is
+          $\mathbb{E}|B_1| = \sqrt{2/\pi} \approx 0.798$. A junior trader
+          reasons that over $25$ minutes the average absolute move must be
+          $25 \times 0.798 \approx 19.9$.
       - ask: >
-          For $c=9$ and $t=5$, what is $\operatorname{Var}(c^{-1/2}B_{ct})$?
-        expects: "5"
+          What is $\mathbb{E}|B_{25}|$? Give two decimal places.
+        expects: "3.99"
+        tolerance: 0.01
         hint: >
-          Apply $\operatorname{Var}(c^{-1/2}B_{ct})=c^{-1}\cdot ct$ and watch
-          the $c$ cancel.
+          $B_{25} \sim N(0, 25)$. How does it compare with $5$ times a
+          standard normal?
         feedback: >
-          $\operatorname{Var}(c^{-1/2}B_{ct}) = c^{-1}\cdot ct = t$:
-          $(1/9)\cdot(9\times5) = 5$, and the $c$ cancels for every choice of
-          $c$, which is exactly the self-similarity claim.
-      - teach: >
-          Three companion symmetries fall out of the same four defining
-          properties: sign flip ($-B_t$), sliding the origin to a fixed time
-          ($B_{t_0+t}-B_{t_0}$), and time inversion ($tB_{1/t}$, set to $0$ at
-          $t=0$) — each again satisfies independent stationary Gaussian
-          increments started at $0$.
+          $B_{25}$ has standard deviation $5$, so it has the law of $5Z$ and
+          $\mathbb{E}|B_{25}| = 5 \times 0.798 \approx 3.99$. The junior
+          scaled by the time, $25$; the right factor is its square root.
       - ask: >
-          Which of these is *not* one of Brownian motion's symmetries — that
-          is, applying it does not produce another standard Brownian motion?
+          After how many minutes is the average absolute move ten times its
+          one-minute value?
+        expects: "100"
+        hint: >
+          The average absolute move scales like $\sqrt{t}$.
+        feedback: >
+          $\mathbb{E}|B_t| = \sqrt{t}\,\mathbb{E}|B_1|$, so a factor of $10$
+          needs $\sqrt{t} = 10$, that is $t = 100$ minutes. Ten times the
+          distance costs a hundred times the time.
+
+      - part: Replotting the long path in a small box
+        ask: >
+          You take the path over $[0, 25]$ and replot it over $[0, 1]$,
+          dividing time by $25$. What should you divide the values by so that
+          the replot looks statistically like the path over its first minute?
         choices:
           - text: >
-              $-B_t$
+              By $25$, matching the time axis.
             feedback: >
-              Reflection in the axis is a genuine symmetry: it again has
-              independent stationary $N(0,t-s)$ increments started at $0$.
+              Then the endpoint becomes $B_{25}/25$, with variance
+              $25/625 = 0.04$ rather than $1$. The replot is a flattened,
+              too-quiet copy.
           - text: >
-              $2B_t$
+              By $5$
             correct: true
             feedback: >
-              Doubling breaks it: $\operatorname{Var}(2B_t) = 4t \ne t$, so
-              $2B_t$ is not a standard Brownian motion. Self-similarity needs
-              space and time rescaled *together*, by $\sqrt c$ and $c$
-              respectively, not space alone.
+              The endpoint $B_{25}/5$ has variance $25/25 = 1$, the variance of
+              $B_1$. Time by $c$, space by $\sqrt{c}$.
           - text: >
-              $B_{t_0+t} - B_{t_0}$ for a fixed $t_0$
+              Not at all: only the time axis needs relabelling.
             feedback: >
-              Sliding the origin to any fixed time is a genuine symmetry,
-              immediate from stationary independent increments.
-          - text: >
-              $tB_{1/t}$, set to $0$ at $t=0$
-            feedback: >
-              Time inversion is a genuine symmetry — a less obvious one, but it
-              again satisfies all four defining properties.
+              The endpoint would still be $B_{25}$, with variance $25$ where a
+              one-minute path has variance $1$. The replot is far too wild.
         feedback: >
-          The symmetries always rescale space and time together by matched
-          factors $\sqrt c$ and $c$; rescaling space alone breaks the variance
-          identity.
-      - teach: >
-          The practical payoff is the $\sqrt t$ law: since $\mathbb{E}|B_t| =
-          \sqrt{2t/\pi}$, quadrupling the horizon only doubles the expected
-          spread — there is no characteristic timescale at which the path
-          suddenly looks different.
+          The candidate is $\tilde{B}_t = B_{25t}/5$, the long path shrunk to
+          the short one's scale.
       - ask: >
-          Going from a $1$-year horizon to a $16$-year horizon, by what
-          multiple does $\mathbb{E}|B_t|$ grow?
+          What is the variance of $\tilde{B}_{0.4} = B_{10}/5$?
+        expects: "0.4"
+        hint: >
+          Dividing by $5$ divides the variance by $25$.
+        feedback: >
+          $\operatorname{Var}(B_{10})/25 = 10/25 = 0.4$, the same as
+          $\operatorname{Var}(B_{0.4})$. The match holds at every $t$:
+          $\operatorname{Var}(B_{25t}/5) = 25t/25 = t$.
+      - reflect: >
+          You have checked one thing about $\tilde{B}_t = B_{25t}/5$: its
+          variance at each time is $t$. To call it a standard Brownian motion
+          you need all four defining properties. Which of the other three
+          could the rescaling possibly break, and why?
+        hint: >
+          Go through starting value, independence, Gaussian shape and
+          continuity, and ask what a constant stretch of either axis does to
+          each.
+        answer: >
+          None of them. $\tilde{B}_0 = B_0/5 = 0$; disjoint windows of
+          $\tilde{B}$ are disjoint windows of $B$, so increments stay
+          independent; a constant times a normal is normal; and stretching a
+          continuous path keeps it continuous. The variance is the only
+          property a rescaling can spoil, so the single computation
+          $c^{-1} \cdot ct = t$ carries the whole proof.
+      - teach: >
+          That is the scaling property: for every $c > 0$,
+          $\tilde{B}_t = c^{-1/2}B_{ct}$ is again a standard Brownian motion.
+          Three companions follow the same way, by checking the four
+          properties: the reflection $-B_t$; the restart $B_{t_0+t} - B_{t_0}$
+          at a fixed $t_0$; and the time inversion $tB_{1/t}$, set to $0$ at
+          $t = 0$. The headline is the $\sqrt{t}$ law:
+          $\mathbb{E}|B_t| = \sqrt{2t/\pi}$.
+
+      - part: Which transforms survive
+        ask: >
+          Check the time inversion on one number: with $Y_t = tB_{1/t}$, what
+          is $\operatorname{Var}(Y_4)$?
         expects: "4"
         hint: >
-          The ratio of $\mathbb{E}|B_t|$ across two horizons is the square root
-          of the ratio of the horizons themselves.
+          $Y_4 = 4B_{1/4}$.
         feedback: >
-          $\mathbb{E}|B_t| = \sqrt{2t/\pi}$ scales with $\sqrt t$, so the ratio
-          is $\sqrt{16/1} = 4$ — distance traveled quadruples in ratio only
-          because the horizon grew by a factor of $16$, not $4$.
-      - teach: >
-          Rescaling time without rescaling space by the matching $\sqrt c$
-          breaks the identity — the two rescalings only cancel when applied
-          together, which is the trap the choice question above was built to
-          catch.
+          $\operatorname{Var}(4B_{1/4}) = 16 \times 1/4 = 4$, exactly the
+          variance a Brownian motion has at time $4$. The large factor $t$ and
+          the tiny time $1/t$ cancel in the variance.
+      - ask: >
+          Now $V_t = B_{t^{2}}$, a clock that runs faster as time goes on.
+          What is the variance of $V_2 - V_1$?
+        expects: "3"
+        hint: >
+          $V_2 - V_1 = B_4 - B_1$.
+        feedback: >
+          $B_4 - B_1 \sim N(0, 3)$, so the variance is $3$. A standard
+          Brownian motion would give $2 - 1 = 1$.
+      - ask: >
+          Which defining property does $V_t = B_{t^{2}}$ break?
+        choices:
+          - text: >
+              Independent increments
+            feedback: >
+              Disjoint windows $[s, t]$ map to disjoint windows
+              $[s^{2}, t^{2}]$ of $B$, so increments of $V$ are still
+              independent.
+          - text: >
+              Continuity
+            feedback: >
+              $t \mapsto t^{2}$ is continuous, and so is $B$; the composite
+              path is continuous.
+          - text: >
+              Stationary increments with variance equal to elapsed time
+            correct: true
+            feedback: >
+              $V_t - V_s \sim N(0, t^{2} - s^{2})$, which depends on where the
+              window sits, not just its length. Over $[1, 2]$ it is $3$, over
+              $[0, 1]$ it is $1$.
+        feedback: >
+          A nonlinear clock breaks stationarity. The time change in the
+          scaling property is linear, $t \mapsto ct$, and the $c^{-1/2}$ in
+          front exactly repairs its effect on the variance.
+      - ask: >
+          You zoom into the path over $[0, 0.01]$ and blow it up to a unit
+          box: time multiplied by $100$, values by $10$. What do you see?
+        choices:
+          - text: >
+              A nearly straight segment: every continuous path looks smooth up
+              close.
+            feedback: >
+              That is true of a differentiable curve, and Brownian motion is
+              not one. Scaling says the blown-up piece is again a standard
+              Brownian motion on $[0, 1]$: as rough as before.
+          - text: >
+              A path with the same law as the original over $[0, 1]$.
+            correct: true
+            feedback: >
+              $10B_{t/100}$ is the scaling property with $c = 1/100$. There is
+              no scale at which the path calms down — the same jaggedness at
+              every magnification.
+          - text: >
+              A flatter path, since $0.01$ minutes is too short for much to
+              happen.
+            feedback: >
+              Over $0.01$ the moves are of size $\sqrt{0.01} = 0.1$, and
+              blowing values up by $10$ brings them back to size $1$. The
+              picture is not flatter.
+        feedback: >
+          Self-similarity is why horizon questions have square-root answers,
+          and it is also the first hint that the path has no slope anywhere.
 
   - node: quant-processes.brownian.covariance
     hook: >
@@ -460,59 +779,172 @@ lessons:
       $\operatorname{Cov}(B_s,B_t)=\min(s,t)$ because the two values share
       exactly the path up to the earlier time, and conditioning on a later
       value is linear with variance shrinking to $0$ at the pinned endpoints.
-    steps:
-      - teach: >
-          $B_s$ and $B_t$ are *not* independent even though increments are —
-          $B_t$ literally contains $B_s$ as a summand, and untangling exactly
-          how much they share is what this node answers.
-      - teach: >
-          Write $B_t = B_s + (B_t - B_s)$ for $s \le t$: the two pieces are
-          independent by definition, so $\operatorname{Cov}(B_s,B_t) =
-          \operatorname{Var}(B_s) = s$. In general,
-          $\operatorname{Cov}(B_s,B_t) = \min(s,t)$ — the shared elapsed time
-          is the entire covariance.
+    dialogue:
+      - part: Two snapshots of one P&L
+        teach: >
+          A strategy's cumulative P&L follows a standard Brownian motion, time
+          in months. The risk report shows it at month $4$ and again at month
+          $9$. A colleague computes the variance of the change between the two
+          reports as $\operatorname{Var}(B_9) + \operatorname{Var}(B_4) = 13$,
+          treating the two snapshots as independent.
       - ask: >
-          What is $\operatorname{Cov}(B_3, B_7)$?
+          What is $\operatorname{Var}(B_9 - B_4)$ actually?
+        expects: "5"
+        hint: >
+          $B_9 - B_4$ is a single increment of the process.
+        feedback: >
+          It is an increment over a window of length $9 - 4 = 5$, so
+          $B_9 - B_4 \sim N(0, 5)$ and the variance is $5$, not $13$. The
+          colleague's $13$ is off by $8$, and that $8$ is hiding a covariance.
+      - ask: >
+          Expand $\operatorname{Var}(B_9 - B_4) = \operatorname{Var}(B_9) +
+          \operatorname{Var}(B_4) - 2\operatorname{Cov}(B_4, B_9)$ and solve.
+          What is $\operatorname{Cov}(B_4, B_9)$?
+        expects: "4"
+        hint: >
+          The left side is $5$ and the two variances are $9$ and $4$.
+        feedback: >
+          $5 = 9 + 4 - 2c$, so $c = 4$. The two snapshots are strongly
+          positively related, and the covariance is exactly the earlier time.
+      - reflect: >
+          Why is the covariance exactly $4$, the earlier time, and what would
+          it be for any $s \le t$? Find the argument that does not go through
+          the increment's variance.
+        hint: >
+          Write $B_9$ as $B_4$ plus something.
+        answer: >
+          $B_9 = B_4 + (B_9 - B_4)$, and the second piece is independent of
+          $B_4$ because $[0, 4]$ and $[4, 9]$ do not overlap. So
+          $\operatorname{Cov}(B_4, B_9) = \operatorname{Var}(B_4) + 0 = 4$.
+          For $s \le t$ the same split gives $s$: the covariance is the time
+          the two values have lived through together, and nothing after the
+          earlier time contributes.
+      - teach: >
+          So $\operatorname{Cov}(B_s, B_t) = \min(s, t)$, and dividing by the
+          standard deviations, $\operatorname{Corr}(B_s, B_t) = \sqrt{s/t}$
+          for $s \le t$. Each $B_{t_i}$ is a sum of the same independent
+          normal increments, so any finite collection is jointly Gaussian: a
+          mean-zero Gaussian process with covariance $\min(s, t)$ and
+          continuous paths is an equivalent definition of Brownian motion.
+
+      - part: Shared time, read off directly
+        ask: >
+          What is $\operatorname{Corr}(B_4, B_9)$?
+        expects: "2/3"
+        tolerance: 0.0005
+        hint: >
+          Divide the covariance by both standard deviations.
+        feedback: >
+          $4/(\sqrt{4}\sqrt{9}) = 4/6 = 2/3$, the same as $\sqrt{4/9}$. Five
+          months apart, the two reports are still correlated at about $0.67$.
+      - ask: >
+          Two windows that overlap: what is $\operatorname{Cov}(B_5, B_7 -
+          B_2)$?
         expects: "3"
         hint: >
-          Covariance is exactly the shared elapsed time — the smaller of the
-          two.
+          Split each quantity into increments over $[0, 2]$, $[2, 5]$ and
+          $[5, 7]$, and keep only the pieces they share.
         feedback: >
-          $\operatorname{Cov}(B_3,B_7) = \min(3,7) = 3$ — the smaller time is
-          the entire answer, no other computation needed.
-      - teach: >
-          Dividing by standard deviations gives $\operatorname{Corr}(B_s,B_t) =
-          \sqrt{s/t}$ for $s \le t$: nearby times are highly correlated, but
-          correlation decays only like a square root as the gap widens, not
-          proportionally.
+          $B_5 = (B_2) + (B_5 - B_2)$ and $B_7 - B_2 = (B_5 - B_2) +
+          (B_7 - B_5)$. The only shared piece is $B_5 - B_2$, with variance
+          $3$. Covariance is the length of the overlap, whatever the windows.
       - ask: >
-          What is $\operatorname{Corr}(B_4, B_{16})$?
-        expects: "0.5"
-        hint: >
-          Use $\sqrt{s/t}$ with the smaller time on top.
+          A candidate claims $\operatorname{Cov}(B_3, B_{12}) = 12$. Which
+          check refutes it on the spot?
+        choices:
+          - text: >
+              The sign: after nine more months the P&L has reverted, so the
+              covariance should be negative.
+            feedback: >
+              Nothing reverts. The increment after month $3$ is independent of
+              $B_3$, so it adds $0$ to the covariance and the sign is
+              positive. The size is what is wrong.
+          - text: >
+              Cauchy–Schwarz: $|\operatorname{Cov}| \le \sqrt{3 \cdot 12} = 6$.
+            correct: true
+            feedback: >
+              A covariance of $12$ would mean a correlation of $12/6 = 2$,
+              which no pair of random variables has. The true value $3$ gives
+              correlation $1/2$.
+          - text: >
+              Nothing refutes it; the later time carries more variance.
+            feedback: >
+              More variance in $B_{12}$ is independent noise added after time
+              $3$; it does not co-move with $B_3$ at all.
         feedback: >
-          $\operatorname{Corr}(B_4,B_{16}) = \sqrt{4/16} = \sqrt{0.25} = 0.5$ —
-          the smaller time over the larger, then a square root.
-      - teach: >
-          Because every finite collection of $B_{t_i}$'s is a linear image of
-          the same independent normal increments, it is jointly Gaussian —
-          which makes conditioning linear: given $B_T = x$, the earlier value
-          $B_t$ ($t<T$) is normal with mean $(t/T)x$ and variance $t(T-t)/T$,
-          largest at the midpoint.
+          $\min$, not $\max$: what the two values share is the path up to the
+          earlier time.
+
+      - part: Pinning the end of the path
+        teach: >
+          At month $20$ the P&L is observed to be exactly $10$. You are asked
+          what that says about where it stood at month $5$.
       - ask: >
-          Suppose $B_{10} = 5$ is observed. What is the mean of $B_4$ given
-          this?
-        expects: "2"
+          What is $\mathbb{E}[B_5 \mid B_{20} = 10]$?
+        choices:
+          - text: >
+              $0$: month $5$ came first, so a later observation says nothing
+              about it.
+            feedback: >
+              Information flows both ways through a covariance. $B_{20}$
+              contains $B_5$ as a summand, so a high $B_{20}$ is evidence of a
+              high $B_5$.
+          - text: >
+              $2.5$
+            correct: true
+            feedback: >
+              $\operatorname{Cov}(B_5, B_{20})/\operatorname{Var}(B_{20}) =
+              5/20$, and $(5/20) \times 10 = 2.5$: a straight line from $0$ at
+              time $0$ to $10$ at time $20$.
+          - text: >
+              $10$: with no drift, the best guess for any time is the latest
+              value.
+            feedback: >
+              That is the forward-looking rule — the best guess for a later
+              time is the current value. Looking backward, the path must also
+              start at $0$, so the guess interpolates.
         hint: >
-          Apply the bridge mean formula $(t/T)x$ with $t=4$, $T=10$, $x=5$.
+          For a mean-zero jointly Gaussian pair, conditioning is linear:
+          $\mathbb{E}[X \mid Y = y] = \dfrac{\operatorname{Cov}(X, Y)}{\operatorname{Var}(Y)}\,y$.
         feedback: >
-          The bridge mean is $(t/T)x = (4/10)\times5 = 2$ — a linear
-          interpolation toward $0$ at time $0$, weighted by how far along the
-          path is.
-      - teach: >
-          The common slip is reversing $s$ and $t$ inside $\min$, or plugging
-          the larger time into the shared role — either mistake produces a
-          covariance exceeding one of the variances, which is impossible.
+          Given $B_T = x$, the mean of $B_t$ is $(t/T)x$: linear interpolation
+          between the two pinned values.
+      - ask: >
+          What is $\operatorname{Var}(B_5 \mid B_{20} = 10)$?
+        expects: "3.75"
+        hint: >
+          For a jointly Gaussian pair, the conditional variance is
+          $\operatorname{Var}(X) - \operatorname{Cov}(X, Y)^{2}/\operatorname{Var}(Y)$.
+        feedback: >
+          $5 - 5^{2}/20 = 5 - 1.25 = 3.75$, which matches the bridge formula
+          $t(T-t)/T = 5 \times 15/20 = 3.75$. The observed value $10$ does not
+          enter: knowing $B_{20}$ shifts the centre, and the spread shrinks by
+          the same amount whatever was seen.
+      - ask: >
+          Given $B_{20} = 10$, at which month is the uncertainty about the
+          P&L largest?
+        choices:
+          - text: >
+              Near month $0$, the furthest from the observation.
+            feedback: >
+              At month $0$ the value is pinned at $0$, so the variance there is
+              $t(T-t)/T = 0$.
+          - text: >
+              At month $10$
+            correct: true
+            feedback: >
+              $t(20 - t)/20$ is a downward parabola with its peak at $t = 10$,
+              where it equals $5$. Both pins are as far away as they can be.
+          - text: >
+              Near month $20$, the latest time.
+            feedback: >
+              At month $20$ the value is observed, so the variance is $0$
+              there too.
+        feedback: >
+          This conditioned path is the Brownian bridge. Its midpoint rule —
+          given both ends, the middle is normal around their average with
+          variance a quarter of the time between them — is how simulators refine a path by
+          repeated midpoint interpolation.
 
   - node: quant-processes.brownian.markov-property
     hook: >
@@ -568,84 +1000,186 @@ lessons:
       Brownian motion is again a standard Brownian motion independent of
       everything before — the license behind every "restart the clock"
       argument.
-    steps:
-      - teach: >
-          Every argument in this unit that restarts the clock the instant the
-          path does something — hits a level, sets a record — depends on the
-          *strong* Markov property, not the ordinary one, so it is worth
-          separating the two precisely.
-      - teach: >
-          The ordinary Markov property is nothing new: fix a deterministic time
-          $s$, and $W_t = B_{s+t} - B_s$ is exactly one increment of the base
-          process, hence itself a standard Brownian motion independent of
-          everything up to $s$ — baked into the four defining facts.
+    dialogue:
+      - part: Forecasting from a known present
+        teach: >
+          A stock's log-price, measured from its open, follows a standard
+          Brownian motion with time in days. On day $3$ you read $B_3 = 1$.
+          The desk wants the probability that it is above its open on day
+          $7$.
       - ask: >
-          Suppose $B_1 = 2$. Using $W_t = B_{1+t}-2$ as a fresh Brownian
-          motion, what is $\Pr(B_5 > 4 \mid B_1 = 2)$?
-        expects: "0.1587"
+          What is $\Pr(B_7 > 0 \mid B_3 = 1)$? Use $\Phi(0.5) = 0.6915$.
+        expects: "0.6915"
         tolerance: 0.0005
         hint: >
-          Shift by the known value, standardize by $\sqrt4=2$, and use
-          $\Phi(1)=0.8413$.
+          Write $B_7 = 1 + (B_7 - B_3)$. What is the law of the increment?
         feedback: >
-          $\Pr(B_5>4\mid B_1=2) = \Pr(W_4 > 2) = \Pr(Z > 2/\sqrt4) = 1-\Phi(1)
-          = 1-0.8413 = 0.1587$: shift the origin to the known value, then treat
-          the remaining $4$ time units as an ordinary increment.
-      - teach: >
-          The strong Markov property replaces the fixed time $s$ with a
-          stopping time $\tau$ — decidable from the path up to that moment
-          alone, no lookahead. Provided $\tau$ is almost surely finite, $W_t =
-          B_{\tau+t}-B_\tau$ is again a standard Brownian motion independent of
-          the path up to $\tau$.
+          The increment $B_7 - B_3 \sim N(0, 4)$ is independent of $B_3$, so
+          you need $\Pr(N(0, 4) > -1) = \Pr(Z > -0.5) = \Phi(0.5) = 0.6915$.
       - ask: >
-          Which of these is a valid stopping time to apply the strong Markov
-          property to?
+          A colleague adds that the price climbed to $3$ on day $2$ before
+          sliding back to $1$ on day $3$. How does that change your answer?
         choices:
           - text: >
-              The first time $B_t$ reaches level $5$
+              Lower it: the slide is momentum, and it tends to continue.
+            feedback: >
+              Momentum is a dependence of future increments on past ones,
+              and Brownian increments are independent by definition. The
+              slide is already spent.
+          - text: >
+              Raise it: the price has shown it can reach $3$, so it tends to
+              revert up.
+            feedback: >
+              Reversion would also make the future increment depend on the
+              past. Nothing in $B_7 - B_3$ knows the price was ever at $3$.
+          - text: >
+              It does not change: only $B_3 = 1$ matters.
             correct: true
             feedback: >
-              This is decidable using only the path up to that moment — the
-              defining feature of a stopping time.
-          - text: >
-              The time at which the maximum of $B$ over $[0,10]$ is attained
-            feedback: >
-              Deciding this requires knowing the whole future path up to time
-              $10$ — it is not decidable from the past alone, so it is not a
-              stopping time.
-          - text: >
-              The last time before $10$ that $B_t = 0$
-            feedback: >
-              Confirming a crossing is the *last* one before time $10$ requires
-              looking forward to check none occur after — not decidable from
-              the past alone.
-          - text: >
-              $10$ minus the first hitting time of level $5$
-            feedback: >
-              This runs the clock backward from a fixed future time, which
-              again needs information not available at the moment in question.
+              $B_{3+t} - B_3$ is built from increments after day $3$, which
+              are independent of the whole path before. The present value is
+              all the past contributes.
         feedback: >
-          A stopping time must be decidable from the path up to that instant
-          alone; the first hitting time qualifies, while anything defined using
-          the future or working backward from a fixed endpoint does not.
+          Fix a time $s$ and the future $W_t = B_{s+t} - B_s$ is a fresh
+          standard Brownian motion, independent of everything up to $s$. That
+          is the Markov property, and for a fixed $s$ it is just the
+          definition read aloud.
+
+      - part: Restarting at a random moment
+        ask: >
+          An alert fires at the random time $\tau$ when the price first
+          reaches $2$. What is the law of the path after the alert,
+          $B_{\tau+t} - 2$?
+        choices:
+          - text: >
+              Tilted upward: the price was rising into the alert.
+            feedback: >
+              It was rising into $2$, but a rise is past increments, and the
+              future increments do not remember them. The question is whether
+              the random timing lets the past leak in.
+          - text: >
+              A fresh standard Brownian motion.
+            correct: true
+            feedback: >
+              Right, and it is a real claim: $\tau$ is random, so you cannot
+              just quote the fixed-time property. Something about this
+              particular random time makes it work.
+          - text: >
+              Impossible to say, because $\tau$ is random.
+            feedback: >
+              Some random times do spoil the restart, but not all. The first
+              arrival at $2$ is one of the good ones, and the next question
+              asks why.
+        feedback: >
+          The restart works at the first arrival at $2$. It will not work at
+          every random time.
+      - reflect: >
+          Compare two random times in one week: $\tau$, the first moment the
+          price reaches $2$, and $\sigma$, the moment of the week's highest
+          price. At which of them can you restart the path as a fresh Brownian
+          motion, and what is the difference between them?
+        hint: >
+          At $\tau$, can you tell that $\tau$ has arrived? At $\sigma$, can
+          you?
+        answer: >
+          Only at $\tau$. Whether $\tau$ has happened by time $t$ can be read
+          off the path up to $t$ — you watch, and you know the instant it
+          touches $2$. Whether $\sigma$ has happened requires the rest of the
+          week: you only know the high was the high once nothing beat it.
+          $\sigma$ peeks at the future, and the path after it is forced to
+          lie below, which no fresh Brownian motion does.
       - teach: >
-          The theorem grants independence of the entire past history $\mathcal
-          F_\tau$, not merely of the value $B_\tau$ — a subtle but load-bearing
-          distinction, since it is what licenses treating the whole pre-$\tau$
-          path as irrelevant going forward.
-      - ask: >
-          Let $\tau$ be the first hitting time of level $-2$ (almost surely
-          finite). By the strong Markov property, $W_t = B_{\tau+t}-(-2)$ is a
-          fresh Brownian motion. What is $\Pr(W_1 > 0.5)$?
+          A random time whose occurrence by $t$ is decided by the path up to
+          $t$ is a stopping time. The strong Markov property: if $\tau$ is a
+          stopping time with $\Pr(\tau < \infty) = 1$, then
+          $W_t = B_{\tau+t} - B_\tau$ is a standard Brownian motion,
+          independent of the entire path up to $\tau$. At the first moment the
+          path does something, it forgets how it got there.
+
+      - part: Using the restart
+        ask: >
+          The alert at $2$ has fired. What is the probability that four days
+          later the price is above $3$, that is, $\Pr(B_{\tau+4} > 3)$? Use
+          $\Phi(0.5) = 0.6915$.
         expects: "0.3085"
         tolerance: 0.0005
         hint: >
-          Standardize directly since $W_1$ has variance $1$, then use
-          $\Phi(0.5)=0.6915$.
+          Restart at $\tau$: you need the fresh path to rise by $1$ in four
+          days.
         feedback: >
-          $\Pr(W_1>0.5) = \Pr(Z>0.5) = 1-\Phi(0.5) = 1-0.6915 = 0.3085$ — an
-          ordinary tail probability on the restarted process, exactly as if the
-          path were beginning again from $0$.
+          $B_{\tau+4} - 2 = W_4 \sim N(0, 4)$, so
+          $\Pr(W_4 > 1) = \Pr(Z > 0.5) = 1 - 0.6915 = 0.3085$. When the alert
+          fired does not enter.
+      - ask: >
+          The alert fired unusually late, on day $6$. Does that change the
+          law of the path after the alert?
+        choices:
+          - text: >
+              Yes: a late alert means a sluggish stock, so the restart should
+              be scaled down.
+            feedback: >
+              Volatility is a property of the increments, and every increment
+              has variance equal to elapsed time. A late $\tau$ is bad luck in
+              the past, not a slower future.
+          - text: >
+              No: the restarted path is independent of everything up to
+              $\tau$, including $\tau$ itself.
+            correct: true
+            feedback: >
+              The theorem grants independence from the whole history up to
+              $\tau$, not merely from the value $B_\tau = 2$. How long it took
+              is part of that history.
+          - text: >
+              Only if the alert fired after day $5$, beyond the original
+              window.
+            feedback: >
+              No window appears in the theorem. Whenever $\tau$ lands, the
+              path after it is a fresh Brownian motion.
+        feedback: >
+          Independence from $\tau$ is what lets later arguments split on
+          "when did it first hit" and treat what follows as identical in
+          every case.
+      - ask: >
+          Which of these is not a stopping time?
+        choices:
+          - text: >
+              The first time the price falls $1$ below its open.
+            feedback: >
+              You know the instant it happens by watching the path. That is a
+              stopping time.
+          - text: >
+              The last time the price is at its open before day $5$.
+            correct: true
+            feedback: >
+              Knowing it was the last visit requires seeing that no later
+              visit happens before day $5$ — the future again.
+          - text: >
+              Day $4$, whatever the price does.
+            feedback: >
+              A fixed time is a stopping time trivially: you always know
+              whether day $4$ has arrived.
+          - text: >
+              The first time the price has risen $1$ above its lowest level so
+              far.
+            feedback: >
+              The running low and the current price are both visible up to
+              now, so this is decided by the past. A stopping time.
+        feedback: >
+          "First time something happens" is the template for a stopping time;
+          "last time" and "time of the maximum" are the templates for traps.
+      - ask: >
+          Restart at $\sigma$, the time of the week's high, and suppose
+          $\sigma$ falls before the last day. What is the probability that the
+          price is ever above $B_\sigma$ during the rest of the week?
+        expects: "0"
+        hint: >
+          What does it mean for $\sigma$ to be the time of the high?
+        feedback: >
+          By definition nothing after $\sigma$ beats $B_\sigma$, so the
+          probability is $0$. A fresh Brownian motion started at $0$ goes
+          above $0$ immediately with probability $1$, so the path after
+          $\sigma$ is not one. The reflection principle restarts at the first
+          hitting time precisely because that is a stopping time.
 
   - node: quant-processes.brownian.martingale-property
     hook: >
@@ -698,83 +1232,188 @@ lessons:
       for every real $\lambda$ — the first answers probability questions, the
       second answers expected-time questions, and the third generalizes both
       once drift is involved.
-    steps:
-      - teach: >
-          These three formulas are the whole toolkit for answering exit
-          probability and exit time questions without ever writing a
-          differential equation — the trick is knowing which one answers which
-          question.
-      - teach: >
-          $B_t$ itself is a martingale for the trivial reason that future
-          increments have mean $0$: $\mathbb{E}[B_t\mid\mathcal
-          F_s]=B_s+\mathbb{E}[B_t-B_s]=B_s$. This is the probability-question
-          tool — a bounded stopped version conserves its expected value
-          exactly.
+    dialogue:
+      - part: Pricing two contracts on a fair game
+        teach: >
+          A fair game's running score is a standard Brownian motion $B_t$,
+          time in minutes. At minute $5$ the score stands at $B_5 = 3$. A
+          broker quotes two contracts that settle at minute $12$: one pays the
+          score $B_{12}$, the other pays its square $B_{12}^{2}$.
       - ask: >
-          Using the martingale property of $B_t$, what is $\mathbb{E}[B_9 \mid
-          B_4 = 3]$?
+          What is the fair value now of the first contract,
+          $\mathbb{E}[B_{12} \mid B_5 = 3]$?
         expects: "3"
         hint: >
-          A martingale's future expectation equals its present value.
+          $B_{12} = B_5 + (B_{12} - B_5)$.
         feedback: >
-          By the martingale property, $\mathbb{E}[B_t\mid\mathcal F_s]=B_s$, so
-          $\mathbb{E}[B_9\mid B_4=3]=3$ directly — no further computation
-          needed.
-      - teach: >
-          $B_t^2-t$ compensates the natural growth of a squared process:
-          expanding $B_t=B_s+(B_t-B_s)$ with the increment independent, mean
-          $0$, variance $t-s$, gives $\mathbb{E}[B_t^2\mid\mathcal
-          F_s]=B_s^2+(t-s)$, so subtracting $t$ exactly cancels the growth —
-          the time-question tool.
+          The increment has mean $0$ and is independent of everything up to
+          minute $5$, so $\mathbb{E}[B_{12} \mid B_5 = 3] = 3 + 0 = 3$. The
+          best forecast of a fair game is where it stands now.
       - ask: >
-          With $s=3$, $t=8$, and $B_3=1$, what is $\mathbb{E}[B_8^2 - 8 \mid
-          B_3 = 1]$?
-        expects: "-2"
+          What is the fair value now of the second contract,
+          $\mathbb{E}[B_{12}^{2} \mid B_5 = 3]$?
+        expects: "16"
         hint: >
-          Either compute $\mathbb{E}[B_8^2\mid B_3=1]$ then subtract $8$, or
-          apply the martingale property to $B_3^2-3$ directly.
+          Square $3 + X$ with $X \sim N(0, 7)$ independent of the past, then
+          take expectations term by term.
         feedback: >
-          $\mathbb{E}[B_8^2\mid B_3=1]=B_3^2+(8-3)=1+5=6$, so
-          $\mathbb{E}[B_8^2-8\mid B_3=1]=6-8=-2$ — matching $B_3^2-3=1-3=-2$
-          directly from the martingale property, confirming the compensation.
-      - teach: >
-          The exponential martingale $\exp(\lambda B_t - \lambda^2t/2)$ is the
-          normal moment generating function rearranged, and it holds for
-          *every* real $\lambda$ — that flexibility is exactly what makes it
-          the tool for handling drift later, by choosing $\lambda$ to cancel
-          it.
+          $\mathbb{E}[(3 + X)^{2}] = 9 + 2 \cdot 3 \cdot \mathbb{E}[X] +
+          \mathbb{E}[X^{2}] = 9 + 0 + 7 = 16$. Not $9$: the square picks up
+          the variance of the remaining seven minutes.
       - ask: >
-          Which of these is a genuine Brownian martingale?
+          So is $B_t^{2}$ a martingale?
         choices:
           - text: >
-              $B_t^2$
+              Yes: it is a function of a martingale, so it is one too.
             feedback: >
-              This is a submartingale, not a martingale — it grows in
-              expectation, and the $-t$ compensation is not optional.
+              Convex functions of martingales drift upward. Here the forecast
+              of $B_{12}^{2}$ is $16$ while its current value is $9$.
           - text: >
-              $B_t^2 - t$
+              No: its forecast exceeds its current value by the elapsed time.
             correct: true
             feedback: >
-              The $-t$ compensation exactly cancels the growth from expanding
-              the square, leaving a genuine martingale.
+              $\mathbb{E}[B_t^{2} \mid \mathcal{F}_s] = B_s^{2} + (t - s)$.
+              The excess $7$ is exactly the time between minute $5$ and minute
+              $12$, whatever the current score.
           - text: >
-              $B_t^3$
+              Only when the current score is $0$.
             feedback: >
-              Expanding $(B_s+X)^3$ with $X=B_t-B_s$ leaves a leftover term
-              $3B_s(t-s)$ that does not cancel — this is not a martingale.
-          - text: >
-              $\exp(B_t)$ with no $-\lambda^2t/2$ correction
-            feedback: >
-              Dropping the compensating term leaves a process that grows in
-              expectation — the correction is exactly what makes the
-              exponential version fair.
+              From a score of $0$ the forecast of $B_{12}^{2}$ is $0 + 7 = 7$,
+              still above the current $0$. The drift is there at every score.
         feedback: >
-          Only the compensated square is a martingale here — the raw square and
-          the raw cube both fail without the exact compensating term.
+          $B_t^{2}$ grows in expectation at rate $1$ per unit time, regardless
+          of where the game stands.
+      - reflect: >
+          What could you subtract from $B_t^{2}$ so that the forecast of the
+          result always equals its current value? Say why your fix works for
+          every $s < t$, not just minutes $5$ and $12$.
+        hint: >
+          The excess is $t - s$, and it does not depend on $B_s$.
+        answer: >
+          Subtract $t$. Since $\mathbb{E}[B_t^{2} \mid \mathcal{F}_s] = B_s^{2}
+          + (t - s)$, you get $\mathbb{E}[B_t^{2} - t \mid \mathcal{F}_s] =
+          B_s^{2} - s$, the current value of $B^{2} - t$. The compensator is
+          deterministic because the variance of a future increment depends
+          only on elapsed time, never on the current level.
+
+      - part: A third contract, on the exponential
+        ask: >
+          Now a contract paying $e^{2B_3}$ at minute $3$, priced at minute
+          $0$. What is $\mathbb{E}[e^{2B_3}]$? Give two decimal places.
+        expects: "403.43"
+        tolerance: 0.01
+        hint: >
+          The normal moment generating function:
+          $\mathbb{E}[e^{\lambda X}] = e^{\lambda^{2}\sigma^{2}/2}$ for
+          $X \sim N(0, \sigma^{2})$.
+        feedback: >
+          $B_3 \sim N(0, 3)$, so $\mathbb{E}[e^{2B_3}] = e^{4 \cdot 3/2} =
+          e^{6} \approx 403.43$, while $e^{2B_0} = 1$. The exponential drifts
+          upward even faster than the square.
+      - ask: >
+          Which deterministic factor turns $e^{2B_t}$ into a martingale?
+        choices:
+          - text: >
+              $e^{-t}$
+            feedback: >
+              Then $\mathbb{E}[e^{2B_3 - 3}] = e^{6 - 3} = e^{3}$, still above
+              the starting value $1$. You need to cancel $\lambda^{2}t/2$ with
+              $\lambda = 2$, not $\lambda t/2$.
+          - text: >
+              $e^{-4t}$
+            feedback: >
+              That overshoots: $\mathbb{E}[e^{2B_3 - 12}] = e^{-6}$, so the
+              process sinks in expectation. The variance term is
+              $\lambda^{2}t/2$, with the half.
+          - text: >
+              $e^{-2t}$
+            correct: true
+            feedback: >
+              $\mathbb{E}[e^{2(B_t - B_s)}] = e^{2(t - s)}$, so
+              $e^{2B_t - 2t}$ has forecast $e^{2B_s - 2s}$, its current value.
+        feedback: >
+          For general $\lambda$ the increment contributes
+          $e^{\lambda^{2}(t - s)/2}$, so the compensator is
+          $e^{-\lambda^{2}t/2}$.
       - teach: >
-          Between the three, the first two are usually enough: $B_t$ pins down
-          exit probabilities, and $B_t^2-t$ pins down expected exit times, both
-          by optional stopping on a bounded stopped process.
+          Those are the three Brownian martingales: $B_t$, because increments
+          have mean $0$; $B_t^{2} - t$, because increments have variance equal
+          to elapsed time; and $\exp(\lambda B_t - \lambda^{2}t/2)$ for every
+          real $\lambda$, which is the normal moment generating function
+          rearranged. Each is the continuous image of a discrete walk
+          martingale: $S_n$, $S_n^{2} - n$, and the exponential one.
+
+      - part: Reading them, and misreading them
+        ask: >
+          At minute $6$ the score is $B_6 = 0.5$. Using the exponential
+          martingale with $\lambda = 1$, what is
+          $\mathbb{E}[e^{B_{10} - 5} \mid B_6 = 0.5]$? Give four decimal
+          places.
+        expects: "0.0821"
+        tolerance: 0.0005
+        hint: >
+          Write $e^{B_{10} - 5} = e^{B_{10} - 10/2}$ and use that its forecast
+          is its current value $e^{B_6 - 6/2}$.
+        feedback: >
+          $e^{B_t - t/2}$ is a martingale, so the forecast is
+          $e^{0.5 - 3} = e^{-2.5} \approx 0.0821$. Directly: $e^{0.5}e^{-5}
+          \mathbb{E}[e^{X}]$ with $X \sim N(0, 4)$ gives
+          $e^{0.5 - 5 + 2} = e^{-2.5}$.
+      - ask: >
+          Which of these is not a martingale?
+        choices:
+          - text: >
+              $\exp(3B_t - 4.5t)$
+            feedback: >
+              $\lambda = 3$ needs $\lambda^{2}/2 = 4.5$, which is exactly what
+              is subtracted. This one is a martingale.
+          - text: >
+              $\exp(B_t - t)$
+            correct: true
+            feedback: >
+              With $\lambda = 1$ the compensator is $t/2$, not $t$. Here
+              $\mathbb{E}[e^{B_t - t}] = e^{t/2 - t} = e^{-t/2}$, which sinks
+              from $1$: a supermartingale.
+          - text: >
+              $-B_t$
+            feedback: >
+              The increments of $-B$ still have mean $0$. A sign flip of a
+              martingale is a martingale.
+          - text: >
+              $B_t^{2} - t$
+            feedback: >
+              The compensated square, the second of the three.
+        feedback: >
+          The half in $\lambda^{2}t/2$ is where people slip; check it with
+          $\mathbb{E}[\cdot] = 1$ at any fixed $t$.
+      - ask: >
+          A game runs until the score first hits $+2$ or $-5$. To find the
+          probability that it ends at $+2$, which martingale do you stop?
+        choices:
+          - text: >
+              $B_t^{2} - t$, because the exit time is involved.
+            feedback: >
+              Stopping $B^{2} - t$ ties together $\mathbb{E}[B_\tau^{2}]$ and
+              $\mathbb{E}[\tau]$. It answers how long the game lasts once the
+              exit probability is known; it does not find that probability.
+          - text: >
+              $B_t$
+            correct: true
+            feedback: >
+              Its expected stopped value stays $0$, and the stopped value is
+              $2$ or $-5$, so $0 = 2p - 5(1 - p)$ gives the probability in one
+              line.
+          - text: >
+              $\exp(\lambda B_t - \lambda^{2}t/2)$, because it covers all the
+              others.
+            feedback: >
+              It can be made to work, but $\tau$ enters its stopped value, so
+              you would be solving for more than you need. With no drift, the
+              plain $B_t$ is enough.
+        feedback: >
+          The division of labour: $B_t$ for where the game ends, $B_t^{2} - t$
+          for how long it takes, and the exponential once a drift has to be
+          cancelled.
 
   - node: quant-processes.brownian.quadratic-variation
     hook: >
@@ -828,82 +1467,191 @@ lessons:
       Summed squared increments of Brownian motion converge to the elapsed
       time $t$ itself, not to $0$ — the fact that makes stochastic calculus
       genuinely different from ordinary calculus.
-    steps:
-      - teach: >
-          $(dB)^2 = dt$ is the single line explaining why stochastic calculus
-          needs its own chain rule — the one place where ordinary calculus's
-          intuition that squared increments are negligible fails outright.
-      - teach: >
-          Partition $[0,t]$ and sum the squared increments,
-          $\sum_i(B_{t_i}-B_{t_{i-1}})^2$. Each term has mean exactly
-          $\Delta_i=t_i-t_{i-1}$, since
-          $\operatorname{Var}(B_{t_i}-B_{t_{i-1}})=\Delta_i$ — so the sum's
-          mean is $\sum_i\Delta_i=t$ for *every* partition, no limit needed
-          yet.
+    dialogue:
+      - part: Realized variance on a sampling grid
+        teach: >
+          A log-price follows a standard Brownian motion over a four-hour
+          session, time in hours. A quant computes its realized variance: cut
+          $[0, 4]$ into equal intervals, take the change over each, square,
+          and add. She starts with five-minute sampling, $48$ intervals of
+          length $1/12$.
       - ask: >
-          Partition $[0,6]$ any way you like into finitely many pieces. What is
-          the exact mean of the sum of squared increments?
-        expects: "6"
+          What is the expected value of the sum of the $48$ squared changes?
+        expects: "4"
         hint: >
-          The mean of each squared increment is that increment's own width —
-          sum the widths.
+          A change over an interval of length $\Delta$ has variance $\Delta$,
+          and its mean is $0$.
         feedback: >
-          The mean is $\sum_i\Delta_i=t=6$ for every partition, since each
-          squared increment has mean equal to its own $\Delta_i$ — the total
-          telescopes to the elapsed time regardless of how finely it is cut.
-      - teach: >
-          What needs the limit is the variance vanishing: a standard normal has
-          $\operatorname{Var}(Z^2)=2$, so the $i$-th term has variance
-          $2\Delta_i^2$, and summing across independent pieces gives total
-          variance $2\sum_i\Delta_i^2 \le 2t\max_i\Delta_i \to 0$ as the mesh
-          shrinks.
+          Each squared change has mean $\mathbb{E}[(\Delta B)^{2}] = 1/12$, so
+          the sum has mean $48 \times 1/12 = 4$, the session length. With
+          one-minute sampling it is $240 \times 1/60 = 4$ again: the expected
+          sum is $t$ on every grid.
       - ask: >
-          Partition $[0,1]$ into $n=50$ equal pieces, so $\Delta_i=0.02$ for
-          each. What is the variance of the sum of squared increments?
-        expects: "0.04"
+          Compare a smooth path: the deterministic line $f(t) = t$ on the same
+          $48$ intervals. What is the sum of its squared changes? Give four
+          decimal places.
+        expects: "0.3333"
+        tolerance: 0.0005
         hint: >
-          Use $2n\Delta_i^2$ with $n=50$ and $\Delta_i=0.02$.
+          Each change of $f$ over an interval of length $1/12$ is $1/12$.
         feedback: >
-          The variance is $2\sum_i\Delta_i^2 = 2\times50\times0.02^2 =
-          2\times50\times0.0004 = 0.04$ — small already at $n=50$, and it
-          shrinks further as $n$ grows.
-      - teach: >
-          Mean exactly $t$, variance shrinking to $0$: the sum converges to $t$
-          itself, deterministically. A continuously differentiable path has
-          quadratic variation $0$ instead — the non-classical feature that
-          makes Brownian paths behave differently.
+          $48 \times (1/12)^{2} = 1/3$. With $480$ intervals it is
+          $480 \times (1/120)^{2} = 1/30$: for a smooth path the sum shrinks
+          like $1/n$ and vanishes in the limit.
       - ask: >
-          As the partition mesh shrinks toward $0$, what happens to the sum of
-          squared increments of a continuously differentiable path over
-          $[0,t]$?
+          Why does the Brownian sum not shrink the way the line's does?
         choices:
           - text: >
-              It converges to $t$, the same as for Brownian motion
-            feedback: >
-              That is exactly the Brownian result — a smooth path behaves quite
-              differently.
-          - text: >
-              It converges to $0$
+              Brownian changes are bigger: over an interval of length $\Delta$
+              they are of size $\sqrt{\Delta}$, so their squares are of size
+              $\Delta$.
             correct: true
             feedback: >
-              Increments of a differentiable path are $O(\Delta_i)$, not
-              $O(\sqrt{\Delta_i})$, so their squares are $O(\Delta_i^2)$ and
-              the sum vanishes — the classical picture that Brownian motion
-              violates.
+              The line's changes are of size $\Delta$ and their squares
+              $\Delta^{2}$, so $n$ of them give $n\Delta^{2} = t\Delta \to 0$.
+              Brownian squares are of size $\Delta$, and $n$ of them give
+              $n\Delta = t$.
           - text: >
-              It diverges to infinity
+              Brownian changes do not cancel, since they are independent.
             feedback: >
-              A smooth path's squared increments shrink too fast for the sum to
-              blow up.
+              Squaring removes all cancellation, for the line too. The issue is
+              the size of each square, not signs.
           - text: >
-              It oscillates without converging at all
+              It does shrink, just more slowly; the limit is still $0$.
             feedback: >
-              The sum converges cleanly to $0$ for a smooth path — there is no
-              oscillation.
+              The expected sum is exactly $4$ on every grid, with no trend
+              toward $0$ at all.
         feedback: >
-          Ordinary calculus's intuition — squared increments vanish — is
-          exactly true for smooth paths, which is precisely why Brownian
-          motion, where it fails, needs its own calculus.
+          The scaling property is the whole story: a change over time
+          $\Delta$ is of order $\sqrt{\Delta}$, so its square is of order
+          $\Delta$, the same order as the time step itself.
+      - reflect: >
+          The expected sum is $4$ on every grid, but the sum itself is random.
+          What would you need to show to conclude that, as the grid gets
+          finer, the sum converges to the number $4$ itself — and why should
+          that happen?
+        hint: >
+          A random quantity with fixed mean is pinned to that mean if one
+          other number goes to $0$.
+        answer: >
+          Show that its variance goes to $0$. The squared changes are
+          independent, because the intervals do not overlap, so their
+          variances add. Each is $\Delta$ times the square of a standard
+          normal, with variance $2\Delta^{2}$, so the total is $2n\Delta^{2} =
+          2t\Delta$, which vanishes as $\Delta \to 0$. A sum with mean $t$ and
+          vanishing variance converges to $t$.
+
+      - part: The variance that vanishes
+        ask: >
+          Using $\operatorname{Var}(Z^{2}) = 2$ for a standard normal $Z$, what
+          is the variance of the five-minute realized variance, the sum over
+          $48$ intervals? Give four decimal places.
+        expects: "0.6667"
+        tolerance: 0.0005
+        hint: >
+          A squared change over length $1/12$ is $(1/12)Z^{2}$.
+        feedback: >
+          Each term has variance $2 \times (1/12)^{2} = 1/72$, and
+          $48 \times 1/72 = 2/3 \approx 0.6667$. Equivalently
+          $2t\Delta = 2 \times 4 \times 1/12$.
+      - ask: >
+          And with one-minute sampling, $240$ intervals? Give four decimal
+          places.
+        expects: "0.1333"
+        tolerance: 0.0005
+        hint: >
+          $2t\Delta$ with $\Delta = 1/60$.
+        feedback: >
+          $2 \times 4 \times 1/60 = 2/15 \approx 0.1333$. Five times finer
+          sampling, five times less variance, and the mean has not moved
+          from $4$.
+      - teach: >
+          That is the theorem: for partitions of $[0, t]$ with mesh
+          $\max_i \Delta_i \to 0$,
+          $\sum_i (B_{t_i} - B_{t_{i-1}})^{2} \to t$ in $L^{2}$, written
+          $\langle B \rangle_t = t$ or $(dB)^{2} = dt$. The mean is exactly
+          $\sum_i \Delta_i = t$, and the variance is
+          $2\sum_i \Delta_i^{2} \le 2t\max_i \Delta_i \to 0$. Any continuously
+          differentiable path has quadratic variation $0$.
+
+      - part: Scaling it, and breaking it
+        ask: >
+          A desk models the log-price as $X_t = 0.3B_t$, time in years. What
+          is $\langle X \rangle_4$?
+        expects: "0.36"
+        hint: >
+          Every squared change of $X$ is $0.09$ times the squared change of
+          $B$.
+        feedback: >
+          $\langle X \rangle_4 = 0.3^{2} \times 4 = 0.36$. Realized variance
+          measures $\sigma^{2}t$, which is why it is the estimator of
+          volatility.
+      - ask: >
+          A sloppy grid on $[0, 4]$: keep $[0, 2]$ as one interval and cut
+          $[2, 4]$ into a million pieces. What does the variance of the sum of
+          squared changes tend to?
+        expects: "8"
+        hint: >
+          The fine part contributes almost nothing. What does the single
+          interval of length $2$ contribute?
+        feedback: >
+          The coarse interval gives $2 \times 2^{2} = 8$, and the fine part
+          gives $2 \times 2 \times 2 \times 10^{-6} \approx 0$. The sum
+          stays random, with variance $8$, however many pieces you add.
+      - ask: >
+          Which hypothesis did the sloppy grid drop?
+        choices:
+          - text: >
+              Equal spacing of the intervals.
+            feedback: >
+              Unequal intervals are fine. The bound
+              $2\sum_i \Delta_i^{2} \le 2t\max_i \Delta_i$ needs only that the
+              largest one shrinks.
+          - text: >
+              The mesh going to $0$: the number of pieces grew, but the
+              largest piece did not shrink.
+            correct: true
+            feedback: >
+              The variance is controlled by the largest interval. A million
+              pieces with one interval of length $2$ still leaves the sum
+              random.
+          - text: >
+              Independence of the changes.
+            feedback: >
+              The intervals still do not overlap, so the changes are
+              independent. Nothing went wrong there.
+        feedback: >
+          "Mesh to $0$", not "number of pieces to infinity": that is the
+          precise hypothesis, and it is the one people quote loosely.
+      - ask: >
+          Expand a smooth function of the path over one short step,
+          $f(B_{t+\Delta}) - f(B_t) \approx f'(B_t)\,\Delta B +
+          \tfrac{1}{2}f''(B_t)(\Delta B)^{2}$. Summed over a fine grid, what
+          does the second-order term become?
+        choices:
+          - text: >
+              Nothing: second-order terms vanish in the limit, as in ordinary
+              calculus.
+            feedback: >
+              They vanish when $(\Delta B)^{2}$ is of order $\Delta^{2}$. Here
+              it is of order $\Delta$, and summing $\Delta$'s gives elapsed
+              time, not $0$.
+          - text: >
+              A random term with no limit.
+            feedback: >
+              The argument you just made shows the squared changes add up to a
+              deterministic quantity, not a random one.
+          - text: >
+              $\tfrac{1}{2}\int f''(B_s)\,ds$: each $(\Delta B)^{2}$ acts like
+              $\Delta$.
+            correct: true
+            feedback: >
+              Replace $(dB)^{2}$ by $dt$ and the term survives as an ordinary
+              time integral. That extra term is the difference between Itô's
+              lemma and the chain rule.
+        feedback: >
+          $(dB)^{2} = dt$ is the one rule ordinary calculus lacks, and the
+          stochastic calculus of the next unit is built on it.
 
   - node: quant-processes.brownian.nondifferentiability
     hook: >
@@ -948,81 +1696,169 @@ lessons:
       difference quotient to infinity, so the path is nowhere differentiable
       and has infinite variation on every interval — the reason stochastic
       integration can't be built path by path.
-    steps:
-      - teach: >
-          "Is Brownian motion differentiable" is a fast disqualifying question,
-          and the reason it fails is exactly the reason a P&L path can't be
-          treated with an ordinary instantaneous rate of change.
-      - teach: >
-          Over a window of length $h$, a Brownian increment is of typical size
-          $\sqrt h$, so the difference quotient $(B_{t+h}-B_t)/h$ is of order
-          $\sqrt h/h = h^{-1/2}$ — this blows up, rather than settling down, as
-          $h \to 0$.
+    dialogue:
+      - part: Measuring the speed of a price
+        teach: >
+          A log-price follows a standard Brownian motion, time in days. A
+          junior analyst wants its instantaneous speed, so she computes the
+          difference quotient $(B_{t+h} - B_t)/h$ over shorter and shorter
+          windows: a day, an hour, a minute.
       - ask: >
-          For $h = 0.0001$, what is $h^{-1/2}$?
-        expects: "100"
-        hint: >
-          Take the square root of $h$ first, then invert.
-        feedback: >
-          $h^{-1/2} = 1/\sqrt{0.0001} = 1/0.01 = 100$ — already large at a
-          fairly ordinary window width, and it grows without bound as $h$
-          shrinks further.
-      - teach: >
-          The variation claim follows from quadratic variation directly:
-          $\sum_i(\Delta B_i)^2 \le (\max_i|\Delta B_i|)\sum_i|\Delta B_i|$,
-          and continuity sends the first factor to $0$. If total variation
-          stayed bounded, the right side would vanish, forcing quadratic
-          variation to $0$ — contradicting it converging to $t$.
-      - ask: >
-          Why must Brownian motion have infinite total variation on every
-          interval?
+          Before computing anything: what happens to the typical size of the
+          quotient as $h$ shrinks?
         choices:
           - text: >
-              Because bounded total variation would force quadratic variation
-              to $0$, contradicting quadratic variation converging to $t$
+              It settles down to a definite slope, as for any continuous path.
+            feedback: >
+              That is what happens for a differentiable path, where
+              $B_{t+h} - B_t \approx (\text{slope}) \times h$. Brownian
+              changes are not of order $h$, so the division by $h$ does not
+              balance them.
+          - text: >
+              It shrinks to $0$, because over a tiny window the price barely
+              moves.
+            feedback: >
+              The numerator does shrink, but the denominator shrinks faster.
+              Over a window $h$ the move is of size $\sqrt{h}$, much larger
+              than $h$ when $h$ is small.
+          - text: >
+              It grows without bound.
             correct: true
             feedback: >
-              This is the exact contradiction the proof runs: bounded variation
-              plus continuity would force the quadratic variation limit to
-              vanish, but it is known to equal $t$.
-          - text: >
-              Because the path is continuous
-            feedback: >
-              Continuity alone does not force infinite variation — plenty of
-              continuous paths have finite variation. The actual argument needs
-              the quadratic variation fact too.
-          - text: >
-              Because the path is unbounded as $t \to \infty$
-            feedback: >
-              The claim holds on every bounded interval already, where the path
-              is almost surely bounded — unboundedness over long horizons is
-              unrelated to this argument.
-          - text: >
-              Because Brownian increments are Gaussian
-            feedback: >
-              Being Gaussian by itself does not imply infinite variation — it
-              is the specific $\sqrt{\Delta_i}$ increment scale driving the
-              quadratic-variation argument that does.
+              The move over a window $h$ has standard deviation $\sqrt{h}$, so
+              the quotient has standard deviation $\sqrt{h}/h = h^{-1/2}$,
+              which explodes as $h \to 0$.
         feedback: >
-          Bounded variation is incompatible with quadratic variation converging
-          to $t$ rather than $0$ — that contradiction is the whole proof.
-      - teach: >
-          Continuity does not imply differentiability somewhere here — the
-          failure is simultaneous at *every* time, not confined to isolated
-          points, which is a stronger and stranger fact than ordinary calculus
-          prepares you for.
+          The heuristic in one line: increments of size $\sqrt{h}$ over
+          windows of length $h$ make every slope infinite in the limit.
       - ask: >
-          Brownian paths are Hölder continuous of every order $\alpha < 1/2$
-          but of no order $\alpha \ge 1/2$. What is that exact boundary value
-          of $\alpha$?
-        expects: "0.5"
+          What is the standard deviation of the quotient for $h = 0.04$ days?
+        expects: "5"
         hint: >
-          It is the same exponent appearing in the increment size $\sqrt h =
-          h^{1/2}$.
+          $B_{t+h} - B_t \sim N(0, h)$; divide its standard deviation by $h$.
         feedback: >
-          The boundary is $\alpha = 1/2$, set precisely by the $\sqrt h$
-          increment size — paths are just barely too rough to reach that
-          exponent.
+          $\sqrt{0.04}/0.04 = 0.2/0.04 = 5$. At $h = 0.0001$ it is
+          $0.01/0.0001 = 100$: shrink the window by $400$ and the quotient
+          grows by $20$.
+
+      - part: The odometer that never stops
+        ask: >
+          Now total distance travelled instead of speed. Cut one day into
+          $10\,000$ equal windows and add up the absolute moves
+          $|B_{t_i} - B_{t_{i-1}}|$. What is the expected total? Use
+          $\mathbb{E}|Z| = \sqrt{2/\pi} \approx 0.7979$ and give two decimal
+          places.
+        expects: "79.79"
+        tolerance: 0.01
+        hint: >
+          Each window has length $10^{-4}$, so each absolute move is
+          $10^{-2}|Z|$ in law.
+        feedback: >
+          $10\,000 \times 0.01 \times 0.7979 \approx 79.79$. In general $n$
+          windows give $\sqrt{n} \times 0.7979$: the odometer grows like
+          $\sqrt{n}$ as the grid refines, with no limit.
+      - reflect: >
+          You know the squared moves add up to $1$ on a fine grid. Use that,
+          and the continuity of the path, to explain why the total distance
+          cannot stay bounded as the grid refines.
+        hint: >
+          Bound the sum of squares by the largest absolute move times the sum
+          of absolute moves.
+        answer: >
+          $\sum_i (\Delta B_i)^{2} \le (\max_i |\Delta B_i|)\sum_i |\Delta
+          B_i|$. Continuity sends the largest move to $0$ as the mesh shrinks.
+          If the total distance $\sum_i |\Delta B_i|$ stayed bounded, the right
+          side would go to $0$ and drag the quadratic variation to $0$, but it
+          converges to $1$. So the total variation is infinite.
+      - teach: >
+          Both heuristics are theorems. With probability $1$ the Brownian path
+          is differentiable at no time at all, and it has infinite total
+          variation on every interval, however short. The roughness has an
+          exact borderline: paths are Hölder continuous of every order
+          $\alpha < 1/2$ and of no order $\alpha \ge 1/2$.
+
+      - part: Where intuition from calculus misleads
+        ask: >
+          A candidate argues: "The path is continuous, so it must at least be
+          differentiable at most times; the blow-up only happens at special
+          points." What is wrong?
+        choices:
+          - text: >
+              Nothing: continuous functions are differentiable except at
+              isolated points.
+            feedback: >
+              That is the intuition from functions drawn by hand, and it is
+              false in general. The Brownian path is continuous and fails to
+              be differentiable at every single time.
+          - text: >
+              The failure happens at every time at once, with probability $1$.
+            correct: true
+            feedback: >
+              Right. Restarted at any fixed time the path is a fresh Brownian
+              motion, so no time is special, and the theorem says the
+              failure holds at all times simultaneously.
+          - text: >
+              The path is not actually continuous, which is why it fails to be
+              differentiable.
+            feedback: >
+              Continuity is one of the four defining properties. The path is
+              continuous everywhere and differentiable nowhere — the two are
+              compatible.
+        feedback: >
+          Continuity controls the size of moves; differentiability needs them
+          to be proportional to the window. Brownian motion has the first
+          without the second.
+      - ask: >
+          For which exponent $\alpha$ can a bound
+          $|B_{t+h} - B_t| \le Ch^{\alpha}$ hold for all small $h$ on
+          $[0, 1]$?
+        choices:
+          - text: >
+              $\alpha = 1$
+            feedback: >
+              That is a Lipschitz bound, which would cap the difference
+              quotient at $C$. The quotient is of order $h^{-1/2}$.
+          - text: >
+              $\alpha = 1/2$
+            feedback: >
+              The border itself fails. $\sqrt{h}$ is the typical size at one
+              time, and over all times in $[0, 1]$ the worst move is larger by
+              a factor that grows slowly as $h \to 0$.
+          - text: >
+              $\alpha = 0.4$
+            correct: true
+            feedback: >
+              Any order below $1/2$ works: $h^{0.4}$ eventually dominates
+              $\sqrt{h}$ times any slowly growing factor.
+        feedback: >
+          Increments of size $\sqrt{h}$ set the borderline at exactly $1/2$,
+          and the border belongs to the failing side.
+      - ask: >
+          Why can $\int_0^{1} f(t)\,dB_t$ not be defined as an ordinary
+          Riemann–Stieltjes integral, path by path?
+        choices:
+          - text: >
+              Because $B$ is random, and Riemann–Stieltjes integrals need a
+              deterministic integrator.
+            feedback: >
+              Fix the path and it is a deterministic function. The obstacle is
+              what kind of function it is.
+          - text: >
+              Because the path has infinite variation, and Riemann–Stieltjes
+              integration needs an integrator of finite variation.
+            correct: true
+            feedback: >
+              The sums $\sum_i f(t_i)\Delta B_i$ are not controlled by
+              $\max|f| \times \sum_i |\Delta B_i|$ when that sum is infinite.
+              Stochastic integration builds the integral in $L^{2}$ instead.
+          - text: >
+              Because $B$ is not continuous enough to be integrated against.
+            feedback: >
+              Continuity is not the issue. The path is continuous, but rough
+              in a way finite-variation theory cannot handle.
+        feedback: >
+          That is why stochastic integration is its own subject rather than
+          a corner of ordinary calculus.
 
   - node: quant-processes.brownian.reflection-bm
     hook: >
@@ -1068,76 +1904,170 @@ lessons:
       $\Pr(M_t\ge a)=2\Pr(B_t\ge a)=\Pr(|B_t|\ge a)$: mirror the path after
       its first touch of $a$, and the ever-touching probability is exactly
       twice the finishing-beyond probability.
-    steps:
-      - teach: >
-          "What's the probability the path ever touches level $a$ by time $t$"
-          is answered by mirroring the path after its first touch, and the
-          clean factor of $2$ this produces is worth having automatic.
-      - teach: >
-          Let $\tau_a$ be the first time the path reaches $a$. On $\{\tau_a\le
-          t\}$, the strong Markov property restarts the path at $a$ as a fresh,
-          symmetric Brownian motion — equally likely to finish above or below
-          $a$, so $\Pr(M_t\ge a,\,B_t<a)=\Pr(M_t\ge a,\,B_t>a)$.
+    dialogue:
+      - part: Two digitals on one barrier
+        teach: >
+          An underlying follows a standard Brownian motion, time in months.
+          Two contracts reference the level $1.6$ over the next $4$ months. A
+          European digital pays $100$ if the underlying ends above $1.6$ at
+          month $4$. A one-touch pays $100$ if the underlying touches $1.6$ at
+          any moment before month $4$.
       - ask: >
-          For $a=2$, $t=4$, what is $\Pr(M_4 \ge 2)$?
-        expects: "0.3174"
+          What is the probability that the European digital pays? Use
+          $\Phi(0.8) = 0.7881$.
+        expects: "0.2119"
         tolerance: 0.0005
         hint: >
-          Compute $a/\sqrt t = 2/2 = 1$, use $\Phi(1)=0.8413$, then double
-          $1-\Phi(1)$.
+          $B_4 \sim N(0, 4)$, standard deviation $2$.
         feedback: >
-          $\Pr(M_4\ge2) = 2\left(1-\Phi(2/\sqrt4)\right) =
-          2\left(1-\Phi(1)\right) = 2\times0.1587 = 0.3174$.
-      - teach: >
-          Finishing above $a$ already forces the running maximum above $a$, so
-          $\Pr(M_t\ge a,\,B_t>a)=\Pr(B_t>a)$ outright. Adding the two symmetric
-          halves back together gives $\Pr(M_t\ge a)=2\Pr(B_t\ge a)=\Pr(|B_t|\ge
-          a)$.
+          $\Pr(B_4 > 1.6) = \Pr(Z > 0.8) = 1 - 0.7881 = 0.2119$.
       - ask: >
-          For $a=1$, $t=0.25$, what is $\Pr(M_{0.25} \ge 1)$?
-        expects: "0.0456"
-        tolerance: 0.0005
-        hint: >
-          Compute $a/\sqrt t = 1/0.5 = 2$, use $\Phi(2)=0.9772$, then double
-          $1-\Phi(2)$.
-        feedback: >
-          $\Pr(M_{0.25}\ge1) = 2\left(1-\Phi(1/\sqrt{0.25})\right) =
-          2\left(1-\Phi(2)\right) = 2\times0.0228 = 0.0456$.
-      - teach: >
-          The most common slip is reporting $\Pr(B_t\ge a)$ alone and
-          forgetting to double it — this is only the "finished above $a$" half,
-          missing every path that touched $a$ and came back down before time
-          $t$.
-      - ask: >
-          Which of these equals $\Pr(M_t \ge a)$ exactly?
+          Which paths pay on the one-touch but not on the European?
         choices:
           - text: >
-              $\Pr(B_t \ge a)$
+              None: a path that touches $1.6$ stays near it and ends above.
             feedback: >
-              This misses the factor of $2$ — it only counts paths that
-              *finish* above $a$, not the ones that touched $a$ and returned
-              below it.
+              After touching, the path keeps moving, and nothing pushes it
+              up. Plenty of paths touch $1.6$ in month $2$ and end below it.
           - text: >
-              $\Pr(|B_t| \ge a)$
+              Paths that touch $1.6$ and then end below it.
             correct: true
             feedback: >
-              This is exactly the reflection identity: ever touching $a$ has
-              the same probability as finishing at least $a$ away from $0$ in
-              either direction.
+              Every path that ends above $1.6$ touched it on the way, by
+              continuity, so the one-touch pays on all of those and on the
+              touch-and-retreat paths as well.
           - text: >
-              $2\Pr(B_t \le a)$
+              Paths that end above $1.6$ without ever touching it.
             feedback: >
-              This flips the direction of the tail — it should be $\Pr(B_t \ge
-              a)$, not $\Pr(B_t \le a)$.
-          - text: >
-              $\Phi(a/\sqrt t)$
-            feedback: >
-              This is missing both the complement and the factor of $2$ — it is
-              close to the probability of the *opposite* event.
+              A continuous path from $0$ to above $1.6$ must pass through
+              $1.6$. There are no such paths.
         feedback: >
-          $\Pr(M_t\ge a)=2\Pr(B_t\ge a)=\Pr(|B_t|\ge a)$: the ever-touching
-          probability is exactly twice the finishing-beyond probability, and
-          also equals the two-sided tail probability at $0$.
+          So the one-touch probability is $0.2119$ plus the probability of
+          touching and then retreating. Everything turns on that second piece.
+      - reflect: >
+          Take the paths that touch $1.6$ at some moment before month $4$.
+          What fraction of them end above $1.6$, and why?
+        hint: >
+          Restart the clock at the first touch. What does the path do from
+          there?
+        answer: >
+          Half. The first touch is a stopping time, so by the strong Markov
+          property the path after it is a fresh Brownian motion started at
+          $1.6$, independent of how it got there. A fresh Brownian motion is
+          symmetric, so whatever time remains, it is as likely to end above
+          $1.6$ as below. The touch-and-retreat paths are therefore exactly as
+          likely as the touch-and-finish-above paths.
+      - ask: >
+          Here is the symmetry made concrete. A path first touches $1.6$ in
+          month $1.5$ and ends at $1.0$. Mirror everything after the touch in
+          the line at $1.6$. Where does the mirrored path end?
+        expects: "2.2"
+        hint: >
+          The mirror image of $b$ in the level $a$ is $2a - b$.
+        feedback: >
+          The original ends $0.6$ below the level, so the mirror ends $0.6$
+          above: $2 \times 1.6 - 1.0 = 2.2$. Mirroring is a one-to-one pairing
+          of touch-and-retreat paths with paths that end above $1.6$, and it
+          preserves probability.
+      - teach: >
+          That is the reflection principle. With $M_t = \max_{0 \le s \le t}
+          B_s$ and $a > 0$,
+          $\Pr(M_t \ge a) = 2\Pr(B_t \ge a) = \Pr(|B_t| \ge a) =
+          2(1 - \Phi(a/\sqrt{t}))$. The proof is exactly your argument: the
+          strong Markov property at the first hitting time $\tau_a$ splits
+          the touching paths evenly, and finishing above $a$ already forces
+          a touch.
+
+      - part: Pricing the one-touch
+        ask: >
+          What is the probability that the one-touch pays?
+        expects: "0.4238"
+        tolerance: 0.0005
+        hint: >
+          Double the European probability.
+        feedback: >
+          $2 \times 0.2119 = 0.4238$. The one-touch is worth exactly twice the
+          European digital on the same level and horizon — a desk rule of
+          thumb with an exact proof behind it, for driftless paths.
+      - ask: >
+          Why mirror at the first touch rather than at, say, the time of the
+          path's highest point?
+        choices:
+          - text: >
+              It makes no difference; any time the path is at or above $1.6$
+              works.
+            feedback: >
+              After the time of the maximum the path never goes higher, so the
+              part after it is not symmetric: mirroring would send it upward,
+              to paths that are not equally likely.
+          - text: >
+              The first touch is a stopping time, so the path after it is a
+              fresh symmetric Brownian motion.
+            correct: true
+            feedback: >
+              The time of the maximum depends on the future, and the strong
+              Markov property gives nothing there. The first touch is decided
+              by the path so far.
+          - text: >
+              The first touch is the only time the path equals $1.6$.
+            feedback: >
+              A Brownian path that touches $1.6$ returns to it immediately and
+              infinitely often. Being at the level is not the point; being a
+              stopping time is.
+        feedback: >
+          The strong Markov property is used exactly once, at $\tau_a$, and it
+          is why the restart is legal.
+
+      - part: Where the factor of two fails
+        ask: >
+          The underlying now has an upward drift. Is the one-touch still worth
+          exactly twice the European?
+        choices:
+          - text: >
+              Yes: the reflection argument never used the drift.
+            feedback: >
+              It used symmetry after the touch. With an upward drift the
+              restarted path is more likely to end above $1.6$ than below.
+          - text: >
+              No: it is worth less than twice the European.
+            correct: true
+            feedback: >
+              More of the touching paths now finish above the level, so the
+              touch-and-retreat piece is smaller than the finish-above piece,
+              and the ratio drops below $2$.
+          - text: >
+              No: it is worth more than twice the European.
+            feedback: >
+              Drift up makes retreating after the touch less likely, not more.
+              The retreat piece shrinks relative to the finish-above piece.
+        feedback: >
+          The factor $2$ is symmetry, and drift breaks symmetry. A
+          downward drift tips it the other way, above $2$.
+      - ask: >
+          In practice the one-touch is monitored only at daily closes. How
+          does the true payout probability compare with $0.4238$?
+        choices:
+          - text: >
+              It is smaller: a path can touch $1.6$ between closes and be back
+              below by the next close.
+            correct: true
+            feedback: >
+              Discrete monitoring misses intraday touches, so the continuous
+              formula overprices it. Desks shift the barrier slightly away to
+              compensate.
+          - text: >
+              It is the same, since the closes sample the same path.
+            feedback: >
+              The closes see the path at a finite set of times. Any touch
+              between them goes unrecorded.
+          - text: >
+              It is larger, since each close is a fresh chance to be above.
+            feedback: >
+              The continuous contract already counts every moment, closes
+              included. Watching fewer moments can only miss touches.
+        feedback: >
+          The reflection principle prices continuous monitoring. Any coarser
+          monitoring sits strictly between the European and the one-touch.
 
   - node: quant-processes.brownian.running-max-law
     hook: >
@@ -1189,74 +2119,148 @@ lessons:
       The running maximum is distributed as $|B_t|$, giving mean
       $\sqrt{2t/\pi}$ and variance $t(1-2/\pi)$, and the drawdown from that
       peak has the identical law.
-    steps:
-      - teach: >
-          "What's the expected high-water mark of a driftless log-price over a
-          year" is a stock-desk question, and the answer is a folded-normal
-          mean you should have memorized, not re-derived under time pressure.
-      - teach: >
-          Reflection says $M_t$ and $|B_t|$ share a distribution, so $M_t$'s
-          density is the normal density folded onto the positive axis:
-          $f_{M_t}(a)=\sqrt{2/(\pi t)}\,e^{-a^2/(2t)}$ for $a\ge0$. Every
-          moment of $M_t$ is therefore a moment of $|B_t|$.
+    dialogue:
+      - part: The peak of a trading book
+        teach: >
+          A driftless trading book's P&L follows a standard Brownian motion,
+          time in weeks, units in thousands. Your risk manager cares about
+          its peak over the next $16$ weeks, $M_{16} = \max_{0 \le s \le 16}
+          B_s$, because the bonus is paid on the high-water mark.
       - ask: >
-          What is $\mathbb{E}[M_9]$?
-        expects: "2.3937"
+          What is $\Pr(M_{16} \ge 2)$? Use $\Phi(0.5) = 0.6915$.
+        expects: "0.6170"
         tolerance: 0.0005
         hint: >
-          Use $\mathbb{E}[M_t]=\sqrt{2t/\pi}\approx0.7979\sqrt t$.
+          The reflection principle, with $a = 2$ and $\sqrt{t} = 4$.
         feedback: >
-          $\mathbb{E}[M_9] = \sqrt{2\times9/\pi} = \sqrt{18/\pi} \approx
-          2.3937$ — equivalently, $\sqrt{2/\pi}\times3 \approx 0.7979\times3$.
+          $\Pr(M_{16} \ge 2) = 2(1 - \Phi(2/4)) = 2(1 - 0.6915) = 0.6170$.
+          That is also $\Pr(|B_{16}| \ge 2)$: ending at least $2$ away from
+          $0$ in either direction.
+      - reflect: >
+          The reflection principle gives $\Pr(M_{16} \ge a) = \Pr(|B_{16}| \ge
+          a)$ for every level $a \ge 0$, not just $a = 2$. What does that say
+          about the random variable $M_{16}$, and what does it buy you for
+          computing its mean?
+        hint: >
+          Two random variables whose tail probabilities agree at every level.
+        answer: >
+          $M_{16}$ and $|B_{16}|$ have the same distribution: their
+          distribution functions agree everywhere. So every question about
+          the law of the peak — mean, variance, quantiles — is a question
+          about a folded normal, which you can answer with ordinary normal
+          integrals. They are different random variables on any given path,
+          but identical in law.
       - teach: >
-          Since $M_t^2=B_t^2$ in law, $\mathbb{E}[M_t^2]=\mathbb{E}[B_t^2]=t$
-          exactly, giving $\operatorname{Var}(M_t)=t(1-2/\pi)$. This second
-          moment coinciding with $B_t$'s is a coincidence of one moment, not a
-          claim that $M_t$ and $B_t$ share the full law — their means already
-          differ.
+          So $M_t$ is distributed as $|B_t|$, with density
+          $\sqrt{2/(\pi t)}\,e^{-a^{2}/(2t)}$ for $a \ge 0$. Hence
+          $\mathbb{E}[M_t] = \sqrt{2t/\pi} \approx 0.798\sqrt{t}$,
+          $\mathbb{E}[M_t^{2}] = t$, and
+          $\operatorname{Var}(M_t) = t(1 - 2/\pi) \approx 0.363t$.
+
+      - part: Moments of the peak
+        ask: >
+          What is the expected peak $\mathbb{E}[M_{16}]$? Give two decimal
+          places.
+        expects: "3.19"
+        tolerance: 0.005
+        hint: >
+          $\mathbb{E}|Z| = \sqrt{2/\pi} \approx 0.7979$, and $|B_{16}|$ is
+          $4|Z|$ in law.
+        feedback: >
+          $\mathbb{E}[M_{16}] = 4 \times 0.7979 \approx 3.19$ thousand. The book
+          ends at $0$ on average and still peaks above $3$.
       - ask: >
-          What is $\operatorname{Var}(M_{16})$?
-        expects: "5.8141"
+          What is $\operatorname{Var}(M_{16})$? Give two decimal places.
+        expects: "5.81"
+        tolerance: 0.01
+        hint: >
+          $\mathbb{E}[M_{16}^{2}] = \mathbb{E}[B_{16}^{2}]$, then subtract the
+          squared mean.
+        feedback: >
+          $16 - 16 \times 2/\pi = 16(1 - 0.6366) \approx 5.81$, a standard
+          deviation of about $2.41$. The peak is less dispersed than the
+          endpoint, whose variance is $16$, because it is never negative.
+      - ask: >
+          A strategy's log-value is driftless with $12\%$ annual volatility.
+          What is its expected high over $4$ years, in percent above the
+          start? Give two decimal places.
+        expects: "19.15"
+        tolerance: 0.01
+        hint: >
+          Scale the standard formula by $\sigma$: $\sigma\sqrt{2T/\pi}$.
+        feedback: >
+          $0.12 \times \sqrt{8/\pi} = 0.12 \times 1.5958 \approx 0.1915$, so
+          about $19.15\%$. Forgetting the $\sigma$ gives $160\%$, which should
+          sound wrong at once.
+
+      - part: The peak and the endpoint together
+        ask: >
+          What is the probability that the book touches $2$ but ends at or
+          below $0$, $\Pr(M_{16} \ge 2,\, B_{16} \le 0)$? Use $\Phi(1) =
+          0.8413$.
+        expects: "0.1587"
         tolerance: 0.0005
         hint: >
-          Use $\operatorname{Var}(M_t)=t(1-2/\pi)\approx0.3634t$.
+          Mirror each such path after its first touch of $2$. Where must the
+          mirrored path end?
         feedback: >
-          $\operatorname{Var}(M_{16}) = 16(1-2/\pi) = 16 - 32/\pi \approx
-          5.8141$.
-      - teach: >
-          The joint law extends the mirroring argument one step further:
-          $\Pr(M_t\ge a,\,B_t\le b)=\Pr(B_t\ge2a-b)$ for $a\ge\max(b,0)$, where
-          $2a-b$ is $b$ mirrored across the level $a$.
+          An endpoint $b \le 0$ mirrors in the level $2$ to $2 \cdot 2 - b \ge
+          4$, so the probability equals $\Pr(B_{16} \ge 4) = 1 - \Phi(1) =
+          0.1587$. In general $\Pr(M_t \ge a,\, B_t \le b) = \Pr(B_t \ge 2a -
+          b)$.
       - ask: >
-          The drawdown from the peak, $M_t - B_t$, has the same law as which of
-          these?
+          The drawdown at week $16$ is the gap from the peak, $M_{16} -
+          B_{16}$. What is its expected value?
         choices:
           - text: >
-              $B_t$ itself
-            feedback: >
-              $B_t$ is mean-zero and can be negative, while the drawdown
-              $M_t-B_t\ge0$ always — these have different laws entirely.
-          - text: >
-              $|B_t|$
+              About $3.19$, the same as the expected peak.
             correct: true
             feedback: >
-              The drawdown from the peak has exactly the folded-normal law of
-              $|B_t|$ — the process forgets its own peak the same way it
-              forgets its own barrier crossings.
+              The drawdown $M_t - B_t$ has the law of $|B_t|$ as well. Run the
+              path backward from week $16$ and the drawdown becomes the peak
+              of the reversed path.
           - text: >
-              A constant equal to $\mathbb{E}[M_t]$
+              $0$, since the book ends at $0$ on average.
             feedback: >
-              The drawdown is random, not a fixed constant — it has an entire
-              folded-normal distribution.
+              The drawdown is never negative, and it is $0$ only on paths that
+              finish exactly at their peak. Its mean is
+              $\mathbb{E}[M_{16}] - \mathbb{E}[B_{16}] = 3.19 - 0$.
           - text: >
-              $2B_t$
+              About $1.6$, half the peak, since the book gives back half its
+              gain on average.
             feedback: >
-              This has variance $4t$, far larger than the drawdown's actual
-              spread.
+              Linearity gives $\mathbb{E}[M_{16} - B_{16}] =
+              \mathbb{E}[M_{16}] - 0$ directly. There is no halving.
         feedback: >
-          The drawdown from the running peak is distributed exactly as $|B_t|$
-          — another instance of the reflection idea, applied to the gap below
-          the maximum rather than to the maximum itself.
+          Expected drawdown equals expected peak for a driftless book —
+          $0.8\sigma\sqrt{T}$ for both — and the two have the same law, not
+          just the same mean.
+      - ask: >
+          Someone applies $\Pr(M_t \ge a,\, B_t \le b) = \Pr(B_t \ge 2a - b)$
+          with $a = 1$ and $b = 3$. What goes wrong?
+        choices:
+          - text: >
+              Nothing; the formula holds for all $a$ and $b$.
+            feedback: >
+              With $b > a$ the formula gives $\Pr(B_t \ge -1)$, which counts
+              paths that never touch $1$ at all — a path that wanders below
+              $-1$ throughout is counted but has $M_t < 1$.
+          - text: >
+              It needs $a \ge \max(b, 0)$; with $b = 3 > a$ the event splits.
+            correct: true
+            feedback: >
+              Paths ending in $(1, 3]$ touched $1$ automatically, so mirroring
+              is only needed for those ending at or below $1$. The correct
+              answer is $\Pr(B_t \ge 1) + \Pr(1 < B_t \le 3)$.
+          - text: >
+              It needs $b \ge 0$, which holds here, so it is fine.
+            feedback: >
+              The binding condition is $a \ge b$: the endpoint must lie below
+              the level for the mirror to land above it.
+        feedback: >
+          Mirroring maps endpoints below the level to endpoints above it. If
+          $b$ is already above $a$, split off the part where finishing forces
+          the touch.
 
   - node: quant-processes.brownian.hitting-time
     hook: >
@@ -1304,81 +2308,201 @@ lessons:
       Brownian motion reaches any level with probability $1$ eventually, but
       the hitting time has a $t^{-3/2}$ tail heavy enough to make its
       expectation infinite, even as the median grows only like $a^2$.
-    steps:
-      - teach: >
-          "The path hits every level with probability $1$, but the expected
-          time to do so is infinite" sounds like a contradiction — resolving it
-          cleanly is a standard interview checkpoint.
-      - teach: >
-          "Hit level $a$ by time $t$" is literally "the running maximum has
-          reached $a$ by time $t$," so $\Pr(\tau_a\le t)=\Pr(M_t\ge
-          a)=2\left(1-\Phi(a/\sqrt t)\right)$ falls straight out of reflection,
-          no new argument needed.
+    dialogue:
+      - part: A sell order three ticks up
+        teach: >
+          A stock's price, measured in ticks from where it stands now, follows
+          a standard Brownian motion with time in minutes. You rest a sell
+          order $3$ ticks above. It fills at $\tau_3$, the first time the price
+          touches $3$.
       - ask: >
-          For $a=1$, $t=4$, what is $\Pr(\tau_1 \le 4)$?
-        expects: "0.6170"
+          What is the probability the order fills within $25$ minutes? Use
+          $\Phi(0.6) = 0.7257$.
+        expects: "0.5486"
         tolerance: 0.0005
         hint: >
-          Compute $a/\sqrt t = 1/2 = 0.5$, use $\Phi(0.5)=0.6915$, then double
-          $1-\Phi(0.5)$.
+          The order has filled by minute $25$ exactly when the highest price so
+          far has reached $3$.
         feedback: >
-          $\Pr(\tau_1\le4) = 2\left(1-\Phi(1/\sqrt4)\right) =
-          2\left(1-\Phi(0.5)\right) = 2\times0.3085 = 0.6170$.
-      - teach: >
-          Sending $t\to\infty$ makes $\Phi(a/\sqrt t)\to\Phi(0)=1/2$, so the
-          hitting probability tends to $1$ — every level is reached eventually.
-          But the density's tail behaves like $t^{-3/2}$, and $\int^\infty
-          t\cdot t^{-3/2}\,dt$ diverges, so $\mathbb{E}[\tau_a]=\infty$
-          regardless.
+          $\{\tau_3 \le 25\} = \{M_{25} \ge 3\}$, and the reflection principle
+          gives $2(1 - \Phi(3/5)) = 2(1 - 0.7257) = 0.5486$. Slightly better
+          than a coin flip, even though $3$ ticks is $0.6$ standard deviations
+          of the $25$-minute move: touching is far easier than finishing.
       - ask: >
-          Why is $\mathbb{E}[\tau_a]$ infinite even though
-          $\Pr(\tau_a<\infty)=1$?
+          What is the probability it fills within $900$ minutes? Use
+          $\Phi(0.1) = 0.5398$.
+        expects: "0.9204"
+        tolerance: 0.0005
+        hint: >
+          Same formula; $\sqrt{900} = 30$.
+        feedback: >
+          $2(1 - \Phi(3/30)) = 2(1 - 0.5398) = 0.9204$. Thirty-six times the
+          horizon took the fill chance from $0.55$ to $0.92$.
+      - ask: >
+          Let the horizon grow without bound. What does the fill probability
+          tend to?
         choices:
           - text: >
-              Because the density's tail decays like $t^{-3/2}$, and
-              $\int^\infty t\cdot t^{-3/2}\,dt$ diverges
+              $1/2$: half the paths head down and never come back.
+            feedback: >
+              A driftless path has no "down for good". In the formula,
+              $3/\sqrt{t} \to 0$, so $\Phi(3/\sqrt{t}) \to \Phi(0) = 1/2$ and
+              the fill probability $2(1 - 1/2)$ tends to $1$, not $1/2$.
+          - text: >
+              Some number strictly between $0.92$ and $1$: a few paths escape
+              downward forever.
+            feedback: >
+              Every path that escapes downward still has all of future time to
+              come back, and the formula says the escapees vanish:
+              $2(1 - \Phi(3/\sqrt{t}))$ increases to $2(1 - 1/2) = 1$.
+          - text: >
+              $1$: the order fills eventually, with certainty.
             correct: true
             feedback: >
-              This is exactly the mechanism: enough of the probability mass
-              sits in a heavy, slowly-decaying tail that the average waiting
-              time is dominated by arbitrarily rare, arbitrarily long
-              excursions the wrong way.
-          - text: >
-              Because $\Pr(\tau_a \le t)$ never actually reaches $1$ for any
-              finite $t$
-            feedback: >
-              True but beside the point — the probability approaching $1$ in
-              the limit does not, by itself, prevent a finite mean; the
-              specific tail decay rate is what matters.
-          - text: >
-              Because $f(t)$ is not a valid probability density
-            feedback: >
-              $f(t)$ is a perfectly valid density — it integrates to $1$ over
-              $t>0$. The issue is only that its *mean* diverges.
-          - text: >
-              Because Brownian motion is not a stationary process
-            feedback: >
-              Stationarity of the process is unrelated to whether a specific
-              hitting-time distribution has finite mean.
+              $\Phi(3/\sqrt{t}) \to 1/2$, so the probability tends to $1$. Any
+              level, however far, is reached eventually.
         feedback: >
-          "Happens with probability $1$" and "finite expected waiting time" are
-          genuinely different claims — the $t^{-3/2}$ tail is exactly heavy
-          enough to make the second one fail.
-      - teach: >
-          Self-similarity fixes the shape across levels: $\tau_a$ has the same
-          law as $a^2\tau_1$, so the typical wait — the median — costs
-          quadratically in distance, at $\approx2.20a^2$, even while the mean
-          stays infinite for every $a$.
+          Nothing about $3$ was special: $\Pr(\tau_a < \infty) = 1$ for every
+          level $a$. The fill is certain. The next question is how long it
+          takes.
+
+      - part: Certain, but how long
+        ask: >
+          What is the median wait, the $t$ with $\Pr(\tau_3 \le t) = 1/2$? Use
+          $\Phi(0.6745) = 0.75$. Give two decimal places.
+        expects: "19.78"
+        tolerance: 0.05
+        hint: >
+          Set $2(1 - \Phi(3/\sqrt{t})) = 1/2$, so $\Phi(3/\sqrt{t}) = 0.75$.
+        feedback: >
+          $3/\sqrt{t} = 0.6745$ gives $\sqrt{t} = 4.448$ and
+          $t = 9/0.4550 \approx 19.78$ minutes. Half of all orders at $3$
+          ticks fill inside twenty minutes.
       - ask: >
-          Using the median formula $\approx 2.20a^2$, what is the median
-          hitting time for $a=3$?
-        expects: "19.8"
+          What is the probability the order is still unfilled after $90000$
+          minutes? Use $\Phi(0.01) = 0.5040$.
+        expects: "0.0080"
         tolerance: 0.0005
         hint: >
-          Square $a$ first, then multiply by $2.20$.
+          Unfilled is the complement: $1 - 2(1 - \Phi(a/\sqrt{t})) =
+          2\Phi(a/\sqrt{t}) - 1$.
         feedback: >
-          $2.20\times3^2 = 2.20\times9 = 19.8$ time units — a finite,
-          well-behaved typical value, in sharp contrast to the infinite mean.
+          $2(0.5040) - 1 = 0.0080$. After $900$ minutes the unfilled chance was
+          $1 - 0.9204 = 0.0796$. A hundred times the horizon bought only a
+          tenfold drop: $\Pr(\tau_3 > t)$ shrinks like $1/\sqrt{t}$.
+      - reflect: >
+          The median wait is about $20$ minutes, and the chance of waiting past
+          time $t$ falls only like $1/\sqrt{t}$. Is the expected wait
+          $\mathbb{E}[\tau_3]$ finite? Say what decides it.
+        hint: >
+          For a nonnegative waiting time,
+          $\mathbb{E}[\tau] = \int_0^{\infty} \Pr(\tau > t)\,dt$.
+        answer: >
+          It is infinite. The expected wait is the area under the survival
+          curve $\Pr(\tau_3 > t)$, and a curve that decays like $1/\sqrt{t}$
+          has infinite area, because $\int^{\infty} t^{-1/2}\,dt$ diverges.
+          The median sees only the bulk of the paths; the mean is dominated by
+          the rare paths that wander far below and take an enormously long
+          time to come back.
+      - teach: >
+          That is the whole node. $\Pr(\tau_a \le t) = 2(1 - \Phi(a/\sqrt{t}))$,
+          which tends to $1$, so every level is hit. Differentiating in $t$
+          gives the density $\dfrac{a}{\sqrt{2\pi t^{3}}}\,e^{-a^{2}/(2t)}$,
+          whose tail behaves like $a\,t^{-3/2}/\sqrt{2\pi}$; then
+          $\int^{\infty} t \cdot t^{-3/2}\,dt$ diverges and
+          $\mathbb{E}[\tau_a] = \infty$. Certain and finite-mean are different
+          claims, and the hitting time is the standard example of the first
+          without the second.
+
+      - part: What the argument rests on
+        ask: >
+          The first step, $\{\tau_a \le t\} = \{M_t \ge a\}$, needs one of the
+          defining properties of Brownian motion more than the others. Which?
+        choices:
+          - text: >
+              Independent increments.
+            feedback: >
+              Independence powers the reflection principle that computes
+              $\Pr(M_t \ge a)$. The equality of the two events is a statement
+              about single paths and uses no probability at all.
+          - text: >
+              Continuous paths.
+            correct: true
+            feedback: >
+              A path whose maximum reached $a$ had to pass through $a$ on the
+              way. A process that could jump from $2.9$ to $3.4$ would have
+              $M_t \ge 3$ without ever equalling $3$.
+          - text: >
+              Increments have mean $0$.
+            feedback: >
+              Symmetry matters in the reflection step, not here. Add a drift
+              and the two events are still equal; only their probability
+              changes.
+        feedback: >
+          Continuity turns "the maximum got there" into "the path touched it".
+          The reflection principle then supplies the number, and scaling
+          supplies the shape across levels.
+      - ask: >
+          A second order rests $9$ ticks up instead of $3$. Compare it with the
+          first.
+        choices:
+          - text: >
+              Median wait three times as long, and so is the mean.
+            feedback: >
+              Distance costs quadratically in time: $\tau_a$ has the law of
+              $a^{2}\tau_1$, so tripling the distance multiplies every quantile
+              by $9$. And the mean is not a finite number to triple.
+          - text: >
+              Median wait nine times as long; the nearer order at least has a
+              finite mean.
+            feedback: >
+              The infinite mean does not depend on the level: the tail of
+              $\tau_3$ is $t^{-3/2}$ just like that of $\tau_9$. Being closer
+              makes the typical fill faster, not the average finite.
+          - text: >
+              Median wait nine times as long, about $178$ minutes; both means
+              are infinite.
+            correct: true
+            feedback: >
+              $\tau_9$ has the law of $9\tau_3$, so the median is
+              $9 \times 19.78 \approx 178$ minutes, and the divergent tail is
+              there at every level.
+        feedback: >
+          Scaling makes $\tau_a$ distributed as $a^{2}\tau_1$, so the median is
+          about $2.20a^{2}$ while the mean stays infinite for every $a > 0$.
+
+      - part: Where the infinity lives
+        ask: >
+          Your desk cancels any order still resting after $900$ minutes. Is the
+          expected time the order spends resting, $\mathbb{E}[\min(\tau_3,
+          900)]$, finite?
+        choices:
+          - text: >
+              No: $\tau_3$ has infinite mean, and capping it cannot fix that.
+            feedback: >
+              Capping is exactly what fixes it. $\min(\tau_3, 900)$ never
+              exceeds $900$, and a random variable bounded by $900$ has mean
+              at most $900$.
+          - text: >
+              Yes, and it is below $900$; the infinity came entirely from the
+              tail beyond any fixed horizon.
+            correct: true
+            feedback: >
+              The survival curve integrated up to $900$ is finite. Only the
+              unbounded tail, carrying probability $0.0796$ beyond $900$ here,
+              made the mean diverge.
+          - text: >
+              Yes, and it equals the median, about $20$ minutes.
+            feedback: >
+              It is finite, but it is not the median: $8\%$ of orders sit the
+              full $900$ minutes, contributing $0.0796 \times 900 \approx 72$
+              minutes to the mean on their own.
+        feedback: >
+          The infinite mean is a fact about the far tail, invisible over any
+          fixed horizon. In an interview, say both halves in one breath:
+          probability $1$ because $\Phi(a/\sqrt{t}) \to 1/2$, infinite mean
+          because the density decays only like $t^{-3/2}$, and the two are not
+          in tension.
 
   - node: quant-processes.brownian.two-sided-exit
     hook: >
@@ -1427,76 +2551,181 @@ lessons:
       Two Brownian martingales solve the two-barrier exit problem completely:
       $B_t$ gives $\Pr(\text{hit }a\text{ first})=b/(a+b)$, and $B_t^2-t$
       gives $\mathbb{E}[\tau]=ab$.
-    steps:
-      - teach: >
-          "Derive the two-barrier gambler's-ruin probability and expected
-          duration for Brownian motion from scratch" is a standard whiteboard
-          ask, and it comes out of the two simplest Brownian martingales in
-          three lines each.
-      - teach: >
-          Fix barriers $a>0$ above and $-b<0$ below, and let $\tau$ be the
-          first exit time from $(-b,a)$ — finite with probability $1$ and
-          finite mean, so optional stopping applies legally to both stopped
-          martingales.
+    dialogue:
+      - part: A target and a stop
+        teach: >
+          A trade's P&L, in thousands, follows a standard Brownian motion with
+          time in hours. You attach a take-profit at $+5$ and a stop-loss at
+          $-3$, and the trade closes at whichever it touches first.
       - ask: >
-          Using the martingale $B_t$ with $a=4$, $b=12$:
-          $0=\mathbb{E}[B_\tau]=ap-b(1-p)$. What is $p$, the probability of
-          exiting at $a$ rather than $-b$?
-        expects: "0.75"
-        hint: >
-          Use $p=b/(a+b)$ directly.
-        feedback: >
-          Solving $ap=b(1-p)$ gives $p=b/(a+b)=12/16=0.75$ — the exit
-          probabilities weight the two barriers inversely to their distance
-          from $0$.
-      - teach: >
-          Using the martingale $B_t^2-t$: optional stopping gives
-          $\mathbb{E}[\tau]=\mathbb{E}[B_\tau^2]=a^2\cdot\dfrac{b}{a+b}+b^2\cdot\dfrac{a}{a+b}=ab$
-          — the compensated square converts the exit time directly into an
-          algebraic expression, once the exit distribution is already known
-          from the first martingale.
-      - ask: >
-          With $a=4$, $b=12$, what is $\mathbb{E}[\tau]$?
-        expects: "48"
-        hint: >
-          Use $\mathbb{E}[\tau]=ab$ directly.
-        feedback: >
-          $\mathbb{E}[\tau] = ab = 4\times12 = 48$ time units.
-      - teach: >
-          The two martingales never swap roles: $B_t$ gives the exit
-          *probability* $p=b/(a+b)$, and $B_t^2-t$ gives the expected exit
-          *time* $ab$ — mixing them up is the standard slip to guard against.
-      - ask: >
-          Barriers are symmetric, $a=b$. What does the exit probability at $a$
-          become, and why?
+          Before any computation: which exit is more likely?
         choices:
           - text: >
-              Exactly $1/2$, since $p=b/(a+b)$ collapses to $a/(2a)$ when $a=b$
+              Neither: the game is fair, so each exit has probability $1/2$.
+            feedback: >
+              Fair means the expected P&L stays $0$, not that the exits are
+              equally likely. A coin-flip split would give an expected exit
+              value of $(5 - 3)/2 = 1 > 0$, more than a fair game can produce.
+          - text: >
+              The stop-loss, because it is closer.
             correct: true
             feedback: >
-              $p=b/(a+b)=a/(a+a)=1/2$ — a fair game with symmetric barriers
-              degenerates to a coin flip, exactly as the martingale identity
-              demands.
+              Closer is likelier. The question is by exactly how much, and
+              fairness is what pins it down.
           - text: >
-              Still $b/(a+b)$, but it can't be simplified without knowing $a$
-              and $b$ individually
+              The take-profit, because a fair path drifts toward the larger
+              payoff.
             feedback: >
-              It simplifies immediately to $1/2$ once $a=b$ — no individual
-              values are needed.
-          - text: >
-              Undefined, since the formula requires distinct barriers
-            feedback: >
-              The formula $p=b/(a+b)$ is perfectly well-defined at $a=b$;
-              nothing about the derivation needs the barriers to differ.
-          - text: >
-              It depends on which barrier the process starts closer to
-            feedback: >
-              The process starts at $0$, equidistant from both symmetric
-              barriers by construction — there is no asymmetry left to depend
-              on.
+              A driftless path has no preference for either side, and it cannot
+              see the payoffs. Its only asymmetry here is distance, and the
+              stop is the nearer barrier.
         feedback: >
-          Symmetric barriers reduce the martingale identity to a coin flip,
-          $p=1/2$, and correspondingly $\mathbb{E}[\tau]=a^2$.
+          The nearer barrier wins more often. Now the number.
+      - ask: >
+          A first instinct is the reflection principle. Why does it not settle
+          the chance of reaching $+5$ first?
+        choices:
+          - text: >
+              It does: $+5$ is reached eventually with probability $1$, so the
+              take-profit is hit first with probability $1$.
+            feedback: >
+              Reaching $+5$ eventually is certain, but most of those paths
+              touch $-3$ on the way and are closed at a loss long before. The
+              stop removes them.
+          - text: >
+              Reflection counts paths that touch $+5$, but cannot exclude the
+              ones that touched $-3$ first.
+            correct: true
+            feedback: >
+              One mirror handles one barrier. With two, every reflected path
+              can bounce off the other barrier, and the bookkeeping becomes an
+              infinite alternating series.
+          - text: >
+              Reflection only works for levels below the start.
+            feedback: >
+              It works for any level, above or below, by symmetry. The trouble
+              is having two levels at once.
+        feedback: >
+          Path counting gets tangled with two barriers. A cleaner tool is
+          something conserved along the way.
+      - reflect: >
+          The P&L is a martingale started at $0$. When the trade closes it sits
+          at exactly $+5$ or exactly $-3$. What equation does that give for
+          $p$, the chance of closing at $+5$?
+        hint: >
+          What is the expected value of the P&L at the moment the trade closes?
+        answer: >
+          If a fair game stays fair when you stop it at the exit time, the
+          expected closing P&L is the starting value $0$. The closing value is
+          $+5$ with probability $p$ and $-3$ otherwise, so
+          $5p - 3(1 - p) = 0$. Solving takes one line, and no path is ever
+          counted.
+      - ask: >
+          Solve it. What is $p$?
+        expects: "0.375"
+        hint: >
+          $5p - 3 + 3p = 0$.
+        feedback: >
+          $8p = 3$, so $p = 3/8 = 0.375$. The stop wins $5/8$ of the time.
+      - teach: >
+          This is optional stopping applied to the martingale $B_t$. With
+          barriers $a > 0$ and $-b < 0$ and $\tau$ the exit time from
+          $(-b, a)$, $\tau$ is finite with finite mean and the stopped path
+          stays inside $[-b, a]$, so $\mathbb{E}[B_\tau] = 0$. That reads
+          $ap - b(1 - p) = 0$, and $p = b/(a+b)$: each barrier's chance is
+          the *other* barrier's distance over the total.
+
+      - part: How long the trade stays open
+        ask: >
+          Now the expected time until the trade closes. Which martingale
+          carries $\tau$ into an equation you can solve?
+        choices:
+          - text: >
+              $B_t$ again, read more carefully.
+            feedback: >
+              $\mathbb{E}[B_\tau] = 0$ involves only where the path exits, not
+              when. No amount of care extracts $\tau$ from it.
+          - text: >
+              $\exp(\lambda B_t - \lambda^{2}t/2)$, since time sits in the
+              exponent.
+            feedback: >
+              Stopping it gives $\mathbb{E}[e^{\lambda B_\tau -
+              \lambda^{2}\tau/2}] = 1$, an equation for a transform of $\tau$;
+              the mean can be dug out by differentiating twice in $\lambda$,
+              with work. Another martingale has $t$ appearing linearly.
+          - text: >
+              $B_t^{2} - t$, since time appears in it linearly.
+            correct: true
+            feedback: >
+              Optional stopping gives $\mathbb{E}[B_\tau^{2} - \tau] = 0$, so
+              $\mathbb{E}[\tau] = \mathbb{E}[B_\tau^{2}]$, and you already know
+              the exit law.
+        feedback: >
+          One martingale for where, one for when: $B_t$ gives the exit
+          probability, $B_t^{2} - t$ the exit time.
+      - ask: >
+          What is $\mathbb{E}[\tau]$, in hours?
+        expects: "15"
+        hint: >
+          $B_\tau^{2}$ is $25$ with probability $3/8$ and $9$ with probability
+          $5/8$.
+        feedback: >
+          $\mathbb{E}[\tau] = 25 \cdot \tfrac{3}{8} + 9 \cdot \tfrac{5}{8} =
+          \tfrac{75 + 45}{8} = 15$, which is $5 \times 3$. In general
+          $a^{2}\tfrac{b}{a+b} + b^{2}\tfrac{a}{a+b} = ab$.
+      - teach: >
+          So the two-sided exit problem is solved by two martingales:
+          $\Pr(\text{hit } a \text{ first}) = b/(a+b)$ and
+          $\mathbb{E}[\tau] = ab$. Symmetric barriers $a = b$ give a coin flip
+          and $\mathbb{E}[\tau] = a^{2}$, the continuous version of the $k/N$
+          and $k(N-k)$ answers for gambler's ruin.
+
+      - part: When stopping is not legal
+        ask: >
+          Remove the stop-loss and keep only the target at $+5$. Optional
+          stopping would claim $\mathbb{E}[B_\tau] = 0$, yet $B_\tau = 5$ on
+          every path. What has gone wrong?
+        choices:
+          - text: >
+              Nothing: the contradiction shows the target is never hit.
+            feedback: >
+              The target is hit with probability $1$ — the running maximum
+              eventually passes every level. The contradiction is in applying
+              the theorem, not in the path.
+          - text: >
+              The stopped P&L is unbounded below and $\tau$ has infinite mean,
+              so the theorem's hypotheses fail.
+            correct: true
+            feedback: >
+              Before closing, the P&L can sink arbitrarily far, and the wait
+              for $+5$ has infinite expectation. With both barriers the
+              stopped path lived in $[-3, 5]$, and that bound is what made the
+              equation legal.
+          - text: >
+              Optional stopping needs the martingale $B_t^{2} - t$, not $B_t$.
+            feedback: >
+              Either martingale needs the same check. $B_t$ is a fine
+              martingale; it is the stopping time that has become too wild.
+        feedback: >
+          Before writing $\mathbb{E}[M_\tau] = M_0$, say why it is allowed: here,
+          a bounded stopped process and an exit time with finite mean.
+      - ask: >
+          Back to two barriers, with the stop widened to $-45$ and the target
+          still $+5$. What is the expected time to close, in hours?
+        expects: "225"
+        hint: >
+          $\mathbb{E}[\tau] = ab$.
+        feedback: >
+          $5 \times 45 = 225$ hours, and the target now wins with probability
+          $45/50 = 0.9$. Push the stop to $-\infty$: the target becomes certain
+          while $ab \to \infty$. That is the certain-but-infinite-mean hitting
+          time, seen from the two-barrier side.
+      - teach: >
+          Said aloud in an interview: "$B_t$ is a martingale and the stopped
+          path is bounded, so $\mathbb{E}[B_\tau] = 0$ gives $p = b/(a+b)$;
+          $B_t^{2} - t$ is a martingale, so $\mathbb{E}[\tau] =
+          \mathbb{E}[B_\tau^{2}] = ab$." Name the martingale and the reason
+          stopping is legal before you write either equation.
 
   - node: quant-processes.brownian.bm-with-drift
     hook: >
@@ -1546,81 +2775,179 @@ lessons:
       only like $\sqrt t$, so their ratio — the Sharpe ratio — grows like
       $\sqrt t$, which is why real edges take a long track record to confirm
       statistically.
-    steps:
-      - teach: >
-          "Why does it take years, not months, to statistically confirm a
-          trading edge" has an exact answer once you write cumulative P&L as
-          drift plus Brownian noise and compare how each term grows.
-      - teach: >
-          Arithmetic Brownian motion tilts the driftless process by a
-          deterministic linear term: $X_t=x_0+\mu t+\sigma B_t$. Since $B_t$
-          has independent increments, so does $X_t$, and $X_t\sim N(x_0+\mu
-          t,\,\sigma^2t)$ follows immediately.
+    dialogue:
+      - part: Two points of edge, eight of noise
+        teach: >
+          A strategy's cumulative return $X_t$, with $t$ in years and $X_0 =
+          0$, gains $0.02$ a year on average. On top of that it carries noise:
+          over any window the random part is Gaussian, with variance $0.08^{2}
+          = 0.0064$ per year of window, and the random parts over
+          non-overlapping windows are independent.
       - ask: >
-          With $\mu=0.05$, $\sigma=0.2$, $x_0=0$, what is the standard
-          deviation of $X_9$?
-        expects: "0.6"
+          What is the standard deviation of $X_4$, the cumulative return after
+          four years?
+        expects: "0.16"
         hint: >
-          Only $\sigma^2t$ enters the variance — the drift term drops out
-          entirely.
+          Variances of independent yearly pieces add. The average gain shifts
+          the centre and has no effect on the spread.
         feedback: >
-          $\operatorname{Var}(X_9)=\sigma^2t=0.04\times9=0.36$, so the standard
-          deviation is $\sqrt{0.36}=0.6$ — the drift $\mu$ shifts the mean but
-          never touches the spread.
-      - teach: >
-          The two terms grow at genuinely different rates: signal $\mu t$ grows
-          linearly, noise $\sigma\sqrt t$ grows only as a square root, so their
-          ratio $(\mu/\sigma)\sqrt t$ — the Sharpe ratio read annually, times
-          $\sqrt t$ — climbs at the crawling $\sqrt t$ rate.
+          The variance is $4 \times 0.0064 = 0.0256$, so the standard deviation
+          is $\sqrt{0.0256} = 0.16$: twice one year's $0.08$, not four times.
       - ask: >
-          A strategy has Sharpe ratio $0.25$. How many years $t$ are needed for
-          $0.25\sqrt t = 2$ (separating the drift from zero at two standard
-          errors)?
-        expects: "64"
+          What is the probability the strategy is under water after four
+          years, $\Pr(X_4 < 0)$? Use $\Phi(0.5) = 0.6915$.
+        expects: "0.3085"
+        tolerance: 0.0005
         hint: >
-          Isolate $\sqrt t$ first, then square it.
+          $X_4$ is normal with mean $4 \times 0.02$ and the standard deviation
+          you just found.
         feedback: >
-          $0.25\sqrt t=2 \Rightarrow \sqrt t=8 \Rightarrow t=64$ — a
-          quarter-century-plus track record for even a two-standard-error
-          confirmation of a modest, genuine edge.
-      - teach: >
-          Confidence accumulates only at rate $\sqrt t$, never linearly in $t$
-          — a natural but wrong instinct is to assume doubling the backtest
-          length doubles the confidence, when it only multiplies it by
-          $\sqrt2$.
+          $X_4 \sim N(0.08, 0.16^{2})$, so
+          $\Pr(X_4 < 0) = \Phi(-0.08/0.16) = 1 - \Phi(0.5) = 0.3085$. Four
+          years in, a genuinely profitable strategy is losing almost one time
+          in three.
       - ask: >
-          A daily strategy has Sharpe ratio $0.1$ measured daily. Using
-          $\sqrt{252}\approx16$, what is the correctly annualized Sharpe ratio?
+          Which formula is this process, with $B$ a standard Brownian motion?
         choices:
           - text: >
-              $0.1\times252 = 25.2$
+              $X_t = 0.02t + 0.0064B_t$
             feedback: >
-              This treats the Sharpe ratio like the drift term, which scales
-              linearly in $t$ — but Sharpe scales like $\sqrt t$, since it is a
-              ratio of a linear term to a square-root term.
+              $0.0064$ is the yearly *variance*. A multiplier $\sigma$ on $B_t$
+              multiplies the variance by $\sigma^{2}$, so this one has yearly
+              standard deviation $0.0064$, about twelve times too small.
           - text: >
-              $0.1\times\sqrt{252}\approx1.6$
+              $X_t = 0.02t + 0.08B_t$
             correct: true
             feedback: >
-              The Sharpe ratio grows like $\sqrt t$, matching the ratio
-              $(\mu/\sigma)\sqrt t$ directly — multiply by
-              $\sqrt{252}\approx16$.
+              $0.08B_t$ is $N(0, 0.0064t)$ with independent, stationary
+              Gaussian increments, and $0.02t$ adds the average gain.
           - text: >
-              $0.1/\sqrt{252}$
+              $X_t = 0.02t + 0.08tZ$, for one standard normal $Z$
             feedback: >
-              This divides instead of multiplies, which would be the wrong
-              direction — moving from daily to annual should *increase* the
-              reported Sharpe ratio.
-          - text: >
-              $0.1$, unchanged, since Sharpe ratio does not depend on horizon
-            feedback: >
-              Sharpe ratio is horizon-dependent precisely because signal and
-              noise scale at different rates — quoting it without a horizon is
-              meaningless.
+              Then the noise would have standard deviation $0.08t$, growing
+              like $t$: $0.32$ at four years instead of $0.16$. And a single
+              $Z$ makes every year's noise the same draw.
         feedback: >
-          Sharpe ratio annualizes by the same $\sqrt{252}\approx16$ factor as
-          volatility, for the structural reason that it is itself a ratio of a
-          linear-in-$t$ term to a $\sqrt t$ term.
+          A straight line plus a scaled Brownian motion: the noise is all
+          carried by $B$.
+      - teach: >
+          This is arithmetic Brownian motion, or Brownian motion with drift:
+          $X_t = x_0 + \mu t + \sigma B_t$, with drift $\mu$ per unit time and
+          volatility $\sigma > 0$. Its increments are independent, an
+          increment over a window of length $h$ is $N(\mu h, \sigma^{2}h)$,
+          and $X_t \sim N(x_0 + \mu t, \sigma^{2}t)$.
+
+      - part: Signal against noise
+        ask: >
+          After how many years does the expected gain $0.02t$ first equal one
+          standard deviation of $X_t$?
+        expects: "16"
+        hint: >
+          Set $0.02t = 0.08\sqrt{t}$ and solve for $\sqrt{t}$.
+        feedback: >
+          $\sqrt{t} = 0.08/0.02 = 4$, so $t = 16$ years. At one year the gain
+          is a quarter of the noise; it takes sixteen to make it a full one.
+      - reflect: >
+          Doubling the horizon doubles the expected gain. What does it do to
+          the ratio of gain to noise, and what does that mean for anyone
+          trying to tell this strategy apart from a zero-edge one by its track
+          record?
+        hint: >
+          Write the ratio $\mu t/(\sigma\sqrt{t})$ and simplify.
+        answer: >
+          The ratio is $(\mu/\sigma)\sqrt{t}$, so doubling the horizon
+          multiplies it by only $\sqrt{2} \approx 1.41$. Signal grows like $t$,
+          noise like $\sqrt{t}$, and their ratio crawls up like $\sqrt{t}$.
+          A small edge therefore stays buried in noise for years: each extra
+          year of track record buys less evidence than the one before.
+      - teach: >
+          The per-year ratio $\mu/\sigma$ is the Sharpe ratio, here
+          $0.02/0.08 = 0.25$. Over $t$ years the drift stands
+          $(\mu/\sigma)\sqrt{t}$ standard deviations from zero, which is how
+          far a track record of length $t$ can separate this strategy from one
+          with no edge.
+      - ask: >
+          How many years until the drift stands two standard deviations from
+          zero?
+        expects: "64"
+        hint: >
+          $0.25\sqrt{t} = 2$.
+        feedback: >
+          $\sqrt{t} = 8$, so $t = 64$ years. Doubling the evidence from one to
+          two standard deviations cost four times the track record, $16$ to
+          $64$.
+
+      - part: What counts as drift plus noise
+        ask: >
+          A colleague models the same strategy as $Y_t = 0.02t + 0.08\sqrt{t}\,Z$
+          with one standard normal $Z$ drawn at the start. $Y_t$ has the same
+          mean and variance as $X_t$ at every $t$. Which property of
+          Brownian motion with drift fails?
+        choices:
+          - text: >
+              Gaussian values: $\sqrt{t}\,Z$ is not normal.
+            feedback: >
+              $0.02t + 0.08\sqrt{t}\,Z$ is normal for every fixed $t$, with
+              exactly the right mean and variance. Each snapshot passes.
+          - text: >
+              Independent increments: every period's noise is the same $Z$.
+            correct: true
+            feedback: >
+              $Y_4 - Y_1 = 0.06 + 0.08Z$ is perfectly correlated with
+              $Y_1 = 0.02 + 0.08Z$. A good first year predicts a good next three,
+              which the real process never does.
+          - text: >
+              Continuity: the path jumps when $Z$ is drawn.
+            feedback: >
+              $t \mapsto 0.02t + 0.08\sqrt{t}\,Z$ is continuous for every $Z$.
+              The failure is in how different times relate, not in any single
+              path's shape.
+        feedback: >
+          Matching every marginal $N(\mu t, \sigma^{2}t)$ is not enough. The
+          independent increments are what make it a process rather than a
+          family of snapshots.
+      - ask: >
+          Back to $X_t = 0.02t + 0.08B_t$. What is the probability the strategy
+          loses money between the end of year $5$ and the end of year $9$? Use
+          $\Phi(0.5) = 0.6915$.
+        expects: "0.3085"
+        tolerance: 0.0005
+        hint: >
+          What does the law of an increment depend on?
+        feedback: >
+          $X_9 - X_5 \sim N(0.02 \times 4, 0.0064 \times 4)$, the same law as
+          $X_4$, so the answer is $1 - \Phi(0.5) = 0.3085$ again. Only the
+          window's length matters, not when it starts or how the first five
+          years went.
+      - ask: >
+          An analyst whose edge is decaying proposes
+          $V_t = 0.04\sqrt{t} + 0.08B_t$. Is it a Brownian motion with drift?
+        choices:
+          - text: >
+              Yes: the drift is just a different deterministic function.
+            feedback: >
+              The definition asks for $\mu t$, linear in time. With
+              $0.04\sqrt{t}$, a one-year window from year $0$ has mean $0.04$
+              and one from year $3$ has mean $0.04(2 - \sqrt{3}) \approx
+              0.011$.
+          - text: >
+              No: its increments are no longer independent.
+            feedback: >
+              Adding a deterministic curve to $0.08B_t$ cannot create
+              dependence; increments over disjoint windows stay independent.
+              The failure is elsewhere.
+          - text: >
+              No: an increment's law depends on when the window starts, not
+              only on its length.
+            correct: true
+            feedback: >
+              Independent Gaussian increments survive, but stationarity does
+              not: the mean of $V_{t+1} - V_t$ is
+              $0.04(\sqrt{t+1} - \sqrt{t})$, shrinking with $t$.
+        feedback: >
+          Exactly one clause fails: stationary increments, which require the
+          drift to be linear in $t$. Applied to a log price instead of a price,
+          the same $\mu t + \sigma B_t$ becomes geometric Brownian motion.
 
   - node: quant-processes.brownian.drift-hitting
     hook: >
@@ -1673,83 +3000,205 @@ lessons:
       turns a drifted process driftless for optional-stopping purposes,
       giving $e^{-2\mu b/\sigma^2}$ for the chance of an eventual drawdown of
       size $b$ under positive drift.
-    steps:
-      - teach: >
-          "What's the chance my strategy ever draws down $b$ even though it has
-          a positive edge" is a desk-standard question, and the clean
-          exponential answer comes from finding the one nonzero $\theta$ that
-          makes the exponential martingale driftless.
-      - teach: >
-          For $X_t=\mu t+\sigma B_t$, $\mathbb{E}[e^{\theta
-          X_t}]=e^{(\theta\mu+\theta^2\sigma^2/2)t}$ makes $e^{\theta X_t}$ a
-          martingale exactly when the exponent's coefficient of $t$ vanishes —
-          at $\theta=0$ trivially, and at the nontrivial root
-          $\theta=-2\mu/\sigma^2$.
+    dialogue:
+      - part: A fund with an edge and a kill switch
+        teach: >
+          A fund's log-equity follows $X_t = 0.05t + 0.25B_t$, with $t$ in
+          years and $X_0 = 0$. The risk committee will close it if it ever
+          falls $0.25$ below where it started.
       - ask: >
-          What is the nonzero root $\theta$ for $\mu=0.08$, $\sigma=0.4$?
-        expects: "-1"
-        hint: >
-          Compute $2\mu/\sigma^2$ first, then negate it.
-        feedback: >
-          $\theta=-2\mu/\sigma^2 = -2(0.08)/0.16 = -1$ — the exact discounting
-          rate needed to cancel this drift.
-      - teach: >
-          Optional stopping with that root, at the exit time from $(-b,a)$,
-          gives the two-barrier probability; the one-sided limits are worth
-          memorizing directly: for $\mu>0$, the chance of ever falling to $-b$
-          is $e^{-2\mu b/\sigma^2}$.
-      - ask: >
-          With $\mu=0.10$, $\sigma=0.25$, what is the probability of ever
-          falling to $-0.2$ (a $20\%$ drawdown)?
-        expects: "0.5273"
-        tolerance: 0.0005
-        hint: >
-          Compute $2\mu b/\sigma^2$ first, then $e^{-x}$;
-          $e^{-0.64}\approx0.5273$.
-        feedback: >
-          $2\mu/\sigma^2 = 0.2/0.0625 = 3.2$, so the probability is
-          $e^{-3.2\times0.2}=e^{-0.64}\approx0.5273$ — over half, despite the
-          positive drift, since a modest edge against sizable volatility barely
-          dents how often a moderate drawdown occurs.
-      - teach: >
-          Symmetrically, for $\mu<0$, $\Pr(\sup_tX_t\ge
-          a)=e^{-2|\mu|a/\sigma^2}$ — the formula for a fall under positive
-          drift and the formula for a rise under negative drift are mirror
-          images, and using the wrong one for the sign of $\mu$ in play is the
-          standard slip.
-      - ask: >
-          $\mu=-0.05$ (negative drift), $\sigma=0.2$. What is $\Pr(\text{the
-          process ever falls to } -b)$ for any $b>0$?
+          Without drift, the fund would hit $-0.25$ with probability $1$. With
+          this drift, the chance of ever being closed is
         choices:
           - text: >
-              $e^{-2|\mu|b/\sigma^2}$
+              still $1$: Brownian motion reaches every level eventually.
             feedback: >
-              That formula governs the *rise* to a positive level under
-              negative drift, not the fall — using it here has the wrong event
-              attached to the wrong sign of $\mu$.
+              That was the driftless path, which keeps returning. Here
+              $X_t/t \to 0.05$, so the path is eventually carried upward and
+              away for good; a path that survives the early years may never
+              come back down.
+          - text: >
+              $0$: the drift is positive, so the fund only goes up.
+            feedback: >
+              Over the first year the drift adds $0.05$ while the noise has
+              standard deviation $0.25$. Early on the noise dominates, and a
+              fall of $0.25$ is entirely possible before the drift takes over.
+          - text: >
+              strictly between $0$ and $1$.
+            correct: true
+            feedback: >
+              Noise wins early, drift wins late. Which side of that race the
+              fund lands on is the probability to compute.
+        feedback: >
+          Driftless, every level is certain. A drift turns the far side into
+          a genuine probability, and finding it needs a new tool.
+      - ask: >
+          The driftless proof stopped the martingale $B_t$. Here $X_t$ is not a
+          martingale, but $X_t - 0.05t = 0.25B_t$ is. Stop it at the exit from
+          a band $(-0.25, a)$. Why does that not give the exit probability?
+        choices:
+          - text: >
+              Optional stopping fails because $X_t - 0.05t$ is unbounded.
+            feedback: >
+              With two finite barriers and a finite-mean exit time the stopping
+              is legal. The trouble is what the equation contains, not whether
+              it holds.
+          - text: >
+              It gives $\mathbb{E}[X_\tau] = 0.05\,\mathbb{E}[\tau]$, which
+              contains the unknown $\mathbb{E}[\tau]$ as well as $p$.
+            correct: true
+            feedback: >
+              Subtracting the drift puts $t$ into the martingale, and
+              stopping turns that $t$ into $\tau$. One equation, two unknowns.
+          - text: >
+              It gives $p = 0.25/(a + 0.25)$, the driftless answer, which is
+              wrong under drift.
+            feedback: >
+              It would give that only if $\mathbb{E}[X_\tau] = 0$, which is
+              false here: the drift pushes the expected exit value up by
+              $0.05$ per year spent inside the band.
+        feedback: >
+          What is needed is a martingale that is a function of $X_t$ alone,
+          with no $t$ in it, so that stopping it produces an equation in $p$
+          only.
+      - reflect: >
+          You want a function $f(X_t)$, free of $t$, whose expectation never
+          changes. Which family of functions would you try, and why might one
+          member of it work?
+        hint: >
+          You know $\mathbb{E}[e^{\theta Z}]$ exactly for a normal $Z$.
+        answer: >
+          Exponentials $e^{\theta X_t}$. The normal moment generating function
+          gives $\mathbb{E}[e^{\theta X_t}] = e^{(\theta\mu +
+          \theta^{2}\sigma^{2}/2)t}$, and the exponent's coefficient is a
+          quadratic in $\theta$ with a nonzero root. At that root the
+          expectation is constant in $t$, and independent increments upgrade
+          that to the martingale property. The penalty the exponential's
+          curvature charges cancels the drift's push.
+      - ask: >
+          For $\mu = 0.05$ and $\sigma = 0.25$, what is the nonzero $\theta$
+          with $\theta\mu + \theta^{2}\sigma^{2}/2 = 0$?
+        expects: "-1.6"
+        hint: >
+          Divide by $\theta$: $\mu + \theta\sigma^{2}/2 = 0$.
+        feedback: >
+          $\theta = -2\mu/\sigma^{2} = -0.1/0.0625 = -1.6$. So
+          $e^{-1.6X_t}$ is a martingale: it weights low values more, exactly
+          enough to offset the upward drift.
+      - teach: >
+          In general $e^{\theta X_t}$ is a martingale for $\theta = 0$ and
+          $\theta = -2\mu/\sigma^{2}$. Stopped at the exit from $(-b, a)$, it
+          stays bounded, and optional stopping gives
+          $p\,e^{\theta a} + (1 - p)e^{-\theta b} = 1$, where $p$ is the
+          chance of reaching $a$ first. As $\mu \to 0$ this returns
+          $b/(a+b)$.
+
+      - part: Taking the ceiling away
+        ask: >
+          The committee has no upper barrier: the question is whether $-0.25$
+          is *ever* reached. Send $a \to \infty$ in the stopping equation, with
+          $\theta = -1.6$. What happens to the term $p\,e^{\theta a}$?
+        choices:
+          - text: >
+              It tends to $0$, since $\theta < 0$ and $p \le 1$.
+            correct: true
+            feedback: >
+              $e^{-1.6a} \to 0$, and $p$ is a probability. The equation
+              collapses to $(1 - p)e^{-\theta b} = 1$, where $1 - p$ is now the
+              chance of ever reaching $-b$.
+          - text: >
+              It blows up, so the equation breaks and the limit is useless.
+            feedback: >
+              That would happen with $\theta > 0$. The nonzero root has the
+              opposite sign to $\mu$, so with positive drift $e^{\theta a}$
+              decays.
+          - text: >
+              It stays near $p$, since $p$ tends to $1$.
+            feedback: >
+              $p$ is the chance of reaching a ceiling that is moving away; it
+              tends to $1 - \Pr(\text{ever reach } -b)$, which is less than
+              $1$. And $e^{\theta a}$ tends to $0$ regardless.
+        feedback: >
+          So $\Pr(\text{ever reach } -b) = e^{\theta b} = e^{-2\mu b/\sigma^{2}}$
+          when $\mu > 0$.
+      - ask: >
+          What is the probability the fund is ever closed? Use
+          $e^{-0.4} = 0.6703$.
+        expects: "0.6703"
+        tolerance: 0.0005
+        hint: >
+          $2\mu/\sigma^{2} = 1.6$ and $b = 0.25$.
+        feedback: >
+          $e^{-1.6 \times 0.25} = e^{-0.4} = 0.6703$. A fund with a real edge
+          has a two-in-three chance of a drawdown equal to one year's
+          volatility.
+      - ask: >
+          Same drift, volatility halved to $0.125$. What is the probability
+          now? Use $e^{-1.6} = 0.2019$.
+        expects: "0.2019"
+        tolerance: 0.0005
+        hint: >
+          $\sigma^{2}$ sits in the denominator of the exponent.
+        feedback: >
+          $2\mu/\sigma^{2} = 0.1/0.015625 = 6.4$, so the probability is
+          $e^{-6.4 \times 0.25} = e^{-1.6} = 0.2019$. Halving $\sigma$
+          quadruples the exponent: the old answer to the fourth power,
+          $0.6703^{4} \approx 0.2019$.
+
+      - part: Which way the drift points
+        ask: >
+          Flip the drift: $X_t = -0.05t + 0.25B_t$. What is the chance of ever
+          falling to $-0.25$?
+        choices:
+          - text: >
+              $e^{-0.4} = 0.6703$, the same as before by symmetry.
+            feedback: >
+              The exponential governs the event working *against* the drift.
+              Here the drift carries the path down, toward $-0.25$; the
+              symmetric statement is about rising to $+0.25$.
           - text: >
               $1$
             correct: true
             feedback: >
-              With negative drift the process drifts downward without limit, so
-              it is certain to eventually reach any negative level $-b$ — the
-              exponential formula is only needed for the event working
-              *against* the drift's direction.
+              $X_t/t \to -0.05$, so the path ends up below every level, and by
+              continuity it passes through $-0.25$ on the way.
           - text: >
-              $0$
+              $0$, because the formula needs $\mu > 0$.
             feedback: >
-              A negatively-drifting process reaching a negative level is the
-              easy direction, not an impossible one.
-          - text: >
-              $b/(a+b)$
-            feedback: >
-              That two-sided ruin formula needs an upper barrier $a$ explicitly
-              specified — none is given here, and no barrier is needed for a
-              one-sided certain event anyway.
+              The formula needs $\mu > 0$ to say anything; without it, the
+              event goes with the drift and is certain, not impossible.
         feedback: >
-          The exponential formula quantifies the event working against the
-          drift's own direction; the event drift already favors is certain,
-          probability $1$, with no formula needed.
+          Check the sign first. Against the drift, $e^{-2|\mu| b/\sigma^{2}}$;
+          with the drift, probability $1$. Under negative drift the exponential
+          answers the upside, $\Pr(\sup_t X_t \ge a) = e^{-2|\mu|a/\sigma^{2}}$.
+      - ask: >
+          As $\mu \to 0$ with $\sigma = 0.25$ and $b = 0.25$ fixed,
+          $e^{-2\mu b/\sigma^{2}}$ tends to $1$. What does that agree with?
+        choices:
+          - text: >
+              Nothing: the formula is only valid for $\mu$ bounded away from
+              $0$.
+            feedback: >
+              The formula holds for every $\mu > 0$, and its limit is
+              meaningful: it lands exactly on a fact you already know.
+          - text: >
+              The two-sided answer $b/(a+b)$ with $a = b$, which is $1/2$.
+            feedback: >
+              That limit keeps a ceiling at $a$. The one-sided formula has no
+              ceiling, so its driftless limit is the one-sided fact.
+          - text: >
+              A driftless Brownian motion reaches every level with probability
+              $1$.
+            correct: true
+            feedback: >
+              The exponential suppression fades as the edge vanishes, and
+              certainty returns. The formula interpolates continuously between
+              the drifted and driftless worlds.
+        feedback: >
+          Said aloud: "with drift $\mu > 0$ the chance of ever drawing down $b$
+          is $e^{-2\mu b/\sigma^{2}}$, from optional stopping on
+          $e^{-2\mu X_t/\sigma^{2}}$; it tends to $1$ as $\mu \to 0$, and
+          halving the volatility raises it to the fourth power."
 
   - node: quant-processes.brownian.vol-scaling
     hook: >
@@ -1799,77 +3248,169 @@ lessons:
       Volatility scales as $\sigma(1)\sqrt T$ and drift scales as
       $\mu(1)T$, so Sharpe ratios scale as $\sqrt T$ too; $\sqrt{252}\approx
       16$ is the standard daily-to-annual conversion factor for all three.
-    steps:
-      - teach: >
-          "Vol of $16$ means about a percent a day" is desk shorthand every
-          interview volatility-conversion question is secretly testing, and
-          it's just the $\sqrt T$ scaling rule run in one direction or the
-          other.
-      - teach: >
-          Because $\operatorname{Var}(B_t)=t$, variances over disjoint periods
-          simply add — no covariance term, since the periods' increments are
-          independent. Standard deviations therefore add in quadrature:
-          $\sigma(T)=\sigma(1)\sqrt T$.
+    dialogue:
+      - part: Four days, added up the slow way
+        teach: >
+          A stock's daily return has standard deviation $0.02$, and returns on
+          different trading days are independent. A risk report needs the
+          spread of the return over longer stretches.
       - ask: >
-          A strategy's daily return volatility is $0.015$. Using
-          $\sigma(T)=\sigma(1)\sqrt T$, what is its volatility over a $100$-day
-          period?
-        expects: "0.15"
+          What is the standard deviation of the total return over $4$ trading
+          days?
+        expects: "0.04"
         hint: >
-          Take $\sqrt{100}=10$ and multiply by the daily figure.
+          Independent pieces add in variance, not in standard deviation.
         feedback: >
-          $\sigma(100)=0.015\times\sqrt{100}=0.015\times10=0.15$ — a tenfold
-          horizon produces only a tenfold volatility, since $\sqrt{100}=10$.
-      - teach: >
-          Drift, by contrast, is linear in $T$, so the ratio $\mu/\sigma$ — the
-          Sharpe ratio — itself scales as $\sqrt T$ for a structurally
-          different reason than volatility does, even though the identical
-          factor $\sqrt{252}\approx16$ ends up converting both.
+          Each day has variance $0.02^{2} = 0.0004$. Four independent days add
+          to $0.0016$, and $\sqrt{0.0016} = 0.04$.
       - ask: >
-          An annual volatility is $0.4$. Using $\sigma(T)=\sigma(1)\sqrt T$
-          with $T=0.25$ years, what is the equivalent quarterly volatility?
-        expects: "0.2"
-        hint: >
-          $\sqrt{0.25}=0.5$; multiply by the annual figure.
-        feedback: >
-          $\sigma(0.25)=0.4\times\sqrt{0.25}=0.4\times0.5=0.2$ — the identity
-          runs equally well from a longer horizon down to a shorter one.
-      - teach: >
-          The rule leans on one silent assumption: the periods being added must
-          be genuinely uncorrelated. A trending series accumulates risk faster
-          than $\sqrt T$; a mean-reverting one accumulates slower — applying
-          the rule blindly to either is the standard trap.
-      - ask: >
-          Daily Sharpe ratio is $0.05$. Using $\sqrt{252}\approx16$, what is
-          the annualized Sharpe ratio?
+          A colleague writes $4 \times 0.02 = 0.08$. What has gone wrong?
         choices:
           - text: >
-              $0.05\times16 = 0.8$
+              Nothing: risk over four days is four days of risk.
+            feedback: >
+              Expected return over four days is four days' worth, but spread
+              is not. Up days and down days partly cancel, and $0.08$ ignores
+              the cancellation.
+          - text: >
+              Adding standard deviations assumes the four days move in
+              lockstep; independent days add variances.
             correct: true
             feedback: >
-              Sharpe ratio scales like $\sqrt T$, the same factor as
-              volatility, for a structurally different but numerically
-              identical reason — multiply by $\sqrt{252}\approx16$.
+              $0.08$ is the answer only for perfectly correlated days, where
+              every day repeats the first. Independence kills every
+              covariance term, leaving the variances to add.
           - text: >
-              $0.05/16 \approx 0.003$
+              The four days should be averaged, so the answer stays $0.02$.
             feedback: >
-              Dividing runs the conversion backward — annualizing should
-              increase the reported Sharpe ratio, not shrink it.
-          - text: >
-              $0.05\times252 = 12.6$
-            feedback: >
-              This treats Sharpe ratio like a purely linear quantity, but it is
-              a ratio of a linear-in-$T$ term to a $\sqrt T$ term, so it scales
-              as $\sqrt T$, not $T$.
-          - text: >
-              $0.05$, unchanged
-            feedback: >
-              Sharpe ratio is horizon-dependent — quoting it without converting
-              the horizon compares different quantities.
+              Averaging would give the spread of the *mean* daily return,
+              $0.02/2 = 0.01$. The question asks for the total, which spreads
+              out as days accumulate.
         feedback: >
-          Sharpe ratio annualizes by the same $\sqrt{252}\approx16$ factor as
-          volatility, since it is the ratio of drift (linear in $T$) to
-          volatility ($\sqrt T$).
+          Square, add, take the root. The cancellation between independent
+          days is the entire reason spread grows slower than time.
+      - reflect: >
+          You squared $0.02$, multiplied by $4$ and took the root. Over $T$
+          independent days, what does that procedure collapse to, and what
+          does the collapse depend on?
+        hint: >
+          $\sqrt{T\sigma^{2}}$.
+        answer: >
+          $\sqrt{T\sigma^{2}} = \sigma\sqrt{T}$: the daily volatility times the
+          square root of the number of days, with no squaring needed. It rests
+          entirely on the variances adding, which needs the days to be
+          uncorrelated. That is $\operatorname{Var}(B_t) = t$ for Brownian
+          motion, read with $t$ counted in independent periods.
+      - teach: >
+          The rule is $\sigma(T) = \sigma(1)\sqrt{T}$, used whenever a quoted
+          volatility moves between horizons. $T$ counts independent trading
+          periods, so daily to annual uses $252$ trading days, not $365$:
+          $\sqrt{252} \approx 15.87 \approx 16$. That is the desk shorthand
+          "vol of $16$ is about a percent a day".
+
+      - part: Converting both ways
+        ask: >
+          What is this stock's annual volatility? Use $\sqrt{252} \approx
+          15.87$.
+        expects: "0.3175"
+        tolerance: 0.003
+        hint: >
+          Multiply the daily figure by $\sqrt{252}$.
+        feedback: >
+          $0.02 \times 15.87 \approx 0.3175$, about $32\%$ a year. The rule of
+          $16$ gives $0.32$ in your head.
+      - ask: >
+          An option on a different stock trades at an implied volatility of
+          $0.48$ annual. What daily standard deviation does that imply? Give
+          three decimal places.
+        expects: "0.030"
+        tolerance: 0.0005
+        hint: >
+          Divide by $\sqrt{252}$, or by $16$ for the quick version.
+        feedback: >
+          $0.48/15.87 \approx 0.0302$, about $3\%$ a day; the rule of $16$ gives
+          exactly $0.03$. Quoting it this way tells you what a typical day's
+          move should look like on the screen.
+      - ask: >
+          The first stock also has an average daily return of $0.0005$. What
+          is its average annual return?
+        choices:
+          - text: >
+              $0.0005 \times 15.87 \approx 0.008$
+            feedback: >
+              That scales the drift like a volatility. Means add without any
+              cancellation: $252$ days of $0.0005$ each is $252 \times 0.0005$.
+          - text: >
+              $0.0005 \times 252 = 0.126$
+            correct: true
+            feedback: >
+              Expectations add linearly, so drift scales like $T$. Volatility
+              grew by $15.87$; drift grows by $252$.
+          - text: >
+              $0.0005$, since a mean is a per-day rate either way.
+            feedback: >
+              A per-day rate held for $252$ days accumulates. The annual drift
+              is the sum of the daily ones.
+        feedback: >
+          Drift scales like $T$, volatility like $\sqrt{T}$. Their ratio
+          therefore scales like $\sqrt{T}$.
+      - ask: >
+          What is its annual Sharpe ratio, annual drift over annual
+          volatility? Give three decimal places.
+        expects: "0.397"
+        tolerance: 0.005
+        hint: >
+          Either divide $0.126$ by $0.3175$, or scale the daily Sharpe ratio.
+        feedback: >
+          The daily Sharpe ratio is $0.0005/0.02 = 0.025$, and
+          $0.025 \times 15.87 \approx 0.397$, the same as $0.126/0.3175$. Sharpe
+          ratios annualize by the same $\sqrt{252}$ as volatility, for a
+          different reason: $252$ on top, $\sqrt{252}$ underneath.
+
+      - part: When the days are not independent
+        ask: >
+          Suppose instead that consecutive daily returns have correlation
+          $-0.5$, each day still with standard deviation $0.02$. What is the
+          standard deviation of a two-day return?
+        expects: "0.02"
+        hint: >
+          $\operatorname{Var}(X + Y) = \operatorname{Var}(X) + \operatorname{Var}(Y)
+          + 2\operatorname{Cov}(X, Y)$.
+        feedback: >
+          The covariance is $-0.5 \times 0.0004 = -0.0002$, so the variance is
+          $0.0004 + 0.0004 - 0.0004 = 0.0004$ and the standard deviation is
+          $0.02$: two days carry no more spread than one. The square-root
+          rule would have said $0.02\sqrt{2} \approx 0.028$.
+      - ask: >
+          A trend-following book has positively correlated daily returns. Its
+          daily volatility times $16$ will
+        choices:
+          - text: >
+              overstate its annual volatility.
+            feedback: >
+              That is the mean-reverting case, where negative covariances
+              cancel spread. Positive correlation adds covariance terms on top
+              of the variances.
+          - text: >
+              understate its annual volatility.
+            correct: true
+            feedback: >
+              Every pair of days contributes a positive covariance, so the
+              annual variance exceeds $252$ daily variances. Trends compound
+              risk faster than $\sqrt{T}$.
+          - text: >
+              be exact anyway, since the daily volatility already includes the
+              correlation.
+            feedback: >
+              The daily volatility describes one day in isolation. How days
+              co-move only shows up when they are added, which is exactly
+              where the $\sqrt{T}$ rule assumes it away.
+        feedback: >
+          The rule is only as good as the independence of the periods.
+          Mean reversion scales slower than $\sqrt{T}$, trending faster. Said
+          aloud in an interview: "variances add over independent periods, so
+          volatility scales with $\sqrt{T}$; $\sqrt{252}$ is about $16$, so a
+          vol of $32$ is $2\%$ a day."
 
   - node: quant-processes.brownian.arcsine
     hook: >
@@ -1919,76 +3460,192 @@ lessons:
       The fraction of time one side leads in a fair game follows the
       U-shaped arcsine law, so a near-even split is the rare outcome and one
       side usually dominates almost the whole game.
-    steps:
-      - teach: >
-          "In a long, fair coin-flipping game, roughly what fraction of the
-          time is one player ahead" has a genuinely surprising answer — not
-          "about half," but "usually almost all of it, for one side or the
-          other."
-      - teach: >
-          Let $A$ be the fraction of $[0,1]$ during which the path is positive.
-          The arcsine law gives $\Pr(A\le x)=\frac2\pi\arcsin\sqrt x$, with
-          density $1/(\pi\sqrt{x(1-x)})$ — U-shaped, piling up near both $x=0$
-          and $x=1$.
+    dialogue:
+      - part: Two desks, one year
+        teach: >
+          Two desks run equally good, independent books with no edge. The lead
+          of desk A over desk B, over a year rescaled to $[0, 1]$, follows a
+          Brownian motion started at $0$. Let $A$ be the fraction of the year
+          during which desk A is ahead.
       - ask: >
-          By symmetry of the arcsine law about $x=1/2$, what is $\Pr(A \le
-          0.5)$?
+          What is $\mathbb{E}[A]$?
         expects: "0.5"
         hint: >
-          $\arcsin\sqrt{0.5}=\pi/4$; plug into $\frac2\pi\arcsin\sqrt x$.
+          $A = \int_0^1 \mathbf{1}\{B_t > 0\}\,dt$. Take the expectation inside
+          the integral.
         feedback: >
-          $\Pr(A\le0.5)=\frac2\pi\arcsin\sqrt{0.5}=\frac2\pi\cdot\frac\pi4=0.5$
-          — the arcsine density is symmetric about $1/2$, so this is the
-          midpoint of the distribution, not a typical value of it.
-      - teach: >
-          The zero set of $B$ on $[0,1]$ has Lebesgue measure $0$ yet is
-          infinite and uncountable — self-similarity means the path recrosses
-          immediately after every zero, the same heavy-tailed-gaps mechanism
-          behind hitting times having infinite expected wait despite happening
-          for certain.
+          $\mathbb{E}[A] = \int_0^1 \Pr(B_t > 0)\,dt = \int_0^1
+          \tfrac{1}{2}\,dt = 1/2$. On average desk A leads half the year,
+          exactly as fairness suggests.
       - ask: >
-          What is $\Pr(A \le 0.1464)$?
-        expects: "0.25"
-        tolerance: 0.0005
-        hint: >
-          $\sqrt{0.1464}\approx\sin(\pi/8)$, so
-          $\arcsin\sqrt{0.1464}\approx\pi/8$.
-        feedback: >
-          $0.1464\approx\sin^2(\pi/8)$, so $\arcsin\sqrt{0.1464}\approx\pi/8$,
-          giving $\Pr(A\le0.1464)=\frac2\pi\cdot\frac\pi8=0.25$.
-      - teach: >
-          The mean of $A$ is exactly $1/2$ by symmetry, but for a U-shaped
-          density the mean is precisely the *least* typical outcome — the
-          density is lowest right at $1/2$, so a near-even split of the lead is
-          the rare case, not the expected one.
-      - ask: >
-          In a long fair coin-flipping game, which is closest to the truth
-          about the fraction of time one player leads?
+          Which is more likely: desk A leads for between $40\%$ and $60\%$ of
+          the year, or desk A leads for less than $10\%$ of it?
         choices:
           - text: >
-              It's usually close to $1/2$, since the game is fair
+              Between $40\%$ and $60\%$: the mean is $1/2$, so values near it
+              are the common ones.
             feedback: >
-              This is the classic trap — "fair" describes each flip, not the
-              shape of the lead-time distribution, which is U-shaped and lowest
-              exactly at $1/2$.
+              For a bell-shaped law that would be right. Here the middle band
+              has probability $0.128$ and the bottom tenth has $0.205$: the
+              narrower band at the edge wins. The mean is not where the mass
+              is.
           - text: >
-              It's usually close to $0$ or close to $1$ — one side tends to
-              lead almost the entire game
+              Less than $10\%$.
             correct: true
             feedback: >
-              The U-shaped arcsine density piles up at the endpoints — "leads
-              are sticky," and a near-even split is the minority outcome.
+              $\Pr(A < 0.1) \approx 0.205$, against $\Pr(0.4 \le A \le 0.6)
+              \approx 0.128$, on a band twice as wide. And desk B leading over
+              $90\%$ of the year is another $0.205$.
           - text: >
-              It is uniformly distributed across $[0,1]$
+              Equally likely: the game is fair, so no split is favoured.
             feedback: >
-              The density $1/(\pi\sqrt{x(1-x)})$ is far from flat — it is
-              U-shaped, not uniform.
-          - text: >
-              It always equals exactly $1/2$ in a fair game
-            feedback: >
-              This confuses the mean of $A$, which is $1/2$, with a claim that
-              $A$ itself is deterministic — $A$ is genuinely random, and $1/2$
-              is its least likely value.
+              Fairness makes $A$ and $1 - A$ equally likely, a symmetry about
+              $1/2$. It says nothing about whether $A$ sits near $1/2$ or near
+              the edges, and the two events here are not mirror images.
         feedback: >
-          The arcsine density is U-shaped, lowest at $1/2$ and highest near $0$
-          and $1$ — the mean $1/2$ describes an outlier, not a typical outcome.
+          Lopsided years are the norm. The mean of $1/2$ comes from averaging
+          years where A dominates with years where B does.
+      - reflect: >
+          Why would one desk tend to stay ahead? Think about a moment when the
+          lead has just moved away from $0$, and what you know about how long
+          a Brownian path takes to come back to a level.
+        hint: >
+          The expected time to hit a level is infinite.
+        answer: >
+          Once the lead is away from $0$, returning to $0$ is a hitting
+          problem, and hitting times have a $t^{-3/2}$ tail with infinite mean.
+          Most returns are quick, but a substantial share of excursions are
+          very long, and one long excursion on one side swallows most of the
+          year. Lead changes come in quick bursts near $0$ separated by long
+          stretches of one side ahead. So $A$ piles up near $0$ and $1$.
+
+      - part: The arcsine law
+        teach: >
+          The precise statement is the arcsine law:
+          $\Pr(A \le x) = \tfrac{2}{\pi}\arcsin\sqrt{x}$, with density
+          $1/(\pi\sqrt{x(1-x)})$ on $(0, 1)$. The density is U-shaped, with
+          its modes at $0$ and $1$ and its minimum at the mean $1/2$. The
+          last zero before time $1$ and the time of the maximum obey the same
+          law.
+      - ask: >
+          What is $\Pr(A \le 0.2)$, the chance desk A leads at most a fifth of
+          the year? Use $\arcsin\sqrt{0.2} = 0.4636$.
+        expects: "0.2952"
+        tolerance: 0.0005
+        hint: >
+          Multiply by $2/\pi \approx 0.6366$.
+        feedback: >
+          $\tfrac{2}{\pi} \times 0.4636 \approx 0.2952$. Nearly three times in
+          ten, desk A is ahead for no more than about ten weeks.
+      - ask: >
+          What is the probability that one desk or the other leads for at
+          least $80\%$ of the year?
+        expects: "0.5903"
+        tolerance: 0.001
+        hint: >
+          Desk B leading at least $80\%$ is desk A leading at most $20\%$. By
+          symmetry, $A$ and $1 - A$ have the same law.
+        feedback: >
+          $\Pr(A \le 0.2) + \Pr(A \ge 0.8) = 2 \times 0.2952 = 0.5903$. More
+          often than not, one side leads at least four-fifths of the year.
+      - ask: >
+          What is $\Pr(0.4 \le A \le 0.6)$, a near-even year? Use
+          $\arcsin\sqrt{0.4} = 0.6847$.
+        expects: "0.1282"
+        tolerance: 0.001
+        hint: >
+          $\arcsin\sqrt{0.6} = \pi/2 - \arcsin\sqrt{0.4}$, or use the symmetry
+          of $A$ and $1 - A$: subtract both tails from $1$.
+        feedback: >
+          Each tail $\Pr(A < 0.4)$ is $\tfrac{2}{\pi} \times 0.6847 \approx
+          0.4359$, so the middle is $1 - 2 \times 0.4359 = 0.1282$. A uniform
+          law would put $0.2$ there; the arcsine law puts barely an eighth.
+
+      - part: Zeros, and what a lead proves
+        ask: >
+          The lead starts at $0$. During the first $0.001$ of the year, how
+          many times is it back at $0$?
+        choices:
+          - text: >
+              None, typically: the path needs time to leave and come back.
+            feedback: >
+              By scaling, the chance of a return to $0$ during
+              $(0, \varepsilon)$ is the same for every $\varepsilon$, however
+              small. The path takes both signs immediately after time $0$, so
+              by continuity it passes through $0$ in every such window.
+          - text: >
+              Infinitely many, packed into a set of total length $0$.
+            correct: true
+            feedback: >
+              Self-similarity makes the path recross immediately after each
+              visit: the zero set has infinitely many points in every
+              $(0, \varepsilon)$, is uncountable, and still has Lebesgue
+              measure $0$.
+          - text: >
+              About one, on average, since the window is so short.
+            feedback: >
+              A short window does not make zeros rare for Brownian motion,
+              because the path wiggles at every scale. Shrinking the window and
+              rescaling gives back the same picture.
+        feedback: >
+          Zeros come in dense clusters around which the path spends no time at
+          all, separated by long one-sided excursions. That is the arcsine law
+          seen from the path.
+      - ask: >
+          Desk A leads for over $90\%$ of the year. The head of trading
+          concludes desk A is the more skilled. How much does the lead itself
+          support that?
+        choices:
+          - text: >
+              Strongly: with no skill, a $90\%$ lead would be very rare.
+            feedback: >
+              With no skill at all, one desk or the other leads at least
+              $90\%$ of the time with probability
+              $\tfrac{4}{\pi}\arcsin\sqrt{0.1} \approx 0.41$. That is not
+              rare.
+          - text: >
+              Hardly: under pure luck a lead that lopsided happens to one side
+              or the other about $41\%$ of the time.
+            correct: true
+            feedback: >
+              Long leads are what fair contests produce. Skill shows in the
+              drift, which a single year of who-was-ahead barely measures.
+          - text: >
+              Not at all, because the lead must be equally often positive and
+              negative under no skill.
+            feedback: >
+              That is the "near-even split" intuition the arcsine law refutes.
+              Under no skill, $A$ is equally likely to be near $0$ as near $1$,
+              which is not the same as near $1/2$.
+        feedback: >
+          Time in the lead is a poor measure of edge, because fair games make
+          it lopsided.
+      - ask: >
+          The time in $[0, 1]$ at which desk A's lead is largest follows the
+          same arcsine law. Is the peak more likely in the first tenth of the
+          year or in the middle fifth, $[0.4, 0.6]$?
+        choices:
+          - text: >
+              The middle fifth: it is twice as long.
+            feedback: >
+              Length helps only under a flat law. With the arcsine density the
+              first tenth carries about $0.205$, the middle fifth about
+              $0.128$.
+          - text: >
+              The first tenth.
+            correct: true
+            feedback: >
+              $0.205$ against $0.128$, the same numbers as for time in the
+              lead. A peak right at the start, after which the lead only
+              shrinks, is common.
+          - text: >
+              Equally likely, since the maximum has no reason to prefer any
+              time.
+            feedback: >
+              It prefers the ends. A path that rises early and drifts back, or
+              one that rises late, puts its maximum near an endpoint.
+        feedback: >
+          In an interview: "time ahead follows the arcsine law,
+          $\tfrac{2}{\pi}\arcsin\sqrt{x}$, U-shaped with its minimum at $1/2$;
+          leads are sticky because returns to $0$ have heavy-tailed waiting
+          times."
