@@ -99,16 +99,18 @@ and CI fails on any deviation.
 
 ## `dialogue` — the lesson as a Socratic dialogue (§6.9)
 
-A lesson may carry a `dialogue:` instead of `steps:` — the same card
-vocabulary plus `reflect` and `part`, held to a contract that puts the
-question before the explanation. `program/dialogue.md` is normative for
+Every lesson in this program teaches as a `dialogue:` — the same card
+vocabulary as `steps` plus `reflect` and `part`, held to a contract that puts
+the question before the explanation and opens on a problem the reader
+attempts before the idea is named. Write new lessons as dialogues; `steps`
+below is the legacy form, kept because the validator still reads it. `program/dialogue.md` is normative for
 dialogues in both trees; read it before writing one, and check with
 `python3 Scripts/check-lesson-file.py --dialogue <unit-id>`. A lesson carries
 `steps` or `dialogue`, never both.
 
-## `steps` — the lesson as cards (§6.7)
+## `steps` — the lesson as cards (§6.7), legacy
 
-Optional, and worth authoring wherever you can. A lesson with no `steps` still
+The form every lesson carried before the dialogue campaign. A lesson with no `steps` still
 plays: the app derives one card per prose section, so the reader gets the lesson
 in pieces but is never *asked* anything. Authoring `steps` is what upgrades a
 node from paged prose to a checked lesson.
@@ -150,8 +152,8 @@ node from paged prose to a checked lesson.
   node computes anything.** Below four cards the lint says so; zero checks
   makes it a slideshow, which the lint also says, and the pre-flight check
   refuses a single check. Alternate: teach, teach, check, teach, check, teach,
-  check. Since Phase 15 every lesson in the corpus carries `steps` — a lesson
-  paging off its prose is the fallback, not the norm.
+  check. Since October 2026 no quant lesson carries `steps`: all 958 are
+  dialogues, and a lesson paging off its prose is the fallback, not the norm.
 - **Build the lesson, don't summarise it.** The cards are the Khan-Academy
   pass over the node: motivate (one card), define or state precisely (one),
   a first concrete instance (one), a check on that instance, the general
