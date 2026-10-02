@@ -31,12 +31,18 @@ extension MathText {
                     AttributedString(NSAttributedString(attachment: attachment)))
                 continue
             }
-            var piece = AttributedString(run.text)
+            let mathItalic = run.isMath && run.isItalic && mathDesign == .serif
+            var piece = AttributedString(mathItalic ? Typeface.readingMathItalic(run.text) : run.text)
+            let pointSize = max(baseSize * run.sizeMultiplier, 6)
             var font = Font.system(
-                size: max(baseSize * run.sizeMultiplier, 6),
+                size: pointSize,
                 weight: weight,
                 design: run.isMath ? mathDesign : .default)
             if run.isItalic { font = font.italic() }
+            if run.isMath && mathDesign == .serif {
+                font = run.isItalic
+                    ? Typeface.readingItalic(pointSize, weight) : Typeface.reading(pointSize, weight)
+            }
             piece.font = font
             piece.baselineOffset = baseSize * run.baselineMultiplier
             output.append(piece)
@@ -86,7 +92,7 @@ struct MathTextView: View {
     private func font(_ pointSize: CGFloat, isMath: Bool, isItalic: Bool) -> Font {
         if isMath || face == .serif {
             return isItalic
-                ? Typeface.serifItalic(pointSize, weight) : Typeface.serif(pointSize, weight)
+                ? Typeface.readingItalic(pointSize, weight) : Typeface.reading(pointSize, weight)
         }
         return isItalic
             ? Typeface.sansItalic(pointSize, weight) : Typeface.sans(pointSize, weight)
@@ -115,7 +121,8 @@ struct MathTextView: View {
             if underline { piece = piece.underline() }
             return piece
         }
-        var piece = Text(verbatim: run.text)
+        var piece = Text(verbatim: run.isMath && run.isItalic
+                ? Typeface.readingMathItalic(run.text) : run.text)
             .font(
                 font(
                     max(size * run.sizeMultiplier, 6), isMath: run.isMath,

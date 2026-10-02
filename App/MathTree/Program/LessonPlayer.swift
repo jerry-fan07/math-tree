@@ -526,7 +526,9 @@ struct LessonPlayer: View {
                     Text(outcome == .shown ? "the answer" : "✓")
                         .font(Typeface.mono(outcome == .shown ? 10 : 11, .medium))
                         .foregroundStyle((outcome == .shown ? theme.eyebrowCount : theme.action).color)
-                    MathTextView(source: expects, size: 13.5, color: theme.inkStrong.color)
+                    MathTextView(
+                        source: expects, size: 13.5, color: theme.inkStrong.color,
+                        face: theme.isDark ? .sans : .serif)
                 }
             }
         }
@@ -734,7 +736,9 @@ struct LessonPlayer: View {
                 .font(Typeface.mono(9.5, .medium))
                 .tracking(Typeface.tracking(0.16, at: 9.5))
                 .foregroundStyle(tint.fading(0.75).color)
-            MathTextView(source: text, size: 13.5, color: theme.ink.color)
+            MathTextView(
+                source: text, size: 13.5, color: theme.ink.color,
+                face: theme.isDark ? .sans : .serif)
                 .lineSpacing(theme.isDark ? 5 : 6)
         }
         .padding(.leading, 12)
@@ -1081,7 +1085,8 @@ private struct ChoiceRow: View {
                         .frame(width: 14, alignment: .leading)
                     MathTextView(
                         source: choice.text, size: 14,
-                        color: (state == .dim ? theme.inkMuted.fading(0.8) : tint).color)
+                        color: (state == .dim ? theme.inkMuted.fading(0.8) : tint).color,
+                        face: theme.isDark ? .sans : .serif)
                     Spacer(minLength: 8)
                 }
                 .padding(.vertical, 9)
@@ -1108,7 +1113,9 @@ private struct ChoiceRow: View {
             .accessibilityAddTraits(isMarked ? [.isSelected] : [])
 
             if let why, state == .ruledOut || state == .right || state == .revealed {
-                MathTextView(source: why, size: 13, color: theme.inkMuted.color)
+                MathTextView(
+                    source: why, size: 13, color: theme.inkMuted.color,
+                    face: theme.isDark ? .sans : .serif)
                     .lineSpacing(theme.isDark ? 5 : 6)
                     .padding(.leading, 35)
                     .padding(.trailing, 10)
