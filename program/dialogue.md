@@ -90,6 +90,9 @@ comes before the explanation**.
 
 1. **A concrete situation**, with numbers: a toll road, a deck of cards, a
    specific function on a specific interval. Not "consider a function $f$".
+   It is a *problem*, posed before the idea it teaches is named: the dialogue
+   opens on it — the question itself, or one short beat that sets the scene
+   and then the question.
 2. **The reader's first attempt**: compute or predict something about it
    (`ask`, typed where the answer is a number).
 3. **The obstacle**: what the naive idea cannot do, or where it fails
@@ -145,6 +148,9 @@ the reader to apply the idea to a case the beat did not cover.
 `ContentBuild validate` holds the same contract (the length bars are the
 checker's alone).
 
+- **Problem first**: at most one `teach` before the first question, and that
+  opening beat at most 600 characters (checker only). It sets up the problem;
+  it does not teach.
 - The first step carries `part:`. At least **2 parts**; aim for **3–4**.
   Part titles are headings — a phrase, sentence case, at most 70 characters,
   and they should read in sequence like the outline of a conversation.
