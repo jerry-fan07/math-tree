@@ -72,6 +72,11 @@ MIN_PARTS = 2
 # dialogue is a paragraph, not a page, and a part title is a heading.
 MAX_BEAT_CHARS = 1100
 MAX_PART_TITLE_CHARS = 70
+# Problem first: a dialogue opens on a problem the reader attempts before any
+# idea is named — at most one setting beat, and a short one, before the first
+# question.
+MAX_OPENING_BEATS = 1
+MAX_OPENING_BEAT_CHARS = 600
 
 
 def tree_roots(unit):
@@ -297,6 +302,18 @@ def dialogue_errors(node, dialogue):
 
     if not cards or not text(cards[0], "part"):
         errors.append(f"{where}: opens without a `part:` — the first step names the first part")
+
+    opening = next((j for j, c in enumerate(cards) if is_question(c)), len(cards))
+    if opening > MAX_OPENING_BEATS:
+        errors.append(
+            f"{where}: {opening} `teach` steps before the first question — a dialogue opens "
+            "on a problem the reader attempts, so set the scene in one beat and ask"
+        )
+    elif opening == 1 and len(text(cards[0], "teach")) > MAX_OPENING_BEAT_CHARS:
+        errors.append(
+            f"{where}[0]: a {len(text(cards[0], 'teach'))}-char opening beat — the opening "
+            f"sets up the problem, it does not teach (ceiling {MAX_OPENING_BEAT_CHARS})"
+        )
 
     beats = 0
     for j, card in enumerate(cards):

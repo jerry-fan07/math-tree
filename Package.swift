@@ -26,7 +26,10 @@ let package = Package(
         .executableTarget(
             name: "MathTree",
             dependencies: ["GraphCore"],
-            path: "App/MathTree"
+            path: "App/MathTree",
+            // Latin Modern, the lessons' face (Computer Modern, as Overleaf sets
+            // LaTeX) — registered for the process by `Typeface` at launch.
+            resources: [.copy("Fonts")]
         ),
         .testTarget(
             name: "GraphCoreTests",

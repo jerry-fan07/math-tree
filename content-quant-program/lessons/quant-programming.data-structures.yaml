@@ -69,126 +69,191 @@ lessons:
     recap: >
       Arrays win on access, indexing, and locality; a linked list only wins
       at a splice point you already hold a reference to.
-    steps:
-      - teach: >
-          Whether you reach for an array or a linked list is decided
-          by one question: which operation does the problem repeat?
-          Get that read backwards and a solution that should be
-          $O(1)$ per step becomes $O(n)$ per step instead.
-      - teach: >
-          An array stores its elements contiguously, so index $i$
-          sits at a fixed offset: reading or writing $a[i]$ is
-          $O(1)$. Inserting or deleting in the middle breaks that
-          contiguity — every element after the gap has to shift one
-          slot, an $O(n)$ pass whose cost depends on how much sits
-          after the gap.
+    dialogue:
+      - part: A bid that has to squeeze in
+        teach: >
+          You keep a desk's resting bids as a packed array sorted best first,
+          eight prices at indices $0$ through $7$:
+          $[101, 100, 99, 97, 96, 95, 93, 90]$. A new bid at $98$ arrives and
+          has to go in its sorted place, with no gaps left in the array.
       - ask: >
-          A 10-element array has a new value inserted at index 4.
-          How many of the array's existing elements have to shift
-          one slot to the right to make room?
-        expects: "6"
+          How many of the eight existing bids have to move one slot to make
+          room for the $98$?
+        expects: "5"
         hint: >
-          Count how many elements currently sit at index 4 or later,
-          since every one of them has to move.
+          Find the index the $98$ must occupy, then count everything at that
+          index or later.
         feedback: >
-          The elements originally at indices 4 through 9 — six of
-          them — each shift one slot right, an $O(n)$ pass. The cost
-          scales with how much of the array sits after the insertion
-          point, not with the array's total size.
-      - teach: >
-          A singly linked list buys the opposite trade: each node is
-          its own allocation holding a value and a pointer to the
-          next node, so splicing beside a node you already hold is
-          two pointer writes, $O(1)$, no shifting. The catch is
-          getting there — without random access, reaching the $k$-th
-          node means walking $k$ pointers from the head, $O(n)$.
+          The $98$ belongs between $99$ (index $2$) and $97$ (index $3$), so it
+          takes index $3$. The bids at indices $3$ through $7$ — that is $97$,
+          $96$, $95$, $93$, $90$ — each shift one slot right: $5$ moves.
       - ask: >
-          A problem repeatedly inserts a new item immediately after
-          a node it already holds a direct pointer to, in a sequence
-          with a million elements, and never needs to jump to an
-          arbitrary position. Which structure keeps each of those
-          insertions cheapest?
+          Same desk, a busier day: the packed array holds $1{,}000{,}000$ bids,
+          and a new one lands at index $10$. How many existing bids move?
+        expects: "999990"
+        hint: >
+          Indices $10$ through $999{,}999$ all shift.
+        feedback: >
+          $1{,}000{,}000 - 10 = 999{,}990$ moves to place one bid. The work has
+          nothing to do with the new bid and everything to do with how much
+          sits after the gap — a full $O(n)$ pass for a near-top insertion.
+      - reflect: >
+          The $98$ only needs to sit between the $99$ and the $97$. What would
+          you have to give up about how the bids are stored so that inserting
+          it never touches the $96$, the $95$ or anything after them?
+        answer: >
+          The requirement that neighbours be neighbours in memory. If each bid
+          carries the location of the next bid, "sorted order" lives in those
+          links rather than in physical position, and inserting the $98$ means
+          rewriting one or two links beside the $99$. What you lose is the
+          fixed offset: with no packing, nothing tells you where the sixth bid
+          lives except following links from the first.
+      - teach: >
+          The packed version is an array: elements stored contiguously, so
+          element $i$ sits at a fixed offset and reading or writing it is
+          $O(1)$, while inserting or deleting in the middle shifts everything
+          after the gap, $O(n)$. The linked version is a singly linked list:
+          each node holds a value and a pointer to the next node. Splicing
+          beside a node you already hold is $O(1)$; reaching the $k$-th node
+          means walking $k$ pointers from the head, $O(n)$, and every node is
+          its own allocation scattered through memory.
+
+      - part: What the links buy and what they cost
+        ask: >
+          Store the eight bids as a singly linked list instead, and suppose you
+          already hold a pointer to the $99$ node. How many pointer writes
+          splice in a new node for $98$?
+        expects: "2"
+        hint: >
+          The new node needs to point somewhere, and something needs to point
+          at the new node.
+        feedback: >
+          Two: the new node's next is set to the $97$ node, then the $99$
+          node's next is set to the new node. Do them in that order — the other
+          order loses the only pointer to the $97$. Two writes whether the list
+          holds eight bids or eight million.
+      - ask: >
+          Now the risk system asks the linked list for the sixth-best bid.
+          Starting at the head, how many nodes do you visit, counting the head
+          and the node you stop on?
+        expects: "6"
+        feedback: >
+          Head is the best bid, one hop gives the second, and five hops reach
+          the sixth: $6$ nodes visited. The array answers the same question
+          by computing one offset and touching one slot.
+      - ask: >
+          A new bid arrives on the million-node list, and you know only its
+          price — no pointer to its neighbour. What does placing it cost?
         choices:
           - text: >
-              An array, since it has better cache locality
-              overall
+              $O(1)$: linked-list insertion is two pointer writes.
             feedback: >
-              Locality doesn't save it here — inserting
-              mid-array still shifts every element after the
-              gap, an $O(n)$ pass every time, regardless of how
-              the array behaves for scanning.
+              The two writes are the end of the job, not the job. Without a
+              held pointer you must first find the node it goes behind, and on
+              a list the only way to find it is to walk from the head.
           - text: >
-              A linked list, since splicing beside a held node
-              is two pointer writes with no shifting
+              $O(\log n)$: the list is sorted, so binary search finds the spot.
+            feedback: >
+              Binary search jumps to the middle element, and a list has no
+              middle to jump to — reaching node $n/2$ is itself $n/2$ hops. A
+              sorted list is searched linearly.
+          - text: >
+              $O(n)$: walk to find the spot, then an $O(1)$ splice.
             correct: true
             feedback: >
-              Exactly — the held pointer is what makes this
-              cheap. No walk from the head is needed, so the
-              $O(n)$ side of a linked list never comes into
-              play.
-          - text: >
-              Either one, since both are $O(1)$ once you have a
-              reference to the position
-            feedback: >
-              An array reference to a position doesn't help —
-              insertion there still forces every later element
-              to shift. Only the linked list turns a held
-              reference into a shift-free splice.
+              Right. The splice is cheap, the search is not, and the search
+              dominates. The packed array also pays $O(n)$ here, but its shift
+              runs over contiguous memory, which is several times faster in
+              practice than chasing a million scattered pointers.
         feedback: >
-          A held pointer to the exact splice point is what a linked
-          list needs to make insertion $O(1)$; an array pays the
-          same $O(n)$ shift whether or not you already know the
-          index.
-      - teach: >
-          Dynamic arrays — Python's list, C++'s vector, Java's
-          ArrayList — double their backing array on overflow, so a
-          single resize costs $O(n)$. Spreading that cost over every
-          push since the last resize makes appending $O(1)$
-          amortized, not the $O(n)$ per push a fixed-size array
-          would force.
+          A linked list's one advantage is splicing at a position you already
+          hold. Hand it only a value or an index and it pays the walk, which is
+          the same $O(n)$ as the array's shift, done more slowly.
+
+      - part: Growing at the end
+        teach: >
+          The fill log is different: fills are only ever appended at the end
+          and later scanned. You store it in a dynamic array, which doubles its
+          backing buffer when an append finds it full and copies every stored
+          element across. Right now its capacity is $16$ and it holds $16$
+          fills.
       - ask: >
-          A problem hands you only an integer index, never a
-          pointer, and asks you to insert repeatedly at that index
-          into a sequence of a million elements. Does switching to a
-          linked list save anything here?
+          The $17$th fill arrives. How many element copies does that one append
+          perform?
+        expects: "16"
+        feedback: >
+          The buffer is full, so a new buffer of capacity $32$ is allocated and
+          all $16$ existing fills are copied into it before the new one is
+          written: $16$ copies, an $O(n)$ append.
+      - ask: >
+          An interviewer pushes back: "so append is $O(n)$ in the worst case,
+          and a linked list appends in $O(1)$ — use the list." What is the
+          answer?
         choices:
           - text: >
-              Yes, a linked list's insertion is always $O(1)$
+              Agree: an $O(n)$ worst case disqualifies the array for a log.
             feedback: >
-              Only true once you're already at the position.
-              Without a held pointer, a linked list has to walk
-              from the head to find index $k$, an $O(n)$ walk
-              before the $O(1)$ splice even starts.
+              Count the copies across the whole run: the $17$th append copies
+              $16$, and appends $18$ through $32$ copy nothing. $16$ copies
+              over $16$ appends is $1$ per append, and every later doubling
+              gives the same average.
           - text: >
-              No — finding the position costs $O(n)$ either way,
-              and the array at least shifts contiguous,
-              cache-friendly memory
+              The resize is $O(n)$ but happens only after $n$ cheap appends, so
+              appending is $O(1)$ amortized and the log keeps array locality.
             correct: true
             feedback: >
-              Right. When only an index is given, both
-              structures pay $O(n)$ to reach the position; the
-              array's shift doesn't add a second, separate cost
-              the way the linked list's walk does.
+              That is the amortized argument: the $16$ copies are paid for by
+              the $16$ appends that filled the buffer. The array keeps
+              contiguous memory for the scan, which the list gives up.
           - text: >
-              No — arrays can jump to any index in $O(\log n)$
-              using binary search
+              Avoid the resize by preallocating a buffer of a million slots.
             feedback: >
-              Binary search finds a value in a sorted array; a
-              raw index access is already $O(1)$, and neither
-              logarithm applies to shifting elements to make
-              room.
+              That works only if you know the final size in advance, and it
+              misses the point: doubling already makes the average append
+              $O(1)$ without guessing a bound.
         feedback: >
-          Claiming a linked list is faster to insert into, without
-          accounting for how you got to that position, is the
-          mistake — if you don't already hold a pointer there,
-          finding it costs $O(n)$ on a linked list too, erasing the
-          entire advantage.
-      - teach: >
-          Default to an array whenever the job is scanning,
-          indexing, or appending at the end. Reach for a linked list
-          only when the problem hands you a held position and asks
-          you to splice there repeatedly — otherwise its one
-          advantage never gets used.
+          Resizes are rare in exactly the proportion that makes them cheap on
+          average. A single $O(n)$ append is not a reason to abandon an array
+          whose average append is $O(1)$.
+
+      - part: Which one the problem is asking for
+        ask: >
+          Three workloads. (a) Read prices by position in a fixed historical
+          series, a million times. (b) A text editor that holds a cursor and
+          inserts characters at it, over and over. (c) Insert into a sorted
+          sequence given only the value to insert. Which of them does a linked
+          list actually win?
+        choices:
+          - text: >
+              (a) and (c)
+            feedback: >
+              (a) is pure indexing, the array's $O(1)$ against the list's
+              $O(n)$ walk. (c) hands you a value, not a position, so the list
+              must walk to the spot first.
+          - text: >
+              (b) only
+            correct: true
+            feedback: >
+              Only (b) holds a position and splices there repeatedly. The
+              cursor is the held pointer, so each keystroke is an $O(1)$ splice
+              where an array would shift everything after the cursor.
+          - text: >
+              (b) and (c)
+            feedback: >
+              (c) looks like (b) but lacks the held pointer. Finding the
+              insertion point is an $O(n)$ walk, so the list's $O(1)$ splice
+              never gets a chance to matter.
+          - text: >
+              None: arrays always win in practice.
+            feedback: >
+              Not in (b). With a cursor held and edits concentrated there, an
+              array shifts the whole tail of the document on every keystroke,
+              and the list pays two pointer writes.
+        feedback: >
+          Read the workload, not the structure's reputation: which operation
+          repeats, and does the problem hand you a position or only a value?
+          A list wins only when it holds the splice point. Everything else —
+          scanning, indexing, appending at the end — wants the array.
 
   - node: quant-programming.data-structures.doubly-linked-list
     hook: >
@@ -239,104 +304,184 @@ lessons:
     recap: >
       Two pointers per node, one back and one forward, turn removal at a
       held node from an $O(n)$ walk into two $O(1)$ writes.
-    steps:
-      - teach: >
-          A singly linked list's next-pointer is enough to splice in
-          right after a node you're holding, but removing that same
-          node needs its predecessor — and the node's own pointer
-          only reaches forward.
-      - teach: >
-          A doubly linked list gives every node a second pointer,
-          back to its predecessor, so a held reference alone is
-          enough to unlink or relink it in either direction. No walk
-          from the head is required, in exchange for two pointers of
-          bookkeeping per node instead of one.
+    dialogue:
+      - part: A cancel in the middle of the queue
+        teach: >
+          At one price level an exchange keeps resting orders in time priority
+          as a singly linked list: $501 \to 502 \to 503 \to 504 \to 505 \to 506$.
+          A cancel arrives for order $504$, and a lookup table hands you a
+          pointer straight to the $504$ node.
       - ask: >
-          You hold a direct reference to a node in the middle of a
-          doubly linked chain and want to remove it. How many
-          pointer writes does the removal take, regardless of the
-          chain's length?
-        expects: "2"
-        hint: >
-          You only need to update the node on either side of the one
-          being removed.
-        feedback: >
-          Two: the removed node's predecessor gets its next set to
-          the removed node's successor, and that successor gets its
-          previous set back to the predecessor. That's the whole
-          operation, whether the chain holds five nodes or five
-          million.
-      - teach: >
-          That $O(1)$ removal is bought at a fixed price paid on
-          every node, not just the ones removed from the middle: two
-          pointers of bookkeeping instead of one. A singly linked
-          list saves that second pointer but pays for it with an
-          $O(n)$ walk the moment removal — not just insertion — is
-          on the table.
-      - ask: >
-          You hold direct references to two adjacent nodes, $B$ and
-          $C$, in a doubly linked chain, and splice a new node $X$
-          in between them. How many pointer writes does the
-          insertion take?
-        expects: "4"
-        hint: >
-          The new node needs both of its own pointers set, and each
-          of its new neighbors needs one pointer updated to point at
-          it.
-        feedback: >
-          Four: $X$'s previous is set to $B$, $X$'s next is set to
-          $C$, $B$'s next is set to $X$, and $C$'s previous is set
-          to $X$. Every pointer touched by the splice is a fixed,
-          $O(1)$ count, independent of where $B$ and $C$ sit in the
-          chain.
-      - teach: >
-          This is the piece that makes $O(1)$ eviction possible in a
-          structure like an LRU cache: a companion index, typically
-          a hash map, supplies the node reference in $O(1)$, and the
-          doubly linked list then does the unlink-and-relink in
-          $O(1)$ without scanning for a predecessor.
-      - ask: >
-          An implementation removes a node from a doubly linked list
-          by updating only the removed node's predecessor's
-          next-pointer, and skips updating the successor's
-          previous-pointer. What happens?
+          Which existing pointer has to change for $504$ to drop out of the
+          queue?
         choices:
           - text: >
-              Nothing — the list still works, since traversal
-              only follows next-pointers
+              $504$'s next-pointer, set to null.
             feedback: >
-              Forward traversal might look fine, but the
-              successor's previous-pointer is now stale, still
-              pointing at the removed node — anything that walks
-              backward, or that node itself if kept alive
-              elsewhere, sees a corrupted list.
+              $504$ is leaving; what its own pointer says no longer matters.
+              Nulling it leaves $503$ still pointing at $504$, so a walk from
+              the head still reaches the cancelled order.
           - text: >
-              The list is corrupted — the stale previous-pointer
-              still references the removed node even though the
-              forward chain looks fine
+              $503$'s next-pointer, set to $505$.
             correct: true
             feedback: >
-              Right. Both neighbor pointers have to be updated
-              on every removal; a list can look correct scanning
-              forward while its backward links are broken.
+              Right. Membership in the list is "some node points at you", and
+              the only node pointing at $504$ is $503$.
           - text: >
-              It just means the doubly linked list now behaves
-              like a singly linked list
+              $505$'s pointer back to $504$.
             feedback: >
-              A singly linked list never had a previous-pointer
-              to leave stale in the first place — this isn't a
-              downgrade to that, it's a genuine bug: a dangling
-              reference to a removed node.
+              A singly linked node has no pointer back. $505$ knows nothing
+              about $504$; only $504$'s predecessor does.
         feedback: >
-          Both of a node's neighbors need updating on removal.
-          Leaving one stale pointer behind is invisible to forward
-          traversal but corrupts the list all the same.
+          Removing a node means rewriting its predecessor. You are holding the
+          node, not its predecessor.
+      - ask: >
+          You hold only the $504$ node and the list's head. How many nodes do
+          you visit to reach the node whose pointer must change, counting the
+          head and the node you stop on?
+        expects: "3"
+        hint: >
+          From $504$, every pointer leads forward. Where is the only place to
+          start a walk that passes $503$?
+        feedback: >
+          $504$ cannot see behind itself, so you walk from the head: $501$,
+          $502$, $503$ — $3$ nodes. Had the cancel been for the $600{,}000$th
+          order, the walk would visit $599{,}999$. The held pointer saved
+          nothing.
+      - ask: >
+          A colleague suggests a shortcut: copy $505$'s contents into the $504$
+          node, then unlink $505$, which only needs the pointer you hold. What
+          is wrong with it?
+        choices:
+          - text: >
+              Nothing; it is the standard $O(1)$ removal.
+            feedback: >
+              It is a known trick and a fragile one. Try it on $506$: there is
+              no next node to copy, so the tail cannot be removed this way at
+              all.
+          - text: >
+              It breaks time priority, since $505$ moves forward a place.
+            feedback: >
+              The values read $501, 502, 503, 505, 506$ afterwards, which is
+              exactly the right order. Priority survives; something else does
+              not.
+          - text: >
+              It fails on the tail, and any outside pointer to the $505$ node
+              is left pointing at a freed node.
+            correct: true
+            feedback: >
+              Both. The lookup table that maps order $505$ to its node now
+              points at a node that was unlinked, while $505$'s data lives in
+              what used to be $504$'s node. Node identity matters as soon as
+              anything else holds pointers into the list.
+        feedback: >
+          The honest fix is not a trick on the values. It is to make the
+          predecessor reachable from the node itself.
+      - reflect: >
+          What would each node have to store so that, holding only the $504$
+          node, you could remove it without walking from the head?
+        answer: >
+          A second pointer, back to its predecessor. Then $504$ can reach $503$
+          directly, rewrite $503$'s next to $505$, and rewrite $505$'s back
+          pointer to $503$ — a fixed amount of work wherever $504$ sits. The
+          cost is one more pointer stored on every node, used or not.
       - teach: >
-          A doubly linked list gives you $O(1)$ removal and
-          insertion once you're already at a node — it does not give
-          you $O(1)$ search. Finding the node in the first place
-          still needs something else, usually a hash map, before the
-          $O(1)$ splice can happen.
+          That structure is a doubly linked list: each node holds a value, a
+          pointer to its successor and a pointer to its predecessor. Given a
+          reference to a node, removing it or inserting beside it is $O(1)$ in
+          either direction, with no walk to find the node behind it. The price
+          is two pointers of bookkeeping per node instead of one.
+
+      - part: Counting the writes
+        ask: >
+          The queue is now doubly linked. Orders $503$ and $504$ cancel
+          together, and you hold both nodes. What is the fewest pointer writes
+          that removes the pair?
+        expects: "2"
+        hint: >
+          Which surviving nodes have a pointer into the pair?
+        feedback: >
+          Only $502$ (its next) and $505$ (its previous) point into the pair.
+          Write $502$'s next $= 505$ and $505$'s previous $= 502$: two writes,
+          the same as removing one node, whether the level holds six orders or
+          six hundred thousand. The pointers inside the pair never need
+          touching.
+      - ask: >
+          A late-corrected order $510$ has to sit between $502$ and $503$, and
+          you hold both of those nodes. How many pointer writes splice it in?
+        expects: "4"
+        hint: >
+          The new node's two pointers, plus one pointer on each neighbour.
+        feedback: >
+          $510$'s previous $= 502$, $510$'s next $= 503$, $502$'s next $= 510$,
+          $503$'s previous $= 510$: $4$ writes, every one of them fixed by the
+          two neighbours, none depending on the list's length.
+      - ask: >
+          Each node stores an $8$-byte order id and $8$-byte pointers. For
+          $1{,}000{,}000$ resting orders, how many more millions of bytes does
+          the doubly linked version use than the singly linked one?
+        expects: "8"
+        feedback: >
+          Singly linked: $8 + 8 = 16$ bytes per node. Doubly linked:
+          $8 + 8 + 8 = 24$. The extra $8$ bytes on $10^{6}$ nodes is
+          $8 \times 10^{6}$ bytes, $8$ million — the standing price of $O(1)$
+          removal, paid on every node whether it is ever cancelled or not.
+
+      - part: What the back pointer does not buy
+        ask: >
+          A cancel arrives for order $505$ carrying only the id, with no
+          pointer, and there is no lookup table. What does removal cost on the
+          doubly linked queue?
+        choices:
+          - text: >
+              $O(1)$: a doubly linked list removes any node in two writes.
+            feedback: >
+              Any node you are *holding*. The two writes need the node, and
+              with only an id you have to find it first by walking from the
+              head.
+          - text: >
+              $O(n)$: walk to find the node, then two writes.
+            correct: true
+            feedback: >
+              Right. The back pointer removes the walk for the predecessor, not
+              the search for the node itself. Something else, usually a hash
+              map from id to node, has to supply the reference.
+          - text: >
+              $O(\log n)$: the ids are in time order, so you can search
+              efficiently.
+            feedback: >
+              Even sorted, a linked list cannot jump to its middle, so there is
+              no binary search. Finding a node by value is a linear walk.
+        feedback: >
+          A doubly linked list makes removal $O(1)$ once you hold the node.
+          Pair it with a map from key to node and you have the core of an LRU
+          cache: the map finds, the list moves and removes.
+      - ask: >
+          A buggy cancel removes $504$ by writing $503$'s next $= 505$ and
+          stopping there. Afterwards you walk the queue backward from the tail,
+          following previous-pointers. What do you see?
+        choices:
+          - text: >
+              $506, 505, 503, 502, 501$
+            feedback: >
+              That is what the forward walk shows, reversed. The backward walk
+              uses previous-pointers, and $505$'s was never touched.
+          - text: >
+              $506, 505$, and then the walk stops.
+            feedback: >
+              Nothing was nulled. $505$'s previous-pointer still holds a
+              perfectly followable address — the cancelled node's.
+          - text: >
+              $506, 505, 504, 503, 502, 501$
+            correct: true
+            feedback: >
+              $505$ still points back at $504$, and $504$ still points back at
+              $503$, so the cancelled order reappears. Forward the queue looks
+              right; backward it is corrupt.
+        feedback: >
+          Removal in a doubly linked list is two writes, and both are
+          mandatory. A list that looks correct when walked one way can be
+          broken the other way.
 
   - node: quant-programming.data-structures.hash-map
     hook: >
@@ -390,106 +535,149 @@ lessons:
       A hash map is the default $O(1)$-expected key lookup, but it buys no
       ordering and can degrade to $O(n)$ under adversarial or clustered
       keys.
-    steps:
-      - teach: >
-          Have you seen this before, or how do you look up by key —
-          that's the most common instinct-check in an interview, and
-          reaching for anything other than a hash map first should
-          need a specific reason.
-      - teach: >
-          A hash map applies a hash function to each key to get a
-          bucket index into a backing array, so a good hash spread
-          and a load factor kept bounded by resizing hold insert,
-          lookup and delete at expected $O(1)$. When two keys land
-          in the same bucket, that bucket typically holds them
-          chained together, checked one at a time.
+    dialogue:
+      - part: Has this ticker traded yet
+        teach: >
+          A surveillance job watches every print of the session and must flag
+          the first trade in each ticker. Its first version keeps an unsorted
+          array of tickers already seen and, on each print, scans that array
+          for the ticker before appending it.
       - ask: >
-          A hash table has 5 buckets, and a key lands in bucket
-          $(key \bmod 5)$. Keys 5, 10, 15, and 20 are inserted in
-          that order. How many keys end up chained into the bucket
-          that receives them?
-        expects: "4"
+          Over the morning $1000$ distinct tickers make their first trade. Each
+          new ticker is compared against every ticker already in the array
+          before being appended. How many comparisons do those $1000$ first
+          trades cost in total?
+        expects: "499500"
         hint: >
-          Compute each key modulo 5 and see how many land on the
-          same value.
+          The first new ticker compares against $0$, the second against $1$,
+          and so on.
         feedback: >
-          All four keys give remainder 0 mod 5, so all four chain
-          into bucket 0 — every one of them, not just some. This is
-          exactly the clustering that degrades a hash map's
-          operations toward $O(n)$: a bad key distribution collapses
-          many keys onto one bucket instead of spreading them out.
-      - teach: >
-          A hash map fails you three specific ways: no ordering,
-          since iteration yields keys in neither sorted nor
-          insertion order without a specialized variant; a bad or
-          adversarial key distribution collapsing every bucket onto
-          one slot; and no way to answer a range or nearest-neighbor
-          query without scanning everything, since there's no notion
-          of the next key to walk toward.
+          $0 + 1 + \dots + 999 = 999 \times 1000 / 2 = 499{,}500$ comparisons:
+          $O(n^{2})$ for a question that should cost almost nothing per print.
       - ask: >
-          A problem needs the smallest key still greater than or
-          equal to $x$ answered repeatedly, as keys are inserted and
-          removed. Is a hash map still the right first reach?
+          A colleague keeps the seen tickers in a *sorted* array and binary
+          searches it on each print. Does that fix the cost?
         choices:
           - text: >
-              Yes — hash map insert and lookup are $O(1)$, which
-              beats any alternative
+              Yes: each check is $O(\log n)$, so $1000$ tickers cost about
+              $1000 \log_{2} 1000$ in total.
             feedback: >
-              Speed at membership checks doesn't help here — the
-              question isn't whether $x$ is present, it's a
-              question about order, which a hash map's bucket
-              layout has no way to answer without scanning every
-              key.
+              The check is $O(\log n)$, but every new ticker must then be
+              inserted in sorted position, shifting everything after it.
+              Inserts alone are back to $O(n^{2})$ on unlucky arrival orders.
           - text: >
-              No — this needs a query over order, which a hash
-              map structurally can't answer without scanning
-              everything
+              Only half: lookups get fast, but inserting each new ticker into
+              sorted position still shifts $O(n)$ elements.
             correct: true
             feedback: >
-              Right. Smallest key greater than or equal to $x$
-              is exactly the range/nearest-neighbor phrasing
-              that signals a sorted structure is needed instead,
-              regardless of how fast the hash map's own
-              operations are.
+              Right. Sorting buys order the job never asked for and pays for it
+              on every insert. The surveillance job only asks "seen or not".
           - text: >
-              Yes — you can sort the keys after every insertion
-              to keep the order available
+              Yes, if the array is a sorted linked list so inserts are $O(1)$.
             feedback: >
-              Re-sorting after every insertion costs at least
-              $O(n \log n)$ each time, throwing away the hash
-              map's $O(1)$ advantage entirely and still not
-              being the right tool for the job.
+              The splice is $O(1)$ once you are at the spot, and finding the
+              spot on a list is a walk. A linked list cannot be binary
+              searched.
         feedback: >
-          The vocabulary — order, rank, range, closest — is the
-          signal. A hash map answers membership and key lookup, not
-          queries that need the keys' relative order.
-      - teach: >
-          The map earns its default status because have I seen this
-          key answers a huge fraction of interview questions in one
-          pass: scan once, and for each element check whether the
-          value you need has already been recorded, all in expected
-          $O(1)$ per check.
+          Neither unsorted nor sorted arrays answer "seen before" in constant
+          time. Something has to jump straight to the right slot.
       - ask: >
-          Scanning nums = [3, 5, -4, 8, 11, 1, -1, 6] left to right
-          for two numbers summing to 10, recording each value's
-          index in a hash map before moving on: at which index
-          (0-indexed) do you first find that the map already holds
-          the complement you need?
-        expects: "6"
-        hint: >
-          At each position, compute $10$ minus the current value and
-          check whether that value's index is already in the map.
+          Suppose every ticker were an integer from $0$ to $999$. You keep a
+          $1000$-slot array of flags, slot $i$ set once ticker $i$ has traded.
+          How many slots does "has $417$ traded?" touch?
+        expects: "1"
         feedback: >
-          At index 6 the value is $-1$, whose complement is $10 -
-          (-1) = 11$ — and $11$ was already recorded at index 4 on
-          an earlier step. One pass, one hash lookup per element, no
-          nested scan.
+          One: read slot $417$. The key *is* the address, so there is nothing
+          to search.
+      - reflect: >
+          Tickers are strings like "NVDA", not integers from $0$ to $999$. What
+          would let you keep the one-slot trick anyway, and what new problem
+          would it create?
+        hint: >
+          You need some way to turn a string into a slot number.
+        answer: >
+          A function that turns any key into a slot number in a fixed-size
+          array, computed from the key alone. Then a lookup computes the slot
+          and checks only what is there. The new problem is collisions: far
+          more possible strings than slots means two tickers can land on the
+          same slot, so each slot holds a short list of keys and a lookup
+          compares against that list. Keep the lists short and every operation
+          stays near one step.
       - teach: >
-          Iteration order is not something to lean on: some
-          languages' default map happens to preserve insertion
-          order, but that is not a general guarantee, and code that
-          quietly depends on it breaks the moment it runs somewhere
-          else.
+          That is a hash map. A hash function sends each key to a bucket index
+          in a backing array; colliding keys share a bucket, typically chained
+          as a short list. The load factor, keys divided by buckets, is kept
+          bounded by resizing the array and rehashing when it grows. With a
+          good hash, insert, lookup and delete are $O(1)$ expected, amortized
+          over the resizes. A hash set stores keys alone; a hash map stores a
+          value with each key.
+
+      - part: Keeping the buckets short
+        ask: >
+          A chained table has $1024$ buckets holding $3000$ tickers, spread
+          evenly by a good hash. On average, how many keys sit in a bucket?
+        expects: "2.93"
+        tolerance: 0.01
+        feedback: >
+          $3000 / 1024 \approx 2.93$. A lookup computes one hash and compares
+          against about three keys — a constant, not a function of how long the
+          session has run.
+      - ask: >
+          The table instead doubles its bucket count whenever the load factor
+          would exceed $0.75$. Starting from $16$ buckets, how many buckets does
+          it have once it holds $3000$ keys?
+        expects: "4096"
+        hint: >
+          You need at least $3000 / 0.75$ buckets, and the count is always $16$
+          times a power of two.
+        feedback: >
+          $3000 / 0.75 = 4000$ buckets at minimum. Doubling from $16$ runs
+          $32, 64, \dots, 2048, 4096$, and $2048$ is too few, so $4096$. Each
+          resize rehashes every key, $O(n)$, but doubling makes that
+          $O(1)$ amortized per insert — the same argument as a dynamic
+          array's append.
+
+      - part: Three things it cannot do
+        ask: >
+          Someone learns your hash function and sends $3000$ crafted keys that
+          all hash to bucket $0$. How many key comparisons does a lookup for a
+          key that is *not* present now make?
+        expects: "3000"
+        feedback: >
+          All $3000$ keys sit in one chain, and a miss compares against every
+          one before giving up. $O(1)$ expected was a promise about well-spread
+          keys; adversarial or badly clustered keys collapse it to $O(n)$ per
+          operation. Randomised or keyed hash functions are the defence.
+      - ask: >
+          The job now stores each ticker's last price in the hash map. A trader
+          asks for the ticker that comes alphabetically right after "MSFT".
+          What does the hash map do with that question?
+        choices:
+          - text: >
+              Hash "MSFT" and look in the next bucket.
+            feedback: >
+              A good hash scatters keys deliberately, so the neighbouring bucket
+              holds some unrelated ticker. Bucket order carries no information
+              about key order.
+          - text: >
+              Iterate the map; keys come out in insertion order, which is close
+              enough.
+            feedback: >
+              Iteration order is neither sorted nor, in general, insertion
+              order, and insertion order is not alphabetical anyway.
+          - text: >
+              Nothing useful: it must scan all keys, $O(n)$.
+            correct: true
+            feedback: >
+              Right. A hash map has no notion of "the next key". Successor,
+              range and $k$-th smallest queries need a structure that keeps
+              keys sorted.
+        feedback: >
+          The hash map is the default whenever the question is "seen before"
+          or "look up by key". Its three failures are worth naming aloud: no
+          ordering, $O(n)$ under adversarial keys, and no range or neighbour
+          queries. A problem that says "sorted", "closest" or "between" is
+          telling you to look past it.
 
   - node: quant-programming.data-structures.heap
     hook: >
@@ -543,101 +731,207 @@ lessons:
     recap: >
       An array-backed tree keeping the min or max at the root: $O(1)$ peek,
       $O(\log n)$ insert and extract, $O(n)$ to build from scratch.
-    steps:
-      - teach: >
-          Any give-me-the-max-or-min-repeatedly-as-things-arrive
-          question is a heap in disguise — the tell is needing the
-          extreme element fast without ever needing a full sort.
-      - teach: >
-          Store the heap as a plain array and let position encode
-          structure: the children of index $i$ live at $2i+1$ and
-          $2i+2$, and the parent of index $i$ lives at $\lfloor
-          (i-1)/2 \rfloor$ — arithmetic on indices, no pointers. The
-          heap property constrains only parent-child pairs, so the
-          extreme element sits at the root but nothing else is
-          sorted.
+    dialogue:
+      - part: Always the earliest deadline
+        teach: >
+          A scheduler holds $1000$ pending jobs, each tagged with a deadline.
+          Over and over it removes and runs the job with the earliest deadline,
+          while new jobs keep arriving. Version one keeps the jobs in an
+          unsorted array.
       - ask: >
-          In a 0-indexed array-backed heap, which index holds the
-          parent of the element at index 11?
-        expects: "5"
-        hint: >
-          Apply $\lfloor (i-1)/2 \rfloor$ with $i = 11$.
+          How many deadline comparisons does it take to find the earliest of
+          the $1000$ jobs in the unsorted array?
+        expects: "999"
         feedback: >
-          $\lfloor (11-1)/2 \rfloor = \lfloor 10/2 \rfloor = 5$.
-          Every parent-child relationship in an array-backed heap is
-          this arithmetic — no pointer to follow.
-      - teach: >
-          Insert appends the new value at the array's end, then
-          sifts it up, swapping with its parent while the heap
-          property is violated — at most the tree's height, $O(\log
-          n)$, swaps. Extract-min or extract-max swaps the root with
-          the last leaf, removes the old root, then sifts the new
-          root down toward the smaller (or larger) child.
+          Hold the first deadline as the best so far and compare each of the
+          other $999$ against it: $999$ comparisons, an $O(n)$ scan on every
+          single removal. Inserting was free; removing is not.
       - ask: >
-          A min-heap array is $[2, 5, 4, 8, 7, 9, 6]$. Insert the
-          value 1: it's appended at the end, then sifted up,
-          swapping with its parent while it's smaller. How many
-          swaps does the sift-up take before 1 reaches the root?
-        expects: "3"
-        hint: >
-          Appended at the last index, find its parent's index,
-          compare, and repeat up the tree until either the property
-          holds or you reach the root.
-        feedback: >
-          The array becomes $[2,5,4,8,7,9,6,1]$ with $1$ at index 7,
-          parent index 3 (value $8$): swap. Now at index 3, parent
-          index 1 (value $5$): swap. Now at index 1, parent index 0
-          (value $2$): swap, reaching the root. Three swaps, and $1$
-          — correctly — ends at the root.
-      - teach: >
-          Building a heap from $n$ elements is $O(n)$, not $O(n \log
-          n)$: sift down starting from the last internal node and
-          work back to the root, so most nodes, the bottom half of
-          the tree, sift a distance of $0$ or $1$, and only a few
-          near the root pay the full $O(\log n)$.
-      - ask: >
-          In a min-heap stored as an array, is it true that for any
-          two indices $i < j$, the element at $i$ is smaller than or
-          equal to the element at $j$?
+          Version two keeps the array sorted, latest deadline first, so the
+          earliest job is always the last element. What does that cost?
         choices:
           - text: >
-              Yes — a heap array is sorted in increasing order
-              by construction
+              Removal is $O(1)$ and insertion is $O(\log n)$, since binary
+              search finds the new job's position.
             feedback: >
-              Only parent-child pairs are constrained. Two
-              arbitrary indices — say, two siblings, or two
-              nodes in different subtrees — can compare either
-              way; only the path from a node up to the root is
-              guaranteed non-decreasing.
+              Binary search finds the position in $O(\log n)$, and then every
+              element after it shifts one slot to open a gap, $O(n)$. Finding
+              the spot was never the expensive part.
           - text: >
-              No — only parent-child pairs are guaranteed to
-              compare correctly, not arbitrary pairs of indices
+              Removal is $O(1)$, but each insertion shifts up to $n$ elements,
+              $O(n)$.
             correct: true
             feedback: >
-              Right. The heap property is local to each
-              parent-child pair. That's exactly why finding an
-              arbitrary value in a heap is $O(n)$ — there's no
-              global order to binary-search over.
+              Right. Version one pays $O(n)$ to remove, version two pays $O(n)$
+              to insert, and the scheduler does both all day.
           - text: >
-              No — only the root and the very last element are
-              guaranteed to compare correctly
+              Both are $O(1)$, since the end of an array is cheap to reach.
             feedback: >
-              The guarantee is about every parent and its
-              children, not specifically about the root and the
-              last element — those two happen to be involved in
-              extraction, but the ordering claim is about
-              parent-child pairs throughout the whole tree.
+              Popping the end is cheap. A new job with a middling deadline does
+              not go at the end, though: it goes in sorted position, and
+              everything after that position moves.
         feedback: >
-          A heap array guarantees parent $\le$ children (or $\ge$
-          for a max-heap) at every level — nothing about siblings,
-          and nothing about two nodes chosen at random. That's the
-          price of $O(\log n)$ insert and extract: the structure is
-          only as ordered as it needs to be.
+          One version keeps no order and pays at removal; the other keeps a
+          total order and pays at insertion.
+      - reflect: >
+          The sorted array maintains the order between every pair of jobs, yet
+          the scheduler only ever asks for the minimum. What is the least
+          order you could maintain that still puts the minimum somewhere you
+          can read instantly?
+        hint: >
+          Think of the jobs arranged as a tree rather than a line.
+        answer: >
+          Arrange the jobs as a binary tree and demand only that each parent's
+          deadline be no later than its children's. Then the root is the
+          minimum, and siblings or cousins need no order at all. A tree with
+          $n$ nodes kept balanced is only about $\log_{2} n$ levels deep, so a
+          new or removed job only disturbs one root-to-leaf path: fix it with
+          about $\log n$ swaps, not $n$ shifts.
       - teach: >
-          Most standard-library heap implementations are min-heaps
-          only; getting max-heap behavior out of one means pushing
-          negated values and negating again on read — an easy detail
-          to forget under interview pressure.
+          That is a binary heap, stored in a plain array: the children of index
+          $i$ sit at $2i+1$ and $2i+2$, its parent at
+          $\lfloor (i-1)/2 \rfloor$. The heap property says each parent is
+          $\le$ both children (a min-heap; $\ge$ for a max-heap), so the root,
+          index $0$, holds the extreme element. Peek is $O(1)$. Insert appends
+          at the end and sifts up, swapping with the parent while smaller.
+          Extract swaps the root with the last element, pops it, and sifts the
+          new root down. Both are $O(\log n)$, and building a heap from $n$
+          elements by sifting down from the last internal node is $O(n)$.
+
+      - part: Checking and moving by hand
+        ask: >
+          Which array is a valid min-heap?
+        choices:
+          - text: >
+              $[2, 5, 3, 9, 4, 8]$
+            feedback: >
+              Index $1$ holds $5$, and its children are indices $3$ and $4$,
+              holding $9$ and $4$. $5 > 4$, so the property fails one level
+              below the root.
+          - text: >
+              $[3, 2, 4, 5, 6, 7]$
+            feedback: >
+              The root must be the minimum, and $3 > 2$, its own left child.
+          - text: >
+              $[2, 4, 3, 9, 5, 8]$
+            correct: true
+            feedback: >
+              $2 \le 4, 3$; then $4 \le 9, 5$; then $3 \le 8$. Every
+              parent-child pair holds, and that is the whole definition. Notice
+              $4 > 3$ across siblings — allowed.
+          - text: >
+              $[1, 4, 2, 3, 5, 6]$
+            feedback: >
+              Index $1$ holds $4$ with children $3$ and $5$ at indices $3$ and
+              $4$. $4 > 3$ breaks the property.
+        feedback: >
+          Checking a heap means checking each index against $2i+1$ and $2i+2$,
+          nothing more. Only parent and child are compared.
+      - ask: >
+          Start from the min-heap $[1, 4, 2, 9, 5, 8, 6]$ and insert $3$:
+          append it, then sift up. At which index does the $3$ come to rest?
+        expects: "1"
+        hint: >
+          The $3$ lands at index $7$. Its parent is at $\lfloor 6/2 \rfloor$.
+        feedback: >
+          At index $7$ its parent is index $3$, holding $9$: swap. At index $3$
+          its parent is index $1$, holding $4$: swap. At index $1$ its parent
+          is the root, $1$, which is smaller: stop. The array is
+          $[1, 3, 2, 4, 5, 8, 6, 9]$, after $2$ swaps up a tree of height $3$.
+      - ask: >
+          Now extract the minimum from $[1, 3, 2, 4, 5, 8, 6, 9]$: the $9$
+          moves to the root and sifts down. At the root it has children $3$ and
+          $2$. Why must it swap with the $2$ and not the $3$?
+        choices:
+          - text: >
+              Either swap works; the next sift-down step will repair it.
+            feedback: >
+              Swap with $3$ and the root becomes $3$ while its other child is
+              $2$: the property fails at the root itself, which the sift
+              never revisits.
+          - text: >
+              The smaller child becomes the parent of the other child, so it
+              must be no larger than it.
+            correct: true
+            feedback: >
+              Right. After the swap, the promoted child sits above its old
+              sibling, and only the smaller of the two can do that legally.
+              The $2$ goes up, and the $9$ keeps sinking on the $2$'s side.
+          - text: >
+              The right child is always chosen, to keep the tree balanced.
+            feedback: >
+              Balance is guaranteed by the array shape, not by the swap
+              direction. The rule is about values: the smaller child goes up.
+        feedback: >
+          The $9$ swaps with $2$, then with the smaller of its new children,
+          $8$ and $6$, and lands as a leaf: $[2, 3, 6, 4, 5, 8, 9]$. One
+          root-to-leaf path was touched.
+      - ask: >
+          The scheduler's heap holds $1{,}000{,}000$ jobs. At most how many
+          swaps can a single insert make?
+        expects: "19"
+        hint: >
+          A swap moves the new element up one level. How many levels sit above
+          the bottom one?
+        feedback: >
+          The levels hold $1, 2, 4, \dots$ nodes, and $2^{19} = 524{,}288$ while
+          $2^{20} = 1{,}048{,}576$, so a million nodes fill levels $0$ through
+          $19$. The deepest element is $19$ levels below the root:
+          $\lfloor \log_{2} 10^{6} \rfloor = 19$ swaps at most, against up to a
+          million shifts in the sorted array.
+
+      - part: What a heap does not know
+        ask: >
+          In a min-heap of distinct values, where can the second-smallest
+          value be?
+        choices:
+          - text: >
+              At index $1$, always.
+            feedback: >
+              $[1, 5, 2]$ is a valid min-heap with the second smallest, $2$, at
+              index $2$. Siblings are not ordered.
+          - text: >
+              At index $1$ or index $2$.
+            correct: true
+            feedback: >
+              Its only possible parent smaller than it is the minimum, so it
+              must be a child of the root. Which child is not determined.
+          - text: >
+              Anywhere; the heap only promises the minimum.
+            feedback: >
+              Anywhere deeper would put it below some parent other than the
+              root, and that parent would have to be smaller still — but only
+              the minimum is smaller. So it must sit at index $1$ or $2$.
+        feedback: >
+          The heap is not sorted. Past the root, it pins down only a little:
+          the second smallest is a root child, the third could already be at
+          depth $2$.
+      - ask: >
+          A client cancels the job with deadline $8$. What does it cost to
+          remove it from a plain heap of $n$ jobs?
+        choices:
+          - text: >
+              $O(\log n)$: heaps support every operation in logarithmic time.
+            feedback: >
+              The $O(\log n)$ fix-up after removal is fine, but first the $8$
+              has to be found, and the heap property says nothing about where
+              a non-extreme value lives.
+          - text: >
+              $O(n)$ to find it by scanning, then $O(\log n)$ to repair.
+            correct: true
+            feedback: >
+              Right. Only the root's position is known. Keeping a separate map
+              from job to array index brings arbitrary removal down to
+              $O(\log n)$, at the cost of updating that map on every swap.
+          - text: >
+              $O(1)$: overwrite it with the last element and pop.
+            feedback: >
+              That skips the search and the repair. You still have to find the
+              $8$ ($O(n)$), and the element moved into its place may need to
+              sift up or down.
+        feedback: >
+          A heap answers exactly one question fast — the extreme element — and
+          that narrowness is why it beats a sorted array at its own job.
 
   - node: quant-programming.data-structures.top-k
     hook: >
@@ -686,104 +980,167 @@ lessons:
     recap: >
       A min-heap capped at size $k$ finds the $k$ largest of a stream in
       $O(n \log k)$ time and $O(k)$ memory, root included.
-    steps:
-      - teach: >
-          Kth largest in a stream tempts a full sort every time; the
-          graded skill is stopping yourself and reaching for a heap
-          capped at size $k$ instead.
-      - teach: >
-          Cap a min-heap at size $k$ and push every new element;
-          once the heap holds $k+1$ elements, pop the minimum. The
-          heap's root is always the smallest of your current top-$k$
-          — the weakest member you'd evict first, and exactly the
-          number a new candidate needs to beat.
+    dialogue:
+      - part: The five biggest trades of the day
+        teach: >
+          The risk desk wants the $5$ largest trades of the session, by size.
+          The feed delivers about $2{,}000{,}000$ trades and you may not store
+          them. Mid-morning, the five largest sizes so far are $40$, $75$,
+          $52$, $90$ and $61$, and you are keeping exactly those.
       - ask: >
-          Why cap a min-heap at size $k$ rather than a max-heap, to
-          find the $k$ largest elements of a stream?
+          A trade of size $58$ arrives. Which of the kept sizes has to leave?
+        expects: "40"
+        feedback: >
+          $58$ beats $40$, the smallest of the five, so $40$ drops out and the
+          kept set becomes $52, 58, 61, 75, 90$. It does not matter that $58$
+          also beats $52$ — only one slot opens.
+      - ask: >
+          Next a trade of size $47$ arrives. To decide whether it gets in, you
+          need to compare it with only one kept size. Which one?
+        expects: "52"
+        hint: >
+          What is the bar a newcomer has to clear now that $40$ is gone?
+        feedback: >
+          The smallest kept size is now $52$, and $47 < 52$, so the trade is
+          discarded. Every admission decision is a single comparison against
+          the weakest member of the kept set.
+      - ask: >
+          Suppose you keep the five in an unsorted array and, after each
+          admission, scan it to find the new smallest. Now the desk asks for
+          the top $10{,}000$ instead of the top $5$. What does each admission
+          cost?
         choices:
           - text: >
-              A max-heap capped at $k$ would hand you the
-              largest of your kept set, which tells you nothing
-              about whether a new, smaller candidate still
-              deserves a spot
+              $O(1)$: an admission is one comparison and one overwrite.
+            feedback: >
+              The comparison and overwrite are $O(1)$, but the overwrite
+              changes which value is smallest, and finding the new one means
+              rescanning all $10{,}000$ kept values.
+          - text: >
+              $O(k)$: about $10{,}000$ comparisons to find the new smallest.
             correct: true
             feedback: >
-              Exactly — the useful comparison is against the
-              weakest member you're currently keeping, which is
-              the min-heap's root. The max-heap's root, the
-              strongest member, is irrelevant to that decision.
+              Right. On a session where sizes drift upward, nearly every trade
+              is admitted, and $2 \times 10^{6}$ admissions at $10^{4}$
+              comparisons each is $2 \times 10^{10}$ — the rescan is the
+              waste.
           - text: >
-              A max-heap can't be capped at a fixed size the way
-              a min-heap can
+              $O(n)$: you have to look back over the whole stream.
             feedback: >
-              Both structures support the same operations — push
-              and pop-extreme — so either could in principle be
-              capped. The reason to prefer the min-heap is what
-              its root tells you, not a limitation of the
-              max-heap.
-          - text: >
-              A min-heap sorts its elements as they're inserted,
-              which a max-heap doesn't
-            feedback: >
-              Neither heap sorts its elements — only the root is
-              guaranteed to be extreme. The min-heap's advantage
-              here is specifically that its root is the weakest
-              kept element, the threshold a new candidate must
-              beat.
+              Everything outside the kept set is gone for good and never
+              needed again; only the kept values are rescanned. The cost is in
+              $k$, not $n$.
         feedback: >
-          The min-heap's root is the smallest of the current top-$k$
-          — the exact threshold a new value must clear to be worth
-          pushing at all once the heap is full.
+          The bar to clear is the smallest kept value, and every admission
+          moves the bar. Rescanning to find it again is the work to remove.
+      - reflect: >
+          You want the *largest* values, yet the number you consult on every
+          arrival is the *smallest* value you are keeping. What structure
+          should hold the kept set, and why does that sound backwards?
+        answer: >
+          A min-heap of the kept values: its root is exactly the bar a
+          newcomer must clear, readable in $O(1)$, and replacing it costs one
+          $O(\log k)$ sift instead of an $O(k)$ rescan. It sounds backwards
+          because you are hunting large values, but the heap is not there to
+          find winners — it is there to find the weakest winner, the one to
+          evict.
       - teach: >
-          Because the heap never grows past $k$, every push and pop
-          costs $O(\log k)$, not $O(\log n)$, so the whole stream
-          costs $O(n \log k)$ — far better than sorting everything
-          in $O(n \log n)$ once $k$ is much smaller than $n$. Memory
-          stays $O(k)$ throughout.
-      - ask: >
-          Stream $[4, 8, 1, 9, 3, 7]$ through a min-heap capped at
-          $k=2$, popping the minimum whenever the heap exceeds size
-          2. What is the heap's root once the whole stream has been
-          processed?
-        expects: "8"
+          That is top-$k$ with a size-$k$ min-heap. Push each arrival; if the
+          heap now holds $k+1$ elements, pop the minimum. Once the heap is
+          full, an arrival no larger than the root can be skipped without
+          touching the heap. Each push or pop is $O(\log k)$, the whole stream
+          $O(n \log k)$ time and $O(k)$ memory, against $O(n \log n)$ time and
+          $O(n)$ memory for sorting everything. At the end the heap holds the
+          $k$ largest, and its root is the $k$-th largest.
+
+      - part: A short stream by hand
+        ask: >
+          Run $k = 3$ on the stream $14, 6, 22, 9, 30, 11, 25$, pushing each
+          value and popping the minimum whenever the heap holds $4$. What is
+          the root right after the $30$ is processed?
+        expects: "14"
         hint: >
-          Track the heap's contents after each push, popping the
-          minimum the moment the heap holds 3 elements.
+          After the first three values the heap is $\{6, 14, 22\}$. Track which
+          value each later push knocks out.
         feedback: >
-          Push 4: $\{4\}$. Push 8: $\{4,8\}$. Push 1: $\{1,4,8\}$
-          exceeds 2, pop $1$: $\{4,8\}$. Push 9: $\{4,8,9\}$ exceeds
-          2, pop $4$: $\{8,9\}$. Push 3: $\{3,8,9\}$ exceeds 2, pop
-          $3$: $\{8,9\}$. Push 7: $\{7,8,9\}$ exceeds 2, pop $7$:
-          $\{8,9\}$. The heap ends holding $\{8,9\}$, root $8$ — the
-          second largest of the stream.
-      - teach: >
-          Once the heap has seen the whole stream and holds exactly
-          $k$ elements, its root isn't just close to the answer to
-          what's the $k$th largest — it is that answer, read off in
-          $O(1)$. Keeping a max-heap of the entire stream and
-          popping down to size $k$ only at the end defeats the
-          point: that's $O(n \log n)$ time and $O(n)$ memory,
-          sorting with extra steps.
+          $9$ arrives: push, pop $6$, leaving $\{9, 14, 22\}$. $30$ arrives: push,
+          pop $9$, leaving $\{14, 22, 30\}$. The root is $14$, the third
+          largest of the five values seen so far.
       - ask: >
-          Stream $[6, 2, 9, 5]$ through a min-heap capped at $k=2$,
-          popping the minimum whenever the heap exceeds size 2. What
-          is the heap's root once the whole stream has been
-          processed?
+          Now add the skip rule: once the heap is full, an arrival no larger
+          than the root is discarded without a push. Over the whole stream of
+          seven, how many arrivals does the rule discard?
+        expects: "1"
+        feedback: >
+          The heap is full from the third value on. $9 > 6$, $30 > 9$ and
+          $25 > 14$ are all pushed; only $11 < 14$ is discarded. The heap ends
+          as $\{22, 25, 30\}$ with root $22$, the third largest. On a long
+          random stream most arrivals fail the root test, which is where the
+          real-world speed comes from.
+      - ask: >
+          Back to the desk: $k = 5$ and the push-then-pop rule with no skip
+          test. At most how many trade sizes are in memory at any instant?
         expects: "6"
-        hint: >
-          Track the heap's contents after each push, popping the
-          minimum the moment the heap holds 3 elements.
         feedback: >
-          Push 6: $\{6\}$. Push 2: $\{2,6\}$. Push 9: $\{2,6,9\}$
-          exceeds 2, pop $2$: $\{6,9\}$. Push 5: $\{5,6,9\}$ exceeds
-          2, pop $5$: $\{6,9\}$. The heap ends holding $\{6,9\}$,
-          root $6$ — the second largest of the stream, read straight
-          off with no sort.
-      - teach: >
-          A candidate no bigger than the current root, once the heap
-          is full, can be discarded without ever pushing it — that's
-          what keeps the constant factor low in practice, on top of
-          the $O(n \log k)$ bound.
+          Between a push and its pop the heap briefly holds $k + 1 = 6$. With
+          the skip test it never exceeds $5$. Either way it is $O(k)$, set
+          against the $2{,}000{,}000$ a sort would hold.
+
+      - part: Where the recipe goes wrong
+        ask: >
+          A colleague reasons "largest means max-heap" and caps a *max*-heap at
+          $3$, popping its maximum whenever it holds $4$. On the stream
+          $14, 6, 22, 9, 30, 11, 25$, what does that heap end up holding?
+        choices:
+          - text: >
+              $\{22, 25, 30\}$, the same answer more slowly.
+            feedback: >
+              Popping the maximum throws away the biggest value every time it
+              overflows: $22$ is evicted the moment $9$ arrives, and $30$ the
+              moment it is pushed. The large values are exactly what it loses.
+          - text: >
+              $\{6, 9, 11\}$, the three smallest.
+            correct: true
+            feedback: >
+              Right. A max-heap capped at $k$ that evicts its maximum is the
+              correct recipe for the $k$ *smallest*. The heap's root has to be
+              the element you would evict, which for the $k$ largest is the
+              minimum.
+          - text: >
+              It fails outright, since a max-heap cannot be capped.
+            feedback: >
+              Any heap can be capped — capping is just popping on overflow. It
+              runs fine; it answers the mirror-image question.
+        feedback: >
+          The heap's root is the eviction candidate. For the top $k$ largest,
+          that is the smallest kept value, so the heap is a min-heap.
+      - ask: >
+          The desk now wants the top $1{,}000{,}000$ of the $2{,}000{,}000$
+          trades. How does the size-$k$ heap compare with sorting?
+        choices:
+          - text: >
+              Still far better, since a heap always beats a sort.
+            feedback: >
+              The win was $\log k$ against $\log n$. Here
+              $\log_{2} 10^{6} \approx 20$ and $\log_{2} (2 \times 10^{6})
+              \approx 21$, and memory is $O(n)$ either way.
+          - text: >
+              About the same: $\log k$ is close to $\log n$, and the heap holds
+              half the stream anyway.
+            correct: true
+            feedback: >
+              Right. The technique pays when $k \ll n$. At $k = n/2$ it costs
+              about what a sort does, and the bounded-memory advantage is
+              gone.
+          - text: >
+              Worse, because the heap is limited to $k \le 1000$.
+            feedback: >
+              Nothing limits $k$. The heap works at any size; it simply stops
+              being cheap when $k$ is comparable to $n$.
+        feedback: >
+          Say it aloud in an interview as "a min-heap of size $k$, root is the
+          bar to beat, $O(n \log k)$ time and $O(k)$ space" — and add that it
+          pays because $k$ is much smaller than $n$.
 
   - node: quant-programming.data-structures.running-median
     hook: >
@@ -833,106 +1190,196 @@ lessons:
       A max-heap of the lower half and a min-heap of the upper half,
       rebalanced to within one element, give $O(\log n)$ insert and $O(1)$
       median reads.
-    steps:
-      - teach: >
-          Median of a data stream is the harder cousin of top-k: the
-          trick is keeping a cut point balanced between two ordered
-          halves, not maintaining one sorted list.
-      - teach: >
-          Split what you've seen into two heaps: a max-heap "lo" for
-          the smaller half, a min-heap "hi" for the larger half,
-          kept within one element of each other in size. Push $x$
-          onto lo if $x \le$ lo's max (or lo is empty), otherwise
-          onto hi; then, if the size gap exceeds one, move the root
-          of the larger heap over to the other.
+    dialogue:
+      - part: A median after every reading
+        teach: >
+          A latency dashboard shows the median of all readings so far, updated
+          after every new reading. The session opens with six readings, in
+          milliseconds: $12, 30, 7, 18, 25, 4$.
       - ask: >
-          Insert 6, then 10, then 2, in that order, into the
-          two-heap running-median structure. What is the median
-          after all three insertions?
-        expects: "6"
+          What is the median of those six readings?
+        expects: "15"
         hint: >
-          Track which heap, lo or hi, each value lands in, rebalance
-          if the sizes differ by more than one, then apply the
-          three-way median rule.
+          Sort them. With an even count the median is the average of the two
+          middle values.
         feedback: >
-          Insert 6: lo is empty, push to lo; lo=$\{6\}$, hi=$\{\}$.
-          Insert 10: $10 >$ lo's max, push to hi; hi=$\{10\}$, sizes
-          equal, no rebalance. Insert 2: $2 \le 6$, push to lo;
-          lo=$\{6,2\}$, hi=$\{10\}$, sizes differ by one, no
-          rebalance needed. Lo is bigger, so the median is lo's max,
-          $6$.
-      - teach: >
-          Every insert costs one heap push plus at most one
-          rebalancing move, each $O(\log n)$, so insert is $O(\log
-          n)$ total; reading the median afterward touches only root
-          pointers, $O(1)$.
+          Sorted: $4, 7, 12, 18, 25, 30$. The middle pair is $12$ and $18$, so
+          the median is $(12 + 18)/2 = 15$.
       - ask: >
-          A new value exactly ties lo's current max. Does it matter
-          which heap it goes to?
+          A seventh reading, $9$, arrives. What is the median now?
+        expects: "12"
+        feedback: >
+          Sorted: $4, 7, 9, 12, 18, 25, 30$, and the fourth of seven is $12$.
+          Notice what you used: the $9$ landed below the middle, which shifted
+          the middle down to $12$. The $4$ and the $30$ mattered only as
+          counts.
+      - ask: >
+          Over a full session of a million readings, you keep them in a sorted
+          array so the middle can be read directly. What does that cost?
         choices:
           - text: >
-              No, either heap works fine as long as you push it
-              somewhere
+              $O(\log n)$ per reading: binary search finds each reading's slot.
             feedback: >
-              It does matter, not because one heap is
-              objectively correct, but because whichever rule
-              you pick has to be applied the same way on every
-              tie — an inconsistent rule silently breaks the
-              size-balance invariant.
+              Binary search finds the slot, and then everything after it shifts
+              to open a gap. The shift is $O(n)$ per reading, up to
+              $10^{6} \times 10^{6} / 2 = 5 \times 10^{11}$ moves over the
+              session.
           - text: >
-              Yes — the tie has to go to the same heap every
-              time, by a fixed rule (here, lo), or the
-              size-balance invariant breaks
+              $O(n)$ per reading for the shift, $O(1)$ to read the middle.
             correct: true
             feedback: >
-              Right. The specific choice of lo versus hi for a
-              tie is arbitrary, but applying it consistently on
-              every tie is what keeps the two heaps' sizes — and
-              therefore the median calculation — trustworthy.
+              Right. Reading is free, but keeping a total order costs a linear
+              shift on every insert — order you never consult except near the
+              middle.
           - text: >
-              Yes — ties must always go to hi, the min-heap,
-              since ties are already the smallest of the upper
-              half
+              $O(1)$ per reading, since readings are appended at the end.
             feedback: >
-              There's nothing special about hi for ties — the
-              rule stated here sends a tie to lo. What matters
-              isn't which heap wins the tie, it's that the same
-              rule is used every single time.
+              A reading lands wherever its value sorts, and a $9$ arriving
+              after a $30$ does not go at the end. Only an array kept unsorted
+              gets $O(1)$ appends, and then the middle is lost.
         feedback: >
-          The $\le$ convention for a tie is a fixed choice, and it
-          has to be applied the same way on every insertion —
-          switching it mid-stream silently corrupts the size-balance
-          invariant the whole structure depends on.
-      - teach: >
-          Rebalancing happens after every single insert, not only
-          when the gap "looks large" — checking the size gap and
-          moving one root over is a fixed step in the algorithm, not
-          an occasional cleanup, and skipping it even once leaves
-          the invariant broken for every insert after.
-      - ask: >
-          Insert 12, then 4, then 15, then 8, in that order, into
-          the two-heap running-median structure. What is the median
-          after all four insertions?
-        expects: "10"
+          The sorted array maintains far more order than the median needs.
+      - reflect: >
+          The median sits on the boundary between the lower half of the
+          readings and the upper half. What do you actually need fast access
+          to on each side of that boundary, and which structure gives it?
         hint: >
-          Track lo and hi after each insertion, rebalancing whenever
-          the size gap exceeds one, then apply the three-way median
-          rule at the end.
-        feedback: >
-          Insert 12: lo=$\{12\}$. Insert 4: $4 \le 12$, push lo;
-          lo=$\{12,4\}$, hi=$\{\}$, gap 2, rebalance — move lo's
-          max, $12$, to hi: lo=$\{4\}$, hi=$\{12\}$. Insert 15: $15
-          > 4$, push hi; hi=$\{12,15\}$, gap 1, fine. Insert 8: $8 >
-          4$, push hi; hi=$\{8,12,15\}$, gap 2, rebalance — move
-          hi's min, $8$, to lo: lo=$\{4,8\}$, hi=$\{12,15\}$, sizes
-          equal. Median is the average of both roots: $(8+12)/2 =
-          10$.
+          Which value of the lower half is closest to the boundary? Which value
+          of the upper half?
+        answer: >
+          The largest value of the lower half and the smallest value of the
+          upper half — nothing else. A max-heap holding the lower half keeps
+          the first at its root, and a min-heap holding the upper half keeps
+          the second. If the two halves stay equal in size, or within one, the
+          median is one root or the average of both, and each new reading
+          costs a heap push rather than a shift.
       - teach: >
-          The invariant that makes all of this work is that lo's
-          root and hi's root always straddle the cut between the
-          lower and upper half of the data — so the median is always
-          available as one root, or the average of both, with no
-          scan of the data ever needed.
+          That is the two-heap running median. A max-heap lo holds the lower
+          half; a min-heap hi holds the upper half. A new $x$ goes onto lo if
+          lo is empty or $x \le$ lo's max, otherwise onto hi. Then, if the
+          sizes differ by more than one, move the larger heap's root across.
+          The median is lo's root when lo is bigger, hi's root when hi is
+          bigger, and the average of the two roots when they are equal. Insert
+          is $O(\log n)$; reading the median is $O(1)$.
+
+      - part: The same readings through two heaps
+        ask: >
+          Feed the first five readings, $12, 30, 7, 18, 25$, through the rule
+          from empty. What median do the roots give after the fifth?
+        expects: "18"
+        hint: >
+          Each of $30$, $18$ and $25$ is larger than lo's max at the moment it
+          arrives.
+        feedback: >
+          $12$ starts lo. $30 > 12$ goes to hi. $7 \le 12$ goes to lo. $18$ and
+          $25$ are each $> 12$, so both go to hi. Now lo $= \{12, 7\}$ and
+          hi $= \{18, 25, 30\}$: sizes $2$ and $3$, gap one, no move. hi is
+          bigger, so the median is hi's root, $18$ — the middle of
+          $7, 12, 18, 25, 30$.
+      - ask: >
+          Continue with $4$ and then $9$: both are $\le 12$ and go to lo, which
+          now holds $4$ values against hi's $3$. Then a $5$ arrives and also
+          goes to lo. Which value does the rebalance move to hi?
+        expects: "12"
+        feedback: >
+          lo is $\{12, 9, 7, 5, 4\}$, size $5$, against hi's $3$: a gap of
+          two. lo's root, its maximum $12$, moves to hi. Now lo
+          $= \{9, 7, 5, 4\}$ and hi $= \{12, 18, 25, 30\}$.
+      - ask: >
+          What median do the roots give now?
+        expects: "10.5"
+        feedback: >
+          Sizes are equal, so average the roots: $(9 + 12)/2 = 10.5$. Check
+          against the sorted list $4, 5, 7, 9, 12, 18, 25, 30$: the middle pair
+          is $9$ and $12$. One push and one move, $O(\log n)$, instead of
+          shifting half an array.
+      - ask: >
+          Why does a new reading go to lo exactly when it is $\le$ lo's max,
+          instead of simply going to whichever heap is smaller?
+        choices:
+          - text: >
+              To keep the sizes balanced with fewer moves.
+            feedback: >
+              Balance is the rebalance step's job, and it would be easier with
+              "push to the smaller heap". The routing rule protects something
+              the sizes cannot.
+          - text: >
+              To keep every value in lo at most every value in hi, so the roots
+              really are the two sides of the middle.
+            correct: true
+            feedback: >
+              Right. From lo $= \{9, 7, 5, 4\}$ and hi $= \{12, 18, 25, 30\}$,
+              send a $40$ to lo because the sizes tie: lo has $5$, hi $4$, no
+              rebalance, and the roots report a median of $40$. The true median
+              of the nine readings is $12$.
+          - text: >
+              It does not matter; any routing gives the right median after
+              rebalancing.
+            feedback: >
+              Rebalancing fires only when the sizes drift two apart. Route a
+              $40$ into lo when the sizes tie and lo becomes bigger by one, so
+              nothing moves, and lo's root, $40$, is read as the median of
+              readings whose middle is $12$.
+        feedback: >
+          Two invariants, two jobs: the routing rule keeps lo entirely below
+          hi, and the rebalance keeps their sizes within one. The median read
+          needs both.
+
+      - part: Bending the two heaps
+        ask: >
+          The dashboard now wants the $90$th percentile instead of the median.
+          How do the two heaps change?
+        choices:
+          - text: >
+              They cannot; two heaps only find the middle.
+            feedback: >
+              Nothing in the method cares that the cut is in the middle. It
+              cares that the cut is between lo's root and hi's root.
+          - text: >
+              Keep lo at about $90\%$ of the readings and hi at about $10\%$,
+              rebalancing to that ratio; the answer is lo's root.
+            correct: true
+            feedback: >
+              Right. Move the cut and the same machinery reports any fixed
+              quantile in $O(\log n)$ per reading. The median is the case where
+              the ratio is one to one.
+          - text: >
+              Swap them: make lo a min-heap and hi a max-heap.
+            feedback: >
+              Then lo's root is the smallest of the lower part and hi's root
+              the largest of the upper part — the two extremes, as far from
+              the cut as possible.
+        feedback: >
+          The structure is a cut kept between two ordered sides. The median is
+          one place to put the cut.
+      - ask: >
+          The dashboard is changed to show the median of only the last
+          $10{,}000$ readings, so each new reading also expires the oldest.
+          What breaks?
+        choices:
+          - text: >
+              Nothing: push the new reading and pop the old one.
+            feedback: >
+              A heap pops only its root. The expiring reading could sit
+              anywhere inside either heap, and finding it is a linear scan.
+          - text: >
+              The median read, which is no longer $O(1)$.
+            feedback: >
+              Reading the roots is still $O(1)$. The trouble is keeping the
+              right readings in the heaps in the first place.
+          - text: >
+              Deleting an arbitrary old reading from a heap is $O(n)$ without
+              extra bookkeeping.
+            correct: true
+            feedback: >
+              Right. Sliding windows need either lazy deletion — mark expired
+              values and discard them when they surface at a root — or a sorted
+              structure that deletes any value in $O(\log n)$.
+        feedback: >
+          In an interview, name the two heaps and the two invariants first,
+          then the costs: $O(\log n)$ insert, $O(1)$ median. If the follow-up
+          is a sliding window, the answer starts with "heaps cannot delete
+          from the middle".
 
   - node: quant-programming.data-structures.stack-queue
     hook: >
@@ -978,120 +1425,172 @@ lessons:
       LIFO stack and FIFO queue give $O(1)$ push and pop at their fixed
       ends, and the restriction to those ends is what makes the ordering
       guarantee cheap.
-    steps:
-      - teach: >
-          Bracket matching and "process in the order received" both
-          look like new problems the first time, but they're a stack
-          and a queue enforcing an ordering guarantee the naive
-          approach pays extra for.
-      - teach: >
-          A stack restricts every push and pop to the same end,
-          LIFO, both $O(1)$ whether array- or linked-list-backed. A
-          queue restricts enqueue to the tail and dequeue to the
-          head, FIFO, $O(1)$ with a linked list or a circular array
-          buffer — a plain array without either trick forces an
-          $O(n)$ shift on every dequeue.
+    dialogue:
+      - part: An undo button and an order gateway
+        teach: >
+          A trading blotter records each action you take and has an undo
+          button. Starting flat, you buy $100$ shares, then sell $40$, then buy
+          $25$. Then you press undo twice.
       - ask: >
-          A browser's back button needs the most recently visited
-          page removed and shown first, then the one before that,
-          and so on. Which structure models this behavior directly?
-        choices:
-          - text: >
-              A stack — the last page visited is the first one
-              the back button returns to
-            correct: true
-            feedback: >
-              Right — LIFO matches most-recent-first exactly.
-              Pushing a visit and popping on back is the whole
-              implementation.
-          - text: >
-              A queue — pages should come back in the order they
-              were originally visited
-            feedback: >
-              That would return the oldest visited page first,
-              the opposite of what a back button does. FIFO fits
-              process-in-arrival-order, not
-              undo-the-most-recent-thing.
-          - text: >
-              A hash map — you can look up any previously
-              visited page directly
-            feedback: >
-              A hash map gives no notion of most-recent at all —
-              you'd need to store recency information
-              separately, which is exactly what a stack already
-              tracks for free by construction.
+          What is your position after the two undos?
+        expects: "100"
         feedback: >
-          Most-recently-added, removed-first is the definition of
-          LIFO — a stack, not a structure that needs any extra
-          bookkeeping to track order.
-      - teach: >
-          The restriction to fixed ends in both structures is the
-          entire point, not a limitation to work around: forbidding
-          access to interior elements is what makes "process things
-          in this order" cheap to guarantee, since there's no
-          operation that could violate the order by reaching past
-          the front or back. A deque generalizes both, supporting
-          $O(1)$ push and pop at either end.
+          The position runs $100$, then $60$, then $85$. The first undo reverses
+          the most recent action, the buy of $25$, giving $60$; the second
+          reverses the sell of $40$, giving $100$. Undo always takes the
+          newest action still on the record.
       - ask: >
-          Evaluate the postfix expression "5 1 2 + 4 * + 3 -" using
-          a stack: push operands, and on an operator pop the two
-          most recent values, apply it, and push the result. What
-          single value does the stack hold at the end?
-        expects: "14"
+          Elsewhere, an order gateway must forward orders in the order they
+          arrived. It holds $2000$ waiting orders in a plain array and sends
+          each by removing index $0$ and shifting the rest forward. How many
+          element shifts does draining all $2000$ cost?
+        expects: "1999000"
         hint: >
-          Work left to right, one token at a time, and only touch
-          the stack's top two values when you hit an operator.
+          Removing the first of $m$ elements shifts the other $m - 1$.
         feedback: >
-          Push 5, 1, 2. See "+": pop 2, 1, compute $1+2=3$, push 3 —
-          stack is $5, 3$. Push 4 — stack is $5, 3, 4$. See "*": pop
-          4, 3, compute $3 \times 4 = 12$, push 12 — stack is $5,
-          12$. See "+": pop 12, 5, compute $5+12=17$, push 17. Push
-          3 — stack is $17, 3$. See "-": pop 3, 17, compute
-          $17-3=14$, push 14. The stack ends holding a single value,
-          $14$.
-      - teach: >
-          A queue's $O(1)$ guarantee depends on the backing choice:
-          a linked list needs a tail pointer, or every enqueue costs
-          an $O(n)$ walk to find the end, and a plain array needs a
-          circular buffer or a two-index trick, or dequeue costs an
-          $O(n)$ shift of every remaining element.
+          $1999 + 1998 + \dots + 1 + 0 = 1999 \times 2000 / 2 = 1{,}999{,}000$
+          shifts, $O(n^{2})$ to send $n$ orders, when sending one order should
+          be a constant amount of work.
       - ask: >
-          A queue is implemented by calling a plain array's
-          remove-from-front operation for dequeue, which shifts
-          every remaining element one slot toward index 0. Once the
-          queue holds $n$ elements, what does a single dequeue cost?
+          How should the gateway stop paying for those shifts?
         choices:
           - text: >
-              $O(1)$, since only the front element is removed
+              Send from the end of the array instead, which pops in $O(1)$.
             feedback: >
-              Removing the front element is easy; the cost is in
-              what happens after — every one of the remaining
-              elements has to shift forward to keep the array
-              packed, which is not a constant amount of work.
+              Popping the end is $O(1)$, and it sends the newest order first —
+              the undo button's behaviour. The order guarantee is the whole
+              job, and this breaks it.
           - text: >
-              $O(\log n)$, similar to a balanced tree operation
-            feedback: >
-              There's no tree structure or halving involved here
-              — the remaining elements are shifted one at a
-              time, a linear pass, not a logarithmic one.
-          - text: >
-              $O(n)$, since every remaining element shifts one
-              slot forward
+              Keep a head index that advances on each send, wrapping around a
+              fixed buffer, so nothing ever shifts.
             correct: true
             feedback: >
-              Right — this is the exact same shifting cost that
-              makes a plain array slow for middle insertion. A
-              circular buffer or a linked list with a tail
-              pointer avoids it entirely.
+              Right. The front of the line is wherever the head index points,
+              and new orders go in at head plus count, wrapping past the end of
+              the buffer. Both ends move; no element does.
+          - text: >
+              Use a singly linked list with only a head pointer, adding at the
+              tail and sending from the head.
+            feedback: >
+              Sending from the head is $O(1)$, but with no tail pointer every
+              new order walks the whole list to find the end, $O(n)$ per
+              arrival. Keep a tail pointer and it works.
         feedback: >
-          Dequeuing from the front of a plain array, with no
-          circular-buffer trick, forces every remaining element to
-          shift — $O(n)$, silently, on every single dequeue.
+          Removing from the front of an array is the expensive move; a moving
+          head index, or a linked list with pointers to both ends, removes it.
+      - reflect: >
+          The undo log and the gateway each touch only the ends of their
+          sequence, never the middle. What is the one difference between them,
+          and what does each gain by refusing itself the middle?
+        answer: >
+          The undo log adds and removes at the same end, so the last thing in
+          is the first out; the gateway adds at one end and removes at the
+          other, so the first in is the first out. Refusing the middle is what
+          makes each guarantee free: there is no operation that could take an
+          order out of turn, and every allowed operation touches one end in
+          $O(1)$.
       - teach: >
-          Neither structure allows access to interior elements by
-          design, and that restriction — not a missing feature — is
-          what makes an ordering guarantee free to enforce instead
-          of something you have to check for yourself.
+          The undo log is a stack: last in, first out, with push and pop both
+          at the top, $O(1)$ on an array or a linked list. The gateway is a
+          queue: first in, first out, enqueue at the tail and dequeue at the
+          head, $O(1)$ on a circular array buffer or a suitably built linked
+          list. Neither allows access to interior elements, by design. A
+          deque generalizes both, with $O(1)$ push and pop at either end.
+
+      - part: Building them so every operation is constant
+        ask: >
+          The gateway's circular buffer has capacity $8$, indices $0$ to $7$.
+          Its head is at index $6$ and it holds $5$ orders. At which index does
+          the next arriving order go?
+        expects: "3"
+        hint: >
+          The orders occupy $5$ consecutive slots starting at $6$, wrapping
+          after $7$.
+        feedback: >
+          The orders sit at $6, 7, 0, 1, 2$, so the next free slot is
+          $(6 + 5) \bmod 8 = 3$. Head and tail chase each other around the
+          buffer, and no order ever moves.
+      - ask: >
+          You back the queue with a singly linked list that has head and tail
+          pointers. Which end should orders leave from?
+        choices:
+          - text: >
+              The tail, so the head stays fixed.
+            feedback: >
+              Removing the tail means making its predecessor the new tail, and a
+              singly linked node cannot see its predecessor: an $O(n)$ walk on
+              every send.
+          - text: >
+              The head, with new orders appended after the tail.
+            correct: true
+            feedback: >
+              Right. Unlinking the head is one pointer move, and appending after
+              the tail is two pointer writes. Both ends are $O(1)$ only in this
+              orientation.
+          - text: >
+              Either; with pointers to both ends it does not matter.
+            feedback: >
+              Pointers to both ends make *adding* cheap at both ends. Removing
+              a node means repointing the node behind it: the head has nothing
+              behind it, while the tail's predecessor is a walk away.
+        feedback: >
+          On a singly linked list, both ends accept new nodes cheaply but only
+          the head gives one up cheaply. Put the exit there.
+
+      - part: Which discipline the job is asking for
+        ask: >
+          A risk check walks an organisation chart level by level: the head of
+          trading, then everyone who reports directly to her, then everyone
+          who reports to them. What holds the people still waiting to be
+          visited?
+        choices:
+          - text: >
+              A stack, since the walk goes down the chart.
+            feedback: >
+              A stack visits whoever was added last, so it would dive down one
+              branch to the bottom before finishing the first level. That is a
+              depth-first walk, not level by level.
+          - text: >
+              A queue: each level's people are added before the next level's
+              and so are visited first.
+            correct: true
+            feedback: >
+              Right. First in, first out keeps every level ahead of the one
+              below it — this is breadth-first order, and the queue is what
+              enforces it.
+          - text: >
+              A plain array, scanned for the shallowest unvisited person.
+            feedback: >
+              It works, at $O(n)$ per step. The queue gets the same order for
+              free, because it never holds anything out of level order.
+        feedback: >
+          Most-recent-first is a stack; arrival order is a queue. Read which
+          one the problem needs before choosing a container.
+      - ask: >
+          The gateway adds a rule: a cancel jumps to the front of the line and
+          is sent next. What is the structure now?
+        choices:
+          - text: >
+              Still a queue, since normal orders still go in at the back.
+            feedback: >
+              A queue removes in arrival order without exceptions. Once
+              something can enter at the front, "first in, first out" no longer
+              describes it.
+          - text: >
+              A stack, since the cancel is the last in and the first out.
+            feedback: >
+              Only for the cancels. Ordinary orders still enter at the back and
+              leave in arrival order, which no stack does.
+          - text: >
+              A deque: insertion at both ends, removal at the front.
+            correct: true
+            feedback: >
+              Right. The structure fails exactly one clause of a queue — entry
+              only at the tail — and gains a second entry point. A deque gives
+              it $O(1)$ at both ends.
+        feedback: >
+          Each structure is defined by which ends it allows. Allow one more
+          end and you have changed the guarantee, and the name.
 
   - node: quant-programming.data-structures.monotonic-stack
     hook: >
@@ -1143,108 +1642,180 @@ lessons:
       Pop violators before pushing to keep a stack monotonic — every
       element is pushed once and popped once, so a loop that looks nested
       is $O(n)$ amortized.
-    steps:
-      - teach: >
-          Next greater element looks like it needs comparing every
-          position against every later one — the monotonic stack
-          trick answers all of them in one pass by never
-          re-examining a settled element.
-      - teach: >
-          Keep the stack's elements monotonic by popping any element
-          the new value would violate the order for, before pushing
-          the new value. Scanning left to right, each popped
-          element's "next greater to the right" is exactly the
-          element that popped it — the first later element breaking
-          its position in the order.
+    dialogue:
+      - part: Waiting for a higher close
+        teach: >
+          A stock closes over eight days at $31, 28, 26, 29, 33, 30, 27, 35$.
+          For each day you want its *next higher close*: the first later close
+          that beats it, if any.
       - ask: >
-          Heights $[6, 2, 5, 4, 8]$, scanned left to right with a
-          stack of indices kept value-decreasing, popping any index
-          whose value is smaller than the current one before pushing
-          the current index. What is the next greater element to the
-          right of the value at index 0 (value 6)?
-        expects: "8"
-        hint: >
-          Track which index eventually pops index 0 off the stack —
-          that popping value is its answer.
+          What is the next higher close for the $28$ on day $2$?
+        expects: "29"
         feedback: >
-          Push index 0 (val 6). Index 1 (val 2) doesn't beat 6,
-          push. Index 2 (val 5): pops index 1 (val $2<5$), doesn't
-          beat 6, push. Index 3 (val 4) doesn't beat 5, push. Index
-          4 (val 8): pops index 3 (val 4), pops index 2 (val 5),
-          pops index 0 (val 6) — all smaller than 8. Index 0's next
-          greater is the value that popped it, $8$.
-      - teach: >
-          Every element is pushed exactly once and popped at most
-          once across the entire scan, so total pops across all $n$
-          steps never exceed $n$ — $O(n)$ total work, $O(1)$
-          amortized per element, even though a single step's pop
-          count can spike.
+          Scan forward from day $2$: $26$ does not beat $28$, and $29$ on day
+          $4$ does. The answer is $29$.
       - ask: >
-          At one particular step of a monotonic-stack scan, five
-          elements get popped before the new value is pushed. What
-          does this tell you about the algorithm's overall running
-          time?
+          The obvious method scans forward from every day until it finds a
+          higher close. On $100$ days of strictly falling closes, where no day
+          ever finds one, how many comparisons does it make in total?
+        expects: "4950"
+        hint: >
+          Day $1$ compares against $99$ later days, day $2$ against $98$.
+        feedback: >
+          $99 + 98 + \dots + 0 = 99 \times 100 / 2 = 4950$: $O(n^{2})$. On the
+          eight days above, the scans from day $2$ and day $3$ both walk to the
+          same $29$, and each walk repeats work the other already did.
+      - ask: >
+          Scan left to right and keep a list of the days still *waiting* for a
+          higher close. Just before day $4$, the waiting days are the $31$, the
+          $28$ and the $26$. What is always true of the waiting closes, read
+          oldest to newest?
         choices:
           - text: >
-              The algorithm is $O(n^{2})$, since a single step
-              can do that much work
+              They increase.
             feedback: >
-              A single expensive step doesn't determine the
-              total — every element can only ever be popped once
-              across the whole scan, no matter how unevenly
-              those pops are distributed across steps.
+              If a newer waiting close were higher than an older one, it would
+              have been the older one's answer, and the older day would no
+              longer be waiting.
           - text: >
-              It's still $O(n)$ total, since every element is
-              pushed once and popped at most once across the
-              whole run, however unevenly those pops land
+              They never increase: each is at most the one before it.
             correct: true
             feedback: >
-              Right — this is the amortized argument. Total pops
-              across the entire scan are bounded by $n$, the
-              total number of pushes, regardless of how many
-              happen in any one step.
+              Right. A later day that beat an earlier waiting day would have
+              settled it on arrival. So whatever is still waiting is ordered
+              high to low, oldest to newest.
           - text: >
-              This means there's a bug — a correct monotonic
-              stack never pops more than one element per step
+              No pattern; it depends on the data.
             feedback: >
-              There's no such rule. A single new value can
-              legitimately be larger than many recently pushed
-              values in a row, popping all of them in one step —
-              that's the algorithm working correctly, not a sign
-              of an error.
+              The data decides which days are waiting, but not their order.
+              Any rise would have answered a waiting day and removed it.
         feedback: >
-          A loop that looks nested — one outer scan, one inner
-          pop-loop — is still $O(n)$ total, because the total number
-          of pops across every step combined can never exceed the
-          total number of pushes.
+          The waiting list is always non-increasing from oldest to newest.
+          That ordering is what the brute force never exploits.
+      - reflect: >
+          Day $4$ closes at $29$. Which waiting days does it answer, where in
+          the waiting list do they sit, and what kind of container hands them
+          to you in that order?
+        answer: >
+          It answers every waiting day with a close below $29$: the $26$ and
+          the $28$. Because the waiting closes fall from oldest to newest, the
+          ones below $29$ are exactly the newest few, a run at the end of the
+          list. So you remove from the newest end until the newest waiting
+          close is at least $29$ (here the $31$), then add day $4$ itself. Add
+          and remove at the same end: a stack.
       - teach: >
-          Typical use: scanning prices or heights left to right,
-          popping everything on the stack smaller than the current
-          value before pushing it, so each popped element's answer
-          is set the moment it's popped, not left until the end of
-          the scan.
-      - ask: >
-          Temperatures $[73, 74, 75, 71, 69, 72, 76, 73]$ (index 0
-          through 7). Using a monotonic stack scanned left to right
-          to find, for each day, how many days until a strictly
-          warmer temperature: how many days does the temperature at
-          index 2 (value 75) wait for a warmer day?
-        expects: "4"
+          That is the monotonic stack. Scan left to right, keeping a stack of
+          the waiting elements, decreasing from bottom to top. For each new
+          element, pop every waiting element that is smaller; each popped
+          element's next greater element is the one that popped it. Then push
+          the new element. Whatever remains on the stack at the end has no next
+          greater element. A single step may pop many times, but every element
+          is pushed once and popped at most once, so the scan is $O(n)$ total.
+
+      - part: The eight closes, in one pass
+        ask: >
+          Run the scan on $31, 28, 26, 29, 33, 30, 27, 35$. Just before day $8$
+          the stack holds the $33$, $30$ and $27$. When the $35$ arrives, how
+          many waiting days does it answer?
+        expects: "3"
         hint: >
-          Track which later index is the first one with a strictly
-          higher temperature than 75, then subtract the indices.
+          Pop while the top of the stack is below $35$.
         feedback: >
-          The temperature at index 2 is $75$. Index 3 ($71$), 4
-          ($69$), and 5 ($72$) are all no warmer, so index 2 stays
-          on the stack through those steps. Index 6 ($76$) is the
-          first to beat $75$, popping index 2. The wait is $6 - 2 =
-          4$ days.
-      - teach: >
-          Mixing strict and non-strict comparisons inconsistently
-          mishandles duplicate values, and pushing raw values
-          instead of indices loses the position needed to write the
-          answer back into a results array — both are quiet
-          correctness bugs, not just style choices.
+          $27$, $30$ and $33$ are all below $35$, so all three pop, each with
+          answer $35$. The stack is then empty and day $8$ is pushed; it is
+          never answered. The full result, day by day, is
+          $33, 29, 29, 33, 35, 35, 35$ and none for day $8$.
+      - ask: >
+          On any series of $100$ days, what is the largest possible total
+          number of pops across the whole scan?
+        expects: "99"
+        hint: >
+          How many times can one day be popped? Can the last day be popped at
+          all?
+        feedback: >
+          Each day is pushed once and popped at most once, and the last day is
+          never popped since nothing comes after it: at most $99$. A strictly
+          rising series reaches it, each day popping the one before. So
+          $100$ pushes plus at most $99$ pops is $O(n)$, however the pops
+          bunch up — on falling closes there are none at all.
+      - ask: >
+          The desk wants *how many days* each day waits for a higher close, not
+          the close itself. What must the stack hold?
+        choices:
+          - text: >
+              Closes, since the comparisons are on closes.
+            feedback: >
+              The comparisons are on closes, but a popped close does not say
+              which day it came from, so you cannot subtract to get the wait.
+          - text: >
+              Day indices, reading the close from the series when comparing.
+            correct: true
+            feedback: >
+              Right. When day $j$ pops day $i$, the wait is $j - i$, and the
+              close is one array lookup away. On the series above, day $2$
+              waits $4 - 2 = 2$ days.
+          - text: >
+              Nothing extra; the wait is the number of pops.
+            feedback: >
+              The pop count on a step says how many days were answered, not
+              how long any of them waited. Day $4$ pops two days that waited
+              $1$ and $2$ days.
+        feedback: >
+          Store indices, not values: the index gives both the value and the
+          position the answer is written back to.
+
+      - part: Ties, and the mirror image
+        ask: >
+          Closes $30, 30, 32$, and you want the next *strictly* higher close.
+          An implementation pops while the top's close is $\le$ the current
+          one. What does it report for day $1$?
+        choices:
+          - text: >
+              $32$, correctly.
+            feedback: >
+              Trace it: day $2$'s $30$ arrives, the top is day $1$ with $30$,
+              and $30 \le 30$ pops it. Day $1$ is answered by day $2$ before
+              the $32$ ever arrives.
+          - text: >
+              $30$, which is not higher at all.
+            correct: true
+            feedback: >
+              Right. With $\le$, an equal close pops, so day $1$ is answered
+              by its twin. For "strictly higher", pop only on strictly smaller
+              closes, $<$, and let equal closes wait together.
+          - text: >
+              Nothing, since day $1$ is never popped.
+            feedback: >
+              It is popped, and too early: the $\le$ comparison lets day $2$'s
+              equal close pop it.
+        feedback: >
+          The comparison in the pop condition decides how ties are treated.
+          Choose it from the question, strict or not, and use it everywhere.
+      - ask: >
+          Now the desk wants each day's *next lower* close. What changes?
+        choices:
+          - text: >
+              Scan right to left with the same stack.
+            feedback: >
+              Reversing the scan finds the *previous* greater element, a
+              different question. The direction stays; the order flips.
+          - text: >
+              Keep the stack increasing from bottom to top, popping while the
+              top is greater than the current close.
+            correct: true
+            feedback: >
+              Right. The waiting days for a lower close rise from oldest to
+              newest, and a new close answers every waiting day above it.
+              Same one pass, same $O(n)$.
+          - text: >
+              Nothing; a lower close appears when the stack is popped.
+            feedback: >
+              The decreasing stack pops days answered by a *higher* close. It
+              never records a lower one.
+        feedback: >
+          In an interview, say it in this order: what waits on the stack, why
+          it is monotonic, what each pop answers, and "pushed once, popped
+          once, so $O(n)$" for the loop that looks nested.
 
   - node: quant-programming.data-structures.bst
     hook: >
@@ -1297,102 +1868,203 @@ lessons:
     recap: >
       Balanced BSTs trade the hash map's $O(1)$ lookup for $O(\log n)$
       lookup that also answers order, range, and rank queries.
-    steps:
-      - teach: >
-          The moment a question asks for the kth smallest, a range,
-          or the closest value, a hash map is the wrong container —
-          that phrasing is asking for a sorted structure by name,
-          even when it doesn't say so directly.
-      - teach: >
-          A binary search tree keeps every left-subtree key smaller
-          and every right-subtree key larger than its own root,
-          recursively, so a search discards half the remaining tree
-          at each level — $O(\log n)$ when the tree's height stays
-          logarithmic. Nothing in the plain definition enforces that
-          height: inserting already-sorted input one key at a time
-          builds a tree that's really a chain, degrading every
-          operation to $O(n)$.
+    dialogue:
+      - part: The nearest strike at or below
+        teach: >
+          An options desk lists strikes $85, 90, 100, 105, 115, 120, 130$, and
+          more get listed during the day. Clients keep asking the same kind of
+          question: what is the highest listed strike at or below a given
+          price?
       - ask: >
-          Insert 7, 3, 9, 1, 5, 8, in that order, into an empty
-          binary search tree. What is the predecessor of the root
-          (the largest key smaller than 7)?
-        expects: "5"
-        hint: >
-          The predecessor of a node with a left subtree is the
-          rightmost key in that left subtree.
+          What is the highest listed strike at or below $118$?
+        expects: "115"
         feedback: >
-          7 is the root; 3 goes left of 7; 9 goes right of 7; 1 goes
-          left of 3; 5 goes right of 3; 8 goes left of 9. The
-          predecessor of 7 is the largest key in its left subtree —
-          start at 3, go as far right as possible, landing on $5$,
-          which has no right child.
-      - teach: >
-          What a balanced BST buys that a hash map cannot is order:
-          predecessor, successor, range counts, and finding the kth
-          smallest all resolve in $O(\log n)$ by walking the tree's
-          shape, none of them answerable by a hash map without
-          scanning every key. That trade runs the other way too — a
-          hash map's $O(1)$ expected lookup beats a BST's $O(\log
-          n)$ whenever the problem only needs plain membership.
+          $120$ is above $118$, and the next one down, $115$, is not. The
+          answer is $115$ — a question about where $118$ falls *between* keys,
+          not about any key itself.
       - ask: >
-          A problem asks how many keys fall strictly between 10 and
-          50, repeatedly, as keys are inserted and removed. Which
-          container fits, and why?
+          The strikes are kept in a hash set. How does it answer "highest at or
+          below $118$"?
         choices:
           - text: >
-              A hash map, since insert and lookup are $O(1)$
+              Hash $118$ and look in the neighbouring buckets.
             feedback: >
-              $O(1)$ membership doesn't answer a range-count
-              question — a hash map's bucket layout carries no
-              information about which keys are near which other
-              keys.
+              A good hash scatters nearby keys across the table on purpose, so
+              the buckets next to $118$'s hold unrelated strikes.
           - text: >
-              A balanced BST, since range and rank queries need
-              to walk the tree's shape, which a hash map's
-              bucket layout can't provide
+              Probe $118$, $117$, $116$ and so on until one is listed.
+            feedback: >
+              It happens to stop after $4$ probes here, but the cost is the
+              size of the gap, not the number of strikes, and it fails outright
+              for strikes in fractions or prices in thousands.
+          - text: >
+              It cannot do better than scanning every listed strike, $O(n)$.
             correct: true
             feedback: >
-              Right. How-many-keys-in-a-range is exactly the
-              query a balanced BST resolves in $O(\log n)$ by
-              walking its structure — a hash map has no
-              equivalent operation at any cost.
-          - text: >
-              An unsorted array, scanned fully on every query
-            feedback: >
-              That answers the question correctly but at $O(n)$
-              per query, every time — the whole reason to reach
-              for a BST here is to avoid paying that cost on
-              every single query.
+              Right. A hash set knows membership and nothing about order, so
+              "the nearest key below" needs every key examined.
         feedback: >
-          How-many-keys-in-a-range is a rank/range query, and a
-          balanced BST is the structure built to answer it in
-          $O(\log n)$ by walking tree structure instead of scanning.
-      - teach: >
-          A plain BST does not self-balance automatically — you get
-          $O(\log n)$ only by adding rebalancing machinery, such as
-          a red-black tree or a treap, that actively keeps the
-          height logarithmic on every insert or delete, regardless
-          of the order keys arrive in.
+          The question is about order, and the hash set threw order away to
+          get $O(1)$ membership.
       - ask: >
-          Insert 1, 2, 3, 4, 5, 6, 7, in that increasing order, into
-          an empty plain binary search tree with no rebalancing.
-          What is the height of the resulting tree, counted as the
-          number of edges from the root to the deepest node?
-        expects: "6"
+          Keep the seven strikes in a sorted array instead. At most how many
+          comparisons does binary search need to place $118$ among them?
+        expects: "3"
         hint: >
-          Each new key is larger than every key already in the tree,
-          so where does each one attach?
+          Each comparison halves the candidates: $7$, then $3$, then $1$.
         feedback: >
-          Since every new key is larger than all previous keys, each
-          one attaches as the right child of the previous one — the
-          tree degenerates into a straight chain of 7 nodes. A chain
-          of 7 nodes has $6$ edges from root to the deepest (last)
-          node, the same $O(n)$ shape as a linked list.
+          Compare with the middle, $105$; then the middle of the upper three,
+          $120$; then $115$. Three comparisons, $O(\log n)$. The catch is
+          listing a new strike: it goes in sorted position, and everything
+          after it shifts, $O(n)$.
+      - reflect: >
+          Binary search always compares with a middle element, then with the
+          middle of one half, and so on. Suppose you stored those comparisons
+          themselves as linked nodes instead of relying on array positions.
+          What would each node hold, and what must be true of the keys around
+          it so that the search still works and a new strike can be added
+          without shifting?
+        answer: >
+          Each node holds a key and two pointers: one to the node you would
+          compare with next if the target is smaller, one if it is larger. For
+          the search to work, every key reachable through the smaller pointer
+          must be smaller than the node's key and every key through the larger
+          pointer larger — the whole subtree, not just the next node. Adding a
+          strike is then a walk down to an empty pointer and one new leaf, with
+          nothing shifted.
       - teach: >
-          The interview signal is the question's vocabulary: order,
-          rank, range, or closest calls for a sorted structure;
-          "have I seen this" or "look up by key" calls for a hash
-          map instead.
+          That is a binary search tree: every key in a node's left subtree is
+          smaller than the node's key, and every key in its right subtree is
+          larger. Search and insert walk one root-to-leaf path, so they cost
+          the tree's height: $O(\log n)$ when the tree is balanced, which
+          self-balancing variants such as red-black trees and treaps
+          guarantee. A balanced BST also answers order queries in
+          $O(\log n)$: predecessor and successor, range queries, and, with
+          subtree sizes stored, the $k$-th smallest.
+
+      - part: Strikes in a tree
+        ask: >
+          Insert the strikes in the order $100, 85, 120, 90, 115, 105, 130$
+          into an empty BST. Then a new strike $110$ is listed. Which strike
+          becomes its parent?
+        expects: "105"
+        hint: >
+          Walk from the root: right if $110$ is larger, left if smaller, until
+          the pointer you need is empty.
+        feedback: >
+          The tree is $100$ at the root, $85$ and $120$ below it, $90$ right
+          of $85$, $115$ and $130$ below $120$, and $105$ left of $115$. The
+          walk for $110$: $110 > 100$ go right to $120$; $110 < 120$ go left to
+          $115$; $110 < 115$ go left to $105$; $110 > 105$, and $105$'s right
+          pointer is empty. $110$ becomes $105$'s right child, and nothing
+          else moves.
+      - ask: >
+          The query "highest at or below $118$" walks from the root. At $100$
+          it notes $100$ as a candidate and goes right. Why is it safe never to
+          look at $85$ or $90$?
+        choices:
+          - text: >
+              Because they are smaller than $100$, which is already a valid
+              answer at or below $118$, so neither can be the highest.
+            correct: true
+            feedback: >
+              Right. Every key in $100$'s left subtree is below $100$, and $100$
+              already qualifies. The walk only ever needs to look for something
+              better, which can only be on the right.
+          - text: >
+              Because $85$ and $90$ are leaves, and the walk skips leaves.
+            feedback: >
+              $85$ is not a leaf, and leaves are visited all the time — $105$
+              is one. The reason is the ordering of the whole left subtree.
+          - text: >
+              Because the query only ever moves right.
+            feedback: >
+              It moves left at $120$, which is above $118$. Direction is
+              decided at each node by comparing with the target.
+        feedback: >
+          At each node the walk discards a whole subtree, which is only valid
+          because the ordering holds for entire subtrees. It continues
+          $120 \to 115$, keeps $115$ as the better candidate, finds nothing to
+          $115$'s right, and answers $115$.
+      - ask: >
+          Which of these is a binary search tree?
+        choices:
+          - text: >
+              Root $50$; children $40$ (left) and $60$ (right); $40$ has a
+              right child $55$.
+            feedback: >
+              $55 > 40$ is fine for $40$, but $55$ sits in $50$'s left subtree
+              and $55 > 50$. The clause is about the whole subtree, and a
+              search for $55$ would go right at $50$ and never find it.
+          - text: >
+              Root $50$; children $40$ (left) and $60$ (right); $60$ has a
+              left child $55$.
+            correct: true
+            feedback: >
+              $55$ is in $50$'s right subtree and $55 > 50$; it is in $60$'s
+              left subtree and $55 < 60$. Every subtree condition holds.
+          - text: >
+              Root $50$; children $40$ (left) and $60$ (right); $40$ has a
+              left child $45$.
+            feedback: >
+              $45$ is in $40$'s left subtree but $45 > 40$. A search for $45$
+              would go right at $40$ and miss it.
+        feedback: >
+          The check is against every ancestor, not only the parent: each key
+          must lie in the interval its ancestors' comparisons have carved out.
+
+      - part: When the tree stops paying
+        ask: >
+          The listing desk adds each morning's new strikes in increasing order,
+          into a plain BST with no rebalancing. What happens?
+        choices:
+          - text: >
+              Nothing: a BST stays roughly balanced on its own.
+            feedback: >
+              Nothing in the definition balances anything. Each larger key goes
+              right of the previous largest, so the new strikes form a
+              rightward chain.
+          - text: >
+              The new keys form a chain, and walks through it cost $O(n)$, like
+              a linked list.
+            correct: true
+            feedback: >
+              Right. Height is what every operation pays, and sorted input
+              makes the height grow by one per insert. Self-balancing trees
+              exist to rule this out regardless of input order.
+          - text: >
+              The insert is rejected, since sorted input is a degenerate case.
+            feedback: >
+              Every insert succeeds and the result is still a valid BST — just
+              a useless shape for it.
+        feedback: >
+          $O(\log n)$ is a promise about balanced trees. In an interview, say
+          "balanced BST" and name the mechanism, or say why the input is
+          random.
+      - ask: >
+          A different service only ever asks "is strike $x$ listed?". Which
+          container fits it?
+        choices:
+          - text: >
+              A balanced BST, since it does everything a hash set does.
+            feedback: >
+              It does, at $O(\log n)$ per lookup against $O(1)$ expected. Paying
+              for order you never query is waste.
+          - text: >
+              A hash set: $O(1)$ expected membership, and no order is needed.
+            correct: true
+            feedback: >
+              Right. The two are complements: plain membership wants the hash
+              set; order, rank, range or "nearest" wants the balanced tree.
+          - text: >
+              A sorted array, since binary search is $O(\log n)$.
+            feedback: >
+              The lookups would be fine, but strikes are listed all day, and
+              each listing shifts the array. And the hash set beats it on
+              lookups anyway.
+        feedback: >
+          Read the query's vocabulary: "seen", "listed", "look up" point to a
+          hash set; "nearest", "between", "$k$-th" point to a balanced BST.
 
   - node: quant-programming.data-structures.lru
     hook: >
@@ -1445,103 +2117,204 @@ lessons:
       A hash map for $O(1)$ key lookup plus a doubly linked list for $O(1)$
       recency reordering together give $O(1)$ get, put, and evict — neither
       alone can.
-    steps:
-      - teach: >
-          Design an LRU cache is asked precisely because neither a
-          hash map nor a linked list alone gives $O(1)$ get, put,
-          and eviction — the interview is testing whether you
-          compose them, not whether you know either one.
-      - teach: >
-          The hash map stores key $\to$ node pointer into a doubly
-          linked list ordered from most- to least-recently used. On
-          access, the map finds the node in $O(1)$, and the list
-          unlinks and re-inserts it at the front in $O(1)$; on
-          overflow, the list's tail — the least-recently-used node —
-          is the eviction victim.
+    dialogue:
+      - part: Four quotes and a fifth request
+        teach: >
+          A pricing service caches quotes for at most $4$ tickers. When it
+          needs a fifth, it drops the ticker used longest ago. Requests arrive
+          in this order: AAPL, MSFT, TSLA, AMZN, AAPL, NVDA. A request for a
+          ticker not in the cache loads it.
       - ask: >
-          Capacity-3 cache, empty at the start: put(1, 'a'), put(2,
-          'b'), put(3, 'c'), get(1), then put(4, 'd'). Inserting key
-          4 forces an eviction. Which key gets evicted?
-        expects: "2"
-        hint: >
-          Track the recency order — most-recently-used at the front
-          — after each operation, including the get.
-        feedback: >
-          After the three puts, recency order (front to back) is 3,
-          2, 1. get(1) moves key 1 to the front: order becomes 1, 3,
-          2. The cache is now full at capacity 3, so put(4, 'd')
-          evicts the tail — key $2$ — since key 1 was refreshed by
-          the get and key 3 is still more recent than key 2.
-      - teach: >
-          Every one of get, put, and evict costs exactly one map
-          operation plus one $O(1)$ list splice. Recency has to be
-          updated on every access, not just every write — a cache
-          design that moves a node to the front only inside put is
-          tracking insertion order, not the recency LRU is actually
-          named for.
-      - ask: >
-          An LRU implementation moves a node to the front of the
-          list only inside put, and does nothing to the list inside
-          get. What breaks?
+          Which ticker does the NVDA request evict?
         choices:
           - text: >
-              Nothing — get only needs to read a value, not
-              change any ordering
+              AAPL, the first ticker loaded.
             feedback: >
-              LRU stands for least-recently-used, and a get is a
-              use. If get doesn't refresh the node's position,
-              the structure is tracking something closer to
-              insertion order than actual recency.
+              That is first-in, first-out. AAPL was loaded first, but the fifth
+              request used it again, so it is now the most recently used.
           - text: >
-              The cache evicts entries that were actually
-              accessed recently through get, since only
-              put-based writes refresh recency
+              MSFT
             correct: true
             feedback: >
-              Right — a key repeatedly read via get but never
-              re-put still ages toward the tail and gets
-              evicted, even though it's genuinely the most
-              recently used entry by any reasonable definition.
+              Right. Ordered by last use, oldest first: MSFT (request $2$), TSLA
+              ($3$), AMZN ($4$), AAPL ($5$). MSFT is least recently used.
           - text: >
-              The hash map's lookups become $O(n)$ instead of
-              $O(1)$
+              AMZN, the last ticker loaded before NVDA.
             feedback: >
-              The hash map's own lookup cost isn't affected by
-              what happens inside the linked list — this bug
-              changes which key is wrongly evicted, not the
-              map's complexity.
+              AMZN is the second most recently used ticker, near the safe end.
+              Least recently used is the one whose last request is oldest.
         feedback: >
-          LRU tracks recency of access, not just of insertion — a
-          get has to move its node to the front exactly like a put
-          does, or the eviction order silently drifts away from
-          actual usage.
-      - teach: >
-          Sentinel head and tail nodes are worth adding up front —
-          they remove the null-pointer edge cases that show up at
-          size 0 or 1. Using a singly linked list to save one
-          pointer's worth of memory per node forces an $O(n)$ walk
-          to find a node's predecessor at eviction time, destroying
-          the $O(1)$ guarantee the whole design exists for.
+          The cache keeps the tickers ordered by last use, and a hit counts as
+          a use. Least recently used is the bottom of that order: MSFT.
       - ask: >
-          Capacity-2 cache, empty at the start: put(1, 100), put(2,
-          200), get(1), put(3, 300), then get(1). What value does
-          the final get(1) return?
-        expects: "100"
-        hint: >
-          Track which key gets evicted by put(3, 300), and whether
-          key 1 survives that eviction.
+          Version one stores a hash map from ticker to quote and last-use time,
+          and on eviction scans every entry for the oldest time. With capacity
+          $50{,}000$, how many entries does one eviction examine?
+        expects: "50000"
         feedback: >
-          After put(1,100), put(2,200): recency order 2, 1. get(1)
-          moves key 1 to front: order 1, 2, value unchanged at
-          $100$. put(3,300) fills the cache to capacity and evicts
-          the tail, key 2 — key 1 is untouched. The final get(1)
-          finds key 1 still present with its original value, $100$.
+          All $50{,}000$: the map finds any ticker in $O(1)$ but has no idea
+          which one is stalest, so eviction is an $O(n)$ scan. Lookups are
+          cheap; evictions are not.
+      - ask: >
+          Version two drops the map and keeps the tickers in a linked list
+          ordered by recency, most recent at the front. What is slow now?
+        choices:
+          - text: >
+              Eviction, since the stalest ticker has to be found.
+            feedback: >
+              The stalest ticker is simply the tail, found in $O(1)$ with a
+              tail pointer. Eviction is the one thing this version does well.
+          - text: >
+              Nothing; moving a node to the front is $O(1)$.
+            feedback: >
+              Moving is $O(1)$ once you hold the node. A request names a
+              ticker, and finding its node is a walk from the front.
+          - text: >
+              Every request: finding the ticker's node walks the list, $O(n)$.
+            correct: true
+            feedback: >
+              Right. The list keeps recency order perfectly but cannot find
+              anything by key.
+        feedback: >
+          The map finds by key and knows nothing of recency; the list knows
+          recency and cannot find by key.
+      - reflect: >
+          You have one structure that finds a ticker in $O(1)$ and another
+          that reorders and evicts in $O(1)$ once it holds the right node. How
+          do you combine them so that a request, a load and an eviction are
+          all $O(1)$, and what kind of list must it be?
+        hint: >
+          What should the map's value be?
+        answer: >
+          Let the map's value be a pointer to the ticker's node in the list.
+          A request looks the ticker up in the map, then unlinks its node and
+          relinks it at the front; an eviction takes the tail node and deletes
+          its ticker from the map. Unlinking a node from the middle needs its
+          predecessor, so the list must be doubly linked — a singly linked one
+          would walk to find it.
       - teach: >
-          Neither structure closes this gap alone: a hash map has no
-          notion of recency to find an eviction victim, and a linked
-          list alone needs an $O(n)$ walk to find a key. Holding
-          both, with the map pointing straight at each key's node,
-          is what makes get, put, and evict all $O(1)$.
+          That is the LRU cache: a hash map from key to node, and a doubly
+          linked list of nodes ordered from most to least recently used. Get
+          finds the node through the map and moves it to the front. Put either
+          updates and moves an existing node, or inserts a new node at the
+          front and evicts the tail when over capacity, deleting the evicted
+          key from the map. Every operation is a constant number of map
+          operations and $O(1)$ list splices.
+
+      - part: Running the cache by hand
+        ask: >
+          After NVDA the list, front to tail, is NVDA, AAPL, AMZN, TSLA. Next
+          comes a request for TSLA, then one for GOOG. Which ticker does GOOG
+          evict?
+        choices:
+          - text: >
+              TSLA, the tail.
+            feedback: >
+              TSLA *was* the tail, but the request for it was a hit and moved it
+              to the front. The tail at the moment GOOG arrives is AMZN.
+          - text: >
+              AMZN
+            correct: true
+            feedback: >
+              Right. The TSLA hit makes the list TSLA, NVDA, AAPL, AMZN, so AMZN
+              is the tail. After the load it reads GOOG, TSLA, NVDA, AAPL.
+          - text: >
+              AAPL, since it was loaded first of all.
+            feedback: >
+              Load order does not matter; last use does. AAPL's last use,
+              request $5$, is newer than AMZN's, request $4$.
+        feedback: >
+          Every hit moves its node to the front, so the tail is always the
+          least recently used ticker.
+      - ask: >
+          Count the hash-map operations in the GOOG request — lookups,
+          inserts and deletes — including the one that discovers GOOG is
+          missing.
+        expects: "3"
+        hint: >
+          The miss has to be discovered, GOOG has to become findable, and AMZN
+          has to stop being findable.
+        feedback: >
+          A lookup of GOOG (a miss), an insert of GOOG $\to$ its new node, and a
+          delete of AMZN: $3$ map operations, each $O(1)$ expected, plus the
+          $O(1)$ list splices for the new front node and the removed tail.
+      - ask: >
+          Each list node stores its ticker as well as the quote. Why does the
+          node need the ticker?
+        choices:
+          - text: >
+              To check on a hit that the map returned the right node.
+            feedback: >
+              The map's lookup already compared tickers. The node's copy is not
+              there for checking.
+          - text: >
+              To delete the evicted entry from the map, which is keyed by
+              ticker.
+            correct: true
+            feedback: >
+              Right. Eviction starts from the tail node, not from a ticker.
+              Without the ticker stored in the node, there is no way to find
+              which map entry to delete except scanning the map.
+          - text: >
+              It does not; the quote alone is enough.
+            feedback: >
+              Then evicting the tail leaves its map entry behind, pointing at a
+              node no longer in the list, and the map grows without bound.
+        feedback: >
+          Each structure points into the other: the map gives the node, the
+          node gives back its key.
+
+      - part: Two ways to break it
+        ask: >
+          An implementation moves a node to the front when a ticker is loaded,
+          but not on a hit. Rerun the opening requests, AAPL, MSFT, TSLA,
+          AMZN, AAPL, NVDA. Which ticker does NVDA evict now?
+        choices:
+          - text: >
+              MSFT, as before.
+            feedback: >
+              The fifth request, AAPL, was a hit: under this bug it no longer
+              refreshes AAPL, which stays at the tail.
+          - text: >
+              AAPL
+            correct: true
+            feedback: >
+              Right. Without the refresh on get, AAPL's hit does nothing to the
+              order, AAPL is still the tail, and the cache evicts the ticker
+              that was just used. It has become a first-in, first-out cache.
+          - text: >
+              NVDA itself, since the cache is full.
+            feedback: >
+              A new entry always goes in; the cache evicts to make room for it,
+              never in place of it.
+        feedback: >
+          Recency is about use, not insertion. A hit is a use, and it has to
+          move the node.
+      - ask: >
+          To save memory, a colleague makes the list singly linked. What breaks?
+        choices:
+          - text: >
+              Moving a hit node to the front, which needs its predecessor:
+              $O(n)$ per request.
+            correct: true
+            feedback: >
+              Right. Unlinking a node from the middle rewrites its
+              predecessor's next pointer, and a singly linked node cannot see
+              its predecessor. Evicting the tail has the same problem.
+          - text: >
+              Nothing; the map still finds every node in $O(1)$.
+            feedback: >
+              The map finds the node. Removing it from where it sits still
+              needs the node before it, and that is a walk.
+          - text: >
+              Only memory use, which goes up.
+            feedback: >
+              Memory goes down by one pointer per node; the time goes up, from
+              $O(1)$ per request to $O(n)$.
+        feedback: >
+          Say the design aloud as "hash map from key to node, doubly linked
+          list in recency order: get moves to front, put inserts at front, evict
+          from the tail" — and give the reason each piece is there.
 
   - node: quant-programming.data-structures.streaming-choice
     hook: >
@@ -1585,137 +2358,179 @@ lessons:
       Before reaching for a structure, name the minimal state that answers
       the query after one more streamed element — sometimes a heap,
       sometimes a hash set, sometimes just a couple of scalars.
-    steps:
-      - teach: >
-          Every structure in this unit gets reused here as the
-          answer to one recurring question — not "which structure do
-          I know" but "what's the smallest state that answers this
-          query after one more element arrives."
-      - teach: >
-          Streaming problems forbid storing the whole input, so the
-          right container is whichever one answers the running query
-          in bounded memory and sublinear-per-item time: a
-          size-bounded heap for running max, min, or the $k$
-          largest; two balanced heaps for a running median; a hash
-          set, capped with an eviction policy, for "have I seen this
-          key."
+    dialogue:
+      - part: What to keep from a feed you cannot store
+        teach: >
+          A live trade feed delivers (price, size) pairs all session, far too
+          many to store. After every trade the desk wants its VWAP, the
+          volume-weighted average price: total of price times size, divided by
+          total size.
       - ask: >
-          A stream reports temperature readings, and after every
-          reading you must answer "what's the average so far." What
-          is the minimal state that answers this?
+          How many numbers do you need to keep so that the VWAP can be reported
+          after every trade?
+        expects: "2"
+        hint: >
+          When the next trade arrives, what in the formula changes, and by how
+          much?
+        feedback: >
+          Two: the running total of price times size, and the running total of
+          size. A new trade adds its price times size to the first and its
+          size to the second, and the VWAP is their ratio. The trades
+          themselves are never needed again.
+      - ask: >
+          The session opens with $200$ shares at $100$, $100$ shares at $102$
+          and $300$ shares at $99$. Using only your two running totals, what is
+          the VWAP after the third trade?
+        expects: "99.83"
+        tolerance: 0.005
+        feedback: >
+          Price times size totals $20{,}000 + 10{,}200 + 29{,}700 = 59{,}900$,
+          and size totals $600$. VWAP $= 59{,}900 / 600 \approx 99.83$. Two
+          numbers carried forward answered exactly what the full list would.
+      - ask: >
+          The desk also wants the largest trade size so far. What state answers
+          it?
         choices:
           - text: >
-              A min-heap of all readings seen so far
+              A max-heap of every size seen, so the largest sits at the root.
             feedback: >
-              A heap is built for order statistics — the min,
-              the max, the $k$ largest — none of which this
-              question is asking for. An average needs no
-              ordering information at all.
+              The root is right, but everything below it is dead weight: no
+              future question needs the second-largest. That is $O(n)$ memory
+              to answer an $O(1)$ question.
           - text: >
-              A running sum and a count, updated in place — no
-              container of past values needed at all
+              One number: the largest so far, replaced whenever a bigger trade
+              arrives.
             correct: true
             feedback: >
-              Right. The average after $n$ readings is sum
-              divided by count, and both update in $O(1)$ per
-              reading with no memory of individual past values
-              required.
+              Right. After one more trade, the new maximum is the larger of the
+              old maximum and the new size. Nothing else about the past can
+              change the answer.
           - text: >
-              A hash set of the readings seen so far
+              A sorted array of sizes, read from the end.
             feedback: >
-              A hash set answers have-I-seen-this-value-before,
-              which has nothing to do with computing an average
-              — duplicates aren't even relevant to this
-              question.
+              It answers the query and pays an $O(n)$ insertion per trade and
+              $O(n)$ memory for order that is never consulted.
         feedback: >
-          The "right" data structure is sometimes no data structure
-          — a running average needs only two scalars, and reaching
-          for a heap or hash set out of habit here is its own kind
-          of mistake.
+          The running maximum is a heap of size one, which is to say a single
+          number.
+      - reflect: >
+          For the VWAP you kept two numbers and for the maximum one. What
+          question were you really asking yourself each time to decide what to
+          keep?
+        answer: >
+          "When one more trade arrives, what do I need from the past to give
+          the new answer?" For the VWAP, the past enters only through two
+          totals; for the maximum, only through the old maximum. Whatever
+          survives that question is the state, and the container is just
+          whatever holds that state cheaply. Asking it first stops you reaching
+          for a structure out of habit.
       - teach: >
-          That last case is worth sitting with: reaching for a heap
-          or a hash set out of habit when two running totals would
-          do is not a safe default, just a different way of
-          overcomplicating the answer.
-      - ask: >
-          A stream of user IDs arrives, and each one must be flagged
-          as seen-before or not, with memory too tight to keep every
-          ID forever. What's the minimal state?
+          That is the habit for any streaming problem: name the minimal state
+          that answers the query after one more element, then pick the
+          container that holds that state cheaply — bounded memory, sublinear
+          time per element. Sometimes the state is a few scalars and no
+          container at all. The structures of this unit are what the state
+          looks like when it is bigger than that.
+
+      - part: The habit on harder queries
+        ask: >
+          Now the desk wants the $500$ largest trades of the session, after
+          every trade. What is the minimal state?
         choices:
           - text: >
-              A hash set, capped in size, with an eviction
-              policy for old entries once memory pressure hits
+              A min-heap capped at $500$, whose root is the bar a new trade
+              must clear.
             correct: true
             feedback: >
-              Right — membership plus bounded memory is exactly
-              what a capped hash set with a named eviction
-              policy gives you. Which entries get dropped is
-              part of the design, not a detail to leave
-              unspecified.
+              Right. The only past trades that can matter are the current top
+              $500$, and the only one a newcomer is compared against is the
+              smallest of them. $O(\log 500)$ per trade, $500$ values held.
           - text: >
-              A balanced BST, since keeping the IDs in order
-              helps with membership checks
+              A max-heap of every trade, popped $500$ times when asked.
             feedback: >
-              Order is irrelevant to a plain membership question
-              — a BST answers is-this-the-3rd-smallest or
-              what's-the-range, not have-I-seen-this-exact-ID,
-              which a hash structure answers just as well
-              without the ordering overhead.
+              That keeps every trade forever, $O(n)$ memory, and pays
+              $500$ pops each time the desk asks. Trades that have fallen out
+              of the top $500$ can never come back in, so storing them is
+              waste.
           - text: >
-              A min-heap capped at some fixed size
+              A sorted array of the current $500$, kept in order.
             feedback: >
-              A heap tracks order statistics like the $k$
-              largest values — it has no operation for
-              have-I-seen-this-exact-key-before, which is what a
-              hash set is built to answer.
+              The state is right — the current top $500$ — but the container
+              is not: each admission shifts up to $500$ entries, where a heap
+              of $500$ sifts through at most $8$ levels.
         feedback: >
-          Have-I-seen-this-key wants a hash set; the memory
-          constraint just means capping it and naming an eviction
-          policy, not switching to a different structure entirely.
-      - teach: >
-          The question to ask before coding anything is not which
-          structure you've memorized for this problem shape, but
-          what minimal state lets you answer the query correctly
-          after one more element arrives — that state, once named,
-          usually points straight at the container that holds it
-          cheaply.
+          The state is "the current top $500$". A min-heap is the container
+          that holds it with the eviction candidate at the root.
       - ask: >
-          A stream needs the running median answered after every
-          element, in bounded memory. What's the minimal state?
+          The desk also wants the running variance of trade prices. A
+          colleague keeps the count and the running mean. Is that enough?
         choices:
           - text: >
-              Two balanced heaps, one holding the lower half and
-              one the upper half, kept within one element of
-              each other in size
+              Yes: the variance is built from the mean.
+            feedback: >
+              Two sessions can share a count and a mean and have different
+              variances: $99, 101$ and $90, 110$ both have mean $100$. Count and
+              mean cannot tell them apart.
+          - text: >
+              No: you need every price, since variance compares each one with
+              the final mean.
+            feedback: >
+              The formula is written that way, but expanding it shows the past
+              enters only through totals: the variance equals the mean of the
+              squares minus the square of the mean.
+          - text: >
+              No: add a running total of squared prices, and three scalars
+              suffice.
             correct: true
             feedback: >
-              Right — this gives $O(\log n)$ per insertion and
-              $O(1)$ median reads, which is exactly the
-              running-median structure taught earlier in this
-              unit.
-          - text: >
-              A single array, kept sorted by inserting each new
-              value at the correct position via binary search
-            feedback: >
-              Binary search finds the position in $O(\log n)$,
-              but inserting into a sorted array still shifts
-              every element after that position — an $O(n)$ cost
-              per element, not the bound this question needs.
-          - text: >
-              A hash map from value to count of occurrences
-            feedback: >
-              A hash map has no notion of order, so there's no
-              way to find the middle value from it without
-              effectively sorting the keys first — it doesn't
-              give you the median at all.
+              Right. With $n$, $\sum x$ and $\sum x^{2}$, the variance is
+              $\sum x^{2}/n - (\sum x / n)^{2}$, updated in $O(1)$ per trade.
+              In production you would use an update that avoids subtracting two
+              large nearly equal numbers, but the state is still three scalars.
         feedback: >
-          Running median wants two size-balanced heaps, the exact
-          structure that keeps insertion at $O(\log n)$ and lets the
-          median be read straight off a root or the average of two
-          roots.
-      - teach: >
-          Before reaching for a structure, name the minimal state
-          that answers the query after one more streamed element —
-          sometimes a heap, sometimes a hash set, sometimes just a
-          couple of scalars, and the naming is the actual skill
-          being tested.
+          Variance looked as if it needed the whole history; it needs three
+          numbers. The test is never how a formula is written, only what the
+          next update reads.
+
+      - part: When bounded memory has a price
+        ask: >
+          The desk asks for the median trade size after every trade, and you
+          use two balanced heaps. After $1{,}000{,}000$ trades, how many sizes
+          do the heaps hold between them?
+        expects: "1000000"
+        feedback: >
+          All of them: lo holds the lower half and hi the upper half, and
+          nothing is ever discarded, because any stored size could become the
+          median later if enough trades land on its side. Here the minimal
+          state is the whole stream. The habit still worked — it told you
+          that no bounded state exists for the exact median, which is the
+          cue to ask whether an approximate quantile will do.
+      - ask: >
+          To reject duplicate order ids, a gateway keeps a hash set capped at
+          $1{,}000{,}000$ ids, evicting the oldest when full. A duplicate turns
+          up $3{,}000{,}000$ orders after its original. What happens?
+        choices:
+          - text: >
+              It is rejected, since the hash set remembers every id.
+            feedback: >
+              A capped set does not. The original id was evicted after another
+              million orders arrived, so the set no longer contains it.
+          - text: >
+              The gateway slows to $O(n)$ per lookup.
+            feedback: >
+              The cap keeps the set at a fixed size, so lookups stay $O(1)$
+              expected. The failure is in what it remembers, not how fast.
+          - text: >
+              It is accepted as new: the cap trades exact answers for bounded
+              memory.
+            correct: true
+            feedback: >
+              Right. The eviction policy defines what "seen before" means:
+              here, seen within the last million orders. Saying that aloud is
+              part of the design, not a footnote.
+        feedback: >
+          Bounding memory on a membership question always changes the
+          question. Name the window or the error rate you are accepting. In an
+          interview, say the state before the structure: "after one more trade
+          I need these numbers, and nothing else" — the container follows from
+          that sentence.

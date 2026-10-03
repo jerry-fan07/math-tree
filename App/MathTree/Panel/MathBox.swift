@@ -293,8 +293,7 @@ enum MathBox {
         ofDelimiter text: String, height: CGFloat, em: CGFloat, style: Style
     ) -> CGFloat {
         guard let character = text.first else { return 0 }
-        let font = Typeface.nsSerif(em, style.fontWeight)
-        guard let path = glyphPath(character, font: font) else { return em * 0.28 }
+        guard let path = readingGlyphPath(character, em: em, style: style) else { return em * 0.28 }
         let bounds = path.boundingBoxOfPath
         guard bounds.height > 0, bounds.width > 0 else { return em * 0.28 }
         return bounds.width * horizontalScale(for: height / bounds.height) + em * 0.07
@@ -658,8 +657,9 @@ enum MathBox {
     private static func drawDelimiter(
         _ text: String, in rect: CGRect, em: CGFloat, style: Style, in context: CGContext
     ) {
-        let font = Typeface.nsSerif(em, style.fontWeight)
-        guard let character = text.first, let path = glyphPath(character, font: font) else {
+        guard let character = text.first,
+            let path = readingGlyphPath(character, em: em, style: style)
+        else {
             return
         }
         let bounds = path.boundingBoxOfPath
@@ -672,6 +672,17 @@ enum MathBox {
         guard let scaled = path.copy(using: &transform) else { return }
         context.addPath(scaled)
         context.fillPath()
+    }
+
+    /// A delimiter's outline from the reading face, or from Latin Modern Math when the
+    /// text face has no such glyph (a `⌊`, a `‖`). A cascade list only helps a run of
+    /// text; a path is asked of one font, so the fallback is spelled out here.
+    private static func readingGlyphPath(_ character: Character, em: CGFloat, style: Style)
+        -> CGPath?
+    {
+        glyphPath(character, font: Typeface.nsReading(em, style.fontWeight))
+            ?? Typeface.nsReadingMath(em).flatMap { glyphPath(character, font: $0) }
+            ?? glyphPath(character, font: Typeface.nsSerif(em, style.fontWeight))
     }
 
     private static func glyphPath(_ character: Character, font: NSFont) -> CGPath? {
@@ -692,7 +703,7 @@ enum MathBox {
     }
 
     private static func xHeight(em: CGFloat, style: Style) -> CGFloat {
-        Typeface.nsSerif(em, style.fontWeight).xHeight
+        Typeface.nsReading(em, style.fontWeight).xHeight
     }
 
     private static func ruleThickness(em: CGFloat) -> CGFloat {
@@ -703,16 +714,16 @@ enum MathBox {
 
     static func font(for run: MathText.Run, style: Style) -> NSFont {
         let size = max(style.baseSize * run.sizeMultiplier, 6)
-        let base =
-            (run.isMath || style.proseIsSerif)
-            ? Typeface.nsSerif(size, style.fontWeight)
-            : Typeface.nsSans(size, style.fontWeight)
+        if run.isMath || style.proseIsSerif {
+            return Typeface.nsReading(size, style.fontWeight, italic: run.isItalic)
+        }
+        let base = Typeface.nsSans(size, style.fontWeight)
         return run.isItalic ? Typeface.nsItalic(base) : base
     }
 
     private static func ctLine(_ run: MathText.Run, style: Style) -> CTLine {
         let attributed = NSAttributedString(
-            string: run.text,
+            string: run.isMath && run.isItalic ? Typeface.readingMathItalic(run.text) : run.text,
             attributes: [
                 .font: font(for: run, style: style),
                 .foregroundColor: NSColor.black,
